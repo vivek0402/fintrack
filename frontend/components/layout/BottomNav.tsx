@@ -8,7 +8,6 @@ import {
     CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const mainTabs = [
     { href: '/dashboard', icon: LayoutDashboard, label: 'Home' },
@@ -105,14 +104,11 @@ export function BottomNav() {
                         })}
                     </div>
 
-                    {/* Theme toggle + logout row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--bg-border)', paddingTop: '12px', gap: '12px' }}>
-                        <div style={{ flex: 1 }}>
-                            <ThemeToggle />
-                        </div>
+                    {/* Logout row */}
+                    <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px' }}>
                         <button
                             onClick={handleLogout}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(244,63,94,0.25)', background: 'rgba(244,63,94,0.08)', color: '#f87171', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(244,63,94,0.25)', background: 'rgba(244,63,94,0.08)', color: '#f87171', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer' }}
                         >
                             <LogOut size={15} />
                             Logout
