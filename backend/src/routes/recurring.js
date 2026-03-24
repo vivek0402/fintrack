@@ -1,0 +1,113 @@
+const express = require('express');
+const pool = require('../db/pool');
+const auth = require('../middleware/auth');
+const router = express.Router();
+
+router.use(auth);
+
+router.get('/', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT r.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
+       FROM recurring_transactions r LEFT JOIN categories c ON r.category_id = c.id
+       WHERE r.user_id=$1 ORDER BY r.created_at DESC`,
+            [req.user.id]
+        );
+        res.json({ recurring: result.rows });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.post('/', async (req, res) => {
+    try {
+        const { type, amount, description, notes, category_id, frequency, day_of_month } = req.body;
+        if (!type || !amount || !description || !frequency)
+            return res.status(400).json({ error: 'Type, amount, description and frequency are required.' });
+
+        const today = new Date();
+        let nextDue = new Date();
+
+        if (frequency === 'monthly' && day_of_month) {
+            nextDue.setDate(day_of_month);
+            if (nextDue <= today) nextDue.setMonth(nextDue.getMonth() + 1);
+        } else if (frequency === 'weekly') {
+            nextDue.setDate(today.getDate() + 7);
+        } else {
+            nextDue.setDate(today.getDate() + 1);
+        }
+
+        const result = await pool.query(
+            `INSERT INTO recurring_transactions
+        (user_id, category_id, type, amount, description, notes, frequency, day_of_month, next_due_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+            [req.user.id, category_id || null, type, amount, description, notes || null, frequency, day_of_month || null, nextDue.toISOString().split('T')[0]]
+        );
+        res.status(201).json({ recurring: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.patch('/:id/toggle', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `UPDATE recurring_transactions SET is_active = NOT is_active
+       WHERE id=$1 AND user_id=$2 RETURNING *`,
+            [req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found.' });
+        res.json({ recurring: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.delete('/:id', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'DELETE FROM recurring_transactions WHERE id=$1 AND user_id=$2 RETURNING id',
+            [req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found.' });
+        res.json({ message: 'Deleted.' });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.post('/process', async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const due = await pool.query(
+            `SELECT * FROM recurring_transactions WHERE user_id=$1 AND is_active=true AND next_due_date <= $2`,
+            [req.user.id, today]
+        );
+
+        const created = [];
+        for (const r of due.rows) {
+            await pool.query(
+                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
+            );
+
+            const current = new Date(r.next_due_date);
+            let next = new Date(current);
+            if (r.frequency === 'daily') next.setDate(current.getDate() + 1);
+            else if (r.frequency === 'weekly') next.setDate(current.getDate() + 7);
+            else if (r.frequency === 'monthly') { next.setMonth(current.getMonth() + 1); if (r.day_of_month) next.setDate(r.day_of_month); }
+
+            await pool.query(
+                'UPDATE recurring_transactions SET next_due_date=$1 WHERE id=$2',
+                [next.toISOString().split('T')[0], r.id]
+            );
+            created.push(r.description);
+        }
+        res.json({ processed: created.length, created });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+module.exports = router;

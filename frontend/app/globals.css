@@ -1,0 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&display=swap');
+
+@import "tailwindcss";
+
+:root,
+[data-theme="dark"] {
+  --bg-primary: #0a0f1e;
+  --bg-secondary: #0f1629;
+  --bg-card: #141d35;
+  --bg-hover: #1a2540;
+  --bg-border: #1e2d4a;
+  --text-primary: #f0f4ff;
+  --text-secondary: #8892aa;
+  --text-muted: #4a5568;
+  --accent-green: #10b981;
+  --accent-red: #f43f5e;
+  --accent-blue: #3b82f6;
+  --accent-yellow: #f59e0b;
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="pitch"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-card: #111111;
+  --bg-hover: #1a1a1a;
+  --bg-border: #222222;
+  --text-primary: #ffffff;
+  --text-secondary: #888888;
+  --text-muted: #444444;
+  --accent-green: #10b981;
+  --accent-red: #f43f5e;
+  --accent-blue: #3b82f6;
+  --accent-yellow: #f59e0b;
+  --shadow: rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f0f4f8;
+  --bg-secondary: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-hover: #e8f0fe;
+  --bg-border: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-green: #059669;
+  --accent-red: #e11d48;
+  --accent-blue: #2563eb;
+  --accent-yellow: #d97706;
+  --shadow: rgba(0, 0, 0, 0.08);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Sora', sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 4px;
+}

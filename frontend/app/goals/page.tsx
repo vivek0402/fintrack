@@ -1,0 +1,237 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Plus, Trash2, Target, CheckCircle } from 'lucide-react';
+import { useAuthStore } from '@/store/authStore';
+import { goalsAPI } from '@/lib/api';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { useIsMobile } from '@/hooks/useWindowSize';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { formatCurrency } from '@/lib/utils';
+
+const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
+
+export default function GoalsPage() {
+    const router = useRouter();
+    const { user, isLoading, loadFromStorage } = useAuthStore();
+    const isMobile = useIsMobile();
+
+    const [goals, setGoals] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [fundsGoalId, setFundsGoalId] = useState<string | null>(null);
+    const [fundsAmount, setFundsAmount] = useState('');
+    const [fundsType, setFundsType] = useState<'add' | 'withdraw'>('add');
+    const [fundsLoading, setFundsLoading] = useState(false);
+    const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', color: '#10b981' });
+    const [formLoading, setFormLoading] = useState(false);
+    const [formError, setFormError] = useState('');
+
+    useEffect(() => { loadFromStorage(); }, []);
+    useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
+    const fetchGoals = async () => {
+        setLoading(true);
+        try { const res = await goalsAPI.getAll(); setGoals(res.data.goals); }
+        catch (err) { console.error(err); }
+        finally { setLoading(false); }
+    };
+
+    useEffect(() => { if (user) fetchGoals(); }, [user]);
+
+    const handleCreate = async (e: React.FormEvent) => {
+        e.preventDefault(); setFormError(''); setFormLoading(true);
+        try {
+            await goalsAPI.create({ name: form.name, target_amount: parseFloat(form.target_amount), deadline: form.deadline || undefined, color: form.color });
+            setForm({ name: '', target_amount: '', deadline: '', color: '#10b981' });
+            setShowForm(false); fetchGoals();
+        } catch (err: any) { setFormError(err.response?.data?.error || 'Failed to create goal.'); }
+        finally { setFormLoading(false); }
+    };
+
+    const handleAddFunds = async () => {
+        if (!fundsGoalId || !fundsAmount) return;
+        setFundsLoading(true);
+        try {
+            const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
+            await goalsAPI.addFunds(fundsGoalId, amount);
+            setFundsGoalId(null); setFundsAmount(''); fetchGoals();
+        } catch (err) { console.error(err); }
+        finally { setFundsLoading(false); }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Delete this goal?')) return;
+        setDeletingId(id);
+        try { await goalsAPI.delete(id); fetchGoals(); }
+        finally { setDeletingId(null); }
+    };
+
+    const daysRemaining = (deadline?: string) => {
+        if (!deadline) return null;
+        const diff = Math.ceil((new Date(deadline + 'T00:00:00').getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        return diff;
+    };
+
+    const totalTargets = goals.reduce((s, g) => s + parseFloat(g.target_amount), 0);
+    const totalSaved = goals.reduce((s, g) => s + parseFloat(g.saved_amount), 0);
+    const completed = goals.filter(g => parseFloat(g.saved_amount) >= parseFloat(g.target_amount)).length;
+
+    if (isLoading || !user) return (
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+
+    return (
+        <AppLayout>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Savings Goals</h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track your financial targets</p>
+                </div>
+                <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />New Goal</Button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                    { label: 'Total Targets', value: formatCurrency(totalTargets, user.currency), color: '#3b82f6' },
+                    { label: 'Total Saved', value: formatCurrency(totalSaved, user.currency), color: '#10b981' },
+                    { label: 'Completed', value: `${completed} / ${goals.length}`, color: '#f59e0b' },
+                ].map(card => (
+                    <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '16px 20px' }}>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>{card.label}</p>
+                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.2rem', fontWeight: 600, color: card.color, margin: 0 }}>{card.value}</p>
+                    </div>
+                ))}
+            </div>
+
+            {showForm && (
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
+                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Create New Goal</h3>
+                    <form onSubmit={handleCreate}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                            <Input label="Goal Name" type="text" placeholder="e.g. New Laptop" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+                            <Input label="Target Amount (₹)" type="number" placeholder="100000" min="1" value={form.target_amount} onChange={e => setForm({ ...form, target_amount: e.target.value })} required />
+                            <Input label="Deadline (optional)" type="date" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Color</label>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {GOAL_COLORS.map(color => (
+                                        <button key={color} type="button" onClick={() => setForm({ ...form, color })}
+                                            style={{ width: '28px', height: '28px', borderRadius: '50%', background: color, border: form.color === color ? '3px solid var(--text-primary)' : '3px solid transparent', cursor: 'pointer' }} />
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        {formError && <p style={{ fontSize: '0.8rem', color: '#f87171', margin: '0 0 12px 0' }}>{formError}</p>}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button type="submit" isLoading={formLoading} size="md">Create Goal</Button>
+                            <Button type="button" variant="secondary" size="md" onClick={() => setShowForm(false)}>Cancel</Button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Add Funds Modal */}
+            {fundsGoalId && (
+                <>
+                    <div onClick={() => setFundsGoalId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '360px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101 }}>
+                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Update Savings</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                            {(['add', 'withdraw'] as const).map(t => (
+                                <button key={t} type="button" onClick={() => setFundsType(t)}
+                                    style={{ padding: '10px', borderRadius: '10px', border: fundsType === t ? `1px solid ${t === 'add' ? '#10b981' : '#f43f5e'}` : '1px solid var(--bg-border)', background: fundsType === t ? t === 'add' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' : 'var(--bg-card)', color: fundsType === t ? t === 'add' ? '#10b981' : '#f43f5e' : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}>
+                                    {t === 'add' ? '+ Add Funds' : '− Withdraw'}
+                                </button>
+                            ))}
+                        </div>
+                        <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={fundsAmount} onChange={e => setFundsAmount(e.target.value)} />
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                            <Button onClick={handleAddFunds} isLoading={fundsLoading} size="md" style={{ flex: 1 }}>Confirm</Button>
+                            <Button variant="secondary" size="md" onClick={() => { setFundsGoalId(null); setFundsAmount(''); }}>Cancel</Button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {loading ? (
+                <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
+            ) : goals.length === 0 ? (
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
+                    <Target size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 16px 0' }}>No savings goals yet</p>
+                    <Button onClick={() => setShowForm(true)} size="sm">Create your first goal</Button>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {goals.map(goal => {
+                        const saved = parseFloat(goal.saved_amount);
+                        const target = parseFloat(goal.target_amount);
+                        const pct = Math.min((saved / target) * 100, 100);
+                        const isComplete = saved >= target;
+                        const days = daysRemaining(goal.deadline);
+                        const remaining = Math.max(target - saved, 0);
+                        const monthly = goal.deadline && days && days > 0 ? remaining / Math.max(days / 30, 1) : null;
+
+                        return (
+                            <div key={goal.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'rgba(16,185,129,0.25)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
+                                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${goal.color}18`, border: `1px solid ${goal.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {isComplete ? <CheckCircle size={20} color={goal.color} /> : <Target size={20} color={goal.color} />}
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{goal.name}</h3>
+                                                {isComplete && <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>✅ Completed</span>}
+                                            </div>
+                                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                                                <span style={{ color: goal.color, fontWeight: 600 }}>{formatCurrency(saved, user.currency)}</span> saved of <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(target, user.currency)}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                        {!isComplete && (
+                                            <button onClick={() => { setFundsGoalId(goal.id); setFundsType('add'); }}
+                                                style={{ padding: '6px 12px', borderRadius: '8px', background: `${goal.color}15`, border: `1px solid ${goal.color}30`, color: goal.color, fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer' }}>
+                                                + Add
+                                            </button>
+                                        )}
+                                        <button onClick={() => handleDelete(goal.id)} disabled={deletingId === goal.id}
+                                            style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === goal.id ? 0.5 : 1 }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style={{ marginBottom: '10px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{pct.toFixed(1)}% saved</span>
+                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatCurrency(remaining, user.currency)} remaining</span>
+                                    </div>
+                                    <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${pct}%`, background: isComplete ? '#10b981' : goal.color, borderRadius: '4px', transition: 'width 0.6s ease', boxShadow: `0 0 8px ${goal.color}60` }} />
+                                    </div>
+                                </div>
+                                {!isComplete && (
+                                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                                        {days !== null && <span style={{ fontSize: '0.72rem', color: days <= 30 ? '#f59e0b' : 'var(--text-muted)' }}>📅 {days > 0 ? `${days} days left` : 'Deadline passed'}</span>}
+                                        {monthly !== null && monthly > 0 && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>📊 Save {formatCurrency(monthly, user.currency)}/month to hit target</span>}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </AppLayout>
+    );
+}
