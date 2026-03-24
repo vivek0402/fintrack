@@ -116,10 +116,10 @@ export default function AnalyticsPage() {
             {/* Key Metrics */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                 {[
-                    { label: 'This Month Income', value: formatCurrency(summary?.total_income || 0, user.currency), icon: TrendingUp, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
-                    { label: 'This Month Expenses', value: formatCurrency(summary?.total_expenses || 0, user.currency), icon: TrendingDown, color: '#f43f5e', bg: 'rgba(244,63,94,0.08)', border: 'rgba(244,63,94,0.15)' },
-                    { label: 'Avg Monthly Expense', value: formatCurrency(avgMonthlyExpense, user.currency), icon: Calendar, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)' },
-                    { label: 'Best Savings Month', value: bestMonth?.month || '—', icon: Award, color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.15)' },
+                    { label: 'This Month Income', value: formatCurrency(summary?.total_income || 0, user.currency), icon: TrendingUp, color: 'var(--accent-green)', bg: 'var(--accent-green-bg)', border: 'var(--accent-green-border)' },
+                    { label: 'This Month Expenses', value: formatCurrency(summary?.total_expenses || 0, user.currency), icon: TrendingDown, color: 'var(--accent-red)', bg: 'var(--accent-red-bg)', border: 'var(--accent-red-border)' },
+                    { label: 'Avg Monthly Expense', value: formatCurrency(avgMonthlyExpense, user.currency), icon: Calendar, color: 'var(--accent-yellow)', bg: 'var(--accent-yellow-bg)', border: 'var(--accent-yellow-border)' },
+                    { label: 'Best Savings Month', value: bestMonth?.month || '—', icon: Award, color: 'var(--accent-blue)', bg: 'var(--accent-blue-bg)', border: 'var(--accent-blue-border)' },
                 ].map(card => {
                     const Icon = card.icon;
                     return (
@@ -191,7 +191,7 @@ export default function AnalyticsPage() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pct.toFixed(1)}%</span>
-                                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: '#f43f5e', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
+                                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
                                             </div>
                                         </div>
                                         <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
                             })}
                             <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
-                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 700, color: '#f43f5e' }}>{formatCurrency(totalExpenses, user.currency)}</span>
+                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>{formatCurrency(totalExpenses, user.currency)}</span>
                             </div>
                         </div>
                     )}
@@ -217,9 +217,9 @@ export default function AnalyticsPage() {
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                         {[
-                            { label: `${yearlyData.years.current} Income`, curr: getTotal(yearlyData.years.current, 'income'), last: getTotal(yearlyData.years.last, 'income'), color: '#10b981' },
-                            { label: `${yearlyData.years.current} Expenses`, curr: getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'expense'), color: '#f43f5e' },
-                            { label: `${yearlyData.years.current} Savings`, curr: getTotal(yearlyData.years.current, 'income') - getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'income') - getTotal(yearlyData.years.last, 'expense'), color: '#3b82f6' },
+                            { label: `${yearlyData.years.current} Income`, curr: getTotal(yearlyData.years.current, 'income'), last: getTotal(yearlyData.years.last, 'income'), color: 'var(--accent-green)' },
+                            { label: `${yearlyData.years.current} Expenses`, curr: getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'expense'), color: 'var(--accent-red)' },
+                            { label: `${yearlyData.years.current} Savings`, curr: getTotal(yearlyData.years.current, 'income') - getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'income') - getTotal(yearlyData.years.last, 'expense'), color: 'var(--accent-blue)' },
                         ].map(card => {
                             const change = pctChange(card.curr, card.last);
                             const isUp = change !== null && parseFloat(change) >= 0;
@@ -229,7 +229,7 @@ export default function AnalyticsPage() {
                                     <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 8px 0' }}>{formatCurrency(card.curr, user.currency)}</p>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{yearlyData.years.last}: {formatCurrency(card.last, user.currency)}</span>
-                                        {change && <span style={{ fontSize: '0.72rem', color: isUp ? '#10b981' : '#f43f5e', background: isUp ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</span>}
+                                        {change && <span style={{ fontSize: '0.72rem', color: isUp ? 'var(--accent-green)' : 'var(--accent-red)', background: isUp ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', padding: '2px 6px', borderRadius: '4px' }}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</span>}
                                     </div>
                                 </div>
                             );

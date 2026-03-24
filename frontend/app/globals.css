@@ -4,51 +4,140 @@
 
 :root,
 [data-theme="dark"] {
-  --bg-primary: #0a0f1e;
-  --bg-secondary: #0f1629;
-  --bg-card: #141d35;
-  --bg-hover: #1a2540;
-  --bg-border: #1e2d4a;
-  --text-primary: #f0f4ff;
+  --bg-primary:     #0a0f1e;
+  --bg-secondary:   #0f1629;
+  --bg-card:        #141d35;
+  --bg-hover:       #1a2540;
+  --bg-border:      #1e2d4a;
+  --text-primary:   #f0f4ff;
   --text-secondary: #8892aa;
-  --text-muted: #4a5568;
-  --accent-green: #10b981;
-  --accent-red: #f43f5e;
-  --accent-blue: #3b82f6;
-  --accent-yellow: #f59e0b;
-  --shadow: rgba(0, 0, 0, 0.3);
+  --text-muted:     #4a5568;
+  --accent-green:   #10b981;
+  --accent-red:     #f43f5e;
+  --accent-blue:    #3b82f6;
+  --accent-yellow:  #f59e0b;
+  --shadow:         rgba(0, 0, 0, 0.3);
+
+  /* Accent alpha backgrounds */
+  --accent-green-bg:     rgba(16, 185, 129, 0.1);
+  --accent-green-border: rgba(16, 185, 129, 0.2);
+  --accent-green-strong: rgba(16, 185, 129, 0.15);
+  --accent-red-bg:       rgba(244, 63, 94, 0.1);
+  --accent-red-border:   rgba(244, 63, 94, 0.2);
+  --accent-blue-bg:      rgba(59, 130, 246, 0.1);
+  --accent-blue-border:  rgba(59, 130, 246, 0.2);
+  --accent-yellow-bg:    rgba(245, 158, 11, 0.1);
+  --accent-yellow-border:rgba(245, 158, 11, 0.2);
+
+  /* Gradient backgrounds for stat cards */
+  --gradient-green:  linear-gradient(135deg, rgba(16,185,129,0.18) 0%, rgba(16,185,129,0.05) 100%);
+  --gradient-red:    linear-gradient(135deg, rgba(244,63,94,0.18) 0%, rgba(244,63,94,0.05) 100%);
+  --gradient-blue:   linear-gradient(135deg, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0.05) 100%);
+  --gradient-yellow: linear-gradient(135deg, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.05) 100%);
+
+  /* Glassmorphism */
+  --glass-bg:     rgba(14, 20, 40, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.07);
+
+  /* Shadows */
+  --shadow-card:       0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-modal:      0 24px 64px rgba(0, 0, 0, 0.6);
+  --shadow-glow-green: 0 0 24px rgba(16, 185, 129, 0.35);
+  --shadow-glow-red:   0 0 24px rgba(244, 63, 94, 0.35);
+  --shadow-glow-blue:  0 0 24px rgba(59, 130, 246, 0.35);
+
+  /* Animation durations */
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 400ms;
 }
 
 [data-theme="pitch"] {
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-card: #111111;
-  --bg-hover: #1a1a1a;
-  --bg-border: #222222;
-  --text-primary: #ffffff;
+  --bg-primary:     #000000;
+  --bg-secondary:   #0a0a0a;
+  --bg-card:        #111111;
+  --bg-hover:       #1a1a1a;
+  --bg-border:      #222222;
+  --text-primary:   #ffffff;
   --text-secondary: #888888;
-  --text-muted: #444444;
-  --accent-green: #10b981;
-  --accent-red: #f43f5e;
-  --accent-blue: #3b82f6;
-  --accent-yellow: #f59e0b;
-  --shadow: rgba(0, 0, 0, 0.6);
+  --text-muted:     #444444;
+  --accent-green:   #10b981;
+  --accent-red:     #f43f5e;
+  --accent-blue:    #3b82f6;
+  --accent-yellow:  #f59e0b;
+  --shadow:         rgba(0, 0, 0, 0.6);
+
+  --accent-green-bg:     rgba(16, 185, 129, 0.1);
+  --accent-green-border: rgba(16, 185, 129, 0.22);
+  --accent-green-strong: rgba(16, 185, 129, 0.18);
+  --accent-red-bg:       rgba(244, 63, 94, 0.1);
+  --accent-red-border:   rgba(244, 63, 94, 0.22);
+  --accent-blue-bg:      rgba(59, 130, 246, 0.1);
+  --accent-blue-border:  rgba(59, 130, 246, 0.22);
+  --accent-yellow-bg:    rgba(245, 158, 11, 0.1);
+  --accent-yellow-border:rgba(245, 158, 11, 0.22);
+
+  --gradient-green:  linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.04) 100%);
+  --gradient-red:    linear-gradient(135deg, rgba(244,63,94,0.2) 0%, rgba(244,63,94,0.04) 100%);
+  --gradient-blue:   linear-gradient(135deg, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0.04) 100%);
+  --gradient-yellow: linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.04) 100%);
+
+  --glass-bg:     rgba(10, 10, 10, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.06);
+
+  --shadow-card:       0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-modal:      0 24px 64px rgba(0, 0, 0, 0.8);
+  --shadow-glow-green: 0 0 28px rgba(16, 185, 129, 0.4);
+  --shadow-glow-red:   0 0 28px rgba(244, 63, 94, 0.4);
+  --shadow-glow-blue:  0 0 28px rgba(59, 130, 246, 0.4);
+
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 400ms;
 }
 
 [data-theme="light"] {
-  --bg-primary: #f0f4f8;
-  --bg-secondary: #ffffff;
-  --bg-card: #f8fafc;
-  --bg-hover: #e8f0fe;
-  --bg-border: #e2e8f0;
-  --text-primary: #0f172a;
+  --bg-primary:     #f0f4f8;
+  --bg-secondary:   #ffffff;
+  --bg-card:        #f8fafc;
+  --bg-hover:       #e8f0fe;
+  --bg-border:      #e2e8f0;
+  --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --accent-green: #059669;
-  --accent-red: #e11d48;
-  --accent-blue: #2563eb;
-  --accent-yellow: #d97706;
-  --shadow: rgba(0, 0, 0, 0.08);
+  --text-muted:     #94a3b8;
+  --accent-green:   #059669;
+  --accent-red:     #e11d48;
+  --accent-blue:    #2563eb;
+  --accent-yellow:  #d97706;
+  --shadow:         rgba(0, 0, 0, 0.08);
+
+  --accent-green-bg:     rgba(5, 150, 105, 0.1);
+  --accent-green-border: rgba(5, 150, 105, 0.2);
+  --accent-green-strong: rgba(5, 150, 105, 0.12);
+  --accent-red-bg:       rgba(225, 29, 72, 0.1);
+  --accent-red-border:   rgba(225, 29, 72, 0.2);
+  --accent-blue-bg:      rgba(37, 99, 235, 0.1);
+  --accent-blue-border:  rgba(37, 99, 235, 0.2);
+  --accent-yellow-bg:    rgba(217, 119, 6, 0.1);
+  --accent-yellow-border:rgba(217, 119, 6, 0.2);
+
+  --gradient-green:  linear-gradient(135deg, rgba(5,150,105,0.12) 0%, rgba(5,150,105,0.03) 100%);
+  --gradient-red:    linear-gradient(135deg, rgba(225,29,72,0.12) 0%, rgba(225,29,72,0.03) 100%);
+  --gradient-blue:   linear-gradient(135deg, rgba(37,99,235,0.12) 0%, rgba(37,99,235,0.03) 100%);
+  --gradient-yellow: linear-gradient(135deg, rgba(217,119,6,0.12) 0%, rgba(217,119,6,0.03) 100%);
+
+  --glass-bg:     rgba(248, 250, 252, 0.88);
+  --glass-border: rgba(0, 0, 0, 0.07);
+
+  --shadow-card:       0 4px 24px rgba(0, 0, 0, 0.08);
+  --shadow-modal:      0 24px 64px rgba(0, 0, 0, 0.15);
+  --shadow-glow-green: 0 0 20px rgba(5, 150, 105, 0.2);
+  --shadow-glow-red:   0 0 20px rgba(225, 29, 72, 0.2);
+  --shadow-glow-blue:  0 0 20px rgba(37, 99, 235, 0.2);
+
+  --transition-fast: 150ms;
+  --transition-base: 250ms;
+  --transition-slow: 400ms;
 }
 
 *,

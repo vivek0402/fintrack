@@ -39,27 +39,70 @@ export function Sidebar() {
 
     const handleLogout = () => { logout(); router.push('/login'); };
 
-    return (
-        <aside style={{ width: '220px', minHeight: '100vh', background: 'var(--bg-secondary)', borderRight: '1px solid var(--bg-border)', display: 'flex', flexDirection: 'column', padding: '24px 12px', position: 'fixed', top: 0, left: 0, zIndex: 50 }}>
+    const initials = user?.full_name
+        ? user.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+        : '?';
 
+    return (
+        <aside style={{
+            width: '220px', minHeight: '100vh',
+            background: 'var(--bg-secondary)',
+            borderRight: '1px solid var(--bg-border)',
+            display: 'flex', flexDirection: 'column',
+            padding: '20px 12px',
+            position: 'fixed', top: 0, left: 0, zIndex: 50,
+            boxShadow: 'var(--shadow-card)',
+        }}>
             {/* Logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 8px', marginBottom: '20px' }}>
-                <div style={{ width: '36px', height: '36px', background: 'rgba(16,185,129,0.15)', borderRadius: '10px', border: '1px solid rgba(16,185,129,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <TrendingUp size={18} color="#10b981" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 10px', marginBottom: '18px' }}>
+                <div style={{
+                    width: '36px', height: '36px',
+                    background: 'linear-gradient(135deg, var(--accent-green-strong), var(--accent-green-bg))',
+                    borderRadius: '10px',
+                    border: '1px solid var(--accent-green-border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    boxShadow: 'var(--shadow-glow-green)',
+                }}>
+                    <TrendingUp size={18} color="var(--accent-green)" />
                 </div>
-                <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>FinTrack</span>
+                <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>FinTrack</span>
             </div>
 
             <GlobalSearch />
 
             {/* Nav */}
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px' }}>
                 {navItems.map(({ href, icon: Icon, label }) => {
                     const isActive = pathname === href;
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: isActive ? 'rgba(16,185,129,0.1)' : 'transparent', border: isActive ? '1px solid rgba(16,185,129,0.2)' : '1px solid transparent', color: isActive ? '#10b981' : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: isActive ? 500 : 400, transition: 'all 0.2s', cursor: 'pointer' }}>
-                                <Icon size={17} />
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '9px 12px', borderRadius: '10px',
+                                background: isActive ? 'linear-gradient(135deg, var(--accent-blue-bg), var(--accent-blue-bg))' : 'transparent',
+                                borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
+                                paddingLeft: isActive ? '9px' : '12px',
+                                color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                                fontSize: '0.86rem', fontWeight: isActive ? 600 : 400,
+                                transition: 'all var(--transition-fast)',
+                                cursor: 'pointer',
+                            }}
+                                onMouseEnter={e => {
+                                    if (!isActive) {
+                                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                                        (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
+                                    }
+                                }}
+                                onMouseLeave={e => {
+                                    if (!isActive) {
+                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                                        (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
+                                    }
+                                }}
+                            >
+                                <Icon size={16} />
                                 {label}
                             </div>
                         </Link>
@@ -67,18 +110,51 @@ export function Sidebar() {
                 })}
             </nav>
 
+            {/* Divider */}
+            <div style={{ height: '1px', background: 'linear-gradient(90deg, transparent, var(--bg-border), transparent)', margin: '12px 0' }} />
+
             {/* Bottom */}
-            <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', marginTop: '12px' }}>
+            <div>
                 <ThemeToggle />
-                <div style={{ padding: '8px 12px', margin: '8px 0 4px' }}>
-                    <p style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.full_name}</p>
-                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</p>
+
+                {/* User info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 10px 6px' }}>
+                    <div style={{
+                        width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+                        background: 'linear-gradient(135deg, var(--accent-blue-bg), var(--accent-green-bg))',
+                        border: '1px solid var(--bg-border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'Sora, sans-serif', fontSize: '0.72rem', fontWeight: 700,
+                        color: 'var(--text-primary)',
+                    }}>
+                        {initials}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.full_name}</p>
+                        <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '1px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</p>
+                    </div>
                 </div>
-                <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-secondary)', fontSize: '0.875rem', cursor: 'pointer', width: '100%', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.08)'; (e.currentTarget as HTMLElement).style.color = '#f87171'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+
+                <button onClick={handleLogout} style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '9px 12px', borderRadius: '10px',
+                    background: 'transparent', border: '1px solid transparent',
+                    color: 'var(--text-secondary)', fontSize: '0.86rem',
+                    cursor: 'pointer', width: '100%',
+                    transition: 'all var(--transition-fast)',
+                }}
+                    onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)';
+                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-red-border)';
+                    }}
+                    onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                        (e.currentTarget as HTMLElement).style.borderColor = 'transparent';
+                    }}
                 >
-                    <LogOut size={17} />
+                    <LogOut size={16} />
                     Logout
                 </button>
             </div>

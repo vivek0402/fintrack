@@ -8,37 +8,45 @@ interface Props { forecast: any; currency?: string; }
 export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
     if (!forecast || forecast.income === 0) return null;
 
-    const { income, expenses_so_far, projected_expenses, projected_savings, daily_rate, ideal_daily_budget, day_of_month, days_in_month, days_remaining, is_on_track, savings_rate } = forecast;
+    const {
+        income, expenses_so_far, projected_expenses, projected_savings,
+        daily_rate, ideal_daily_budget, day_of_month, days_in_month,
+        days_remaining, is_on_track, savings_rate,
+    } = forecast;
 
     const spendingPct = income > 0 ? Math.min((projected_expenses / income) * 100, 150) : 0;
     const isOverBudget = projected_expenses > income;
+    const statusBorder = is_on_track ? 'var(--accent-green-border)' : 'var(--accent-red-border)';
+    const statusBg = is_on_track ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)';
+    const statusColor = is_on_track ? 'var(--accent-green)' : 'var(--accent-red)';
+    const statusGradient = is_on_track ? 'var(--gradient-green)' : 'var(--gradient-red)';
 
     return (
-        <div style={{ background: 'var(--bg-secondary)', border: `1px solid ${is_on_track ? 'var(--bg-border)' : 'rgba(244,63,94,0.2)'}`, borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
+        <div style={{ background: 'var(--bg-secondary)', border: `1px solid ${statusBorder}`, borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: 'var(--shadow-card)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: is_on_track ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${is_on_track ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Zap size={15} color={is_on_track ? '#10b981' : '#f43f5e'} />
+                    <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: statusBg, border: `1px solid ${statusBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Zap size={16} color={statusColor} />
                     </div>
                     <div>
-                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Month Forecast</h3>
+                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Month Forecast</h3>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>Day {day_of_month} of {days_in_month} · {days_remaining} days left</p>
                     </div>
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: is_on_track ? '#10b981' : '#f43f5e', background: is_on_track ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', border: `1px solid ${is_on_track ? 'rgba(16,185,129,0.2)' : 'rgba(244,63,94,0.2)'}`, padding: '4px 10px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: statusColor, background: statusBg, border: `1px solid ${statusBorder}`, padding: '5px 12px', borderRadius: '20px' }}>
                     {is_on_track ? '✅ On Track' : '⚠️ Over Budget Projected'}
                 </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '14px' }}>
                 {[
-                    { label: 'Spent So Far', value: formatCurrency(expenses_so_far, currency), color: '#f43f5e', icon: TrendingDown },
-                    { label: 'Projected Total', value: formatCurrency(projected_expenses, currency), color: isOverBudget ? '#f43f5e' : '#f59e0b', icon: Calendar },
-                    { label: 'Projected Savings', value: formatCurrency(Math.max(projected_savings, 0), currency), color: projected_savings >= 0 ? '#10b981' : '#f43f5e', icon: TrendingUp },
+                    { label: 'Spent So Far', value: formatCurrency(expenses_so_far, currency), color: 'var(--accent-red)', icon: TrendingDown },
+                    { label: 'Projected Total', value: formatCurrency(projected_expenses, currency), color: isOverBudget ? 'var(--accent-red)' : 'var(--accent-yellow)', icon: Calendar },
+                    { label: 'Projected Savings', value: formatCurrency(Math.max(projected_savings, 0), currency), color: projected_savings >= 0 ? 'var(--accent-green)' : 'var(--accent-red)', icon: TrendingUp },
                 ].map(stat => {
                     const Icon = stat.icon;
                     return (
-                        <div key={stat.label} style={{ background: 'var(--bg-card)', borderRadius: '10px', padding: '12px' }}>
+                        <div key={stat.label} style={{ background: statusGradient, borderRadius: '12px', padding: '12px', border: `1px solid ${statusBorder}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
                                 <Icon size={12} color={stat.color} />
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stat.label}</span>
@@ -50,34 +58,33 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
             </div>
 
             <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Projected vs income</span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: isOverBudget ? '#f43f5e' : '#10b981' }}>{spendingPct.toFixed(0)}%</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isOverBudget ? 'var(--accent-red)' : 'var(--accent-green)' }}>{spendingPct.toFixed(0)}%</span>
                 </div>
-                <div style={{ height: '6px', background: 'var(--bg-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(spendingPct, 100)}%`, background: isOverBudget ? '#f43f5e' : '#f59e0b', borderRadius: '3px', transition: 'width 0.6s ease' }} />
+                <div style={{ height: '7px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${Math.min(spendingPct, 100)}%`, background: isOverBudget ? 'var(--accent-red)' : 'var(--accent-yellow)', borderRadius: '4px', transition: 'width var(--transition-slow)' }} />
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', padding: '10px 12px', background: 'var(--bg-card)', borderRadius: '8px', flexWrap: 'wrap' }}>
-                <div>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>Your daily spend</p>
-                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: daily_rate > ideal_daily_budget ? '#f43f5e' : 'var(--text-primary)', margin: 0 }}>{formatCurrency(daily_rate, currency)}/day</p>
-                </div>
-                <div style={{ width: '1px', background: 'var(--bg-border)' }} />
-                <div>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>Ideal daily budget</p>
-                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: '#10b981', margin: 0 }}>{formatCurrency(ideal_daily_budget, currency)}/day</p>
-                </div>
-                <div style={{ width: '1px', background: 'var(--bg-border)' }} />
-                <div>
-                    <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>Savings rate</p>
-                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: parseFloat(savings_rate) >= 20 ? '#10b981' : '#f59e0b', margin: 0 }}>{savings_rate}%</p>
-                </div>
+            <div style={{ display: 'flex', gap: '16px', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '10px', flexWrap: 'wrap' }}>
+                {[
+                    { label: 'Your daily spend', value: formatCurrency(daily_rate, currency) + '/day', warn: daily_rate > ideal_daily_budget },
+                    { label: 'Ideal daily budget', value: formatCurrency(ideal_daily_budget, currency) + '/day', positive: true },
+                    { label: 'Savings rate', value: savings_rate + '%', positive: parseFloat(savings_rate) >= 20, warn: parseFloat(savings_rate) < 20 },
+                ].map((item, i) => (
+                    <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {i > 0 && <div style={{ width: '1px', height: '30px', background: 'var(--bg-border)' }} />}
+                        <div>
+                            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>{item.label}</p>
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 700, color: item.warn ? 'var(--accent-red)' : item.positive ? 'var(--accent-green)' : 'var(--text-primary)', margin: 0 }}>{item.value}</p>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {isOverBudget && (
-                <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.15)', borderRadius: '8px', fontSize: '0.78rem', color: '#f87171' }}>
+                <div style={{ marginTop: '10px', padding: '10px 14px', background: 'var(--gradient-red)', border: '1px solid var(--accent-red-border)', borderRadius: '10px', fontSize: '0.78rem', color: 'var(--accent-red)' }}>
                     ⚠️ At this rate you will overspend by <strong>{formatCurrency(projected_expenses - income, currency)}</strong> this month.
                 </div>
             )}

@@ -23,28 +23,34 @@ interface AlertProps {
 const Alert = ({ budget, type, currency, onDismiss }: AlertProps) => {
     const spent = parseFloat(String(budget.spent));
     const limit = parseFloat(String(budget.amount));
-    const pct = ((spent / limit) * 100).toFixed(0);
+    const pct = Math.min((spent / limit) * 100, 100);
     const isOver = type === 'over';
-    const color = isOver ? '#f43f5e' : '#f59e0b';
-    const bg = isOver ? 'rgba(244,63,94,0.06)' : 'rgba(245,158,11,0.06)';
-    const border = isOver ? 'rgba(244,63,94,0.2)' : 'rgba(245,158,11,0.2)';
+    const accentColor = isOver ? 'var(--accent-red)' : 'var(--accent-yellow)';
+    const accentBg = isOver ? 'var(--accent-red-bg)' : 'var(--accent-yellow-bg)';
+    const accentBorder = isOver ? 'var(--accent-red-border)' : 'var(--accent-yellow-border)';
+    const gradient = isOver ? 'var(--gradient-red)' : 'var(--gradient-yellow)';
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: bg, border: `1px solid ${border}`, borderRadius: '12px', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: gradient, border: `1px solid ${accentBorder}`, borderLeft: `4px solid ${accentColor}`, borderRadius: '12px', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
-                <AlertTriangle size={15} color={color} />
-                <div>
-                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{budget.category_name}</span>
-                    <span style={{ fontSize: '0.75rem', color, background: `${color}15`, border: `1px solid ${color}25`, padding: '1px 6px', borderRadius: '4px', marginLeft: '8px' }}>{pct}%</span>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                <AlertTriangle size={15} color={accentColor} />
+                <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{budget.category_name}</span>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: accentColor, background: accentBg, border: `1px solid ${accentBorder}`, padding: '1px 7px', borderRadius: '20px' }}>{pct.toFixed(0)}%</span>
+                    </div>
+                    <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '5px' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: accentColor, borderRadius: '2px', transition: 'width var(--transition-slow)' }} />
+                    </div>
+                    <p style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', margin: 0 }}>
                         {isOver
-                            ? <>Over by <strong style={{ color }}>{formatCurrency(spent - limit, currency)}</strong></>
-                            : <>Only <strong style={{ color }}>{formatCurrency(limit - spent, currency)}</strong> remaining</>
+                            ? <>Over by <strong style={{ color: accentColor }}>{formatCurrency(spent - limit, currency)}</strong></>
+                            : <>Only <strong style={{ color: accentColor }}>{formatCurrency(limit - spent, currency)}</strong> remaining</>
                         }
                     </p>
                 </div>
             </div>
-            <button onClick={onDismiss} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
+            <button onClick={onDismiss} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '4px', borderRadius: '6px' }}>
                 <X size={14} />
             </button>
         </div>

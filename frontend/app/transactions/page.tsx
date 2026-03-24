@@ -94,9 +94,9 @@ export default function TransactionsPage() {
             {/* Summary */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
-                    { label: 'Income', value: totalIncome, color: '#10b981' },
-                    { label: 'Expenses', value: totalExpense, color: '#f43f5e' },
-                    { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? '#10b981' : '#f43f5e' },
+                    { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
+                    { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
+                    { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
                 ].map(card => (
                     <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '14px 16px' }}>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>{card.label}</p>
@@ -113,7 +113,7 @@ export default function TransactionsPage() {
                 <div style={{ display: 'flex', gap: '6px' }}>
                     {['all', 'income', 'expense'].map(t => (
                         <button key={t} onClick={() => setTypeFilter(t)}
-                            style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid rgba(16,185,129,0.3)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'rgba(16,185,129,0.1)' : 'var(--bg-secondary)', color: typeFilter === t ? '#10b981' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all 0.15s' }}>
+                            style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
                             {t === 'all' ? 'All' : t}
                         </button>
                     ))}

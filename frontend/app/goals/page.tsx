@@ -22,6 +22,7 @@ export default function GoalsPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [fundsGoalId, setFundsGoalId] = useState<string | null>(null);
     const [fundsAmount, setFundsAmount] = useState('');
     const [fundsType, setFundsType] = useState<'add' | 'withdraw'>('add');
@@ -64,10 +65,9 @@ export default function GoalsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this goal?')) return;
         setDeletingId(id);
         try { await goalsAPI.delete(id); fetchGoals(); }
-        finally { setDeletingId(null); }
+        finally { setDeletingId(null); setConfirmDeleteId(null); }
     };
 
     const daysRemaining = (deadline?: string) => {
@@ -82,7 +82,7 @@ export default function GoalsPage() {
 
     if (isLoading || !user) return (
         <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <div style={{ width: '24px', height: '24px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
@@ -99,9 +99,9 @@ export default function GoalsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
-                    { label: 'Total Targets', value: formatCurrency(totalTargets, user.currency), color: '#3b82f6' },
-                    { label: 'Total Saved', value: formatCurrency(totalSaved, user.currency), color: '#10b981' },
-                    { label: 'Completed', value: `${completed} / ${goals.length}`, color: '#f59e0b' },
+                    { label: 'Total Targets', value: formatCurrency(totalTargets, user.currency), color: 'var(--accent-blue)' },
+                    { label: 'Total Saved', value: formatCurrency(totalSaved, user.currency), color: 'var(--accent-green)' },
+                    { label: 'Completed', value: `${completed} / ${goals.length}`, color: 'var(--accent-yellow)' },
                 ].map(card => (
                     <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '16px 20px' }}>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>{card.label}</p>
@@ -111,7 +111,7 @@ export default function GoalsPage() {
             </div>
 
             {showForm && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--accent-green-border)', borderRadius: '16px', padding: '24px', marginBottom: '20px' }}>
                     <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Create New Goal</h3>
                     <form onSubmit={handleCreate}>
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
@@ -128,7 +128,7 @@ export default function GoalsPage() {
                                 </div>
                             </div>
                         </div>
-                        {formError && <p style={{ fontSize: '0.8rem', color: '#f87171', margin: '0 0 12px 0' }}>{formError}</p>}
+                        {formError && <p style={{ fontSize: '0.8rem', color: 'var(--accent-red)', margin: '0 0 12px 0' }}>{formError}</p>}
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <Button type="submit" isLoading={formLoading} size="md">Create Goal</Button>
                             <Button type="button" variant="secondary" size="md" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -141,12 +141,12 @@ export default function GoalsPage() {
             {fundsGoalId && (
                 <>
                     <div onClick={() => setFundsGoalId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '360px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101 }}>
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '360px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101, boxShadow: 'var(--shadow-modal)' }}>
                         <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Update Savings</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                             {(['add', 'withdraw'] as const).map(t => (
                                 <button key={t} type="button" onClick={() => setFundsType(t)}
-                                    style={{ padding: '10px', borderRadius: '10px', border: fundsType === t ? `1px solid ${t === 'add' ? '#10b981' : '#f43f5e'}` : '1px solid var(--bg-border)', background: fundsType === t ? t === 'add' ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' : 'var(--bg-card)', color: fundsType === t ? t === 'add' ? '#10b981' : '#f43f5e' : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer' }}>
+                                    style={{ padding: '10px', borderRadius: '10px', border: fundsType === t ? `1px solid ${t === 'add' ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}` : '1px solid var(--bg-border)', background: fundsType === t ? t === 'add' ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)' : 'var(--bg-card)', color: fundsType === t ? t === 'add' ? 'var(--accent-green)' : 'var(--accent-red)' : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', transition: 'all var(--transition-fast)' }}>
                                     {t === 'add' ? '+ Add Funds' : '− Withdraw'}
                                 </button>
                             ))}
@@ -178,9 +178,10 @@ export default function GoalsPage() {
                         const days = daysRemaining(goal.deadline);
                         const remaining = Math.max(target - saved, 0);
                         const monthly = goal.deadline && days && days > 0 ? remaining / Math.max(days / 30, 1) : null;
+                        const isConfirmDelete = confirmDeleteId === goal.id;
 
                         return (
-                            <div key={goal.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'rgba(16,185,129,0.25)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
+                            <div key={goal.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'var(--accent-green-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
                                         <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${goal.color}18`, border: `1px solid ${goal.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -189,26 +190,39 @@ export default function GoalsPage() {
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                 <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{goal.name}</h3>
-                                                {isComplete && <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>✅ Completed</span>}
+                                                {isComplete && <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)', background: 'var(--accent-green-bg)', border: '1px solid var(--accent-green-border)', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>Completed</span>}
                                             </div>
                                             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
                                                 <span style={{ color: goal.color, fontWeight: 600 }}>{formatCurrency(saved, user.currency)}</span> saved of <span style={{ color: 'var(--text-primary)' }}>{formatCurrency(target, user.currency)}</span>
                                             </p>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
                                         {!isComplete && (
                                             <button onClick={() => { setFundsGoalId(goal.id); setFundsType('add'); }}
-                                                style={{ padding: '6px 12px', borderRadius: '8px', background: `${goal.color}15`, border: `1px solid ${goal.color}30`, color: goal.color, fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer' }}>
+                                                style={{ padding: '6px 12px', borderRadius: '8px', background: `${goal.color}15`, border: `1px solid ${goal.color}30`, color: goal.color, fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', transition: 'all var(--transition-fast)' }}>
                                                 + Add
                                             </button>
                                         )}
-                                        <button onClick={() => handleDelete(goal.id)} disabled={deletingId === goal.id}
-                                            style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === goal.id ? 0.5 : 1 }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                            <Trash2 size={14} />
-                                        </button>
+                                        {isConfirmDelete ? (
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button onClick={() => handleDelete(goal.id)} disabled={deletingId === goal.id}
+                                                    style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                    {deletingId === goal.id ? '...' : 'Delete'}
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(null)}
+                                                    style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setConfirmDeleteId(goal.id)} disabled={!!deletingId}
+                                                style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === goal.id ? 0.5 : 1, transition: 'all var(--transition-fast)' }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ marginBottom: '10px' }}>
@@ -217,12 +231,12 @@ export default function GoalsPage() {
                                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatCurrency(remaining, user.currency)} remaining</span>
                                     </div>
                                     <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: `${pct}%`, background: isComplete ? '#10b981' : goal.color, borderRadius: '4px', transition: 'width 0.6s ease', boxShadow: `0 0 8px ${goal.color}60` }} />
+                                        <div style={{ height: '100%', width: `${pct}%`, background: isComplete ? 'var(--accent-green)' : goal.color, borderRadius: '4px', transition: 'width var(--transition-slow)', boxShadow: `0 0 8px ${goal.color}60` }} />
                                     </div>
                                 </div>
                                 {!isComplete && (
                                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                        {days !== null && <span style={{ fontSize: '0.72rem', color: days <= 30 ? '#f59e0b' : 'var(--text-muted)' }}>📅 {days > 0 ? `${days} days left` : 'Deadline passed'}</span>}
+                                        {days !== null && <span style={{ fontSize: '0.72rem', color: days <= 30 ? 'var(--accent-yellow)' : 'var(--text-muted)' }}>📅 {days > 0 ? `${days} days left` : 'Deadline passed'}</span>}
                                         {monthly !== null && monthly > 0 && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>📊 Save {formatCurrency(monthly, user.currency)}/month to hit target</span>}
                                     </div>
                                 )}

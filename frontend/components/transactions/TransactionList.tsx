@@ -14,68 +14,100 @@ interface Props {
 
 export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh }: Props) {
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmId, setConfirmId] = useState<string | null>(null);
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this transaction?')) return;
         setDeletingId(id);
         try { await transactionsAPI.delete(id); onRefresh(); }
         catch { alert('Failed to delete.'); }
-        finally { setDeletingId(null); }
+        finally { setDeletingId(null); setConfirmId(null); }
     };
 
     if (transactions.length === 0) {
-        return (
-            <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                No transactions found
-            </div>
-        );
+        return <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No transactions found</div>;
     }
+
+    // Group by date
+    const groups: Record<string, any[]> = {};
+    transactions.forEach(tx => {
+        const dateKey = tx.date.split('T')[0];
+        if (!groups[dateKey]) groups[dateKey] = [];
+        groups[dateKey].push(tx);
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const getDateLabel = (d: string) => d === today ? 'Today' : d === yesterday ? 'Yesterday' : formatDate(d);
 
     return (
         <div>
-            {transactions.map(tx => {
-                const isIncome = tx.type === 'income';
-                return (
-                    <div key={tx.id}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--bg-border)', gap: '12px' }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: isIncome ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {isIncome ? <TrendingUp size={15} color="#10b981" /> : <TrendingDown size={15} color="#f43f5e" />}
-                            </div>
-                            <div style={{ minWidth: 0 }}>
-                                <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</p>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-                                    {tx.category_name && (
-                                        <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color}20`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>{tx.category_name}</span>
+            {Object.entries(groups).map(([date, txs]) => (
+                <div key={date}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px 6px', background: 'var(--bg-card)' }}>
+                        <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'Sora, sans-serif', whiteSpace: 'nowrap' }}>{getDateLabel(date)}</span>
+                        <div style={{ flex: 1, height: '1px', background: 'var(--bg-border)' }} />
+                    </div>
+                    {txs.map(tx => {
+                        const isIncome = tx.type === 'income';
+                        const isConfirm = confirmId === tx.id;
+                        return (
+                            <div key={tx.id}
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: '12px 20px', borderBottom: '1px solid var(--bg-border)',
+                                    borderLeft: `3px solid ${isIncome ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+                                    gap: '12px', transition: 'background var(--transition-fast)',
+                                }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
+                                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0, background: isIncome ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', border: `1px solid ${isIncome ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
+                                    </div>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                                            {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color}22`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>{tx.category_name}</span>}
+                                            {tx.tags && tx.tags.map((tag: string) => (
+                                                <span key={tag} style={{ fontSize: '0.68rem', color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px' }}>#{tag}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
+                                        {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
+                                    </p>
+                                    <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                        <Pencil size={13} />
+                                    </button>
+                                    {isConfirm ? (
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button onClick={() => handleDelete(tx.id)} disabled={deletingId === tx.id}
+                                                style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                {deletingId === tx.id ? '...' : 'Delete'}
+                                            </button>
+                                            <button onClick={() => setConfirmId(null)}
+                                                style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setConfirmId(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                            <Trash2 size={13} />
+                                        </button>
                                     )}
-                                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{formatDate(tx.date)}</span>
-                                    {tx.tags && tx.tags.map((tag: string) => (
-                                        <span key={tag} style={{ fontSize: '0.68rem', color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px' }}>#{tag}</span>
-                                    ))}
                                 </div>
                             </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: isIncome ? '#10b981' : '#f43f5e', margin: 0 }}>
-                                {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
-                            </p>
-                            <button onClick={() => onEdit(tx)} style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; (e.currentTarget as HTMLElement).style.color = '#3b82f6'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                <Pencil size={13} />
-                            </button>
-                            <button onClick={() => handleDelete(tx.id)} disabled={deletingId === tx.id} style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === tx.id ? 0.5 : 1, transition: 'all 0.15s' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                <Trash2 size={13} />
-                            </button>
-                        </div>
-                    </div>
-                );
-            })}
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 }

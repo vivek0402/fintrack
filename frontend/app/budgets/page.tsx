@@ -23,6 +23,7 @@ export default function BudgetsPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [formCategory, setFormCategory] = useState('');
     const [formAmount, setFormAmount] = useState('');
@@ -60,11 +61,10 @@ export default function BudgetsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this budget?')) return;
         setDeletingId(id);
         try { await budgetsAPI.delete(id); fetchBudgets(); }
         catch { alert('Failed to delete.'); }
-        finally { setDeletingId(null); }
+        finally { setDeletingId(null); setConfirmDeleteId(null); }
     };
 
     const totalBudgeted = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
@@ -73,7 +73,7 @@ export default function BudgetsPage() {
 
     if (isLoading || !user) return (
         <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <div style={{ width: '24px', height: '24px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
@@ -89,7 +89,7 @@ export default function BudgetsPage() {
             </div>
 
             {showForm && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--accent-green-border)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
                     <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Set Budget for {MONTH_NAMES[currentMonth]}</h3>
                     <form onSubmit={handleAdd}>
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
@@ -108,17 +108,17 @@ export default function BudgetsPage() {
                             </div>
                             <Button type="submit" isLoading={formLoading} size="md">Save</Button>
                         </div>
-                        {formError && <p style={{ fontSize: '0.8rem', color: '#f87171', margin: '10px 0 0 0' }}>{formError}</p>}
+                        {formError && <p style={{ fontSize: '0.8rem', color: 'var(--accent-red)', margin: '10px 0 0 0' }}>{formError}</p>}
                     </form>
                 </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
-                    { label: 'Total Budgeted', value: formatCurrency(totalBudgeted, user.currency), color: '#3b82f6' },
-                    { label: 'Total Spent', value: formatCurrency(totalSpent, user.currency), color: '#f43f5e' },
-                    { label: 'Remaining', value: formatCurrency(Math.max(totalBudgeted - totalSpent, 0), user.currency), color: '#10b981' },
-                    { label: 'Over Budget', value: `${overBudget} categor${overBudget === 1 ? 'y' : 'ies'}`, color: overBudget > 0 ? '#f43f5e' : '#10b981' },
+                    { label: 'Total Budgeted', value: formatCurrency(totalBudgeted, user.currency), color: 'var(--accent-blue)' },
+                    { label: 'Total Spent', value: formatCurrency(totalSpent, user.currency), color: 'var(--accent-red)' },
+                    { label: 'Remaining', value: formatCurrency(Math.max(totalBudgeted - totalSpent, 0), user.currency), color: 'var(--accent-green)' },
+                    { label: 'Over Budget', value: `${overBudget} categor${overBudget === 1 ? 'y' : 'ies'}`, color: overBudget > 0 ? 'var(--accent-red)' : 'var(--accent-green)' },
                 ].map(card => (
                     <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '16px 20px' }}>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>{card.label}</p>
@@ -142,34 +142,48 @@ export default function BudgetsPage() {
                         const pct = Math.min((spent / limit) * 100, 100);
                         const isOver = spent > limit;
                         const isNear = pct >= 80 && !isOver;
-                        const barColor = isOver ? '#f43f5e' : isNear ? '#f59e0b' : budget.category_color;
+                        const barColor = isOver ? 'var(--accent-red)' : isNear ? 'var(--accent-yellow)' : budget.category_color;
+                        const isConfirmDelete = confirmDeleteId === budget.id;
 
                         return (
-                            <div key={budget.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isOver ? 'rgba(244,63,94,0.25)' : isNear ? 'rgba(245,158,11,0.25)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
+                            <div key={budget.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isOver ? 'var(--accent-red-border)' : isNear ? 'var(--accent-yellow-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.category_color }} />
                                         <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{budget.category_name}</span>
-                                        {isOver && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#f87171', background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', padding: '2px 8px', borderRadius: '6px' }}><AlertTriangle size={10} />Over budget</span>}
-                                        {isNear && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 8px', borderRadius: '6px' }}><AlertTriangle size={10} />Near limit</span>}
-                                        {!isOver && !isNear && pct > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', padding: '2px 8px', borderRadius: '6px' }}><CheckCircle size={10} />On track</span>}
+                                        {isOver && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-red)', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', padding: '2px 8px', borderRadius: '6px' }}><AlertTriangle size={10} />Over budget</span>}
+                                        {isNear && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-yellow)', background: 'var(--accent-yellow-bg)', border: '1px solid var(--accent-yellow-border)', padding: '2px 8px', borderRadius: '6px' }}><AlertTriangle size={10} />Near limit</span>}
+                                        {!isOver && !isNear && pct > 0 && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--accent-green)', background: 'var(--accent-green-bg)', border: '1px solid var(--accent-green-border)', padding: '2px 8px', borderRadius: '6px' }}><CheckCircle size={10} />On track</span>}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                         <div style={{ textAlign: 'right' }}>
                                             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>{formatCurrency(spent, user.currency)} of {formatCurrency(limit, user.currency)}</p>
-                                            <p style={{ fontSize: '0.72rem', color: isOver ? '#f87171' : 'var(--text-secondary)', margin: 0 }}>{isOver ? `₹${(spent - limit).toLocaleString('en-IN')} over` : `₹${Math.max(limit - spent, 0).toLocaleString('en-IN')} remaining`}</p>
+                                            <p style={{ fontSize: '0.72rem', color: isOver ? 'var(--accent-red)' : 'var(--text-secondary)', margin: 0 }}>{isOver ? `${formatCurrency(spent - limit, user.currency)} over` : `${formatCurrency(Math.max(limit - spent, 0), user.currency)} remaining`}</p>
                                         </div>
                                         <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 700, color: barColor, minWidth: '44px', textAlign: 'right' }}>{pct.toFixed(0)}%</span>
-                                        <button onClick={() => handleDelete(budget.id)} disabled={deletingId === budget.id}
-                                            style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === budget.id ? 0.5 : 1 }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                            <Trash2 size={14} />
-                                        </button>
+                                        {isConfirmDelete ? (
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button onClick={() => handleDelete(budget.id)} disabled={deletingId === budget.id}
+                                                    style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                    {deletingId === budget.id ? '...' : 'Delete'}
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(null)}
+                                                    style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId}
+                                                style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === budget.id ? 0.5 : 1, transition: 'all var(--transition-fast)' }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width 0.6s ease', boxShadow: `0 0 8px ${barColor}60` }} />
+                                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width var(--transition-slow)', boxShadow: `0 0 8px ${barColor}60` }} />
                                 </div>
                             </div>
                         );

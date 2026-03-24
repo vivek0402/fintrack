@@ -1,43 +1,51 @@
 'use client';
 
+import { useState } from 'react';
+
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
     icon?: React.ReactNode;
 }
 
-export function Input({ label, error, icon, style, ...props }: InputProps) {
+export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: InputProps) {
+    const [focused, setFocused] = useState(false);
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
             {label && (
-                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'DM Sans, sans-serif' }}>
                     {label}
                 </label>
             )}
             <div style={{ position: 'relative' }}>
                 {icon && (
-                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: focused ? 'var(--accent-blue)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color var(--transition-fast)' }}>
                         {icon}
                     </div>
                 )}
                 <input
+                    onFocus={e => { setFocused(true); onFocus?.(e); }}
+                    onBlur={e => { setFocused(false); onBlur?.(e); }}
                     style={{
                         width: '100%',
                         padding: icon ? '10px 16px 10px 38px' : '10px 16px',
-                        background: 'var(--bg-card)',
+                        background: 'var(--bg-secondary)',
                         color: 'var(--text-primary)',
-                        border: `1px solid ${error ? 'rgba(244,63,94,0.5)' : 'var(--bg-border)'}`,
-                        borderRadius: '12px',
+                        border: `1px solid ${error ? 'var(--accent-red)' : focused ? 'var(--accent-blue)' : 'var(--bg-border)'}`,
+                        borderRadius: '10px',
                         fontSize: '0.875rem',
                         fontFamily: 'DM Sans, sans-serif',
                         outline: 'none',
                         boxSizing: 'border-box',
+                        transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+                        boxShadow: error ? 'var(--shadow-glow-red)' : focused ? '0 0 0 3px var(--accent-blue-bg)' : 'none',
                         ...style,
                     }}
                     {...props}
                 />
             </div>
-            {error && <p style={{ fontSize: '0.75rem', color: '#f43f5e', margin: 0 }}>{error}</p>}
+            {error && <p style={{ fontSize: '0.75rem', color: 'var(--accent-red)', margin: 0 }}>{error}</p>}
         </div>
     );
 }
