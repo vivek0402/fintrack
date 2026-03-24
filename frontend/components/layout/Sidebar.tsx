@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     TrendingUp, LogOut, CalendarDays, RefreshCw,
-    Settings, Flag, FileText
+    Settings, Flag, FileText, Sparkles, Users
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -23,6 +23,8 @@ const navItems = [
     { href: '/goals', icon: Flag, label: 'Goals' },
     { href: '/reports', icon: FileText, label: 'Reports' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
+    { href: '/splits', icon: Users, label: 'Splits' },
+    { href: '/ai-chat', icon: Sparkles, label: 'AI Chat' },
     { href: '/profile', icon: Settings, label: 'Settings' },
 ];
 

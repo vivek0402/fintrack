@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
-    CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut
+    CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
+    Sparkles, Users
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -21,6 +22,8 @@ const moreItems = [
     { href: '/goals', icon: Flag, label: 'Goals' },
     { href: '/reports', icon: FileText, label: 'Reports' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
+    { href: '/splits', icon: Users, label: 'Splits' },
+    { href: '/ai-chat', icon: Sparkles, label: 'AI Chat' },
     { href: '/profile', icon: Settings, label: 'Settings' },
 ];
 

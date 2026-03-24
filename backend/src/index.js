@@ -48,6 +48,8 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/recurring', require('./routes/recurring'));
 app.use('/api/goals', require('./routes/goals'));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/splits', require('./routes/splits'));
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

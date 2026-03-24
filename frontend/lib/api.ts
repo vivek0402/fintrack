@@ -95,4 +95,27 @@ export const goalsAPI = {
     delete: (id: string) => api.delete(`/api/goals/${id}`),
 };
 
+export const aiAPI = {
+    report: () => api.post('/api/ai/report'),
+    afford: (query: string) => api.post('/api/ai/afford', { query }),
+    chat: (message: string, history: { role: string; content: string }[]) =>
+        api.post('/api/ai/chat', { message, history }),
+    parseSMS: (sms: string) => api.post('/api/ai/parse-sms', { sms }),
+    detectPatterns: () => api.get('/api/ai/detect-patterns'),
+    parseImage: (file: File) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        return api.post('/api/ai/parse-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    parseSplit: (text: string) => api.post('/api/ai/parse-split', { text }),
+};
+
+export const splitsAPI = {
+    getAll: () => api.get('/api/splits'),
+    create: (data: { description: string; total_amount: number; participants: { name: string }[]; date?: string }) =>
+        api.post('/api/splits', data),
+    settle: (id: string, index: number) => api.patch(`/api/splits/${id}/settle/${index}`),
+    delete: (id: string) => api.delete(`/api/splits/${id}`),
+};
+
 export default api;

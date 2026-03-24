@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, RefreshCw, Pause, Play, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { recurringAPI, categoriesAPI } from '@/lib/api';
+import { recurringAPI, categoriesAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +24,12 @@ export default function RecurringPage() {
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
 
+    // AI patterns state
+    const [patterns, setPatterns] = useState<any[]>([]);
+    const [dismissedPatterns, setDismissedPatterns] = useState<Set<number>>(new Set());
+    const [patternsLoading, setPatternsLoading] = useState(false);
+    const [addingPattern, setAddingPattern] = useState<number | null>(null);
+
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
@@ -37,7 +43,22 @@ export default function RecurringPage() {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { if (user) fetchData(); }, [user]);
+    const fetchPatterns = async () => {
+        setPatternsLoading(true);
+        try {
+            const res = await aiAPI.detectPatterns();
+            setPatterns(res.data.patterns || []);
+            setDismissedPatterns(new Set());
+        } catch { setPatterns([]); }
+        finally { setPatternsLoading(false); }
+    };
+
+    useEffect(() => {
+        if (user) {
+            fetchData();
+            fetchPatterns();
+        }
+    }, [user]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setFormError(''); setFormLoading(true);
@@ -62,6 +83,21 @@ export default function RecurringPage() {
         finally { setDeletingId(null); }
     };
 
+    const handleAddPattern = async (pattern: any, idx: number) => {
+        setAddingPattern(idx);
+        try {
+            await recurringAPI.create({
+                type: 'expense',
+                amount: pattern.amount,
+                description: pattern.description || pattern.merchant,
+                frequency: pattern.frequency,
+            });
+            setDismissedPatterns(prev => new Set([...prev, idx]));
+            fetchData();
+        } catch { /* silent */ }
+        finally { setAddingPattern(null); }
+    };
+
     const formatNextDate = (dateStr: string) => {
         if (!dateStr) return 'Not set';
         try {
@@ -79,6 +115,8 @@ export default function RecurringPage() {
         return r.frequency.charAt(0).toUpperCase() + r.frequency.slice(1);
     };
 
+    const visiblePatterns = patterns.filter((_, i) => !dismissedPatterns.has(i));
+
     if (isLoading || !user) return (
         <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
@@ -95,6 +133,64 @@ export default function RecurringPage() {
                 </div>
                 <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />Add Recurring</Button>
             </div>
+
+            {/* AI Detected Patterns Banner */}
+            {(patternsLoading || visiblePatterns.length > 0) && (
+                <div style={{ marginBottom: '20px' }}>
+                    {patternsLoading ? (
+                        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Sparkles size={16} color="var(--accent-blue)" />
+                            <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>AI is scanning your transactions for recurring patterns…</span>
+                            <div style={{ width: '14px', height: '14px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginLeft: 'auto' }} />
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                <Sparkles size={16} color="var(--accent-blue)" />
+                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    AI found {visiblePatterns.length} potential recurring transaction{visiblePatterns.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {visiblePatterns.map((p, i) => {
+                                    const realIdx = patterns.indexOf(p);
+                                    return (
+                                        <div key={realIdx} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderLeft: '3px solid var(--accent-blue)', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>{p.merchant || p.description}</span>
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '2px 7px', borderRadius: '20px', background: p.confidence === 'high' ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)', color: p.confidence === 'high' ? '#10b981' : '#f59e0b', border: `1px solid ${p.confidence === 'high' ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}` }}>
+                                                        {p.confidence}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '10px', marginTop: '3px' }}>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>₹{p.amount?.toLocaleString('en-IN')}</span>
+                                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{p.frequency}</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                                <button
+                                                    onClick={() => handleAddPattern(p, realIdx)}
+                                                    disabled={addingPattern === realIdx}
+                                                    style={{ padding: '6px 12px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '8px', color: '#10b981', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1 }}
+                                                >
+                                                    {addingPattern === realIdx ? 'Adding…' : '+ Add'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))}
+                                                    style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                >
+                                                    <X size={13} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {showForm && (
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>

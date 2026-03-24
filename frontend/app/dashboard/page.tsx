@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -29,6 +29,15 @@ export default function DashboardPage() {
     const [budgets, setBudgets] = useState<any[]>([]);
     const [forecast, setForecast] = useState<any>(null);
     const [dataLoading, setDataLoading] = useState(true);
+
+    // AI Insights state
+    const [aiReport, setAiReport] = useState('');
+    const [aiReportLoading, setAiReportLoading] = useState(false);
+
+    // Afford check state
+    const [affordQuery, setAffordQuery] = useState('');
+    const [affordResult, setAffordResult] = useState<{ recommendation: string; sentiment: string } | null>(null);
+    const [affordLoading, setAffordLoading] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -57,6 +66,43 @@ export default function DashboardPage() {
         };
         fetchData();
     }, [user]);
+
+    const handleGenerateReport = async () => {
+        setAiReportLoading(true);
+        try {
+            const res = await aiAPI.report();
+            setAiReport(res.data.report);
+        } catch {
+            setAiReport('Unable to generate report right now. Please try again.');
+        } finally {
+            setAiReportLoading(false);
+        }
+    };
+
+    const handleAffordCheck = async () => {
+        if (!affordQuery.trim()) return;
+        setAffordLoading(true);
+        setAffordResult(null);
+        try {
+            const res = await aiAPI.afford(affordQuery);
+            setAffordResult(res.data);
+        } catch {
+            setAffordResult({ recommendation: 'Unable to analyse right now. Please try again.', sentiment: 'cautious' });
+        } finally {
+            setAffordLoading(false);
+        }
+    };
+
+    const sentimentBorder = (s: string) => {
+        if (s === 'positive') return 'var(--accent-green)';
+        if (s === 'negative') return 'var(--accent-red)';
+        return '#f59e0b';
+    };
+    const sentimentBg = (s: string) => {
+        if (s === 'positive') return 'var(--accent-green-bg)';
+        if (s === 'negative') return 'var(--accent-red-bg)';
+        return 'rgba(245,158,11,0.08)';
+    };
 
     if (isLoading || !user) {
         return (
@@ -90,6 +136,64 @@ export default function DashboardPage() {
                     currency={user.currency}
                 />
             )}
+
+            {/* AI Insights + Afford Check row */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                {/* AI Insights card */}
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderLeft: '3px solid var(--accent-blue)', borderRadius: '16px', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>✨</span>
+                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
+                    </div>
+                    {aiReport ? (
+                        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px 0' }}>{aiReport}</p>
+                    ) : (
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Get a plain-English summary of your spending this month.</p>
+                    )}
+                    <button
+                        onClick={handleGenerateReport}
+                        disabled={aiReportLoading}
+                        style={{ padding: '8px 16px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
+                    >
+                        {aiReportLoading ? (
+                            <>
+                                <span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
+                                Generating…
+                            </>
+                        ) : aiReport ? 'Regenerate' : 'Generate Report'}
+                    </button>
+                </div>
+
+                {/* Can I afford this? */}
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>🤔</span>
+                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                        <input
+                            type="text"
+                            placeholder="e.g. iPhone 15 for ₹79,000"
+                            value={affordQuery}
+                            onChange={e => setAffordQuery(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAffordCheck()}
+                            style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }}
+                        />
+                        <button
+                            onClick={handleAffordCheck}
+                            disabled={affordLoading || !affordQuery.trim()}
+                            style={{ padding: '8px 14px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}
+                        >
+                            {affordLoading ? '…' : 'Ask AI'}
+                        </button>
+                    </div>
+                    {affordResult && (
+                        <div style={{ padding: '10px 14px', background: sentimentBg(affordResult.sentiment), border: `1px solid ${sentimentBorder(affordResult.sentiment)}`, borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                            {affordResult.recommendation}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: '16px', marginBottom: '16px' }}>
                 <TrendChart trends={trends} />
