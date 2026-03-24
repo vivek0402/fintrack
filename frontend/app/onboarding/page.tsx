@@ -35,6 +35,11 @@ export default function OnboardingPage() {
     const [budgets, setBudgets] = useState<{ category_id: string; amount: number; name: string }[]>([]);
     const [saving, setSaving] = useState(false);
     const { setTheme } = useThemeStore();
+    const [amounts, setAmounts] = useState<Record<string, number>>(
+        Object.fromEntries(POPULAR_BUDGETS.map(b => [b.name, b.amount]))
+    );
+    const [editingBudget, setEditingBudget] = useState<string | null>(null);
+    const [editingValue, setEditingValue] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -62,12 +67,28 @@ export default function OnboardingPage() {
         setStep(3);
     };
 
-    const toggleBudget = (name: string, amount: number) => {
+    const toggleBudget = (name: string) => {
         const cat = categories.find(c => c.name === name);
         if (!cat) return;
         const exists = budgets.find(b => b.category_id === cat.id);
         if (exists) setBudgets(budgets.filter(b => b.category_id !== cat.id));
-        else setBudgets([...budgets, { category_id: cat.id, amount, name }]);
+        else setBudgets([...budgets, { category_id: cat.id, amount: amounts[name], name }]);
+    };
+
+    const startEditing = (name: string) => {
+        setEditingBudget(name);
+        setEditingValue(String(amounts[name]));
+    };
+
+    const commitEdit = (name: string) => {
+        const parsed = parseFloat(editingValue);
+        if (!isNaN(parsed) && parsed > 0) {
+            const newAmount = Math.floor(parsed);
+            setAmounts(prev => ({ ...prev, [name]: newAmount }));
+            // Update amount in budgets list if this category is already selected
+            setBudgets(prev => prev.map(b => b.name === name ? { ...b, amount: newAmount } : b));
+        }
+        setEditingBudget(null);
     };
 
     const handleFinish = async () => {
@@ -270,21 +291,44 @@ export default function OnboardingPage() {
                             {POPULAR_BUDGETS.map(budget => {
                                 const cat = categories.find(c => c.name === budget.name);
                                 const selected = budgets.some(b => b.name === budget.name);
+                                const isEditing = editingBudget === budget.name;
                                 if (!cat) return null;
                                 return (
-                                    <button key={budget.name} onClick={() => toggleBudget(budget.name, budget.amount)}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '12px', border: selected ? `1px solid ${budget.color}60` : '1px solid var(--bg-border)', background: selected ? `${budget.color}10` : 'var(--bg-secondary)', cursor: 'pointer', transition: 'all 0.15s', textAlign: 'left' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.color }} />
+                                    <div key={budget.name}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '12px', border: selected ? `1px solid ${budget.color}60` : '1px solid var(--bg-border)', background: selected ? `${budget.color}10` : 'var(--bg-secondary)', transition: 'all 0.15s' }}>
+                                        {/* Left: dot + name — clicking toggles selection */}
+                                        <div onClick={() => toggleBudget(budget.name)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.color, flexShrink: 0 }} />
                                             <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>{budget.name}</span>
                                         </div>
+                                        {/* Right: editable amount + circle toggle */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'Sora, sans-serif' }}>₹{budget.amount.toLocaleString('en-IN')}/mo</span>
-                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${selected ? budget.color : 'var(--bg-border)'}`, background: selected ? budget.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {isEditing ? (
+                                                <input
+                                                    autoFocus
+                                                    type="number"
+                                                    min="1"
+                                                    value={editingValue}
+                                                    onChange={e => setEditingValue(e.target.value)}
+                                                    onBlur={() => commitEdit(budget.name)}
+                                                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(budget.name); if (e.key === 'Escape') setEditingBudget(null); }}
+                                                    style={{ width: '80px', padding: '2px 6px', fontSize: '0.8rem', fontFamily: 'Sora, sans-serif', color: 'var(--text-primary)', background: 'var(--bg-primary)', border: '1px solid #10b981', borderRadius: '6px', outline: 'none', textAlign: 'right' }}
+                                                />
+                                            ) : (
+                                                <span
+                                                    onClick={() => startEditing(budget.name)}
+                                                    title="Click to edit"
+                                                    style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'Sora, sans-serif', cursor: 'text', borderBottom: '1px dashed var(--bg-border)', paddingBottom: '1px' }}>
+                                                    ₹{amounts[budget.name].toLocaleString('en-IN')}/mo
+                                                </span>
+                                            )}
+                                            <div onClick={() => toggleBudget(budget.name)}
+                                                style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${selected ? budget.color : 'var(--bg-border)'}`, background: selected ? budget.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
                                                 {selected && <CheckCircle size={12} color="#fff" />}
                                             </div>
                                         </div>
-                                    </button>
+                                    </div>
                                 );
                             })}
                         </div>
