@@ -5,7 +5,10 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production'
         ? { rejectUnauthorized: false }
-        : false
+        : false,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 });
 
 pool.on('connect', () => {
@@ -13,8 +16,7 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-    console.error('❌ PostgreSQL error:', err);
-    process.exit(-1);
+    console.error('❌ PostgreSQL error:', err.message);
 });
 
 module.exports = pool;
