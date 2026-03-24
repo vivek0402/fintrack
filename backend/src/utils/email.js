@@ -1,17 +1,19 @@
-const { Resend } = require('resend');
+const Brevo = require('@getbrevo/brevo');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const client = Brevo.ApiClient.instance;
+client.authentications['api-key'].apiKey = process.env.BREVO_API_KEY;
+const api = new Brevo.TransactionalEmailsApi();
 
 async function sendOTPEmail(to, otp, type) {
     const isReset = type === 'reset_password';
     const subject = isReset ? 'FinTrack — Reset your password' : 'FinTrack — Verify your email';
     const action = isReset ? 'reset your password' : 'activate your account';
 
-    const { data, error } = await resend.emails.send({
-        from: 'FinTrack <onboarding@resend.dev>',
-        to,
+    await api.sendTransacEmail({
+        sender: { email: 'queldrax.ai@gmail.com', name: 'FinTrack' },
+        to: [{ email: to }],
         subject,
-        html: `
+        htmlContent: `
             <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#0f1117;color:#e2e8f0;border-radius:12px">
                 <h2 style="color:#10b981;margin:0 0 8px">FinTrack</h2>
                 <p style="margin:0 0 24px;color:#94a3b8">Use the code below to ${action}. It expires in <strong>10 minutes</strong>.</p>
@@ -23,12 +25,7 @@ async function sendOTPEmail(to, otp, type) {
         `,
     });
 
-    if (error) {
-        console.error('[Email] Resend error for', to, ':', error);
-        throw new Error(error.message);
-    }
-
-    console.log('[Email] Sent', type, 'OTP to', to, '— id:', data.id);
+    console.log('[Email] Sent', type, 'OTP to', to);
 }
 
 module.exports = { sendOTPEmail };
