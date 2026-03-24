@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
-const { sendOTPEmail } = require('../utils/mailer');
+const { sendOTPEmail } = require('../utils/email');
 require('dotenv').config();
 
 const router = express.Router();
@@ -79,9 +79,8 @@ router.post('/register', async (req, res) => {
         }
 
         const otp = await createOTP(email, 'register');
-        await sendOTPEmail(email, otp, 'register');
-
         res.status(201).json({ message: 'OTP sent to your email. Please verify to activate your account.', email });
+        sendOTPEmail(email, otp, 'register').catch(err => console.error('[Email] register OTP fire-and-forget failed:', err));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error.' });
@@ -174,9 +173,8 @@ router.post('/resend-otp', async (req, res) => {
         }
 
         const otp = await createOTP(email, type);
-        await sendOTPEmail(email, otp, type);
-
         res.json({ message: 'OTP resent successfully.' });
+        sendOTPEmail(email, otp, type).catch(err => console.error('[Email] resend OTP fire-and-forget failed:', err));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error.' });
@@ -202,9 +200,8 @@ router.post('/forgot-password', async (req, res) => {
         }
 
         const otp = await createOTP(email, 'reset_password');
-        await sendOTPEmail(email, otp, 'reset_password');
-
         res.json({ message: 'If an account exists, an OTP has been sent.', email });
+        sendOTPEmail(email, otp, 'reset_password').catch(err => console.error('[Email] forgot-password OTP fire-and-forget failed:', err));
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error.' });
