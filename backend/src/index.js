@@ -9,9 +9,24 @@ const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? process.env.FRONTEND_URL
-        : 'http://localhost:3000',
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) return callback(null, true);
+
+        const allowedOrigins = [
+            process.env.FRONTEND_URL,
+            'http://localhost:3000',
+            'capacitor://localhost',
+            'http://localhost',
+            'https://localhost',
+        ];
+
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all for now — tighten later
+        }
+    },
     credentials: true,
 }));
 app.use(express.json());
