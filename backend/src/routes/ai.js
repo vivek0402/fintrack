@@ -396,31 +396,40 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
         const groq = getGroqClient();
         const completion = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
-            messages: [{
-                role: 'user',
-                content: `Analyse this user's income transactions and identify their salary (the largest or most regular income).
-Return ONLY valid JSON (no markdown):
+            response_format: { type: 'json_object' },
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a financial analysis assistant. Always respond with valid JSON only, no markdown, no explanation.',
+                },
+                {
+                    role: 'user',
+                    content: `Analyse this income data and identify the user's salary (largest or most regular income). Return this exact JSON structure with real values filled in:
 {
-  "is_salary_detected": boolean,
-  "salary_amount": number,
-  "salary_description": string,
+  "is_salary_detected": true,
+  "salary_amount": 50000,
+  "salary_description": "Monthly salary",
   "allocation_plan": {
-    "savings": { "percentage": number, "amount": number, "reason": string },
-    "rent": { "percentage": number, "amount": number, "reason": string },
-    "food": { "percentage": number, "amount": number, "reason": string },
-    "transport": { "percentage": number, "amount": number, "reason": string },
-    "investments": { "percentage": number, "amount": number, "reason": string },
-    "discretionary": { "percentage": number, "amount": number, "reason": string }
+    "savings":       { "percentage": 20, "amount": 10000, "reason": "Build emergency fund" },
+    "rent":          { "percentage": 30, "amount": 15000, "reason": "Housing cost" },
+    "food":          { "percentage": 15, "amount": 7500,  "reason": "Groceries and dining" },
+    "transport":     { "percentage": 10, "amount": 5000,  "reason": "Commute and fuel" },
+    "investments":   { "percentage": 15, "amount": 7500,  "reason": "Long-term wealth" },
+    "discretionary": { "percentage": 10, "amount": 5000,  "reason": "Leisure and personal" }
   },
-  "insight": "one sentence summary"
+  "insight": "Your salary covers expenses with room for savings."
 }
-Base the allocation plan on their actual spending history. Data: ${context}`,
-            }],
+Base percentages and amounts on their actual spending. Data: ${context}`,
+                },
+            ],
             max_tokens: 1000,
         });
 
         const text = completion.choices[0].message.content.trim();
-        const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        // Extract first complete JSON object in case of any surrounding text
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        const jsonStr = start !== -1 && end !== -1 ? text.slice(start, end + 1) : text;
         const parsed = JSON.parse(jsonStr);
         res.json({ detected: parsed.is_salary_detected, salary: parsed.salary_amount, description: parsed.salary_description, plan: parsed.allocation_plan, insight: parsed.insight });
     } catch (err) {
