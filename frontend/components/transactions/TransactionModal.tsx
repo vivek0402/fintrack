@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
     X, Calendar, FileText, Mic, Camera, ChevronDown,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
@@ -44,6 +44,35 @@ const CategoryIcon = ({ name, size = 14, color = 'currentColor' }: {
     // emoji or unknown string — render as text
     return <span style={{ fontSize: size, lineHeight: 1 }}>{name}</span>;
 };
+
+// ─── Dropdown option ─────────────────────────────────────────────────────────
+
+function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; onSelect: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '9px 14px', border: 'none', cursor: 'pointer',
+                background: selected ? 'var(--bg-hover)' : 'transparent',
+                color: 'var(--text-primary)', fontSize: '0.875rem',
+                fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
+                transition: 'background 0.1s',
+            }}
+            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+            onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+        >
+            <CategoryIcon name={cat.icon} size={14} color={cat.color} />
+            <span style={{ flex: 1 }}>{cat.name}</span>
+            {Number(cat.usage_count) > 0 && (
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
+                    {cat.usage_count}×
+                </span>
+            )}
+        </button>
+    );
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -267,6 +296,23 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     const isIncome = form.type === 'income';
     const safeCats = categories || [];
+
+    const sortedCategories = useMemo(() => {
+        if (!safeCats.length) return [];
+        return [...safeCats].sort((a, b) => {
+            const countDiff = (Number(b.usage_count) || 0) - (Number(a.usage_count) || 0);
+            if (countDiff !== 0) return countDiff;
+            if (a.last_used && b.last_used)
+                return new Date(b.last_used).getTime() - new Date(a.last_used).getTime();
+            if (a.last_used) return -1;
+            if (b.last_used) return 1;
+            return a.name.localeCompare(b.name);
+        });
+    }, [safeCats]);
+
+    const frequentCats = sortedCategories.filter(c => Number(c.usage_count) > 0);
+    const neverUsedCats = sortedCategories.filter(c => !Number(c.usage_count));
+
     const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
 
     return (
@@ -389,31 +435,30 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                 position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
                                 background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
                                 borderRadius: '10px', zIndex: 60,
-                                maxHeight: '200px', overflowY: 'auto',
+                                maxHeight: '220px', overflowY: 'auto',
                                 boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
                             }}>
-                                {safeCats.length === 0 ? (
+                                {sortedCategories.length === 0 ? (
                                     <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading…</div>
-                                ) : safeCats.map(cat => (
-                                    <button
-                                        key={cat.id}
-                                        type="button"
-                                        onClick={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }}
-                                        style={{
-                                            width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                                            padding: '9px 14px', border: 'none', cursor: 'pointer',
-                                            background: form.category_id === String(cat.id) ? 'var(--bg-hover)' : 'transparent',
-                                            color: 'var(--text-primary)', fontSize: '0.875rem',
-                                            fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
-                                            transition: 'background 0.1s',
-                                        }}
-                                        onMouseEnter={e => { if (form.category_id !== String(cat.id)) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                                        onMouseLeave={e => { if (form.category_id !== String(cat.id)) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                                    >
-                                        <CategoryIcon name={cat.icon} size={14} color={cat.color} />
-                                        <span>{cat.name}</span>
-                                    </button>
-                                ))}
+                                ) : (
+                                    <>
+                                        {/* Frequently used group */}
+                                        {frequentCats.length > 0 && (
+                                            <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'DM Sans, sans-serif' }}>
+                                                Frequently Used
+                                            </div>
+                                        )}
+                                        {frequentCats.map(cat => <CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />)}
+
+                                        {/* All categories group */}
+                                        {neverUsedCats.length > 0 && frequentCats.length > 0 && (
+                                            <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--bg-border)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'DM Sans, sans-serif' }}>
+                                                All Categories
+                                            </div>
+                                        )}
+                                        {neverUsedCats.map(cat => <CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />)}
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

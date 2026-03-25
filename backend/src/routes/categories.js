@@ -8,19 +8,19 @@ router.use(auth);
 router.get('/', async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT * FROM categories
-             WHERE is_default = true OR user_id = $1
-             ORDER BY name ASC, is_default DESC`,
+            `SELECT
+               c.*,
+               COUNT(t.id) AS usage_count,
+               MAX(t.date) AS last_used
+             FROM categories c
+             LEFT JOIN transactions t
+               ON t.category_id = c.id AND t.user_id = c.user_id
+             WHERE c.user_id = $1
+             GROUP BY c.id
+             ORDER BY usage_count DESC, c.name ASC`,
             [req.user.id]
         );
-        // Deduplicate by name at application level (prefer first match — is_default wins ties)
-        const seen = new Set();
-        const categories = result.rows.filter(row => {
-            if (seen.has(row.name)) return false;
-            seen.add(row.name);
-            return true;
-        });
-        res.json({ categories });
+        res.json({ categories: result.rows });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }
@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO categories (user_id, name, icon, color, is_default)
-       VALUES ($1, $2, $3, $4, false) RETURNING *`,
+             VALUES ($1, $2, $3, $4, false) RETURNING *`,
             [req.user.id, name, icon || '📦', color || '#64748b']
         );
         res.status(201).json({ category: result.rows[0] });
