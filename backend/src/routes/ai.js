@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
-const { getModel } = require('../utils/gemini');
+const { getVisionModel, getGroqClient } = require('../utils/gemini');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -13,9 +13,12 @@ router.post('/parse-sms', authMiddleware, async (req, res) => {
         const { sms } = req.body;
         if (!sms) return res.status(400).json({ error: 'SMS text is required' });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Extract transaction details from this Indian bank SMS. Return ONLY valid JSON with these fields (no markdown, no explanation):
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Extract transaction details from this Indian bank SMS. Return ONLY valid JSON with these fields (no markdown, no explanation):
 {
   "amount": number,
   "type": "income" or "expense",
@@ -23,10 +26,12 @@ router.post('/parse-sms', authMiddleware, async (req, res) => {
   "date": "YYYY-MM-DD",
   "merchant": string
 }
-If you cannot extract a field, use null. SMS: ${sms}`
-        );
+If you cannot extract a field, use null. SMS: ${sms}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ parsed });
@@ -90,12 +95,17 @@ router.post('/report', authMiddleware, async (req, res) => {
             transactionCount: transactions.length,
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `You are a friendly personal finance advisor. Based on this month's data, write a 3-4 sentence summary in plain English. Be specific with numbers. Mention what went well and what to watch out for. Keep it conversational, not robotic. Use ₹ for amounts. Data: ${context}`
-        );
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `You are a friendly personal finance advisor. Based on this month's data, write a 3-4 sentence summary in plain English. Be specific with numbers. Mention what went well and what to watch out for. Keep it conversational, not robotic. Use ₹ for amounts. Data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        res.json({ report: result.response.text().trim() });
+        res.json({ report: completion.choices[0].message.content.trim() });
     } catch (err) {
         console.error('AI report error:', err.message);
         res.json({ report: 'Unable to generate your report right now. Please try again in a moment.' });
@@ -137,16 +147,21 @@ router.post('/afford', authMiddleware, async (req, res) => {
             goals: goalRes.rows.map(g => ({ name: g.name, target: parseFloat(g.target_amount), saved: parseFloat(g.saved_amount), deadline: g.deadline })),
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `The user is asking: "${query}"
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `The user is asking: "${query}"
 Based on their financial data below, give a direct yes/no recommendation on whether they can afford it, and explain why in 2-3 sentences. Consider their current savings rate, budget status, and active goals. Be honest but encouraging. Use ₹ for amounts.
 Also include a "sentiment" field in your response: "positive", "cautious", or "negative".
 Return ONLY valid JSON (no markdown): { "recommendation": "your recommendation text", "sentiment": "positive" | "cautious" | "negative" }
-Financial data: ${context}`
-        );
+Financial data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json(parsed);
@@ -188,22 +203,22 @@ router.post('/chat', authMiddleware, async (req, res) => {
 
         const systemPrompt = `You are a helpful personal finance advisor for FinTrack. You have access to the user's financial data below. Answer questions specifically using their data. Be concise, friendly, and use Indian Rupee (₹) formatting. Never make up numbers — only use what's in the data provided.${memoryContext}\nUser's financial data: ${context}`;
 
-        const model = getModel();
-        const chatHistory = (history || []).map(h => ({
-            role: h.role === 'user' ? 'user' : 'model',
-            parts: [{ text: h.content }],
-        }));
+        const groq = getGroqClient();
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            ...(history || []).map(h => ({
+                role: h.role === 'user' ? 'user' : 'assistant',
+                content: h.content,
+            })),
+            { role: 'user', content: message },
+        ];
 
-        const chat = model.startChat({
-            history: [
-                { role: 'user', parts: [{ text: systemPrompt }] },
-                { role: 'model', parts: [{ text: 'I understand. I have access to your financial data and I\'m ready to help you with your personal finance questions. What would you like to know?' }] },
-                ...chatHistory,
-            ],
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages,
+            max_tokens: 1000,
         });
-
-        const result = await chat.sendMessage(message);
-        const reply = result.response.text().trim();
+        const reply = completion.choices[0].message.content.trim();
 
         // Save memory every 10 messages or update rolling summary
         const currentCount = (memory?.message_count || 0) + 1;
@@ -211,10 +226,15 @@ router.post('/chat', authMiddleware, async (req, res) => {
             const allMessages = [...(history || []), { role: 'user', content: message }, { role: 'ai', content: reply }];
             const convText = allMessages.map(m => `${m.role}: ${m.content}`).join('\n');
             try {
-                const summaryResult = await model.generateContent(
-                    `Summarize this financial chat conversation into 2-3 key facts about the user's financial situation, goals, and concerns. Be specific. This will be used as context for future conversations.\nConversation:\n${convText.slice(0, 4000)}`
-                );
-                const summary = summaryResult.response.text().trim();
+                const summaryCompletion = await groq.chat.completions.create({
+                    model: 'llama-3.3-70b-versatile',
+                    messages: [{
+                        role: 'user',
+                        content: `Summarize this financial chat conversation into 2-3 key facts about the user's financial situation, goals, and concerns. Be specific. This will be used as context for future conversations.\nConversation:\n${convText.slice(0, 4000)}`,
+                    }],
+                    max_tokens: 500,
+                });
+                const summary = summaryCompletion.choices[0].message.content.trim();
                 await pool.query(
                     `INSERT INTO ai_chat_memory (user_id, summary, message_count, updated_at)
                      VALUES ($1, $2, $3, NOW())
@@ -262,17 +282,22 @@ router.get('/detect-patterns', authMiddleware, async (req, res) => {
             description: r.description, amount: parseFloat(r.amount), frequency: r.frequency,
         }));
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Analyse these transactions and identify any that appear to be recurring (same merchant, similar amount, repeating monthly or weekly). Exclude transactions already in the recurring list provided.
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Analyse these transactions and identify any that appear to be recurring (same merchant, similar amount, repeating monthly or weekly). Exclude transactions already in the recurring list provided.
 Return ONLY valid JSON array (no markdown):
 [{ "description": string, "amount": number, "frequency": "monthly" or "weekly", "merchant": string, "confidence": "high" or "medium" }]
 If none found, return an empty array [].
 Transactions: ${JSON.stringify(transactions)}
-Existing recurring: ${JSON.stringify(existing)}`
-        );
+Existing recurring: ${JSON.stringify(existing)}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const patterns = JSON.parse(jsonStr);
         res.json({ patterns: Array.isArray(patterns) ? patterns : [] });
@@ -290,7 +315,7 @@ router.post('/parse-image', authMiddleware, upload.single('image'), async (req, 
         const base64 = req.file.buffer.toString('base64');
         const mimeType = req.file.mimetype;
 
-        const model = getModel();
+        const model = getVisionModel();
         const result = await model.generateContent([
             {
                 inlineData: { data: base64, mimeType },
@@ -325,19 +350,24 @@ router.post('/parse-split', authMiddleware, async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: 'Text is required' });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Parse this expense split description and return ONLY valid JSON (no markdown):
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Parse this expense split description and return ONLY valid JSON (no markdown):
 {
   "description": string,
   "total_amount": number,
   "split_count": number,
   "participants": [{ "name": string }]
 }
-If you cannot extract a field, use null. Text: ${text}`
-        );
+If you cannot extract a field, use null. Text: ${text}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const responseText = result.response.text().trim();
+        const responseText = completion.choices[0].message.content.trim();
         const jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ parsed });
@@ -355,7 +385,6 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
 
-        // Get last 4 months of income transactions to detect salary
         const { rows: incomeRows } = await pool.query(
             `SELECT t.*, c.name as category_name
              FROM transactions t
@@ -366,7 +395,6 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
             [userId]
         );
 
-        // Get current month expenses for allocation context
         const { rows: expenses } = await pool.query(
             `SELECT t.*, c.name as category_name
              FROM transactions t
@@ -376,7 +404,6 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
             [userId, month, year]
         );
 
-        // Get current month income
         const { rows: currentIncome } = await pool.query(
             `SELECT * FROM transactions
              WHERE user_id = $1 AND type = 'income'
@@ -410,9 +437,12 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
             totalExpenses: expenses.reduce((s, t) => s + parseFloat(t.amount), 0),
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Analyse this user's income transactions and identify their salary (the largest or most regular income).
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Analyse this user's income transactions and identify their salary (the largest or most regular income).
 Return ONLY valid JSON (no markdown):
 {
   "is_salary_detected": boolean,
@@ -428,10 +458,12 @@ Return ONLY valid JSON (no markdown):
   },
   "insight": "one sentence summary"
 }
-Base the allocation plan on their actual spending history. Data: ${context}`
-        );
+Base the allocation plan on their actual spending history. Data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ detected: parsed.is_salary_detected, salary: parsed.salary_amount, description: parsed.salary_description, plan: parsed.allocation_plan, insight: parsed.insight });
@@ -485,9 +517,12 @@ router.post('/personality', authMiddleware, async (req, res) => {
             })),
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Analyse this user's last 90 days of financial data and score them across 5 dimensions.
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Analyse this user's last 90 days of financial data and score them across 5 dimensions.
 Return ONLY valid JSON (no markdown):
 {
   "personality_type": "e.g. Cautious Saver / Balanced Planner / Impulsive Spender / Strategic Investor / etc.",
@@ -502,10 +537,12 @@ Return ONLY valid JSON (no markdown):
   },
   "summary": "2-3 sentence overall profile summary"
 }
-Data: ${context}`
-        );
+Data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json(parsed);
@@ -540,9 +577,12 @@ router.get('/regret-patterns', authMiddleware, async (req, res) => {
             date: t.date,
         })));
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Analyse these transactions that the user has marked as "regretted".
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Analyse these transactions that the user has marked as "regretted".
 Identify patterns and return ONLY valid JSON (no markdown):
 {
   "insight": "2-3 sentences describing the main regret patterns, be specific with amounts and categories",
@@ -550,10 +590,12 @@ Identify patterns and return ONLY valid JSON (no markdown):
     { "pattern": string, "count": number, "total_amount": number, "tip": string }
   ]
 }
-Transactions: ${context}`
-        );
+Transactions: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ ...parsed, count: regretted.length, total: regretted.reduce((s, t) => s + parseFloat(t.amount), 0) });
@@ -572,7 +614,6 @@ router.post('/life-event', authMiddleware, async (req, res) => {
 
         const userId = req.user.id;
 
-        // Get income/savings context
         const { rows: recentTx } = await pool.query(
             `SELECT type, amount FROM transactions
              WHERE user_id = $1 AND date >= NOW() - INTERVAL '3 months'`,
@@ -596,9 +637,12 @@ router.post('/life-event', authMiddleware, async (req, res) => {
             avg_monthly_income: totalIncome / 3,
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Create a monthly savings milestone plan for this life event.
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Create a monthly savings milestone plan for this life event.
 Return ONLY valid JSON (no markdown):
 {
   "monthly_required": number,
@@ -610,14 +654,15 @@ Return ONLY valid JSON (no markdown):
   "tips": ["tip1", "tip2", "tip3"],
   "summary": "2 sentence motivational summary"
 }
-Limit milestones to 6 key checkpoints. Data: ${context}`
-        );
+Limit milestones to 6 key checkpoints. Data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const plan = JSON.parse(jsonStr);
 
-        // Create the savings goal automatically
         const goalResult = await pool.query(
             `INSERT INTO savings_goals (user_id, name, target_amount, deadline, color, event_type, ai_plan)
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -666,7 +711,6 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
         const now = new Date();
         const predictions = [];
 
-        // Add recurring transactions for next 30 days
         for (const r of recurringRes.rows) {
             if (r.frequency === 'monthly' && r.day_of_month) {
                 const nextDate = new Date(now.getFullYear(), now.getMonth(), r.day_of_month);
@@ -698,7 +742,6 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             }
         }
 
-        // Use AI to detect spending patterns and add predictions
         if (historyRes.rows.length > 5) {
             const context = JSON.stringify({
                 history: historyRes.rows.slice(0, 60).map(t => ({
@@ -708,17 +751,22 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                 today: now.toISOString().split('T')[0],
             });
 
-            const model = getModel();
-            const result = await model.generateContent(
-                `Based on this spending history, predict likely expenses for the next 30 days.
+            const groq = getGroqClient();
+            const completion = await groq.chat.completions.create({
+                model: 'llama-3.3-70b-versatile',
+                messages: [{
+                    role: 'user',
+                    content: `Based on this spending history, predict likely expenses for the next 30 days.
 Look for weekly patterns, day-of-week patterns, and monthly patterns.
 Return ONLY valid JSON array (no markdown, max 10 predictions):
 [{ "date": "YYYY-MM-DD", "predicted_amount": number, "description": string, "category": string, "confidence": "medium" | "low" }]
-Only predict dates within the next 30 days from today. Data: ${context}`
-            );
+Only predict dates within the next 30 days from today. Data: ${context}`,
+                }],
+                max_tokens: 1000,
+            });
 
             try {
-                const text = result.response.text().trim();
+                const text = completion.choices[0].message.content.trim();
                 const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 const aiPredictions = JSON.parse(jsonStr);
                 if (Array.isArray(aiPredictions)) {
@@ -805,9 +853,12 @@ router.post('/health-report', authMiddleware, async (req, res) => {
             transactionCount: transactions.length,
         });
 
-        const model = getModel();
-        const result = await model.generateContent(
-            `Generate a financial health report card for this month's data.
+        const groq = getGroqClient();
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{
+                role: 'user',
+                content: `Generate a financial health report card for this month's data.
 Return ONLY valid JSON (no markdown):
 {
   "health_score": number (0-100),
@@ -823,10 +874,12 @@ Return ONLY valid JSON (no markdown):
     "goal_progress": number
   }
 }
-Data: ${context}`
-        );
+Data: ${context}`,
+            }],
+            max_tokens: 1000,
+        });
 
-        const text = result.response.text().trim();
+        const text = completion.choices[0].message.content.trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const report = JSON.parse(jsonStr);
 
