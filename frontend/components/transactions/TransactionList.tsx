@@ -35,7 +35,14 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     };
 
     if (transactions.length === 0) {
-        return <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No transactions found</div>;
+        return (
+            <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📭</div>
+                <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--text-secondary)' }}>
+                    No transactions yet. Tap + to add one.
+                </p>
+            </div>
+        );
     }
 
     // Group by date
@@ -62,7 +69,52 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         const isIncome = tx.type === 'income';
                         const isConfirm = confirmId === tx.id;
 
-                        const rowInner = (
+                        // Mobile row: clean card layout with color dot
+                        const mobileRowInner = (
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '12px',
+                                    borderBottom: '1px solid var(--bg-border)',
+                                    minHeight: '64px',
+                                    gap: '12px',
+                                    opacity: tx.is_regretted ? 0.7 : 1,
+                                }}
+                            >
+                                {/* Left: color dot + description + category */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                        width: '10px',
+                                        height: '10px',
+                                        borderRadius: '50%',
+                                        background: getCategoryColor(tx.category_name),
+                                        flexShrink: 0,
+                                    }} />
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
+                                            {tx.description}
+                                        </p>
+                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
+                                            {tx.category_name || 'Uncategorized'}
+                                        </p>
+                                    </div>
+                                </div>
+                                {/* Right: amount + date */}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, gap: '2px' }}>
+                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '16px', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
+                                        {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
+                                    </p>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                                        {formatDate((tx.date || '').split('T')[0])}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+
+                        // Desktop row: full row with action buttons
+                        const desktopRowInner = (
                             <div
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -92,7 +144,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
                                         {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
                                     </p>
-                                    {/* Regret toggle */}
                                     <button
                                         onClick={() => handleRegret(tx.id)}
                                         disabled={regrettingId === tx.id}
@@ -138,11 +189,11 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     onSwipeRight={() => handleRegret(tx.id)}
                                     isRegretted={tx.is_regretted}
                                 >
-                                    {rowInner}
+                                    {mobileRowInner}
                                 </SwipeableRow>
                             );
                         }
-                        return <div key={tx.id}>{rowInner}</div>;
+                        return <div key={tx.id}>{desktopRowInner}</div>;
                     })}
                 </div>
             ))}

@@ -65,7 +65,6 @@ function TransactionsPageInner() {
             if (!parsed) throw new Error('No parsed result');
             setQuickAddOpen(false);
             setQuickAddText('');
-            // Open modal in ADD mode with prefill — never set editingTx here
             setEditingTx(null);
             setPrefillData(parsed);
             setModalOpen(true);
@@ -153,60 +152,115 @@ function TransactionsPageInner() {
     return (
         <AppLayout>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
+            {isMobile ? (
+                <div style={{ marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div>
+                            <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '2px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
+                                <Sparkles size={15} />AI
+                            </Button>
+                            <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
+                                <Plus size={15} />Add
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {!isMobile && (
+            ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                        <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
                             <Download size={16} />Export CSV
                         </Button>
-                    )}
-                    <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
-                        <Sparkles size={16} />Quick Add ✨
-                    </Button>
-                    <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
-                        <Plus size={16} />{isMobile ? 'Add' : 'Add Transaction'}
-                    </Button>
+                        <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
+                            <Sparkles size={16} />Quick Add ✨
+                        </Button>
+                        <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
+                            <Plus size={16} />Add Transaction
+                        </Button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Summary */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
-                {[
-                    { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
-                    { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
-                    { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
-                ].map(card => (
-                    <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '14px 16px' }}>
-                        <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>{card.label}</p>
-                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
-                    </div>
-                ))}
-            </div>
-
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div style={{ flex: 1, minWidth: '150px' }}>
-                    <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                    {['all', 'income', 'expense'].map(t => (
-                        <button key={t} onClick={() => setTypeFilter(t)}
-                            style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
-                            {t === 'all' ? 'All' : t}
-                        </button>
+            {isMobile ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+                    {[
+                        { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
+                        { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
+                    ].map(card => (
+                        <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '10px 12px', textAlign: 'center' }}>
+                            <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', margin: '0 0 3px 0' }}>{card.label}</p>
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
+                        </div>
                     ))}
                 </div>
-                <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
-                    style={{ padding: '8px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer' }}>
-                    {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                </select>
-                <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-                    style={{ padding: '8px 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
-            </div>
+            ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
+                    {[
+                        { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
+                        { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
+                        { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
+                    ].map(card => (
+                        <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '14px 16px' }}>
+                            <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>{card.label}</p>
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Filters */}
+            {isMobile ? (
+                <div style={{ marginBottom: '16px' }}>
+                    {/* Search bar — full width */}
+                    <div style={{ marginBottom: '10px' }}>
+                        <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                    {/* Filter chips — horizontal scroll, no wrap */}
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+                        {['all', 'income', 'expense'].map(t => (
+                            <button key={t} onClick={() => setTypeFilter(t)}
+                                style={{ height: '32px', padding: '0 12px', borderRadius: '999px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
+                                {t === 'all' ? 'All' : t}
+                            </button>
+                        ))}
+                        <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
+                            style={{ height: '32px', padding: '0 10px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
+                            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                        </select>
+                        <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                            style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
+                    </div>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minWidth: '150px' }}>
+                        <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        {['all', 'income', 'expense'].map(t => (
+                            <button key={t} onClick={() => setTypeFilter(t)}
+                                style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
+                                {t === 'all' ? 'All' : t}
+                            </button>
+                        ))}
+                    </div>
+                    <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
+                        style={{ padding: '8px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer' }}>
+                        {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                        style={{ padding: '8px 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
+                </div>
+            )}
 
             {/* List */}
             <div className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', overflow: 'hidden' }}>
