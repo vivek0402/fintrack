@@ -68,52 +68,55 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                     {txs.map(tx => {
                         const isIncome = tx.type === 'income';
                         const isConfirm = confirmId === tx.id;
+                        const categoryColor = tx.category_color || getCategoryColor(tx.category_name);
 
-                        // Mobile row: clean card layout with color dot
+                        // ── Mobile row ──────────────────────────────────────────────
                         const mobileRowInner = (
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '12px',
-                                    borderBottom: '1px solid var(--bg-border)',
-                                    minHeight: '64px',
-                                    gap: '12px',
-                                    opacity: tx.is_regretted ? 0.7 : 1,
-                                }}
-                            >
-                                {/* Left: color dot + description + category */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                    <div style={{
-                                        width: '10px',
-                                        height: '10px',
-                                        borderRadius: '50%',
-                                        background: getCategoryColor(tx.category_name),
-                                        flexShrink: 0,
-                                    }} />
-                                    <div style={{ minWidth: 0 }}>
-                                        <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, wordBreak: 'break-word' }}>
-                                            {tx.description}
-                                        </p>
-                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
-                                            {tx.category_name || 'Uncategorized'}
-                                        </p>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '12px 16px',
+                                borderBottom: '1px solid var(--bg-border)',
+                                background: 'var(--bg-card)',
+                                minHeight: '64px',
+                                opacity: tx.is_regretted ? 0.7 : 1,
+                            }}>
+                                {/* Category color dot */}
+                                <div style={{
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: '50%',
+                                    backgroundColor: categoryColor,
+                                    flexShrink: 0,
+                                    marginRight: 12,
+                                }} />
+
+                                {/* Left: description + category */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {tx.description}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                        {tx.is_regretted && (
+                                            <span style={{ color: 'var(--accent-yellow)' }}>⚠️ </span>
+                                        )}
+                                        {tx.category_name || 'Uncategorized'}
                                     </div>
                                 </div>
+
                                 {/* Right: amount + date */}
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, gap: '2px' }}>
-                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '16px', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
-                                        {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
-                                    </p>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
+                                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', fontFamily: 'Sora, sans-serif' }}>
+                                        {isIncome ? '+' : '-'}₹{parseFloat(tx.amount).toLocaleString('en-IN')}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                                         {formatDate((tx.date || '').split('T')[0])}
-                                    </p>
+                                    </div>
                                 </div>
                             </div>
                         );
 
-                        // Desktop row: full row with action buttons
+                        // ── Desktop row ─────────────────────────────────────────────
                         const desktopRowInner = (
                             <div
                                 style={{
