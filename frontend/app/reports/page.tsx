@@ -234,7 +234,7 @@ export default function ReportsPage() {
                                 </div>
                                 <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '2.2rem', fontWeight: 700, color: gradeColor(healthReport.grade), lineHeight: 1 }}>{healthReport.health_score}<span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 400 }}>/100</span></div>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '8px auto 0', maxWidth: '480px', lineHeight: 1.6 }}>{healthReport.narrative}</p>
-                                <Button variant="ghost" size="sm" onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); } finally { setHealthLoading(false); } }} isLoading={healthLoading} style={{ marginTop: '16px' }}>
+                                <Button variant="secondary" size="sm" onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); } finally { setHealthLoading(false); } }} isLoading={healthLoading} style={{ marginTop: '16px' }}>
                                     <Sparkles size={13} />Regenerate
                                 </Button>
                             </div>
