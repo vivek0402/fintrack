@@ -36,6 +36,8 @@ export function BottomNav() {
     const { logout } = useAuthStore();
     const [showMore, setShowMore] = useState(false);
 
+    const isActive = (href: string) => pathname === href || pathname.startsWith(href);
+    const moreActive = !isActive('/dashboard') && !isActive('/transactions') && !isActive('/analytics');
     const isMoreActive = moreHrefs.includes(pathname);
 
     const handleMoreItemClick = (href: string) => {
@@ -133,12 +135,13 @@ export function BottomNav() {
                 boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.3)',
             }}>
                 {mainTabs.map(({ href, icon: Icon, label }) => {
-                    const isActive = pathname === href;
+                    const active = isActive(href);
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 16px', borderRadius: '12px', color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)', background: isActive ? 'var(--accent-blue-bg)' : 'transparent', transition: 'all 0.2s' }}>
-                                <Icon size={20} />
-                                <span style={{ fontSize: '0.62rem', fontWeight: isActive ? 600 : 400 }}>{label}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '4px 16px' }}>
+                                <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: active ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
+                                <Icon size={22} color={active ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                                <span style={{ fontSize: '11px', color: active ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: active ? 600 : 400 }}>{label}</span>
                             </div>
                         </Link>
                     );
@@ -147,10 +150,11 @@ export function BottomNav() {
                 {/* More tab */}
                 <button
                     onClick={() => setShowMore(v => !v)}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 16px', borderRadius: '12px', border: 'none', background: isMoreActive || showMore ? 'var(--accent-blue-bg)' : 'transparent', cursor: 'pointer', color: isMoreActive || showMore ? 'var(--accent-blue)' : 'var(--text-muted)', transition: 'all 0.2s' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '4px 16px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                 >
-                    <MoreHorizontal size={20} />
-                    <span style={{ fontSize: '0.62rem', fontWeight: isMoreActive || showMore ? 600 : 400 }}>More</span>
+                    <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: moreActive || showMore ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
+                    <MoreHorizontal size={22} color={moreActive || showMore ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '11px', color: moreActive || showMore ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: moreActive || showMore ? 600 : 400 }}>More</span>
                 </button>
             </nav>
         </>
