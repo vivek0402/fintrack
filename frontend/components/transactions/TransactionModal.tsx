@@ -88,12 +88,27 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         setImagePreview(null);
     }, [transaction, isOpen, defaultDate, prefill]);
 
+    // Fuzzy-match an AI category string against the real category list
+    const findCategory = (cats: any[], aiCat: string) => {
+        if (!aiCat || !cats.length) return null;
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+        const ai = norm(aiCat);
+        // 1. Exact
+        let m = cats.find(c => norm(c.name) === ai);
+        if (m) return m;
+        // 2. One contains the other
+        m = cats.find(c => { const db = norm(c.name); return db.includes(ai) || ai.includes(db); });
+        if (m) return m;
+        // 3. Any significant word overlap
+        const aiWords = new Set(ai.split(' ').filter(w => w.length > 2));
+        m = cats.find(c => norm(c.name).split(' ').some((w: string) => w.length > 2 && aiWords.has(w)));
+        return m || null;
+    };
+
     // Match prefill category string → category_id once categories are loaded
     useEffect(() => {
         if (!prefill?.category || !categories.length) return;
-        const matched = categories.find(
-            c => c.name.toLowerCase() === prefill.category.toLowerCase()
-        );
+        const matched = findCategory(categories, prefill.category);
         if (matched) {
             setForm(prev => ({ ...prev, category_id: String(matched.id) }));
         }
@@ -101,9 +116,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     const applyParsed = (parsed: any) => {
         if (!parsed) return;
-        const matched = categories.find(
-            c => c.name.toLowerCase() === (parsed.category || '').toLowerCase()
-        );
+        const matched = findCategory(categories, parsed.category || '');
         setForm(prev => ({
             ...prev,
             amount: parsed.amount ? String(parsed.amount) : prev.amount,
