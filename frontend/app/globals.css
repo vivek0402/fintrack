@@ -271,6 +271,11 @@ h6 {
   100% { background-position:  200% 0; }
 }
 
+@keyframes typingDot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30%            { transform: translateY(-6px); opacity: 1; }
+}
+
 @keyframes pageEnter {
   from {
     opacity: 0;

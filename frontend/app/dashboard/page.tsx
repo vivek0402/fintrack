@@ -14,6 +14,7 @@ import { CategoryChart } from '@/components/dashboard/CategoryChart';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
 import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
+import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -279,7 +280,12 @@ export default function DashboardPage() {
                             <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
                         </div>
                         {aiReport ? (
-                            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 10px 0' }}>{aiReport}</p>
+                            <AIResponseCard
+                                message={aiReport}
+                                type="insight"
+                                onAction={route => router.push(route)}
+                                style={{ marginBottom: '10px' }}
+                            />
                         ) : (
                             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
                         )}
@@ -320,9 +326,11 @@ export default function DashboardPage() {
                             </button>
                         </div>
                         {affordResult && (
-                            <div style={{ padding: '10px 14px', background: sentimentBg(affordResult.sentiment), border: `1px solid ${sentimentBorder(affordResult.sentiment)}`, borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                                {affordResult.recommendation}
-                            </div>
+                            <AIResponseCard
+                                message={affordResult.recommendation}
+                                type="afford"
+                                onAction={route => router.push(route)}
+                            />
                         )}
                     </div>
                 </div>

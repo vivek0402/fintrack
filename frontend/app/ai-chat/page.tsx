@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
+import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
 interface Message {
     role: 'user' | 'ai';
@@ -14,9 +15,10 @@ interface Message {
 }
 
 const SUGGESTIONS = [
-    'How much did I spend this month?',
-    'Am I on track with my budgets?',
-    "What's my biggest spending category?",
+    'How am I doing this month?',
+    'Where am I overspending?',
+    'Can I afford a ₹5000 purchase?',
+    'What should I focus on saving?',
 ];
 
 export default function AiChatPage() {
@@ -91,17 +93,17 @@ export default function AiChatPage() {
                     {messages.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px' }}>
                             <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>✨</div>
+                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '20px', color: 'white' }}>✦</div>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>Ask me anything about your spending, budgets, or goals.</p>
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '400px' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '480px' }}>
                                 {SUGGESTIONS.map(s => (
                                     <button
                                         key={s}
                                         onClick={() => sendMessage(s)}
-                                        style={{ padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px', color: 'var(--text-secondary)', fontSize: '0.84rem', cursor: 'pointer', textAlign: 'left', fontFamily: 'DM Sans, sans-serif', transition: 'border-color 0.15s' }}
-                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)'}
-                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)'}
+                                        style={{ padding: '8px 16px', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '20px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'border-color 150ms, color 150ms' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                                     >
                                         {s}
                                     </button>
@@ -110,38 +112,52 @@ export default function AiChatPage() {
                         </div>
                     ) : (
                         messages.map((msg, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', gap: '8px', alignItems: 'flex-start' }}>
-                                {msg.role === 'ai' && (
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
-                                        <Sparkles size={13} color="var(--accent-blue)" />
+                            <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                {msg.role === 'ai' ? (
+                                    <AIResponseCard
+                                        message={msg.content}
+                                        type="chat"
+                                        onAction={route => router.push(route)}
+                                        style={{ maxWidth: '85%', width: '100%' }}
+                                    />
+                                ) : (
+                                    <div style={{
+                                        maxWidth: '75%',
+                                        padding: '10px 14px',
+                                        borderRadius: '14px 14px 4px 14px',
+                                        background: 'var(--accent-blue)',
+                                        color: '#fff',
+                                        fontSize: '0.875rem',
+                                        lineHeight: 1.55,
+                                        whiteSpace: 'pre-wrap',
+                                    }}>
+                                        {msg.content}
                                     </div>
                                 )}
-                                <div style={{
-                                    maxWidth: '75%',
-                                    padding: '10px 14px',
-                                    borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                                    background: msg.role === 'user' ? 'var(--accent-blue)' : 'var(--bg-secondary)',
-                                    border: msg.role === 'user' ? 'none' : '1px solid var(--bg-border)',
-                                    color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
-                                    fontSize: '0.875rem',
-                                    lineHeight: 1.55,
-                                    whiteSpace: 'pre-wrap',
-                                }}>
-                                    {msg.content}
-                                </div>
                             </div>
                         ))
                     )}
 
                     {/* Typing indicator */}
                     {loading && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '8px', alignItems: 'flex-start' }}>
-                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Sparkles size={13} color="var(--accent-blue)" />
-                            </div>
-                            <div style={{ padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px 14px 14px 4px', display: 'flex', gap: '5px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                            <div style={{
+                                background: 'var(--bg-card)',
+                                border: '0.5px solid var(--bg-border)',
+                                borderLeft: '3px solid var(--accent-blue)',
+                                borderRadius: '12px',
+                                padding: '14px 16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                            }}>
                                 {[0, 1, 2].map(j => (
-                                    <span key={j} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--text-muted)', display: 'inline-block', animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
+                                    <div key={j} style={{
+                                        width: '6px', height: '6px',
+                                        borderRadius: '50%',
+                                        background: 'var(--accent-blue)',
+                                        animation: `typingDot 1.2s ease-in-out ${j * 0.2}s infinite`,
+                                    }} />
                                 ))}
                             </div>
                         </div>
@@ -179,7 +195,6 @@ export default function AiChatPage() {
 
             <style>{`
                 @keyframes spin { to { transform: rotate(360deg); } }
-                @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
             `}</style>
         </AppLayout>
     );
