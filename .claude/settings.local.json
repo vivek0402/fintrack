@@ -12,7 +12,10 @@
       "Bash(py .claude/skills/ui-ux-pro-max/scripts/search.py \"animation accessibility touch\" --domain ux -n 8)",
       "Bash(grep -rn \"cursor: ''''pointer''''\" --include=\"*.tsx\")",
       "Bash(node -e \"require\\(''./src/routes/ai.js''\\); require\\(''./src/utils/gemini.js''\\); console.log\\(''OK — no import errors''\\);\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node scripts/generate-icons.js)",
+      "Bash(node scripts/setup-icons.js)",
+      "Bash(ls \"e:/Projects/Finance Tracker/frontend/public/workbox-\"*.js)"
     ]
   }
 }
