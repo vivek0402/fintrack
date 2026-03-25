@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
 
 interface Props {
     transactions: any[];
@@ -62,15 +62,15 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                             <div key={tx.id}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 20px', borderBottom: '1px solid var(--bg-border)',
-                                    borderLeft: `3px solid ${isIncome ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
+                                    borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
                                 }}
                                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0, background: isIncome ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', border: `1px solid ${isIncome ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0, background: getCategoryBg(tx.category_name), border: '1px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
                                     </div>
                                     <div style={{ minWidth: 0 }}>

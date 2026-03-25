@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
 
 interface Props { transactions: any[]; currency?: string; }
 
@@ -34,8 +34,8 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                 key={tx.id}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 20px', borderBottom: '1px solid var(--bg-border)',
-                                    borderLeft: `3px solid ${isIncome ? 'var(--accent-green)' : 'var(--accent-red)'}`,
+                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
+                                    borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     transition: 'background var(--transition-fast)',
                                 }}
                                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
@@ -44,8 +44,8 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <div style={{
                                         width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
-                                        background: isIncome ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)',
-                                        border: `1px solid ${isIncome ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`,
+                                        background: getCategoryBg(tx.category_name),
+                                        border: '1px solid transparent',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
                                         {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
