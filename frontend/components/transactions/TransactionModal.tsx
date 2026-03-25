@@ -29,6 +29,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // Add-category inline form state
+    const [showAddCat, setShowAddCat] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatColor, setNewCatColor] = useState('#6366f1');
+    const [addCatLoading, setAddCatLoading] = useState(false);
+
     // SMS state
     const [showSmsOverlay, setShowSmsOverlay] = useState(false);
     const [smsText, setSmsText] = useState('');
@@ -221,6 +227,24 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         setTagInput('');
     };
 
+    const handleAddCategory = async () => {
+        if (!newCatName.trim()) return;
+        setAddCatLoading(true);
+        try {
+            const res = await categoriesAPI.create({ name: newCatName.trim(), color: newCatColor, icon: '📦' });
+            const fresh = await categoriesAPI.getAll();
+            setCategories(fresh.data.categories);
+            setForm(prev => ({ ...prev, category_id: String(res.data.category.id) }));
+            setNewCatName('');
+            setNewCatColor('#6366f1');
+            setShowAddCat(false);
+        } catch {
+            // silent
+        } finally {
+            setAddCatLoading(false);
+        }
+    };
+
     const isIncome = form.type === 'income';
 
     return (
@@ -339,8 +363,52 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                         <select value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}
                             style={{ width: '100%', padding: '10px 16px', background: 'var(--bg-secondary)', color: form.category_id ? 'var(--text-primary)' : 'var(--text-muted)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer' }}>
                             <option value="">Select a category</option>
-                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon ? `${cat.icon} ` : ''}{cat.name}</option>)}
                         </select>
+
+                        {/* Inline add category */}
+                        {!showAddCat ? (
+                            <button
+                                type="button"
+                                onClick={() => setShowAddCat(true)}
+                                style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', fontFamily: 'DM Sans, sans-serif' }}
+                            >
+                                + Add category
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Category name"
+                                    value={newCatName}
+                                    onChange={e => setNewCatName(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }}
+                                    autoFocus
+                                    style={{ flex: 1, padding: '7px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }}
+                                />
+                                <input
+                                    type="color"
+                                    value={newCatColor}
+                                    onChange={e => setNewCatColor(e.target.value)}
+                                    style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--bg-border)', borderRadius: '6px', cursor: 'pointer', background: 'none' }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddCategory}
+                                    disabled={addCatLoading || !newCatName.trim()}
+                                    style={{ padding: '7px 12px', background: 'var(--accent-blue)', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '0.8rem', cursor: addCatLoading || !newCatName.trim() ? 'not-allowed' : 'pointer', opacity: addCatLoading || !newCatName.trim() ? 0.6 : 1, fontFamily: 'DM Sans, sans-serif' }}
+                                >
+                                    {addCatLoading ? '…' : 'Add'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowAddCat(false); setNewCatName(''); }}
+                                    style={{ padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     <Input label="Date" type="date" icon={<Calendar size={15} />} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />

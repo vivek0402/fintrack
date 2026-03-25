@@ -8,6 +8,42 @@ require('dotenv').config();
 
 const router = express.Router();
 
+// ─── Default categories seeded per user on registration ─────────────────────
+
+const DEFAULT_CATEGORIES = [
+    { name: 'Food & Dining',     icon: '🍽️',  color: '#f59e0b' },
+    { name: 'Transportation',    icon: '🚗',  color: '#3b82f6' },
+    { name: 'Shopping',          icon: '🛍️',  color: '#ec4899' },
+    { name: 'Entertainment',     icon: '🎬',  color: '#a855f7' },
+    { name: 'Healthcare',        icon: '🏥',  color: '#10b981' },
+    { name: 'Education',         icon: '📚',  color: '#06b6d4' },
+    { name: 'Utilities',         icon: '⚡',  color: '#f97316' },
+    { name: 'Rent & Housing',    icon: '🏠',  color: '#8b5cf6' },
+    { name: 'Salary',            icon: '💰',  color: '#10b981' },
+    { name: 'Investments',       icon: '📈',  color: '#059669' },
+    { name: 'Personal Care',     icon: '💆',  color: '#f43f5e' },
+    { name: 'Family & Kids',     icon: '👨‍👩‍👧',  color: '#fb923c' },
+    { name: 'Travel',            icon: '✈️',  color: '#0ea5e9' },
+    { name: 'Subscriptions',     icon: '📱',  color: '#6366f1' },
+    { name: 'Gifts & Donations', icon: '🎁',  color: '#e879f9' },
+    { name: 'Other',             icon: '📦',  color: '#64748b' },
+];
+
+async function seedDefaultCategories(userId) {
+    const existing = await pool.query(
+        'SELECT COUNT(*) FROM categories WHERE user_id = $1', [userId]
+    );
+    if (parseInt(existing.rows[0].count) === 0) {
+        await Promise.all(DEFAULT_CATEGORIES.map(cat =>
+            pool.query(
+                `INSERT INTO categories (user_id, name, icon, color, is_default)
+                 VALUES ($1, $2, $3, $4, true)`,
+                [userId, cat.name, cat.icon, cat.color]
+            )
+        ));
+    }
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function generateOTP() {
@@ -121,6 +157,11 @@ router.post('/verify-email', async (req, res) => {
             { id: user.id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN }
+        );
+
+        // Seed default categories for new users (guard: only if none exist)
+        seedDefaultCategories(user.id).catch(err =>
+            console.error('[Auth] category seed failed:', err.message)
         );
 
         res.json({ message: 'Email verified. Account activated.', token, user });
