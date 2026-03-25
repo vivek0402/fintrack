@@ -65,7 +65,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
     ];
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '8px', height: '100%' }}>
             {cards.map(card => {
                 const Icon = card.icon;
                 return (

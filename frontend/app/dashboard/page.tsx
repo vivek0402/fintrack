@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
-import { getCurrentMonthYear } from '@/lib/utils';
+import { getCurrentMonthYear, formatCurrency } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -157,9 +157,9 @@ export default function DashboardPage() {
 
     return (
         <AppLayout>
-            {/* Salary Intelligence Banner */}
+            {/* Salary Banner — full-width above grid */}
             {salaryData && !salaryBannerDismissed && salaryData.plan && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', position: 'relative' }}>
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '16px', position: 'relative' }}>
                     <button onClick={dismissSalaryBanner} style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                         <span style={{ fontSize: '1.1rem' }}>💰</span>
@@ -179,92 +179,172 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            <div style={{ marginBottom: '24px' }}>
+            {/* Page header */}
+            <div style={{ marginBottom: '16px' }}>
                 <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Dashboard</h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
             </div>
 
-            <BudgetAlerts budgets={budgets} currency={user.currency} />
-            <SpendingForecast forecast={forecast} currency={user.currency} />
+            {/* Bento Grid */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
+                gap: '12px',
+                gridTemplateAreas: isMobile
+                    ? `"hero" "stats" "ai" "chart" "budget" "recent" "forecast"`
+                    : `"hero hero stats stats" "hero hero chart chart" "ai ai budget budget" "recent recent recent forecast"`,
+            }}>
+                {/* ── HERO TILE ── */}
+                <div style={{ gridArea: 'hero' }}>
+                    <div style={{
+                        position: 'relative', overflow: 'hidden',
+                        background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)',
+                        borderRadius: '16px', padding: '28px',
+                        minHeight: '220px', height: '100%', boxSizing: 'border-box',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                    }}>
+                        {/* Decorative circles */}
+                        <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '60px', height: '60px', background: 'var(--accent-blue)', opacity: 0.06, borderRadius: '50%', pointerEvents: 'none' }} />
+                        <div style={{ position: 'absolute', bottom: '-20px', right: '30px', width: '100px', height: '100px', background: 'var(--accent-green)', opacity: 0.04, borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {dataLoading ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                    {[1, 2, 3, 4].map(i => <div key={i} style={{ height: '110px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px' }} />)}
-                </div>
-            ) : summary && (
-                <StatsCards
-                    totalIncome={summary.total_income}
-                    totalExpenses={summary.total_expenses}
-                    balance={summary.balance}
-                    savingsRate={summary.savings_rate}
-                    currency={user.currency}
-                />
-            )}
+                        {/* Top label row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Net worth</span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{MONTH_NAMES[month]} {year}</span>
+                        </div>
 
-            {/* AI Insights + Afford Check row */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                {/* AI Insights card */}
-                <div className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderLeft: '3px solid var(--accent-blue)', borderRadius: '16px', padding: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>✨</span>
-                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
+                        {/* Large balance + pill */}
+                        <div>
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '40px', fontWeight: 700, color: 'var(--text-primary)', margin: '16px 0 10px 0', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                                {dataLoading ? '—' : formatCurrency(summary?.balance ?? 0, user.currency)}
+                            </p>
+                            {!dataLoading && summary && (
+                                <span style={{
+                                    display: 'inline-flex', alignItems: 'center',
+                                    fontSize: '12px', fontWeight: 600,
+                                    color: summary.balance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                                    background: summary.balance >= 0 ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)',
+                                    border: `1px solid ${summary.balance >= 0 ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`,
+                                    padding: '3px 10px', borderRadius: '20px',
+                                }}>
+                                    {summary.balance >= 0 ? '+' : ''}{formatCurrency(summary.balance, user.currency)} this month
+                                </span>
+                            )}
+                        </div>
+
+                        {/* AI insight snippet or tap prompt */}
+                        <div>
+                            {aiReport ? (
+                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                    {aiReport}
+                                </p>
+                            ) : (
+                                <button
+                                    onClick={handleGenerateReport}
+                                    disabled={aiReportLoading}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: aiReportLoading ? 'wait' : 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'left', fontFamily: 'DM Sans, sans-serif' }}
+                                >
+                                    {aiReportLoading ? 'Generating insight…' : 'Tap to generate your monthly insight →'}
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    {aiReport ? (
-                        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 12px 0' }}>{aiReport}</p>
-                    ) : (
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 12px 0' }}>Get a plain-English summary of your spending this month.</p>
+                </div>
+
+                {/* ── STATS TILE ── */}
+                <div style={{ gridArea: 'stats' }}>
+                    {dataLoading ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', height: '100%' }}>
+                            {[1,2,3,4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', minHeight: '80px' }} />)}
+                        </div>
+                    ) : summary && (
+                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} />
                     )}
-                    <button
-                        onClick={handleGenerateReport}
-                        disabled={aiReportLoading}
-                        style={{ padding: '8px 16px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
-                    >
-                        {aiReportLoading ? (
-                            <>
-                                <span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />
-                                Generating…
-                            </>
-                        ) : aiReport ? 'Regenerate' : 'Generate Report'}
-                    </button>
                 </div>
 
-                {/* Can I afford this? */}
-                <div className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>🤔</span>
-                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                        <input
-                            type="text"
-                            placeholder="e.g. iPhone 15 for ₹79,000"
-                            value={affordQuery}
-                            onChange={e => setAffordQuery(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleAffordCheck()}
-                            style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }}
-                        />
+                {/* ── CHART TILE ── */}
+                <div style={{ gridArea: 'chart', overflow: 'hidden' }}>
+                    <TrendChart trends={trends} />
+                </div>
+
+                {/* ── AI TILE ── */}
+                <div style={{ gridArea: 'ai', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
+
+                    {/* AI Insights section */}
+                    <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px', marginBottom: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '1.1rem' }}>✨</span>
+                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
+                        </div>
+                        {aiReport ? (
+                            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 10px 0' }}>{aiReport}</p>
+                        ) : (
+                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
+                        )}
                         <button
-                            onClick={handleAffordCheck}
-                            disabled={affordLoading || !affordQuery.trim()}
-                            style={{ padding: '8px 14px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}
+                            onClick={handleGenerateReport}
+                            disabled={aiReportLoading}
+                            style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
                         >
-                            {affordLoading ? '…' : 'Ask AI'}
+                            {aiReportLoading ? (
+                                <><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>
+                            ) : aiReport ? 'Regenerate' : 'Generate Report'}
                         </button>
                     </div>
-                    {affordResult && (
-                        <div style={{ padding: '10px 14px', background: sentimentBg(affordResult.sentiment), border: `1px solid ${sentimentBorder(affordResult.sentiment)}`, borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                            {affordResult.recommendation}
+
+                    <div style={{ height: '1px', background: 'var(--bg-border)', margin: '16px 0' }} />
+
+                    {/* Can I Afford widget */}
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                            <span style={{ fontSize: '1.1rem' }}>🤔</span>
+                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
                         </div>
-                    )}
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                            <input
+                                type="text"
+                                placeholder="e.g. iPhone 15 for ₹79,000"
+                                value={affordQuery}
+                                onChange={e => setAffordQuery(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAffordCheck()}
+                                style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }}
+                            />
+                            <button
+                                onClick={handleAffordCheck}
+                                disabled={affordLoading || !affordQuery.trim()}
+                                style={{ padding: '8px 14px', background: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}
+                            >
+                                {affordLoading ? '…' : 'Ask AI'}
+                            </button>
+                        </div>
+                        {affordResult && (
+                            <div style={{ padding: '10px 14px', background: sentimentBg(affordResult.sentiment), border: `1px solid ${sentimentBorder(affordResult.sentiment)}`, borderRadius: '10px', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                {affordResult.recommendation}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── BUDGET TILE ── */}
+                <div style={{ gridArea: 'budget', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                    {budgets.length > 0
+                        ? <BudgetAlerts budgets={budgets} currency={user.currency} />
+                        : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
+                    }
+                </div>
+
+                {/* ── RECENT TILE ── */}
+                <div style={{ gridArea: 'recent', overflow: 'hidden' }}>
+                    <RecentTransactions transactions={transactions} currency={user.currency} />
+                </div>
+
+                {/* ── FORECAST TILE ── */}
+                <div style={{ gridArea: 'forecast', overflow: 'hidden' }}>
+                    <SpendingForecast forecast={forecast} currency={user.currency} />
                 </div>
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: '16px', marginBottom: '16px' }}>
-                <TrendChart trends={trends} />
-                <CategoryChart data={categories} currency={user.currency} />
-            </div>
-
-            <RecentTransactions transactions={transactions} currency={user.currency} />
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
