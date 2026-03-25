@@ -56,12 +56,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
 
     useEffect(() => {
         if (transaction) {
+            const rawDate = (transaction.date || '').split('T')[0];
             setForm({
-                type: transaction.type, amount: transaction.amount,
-                description: transaction.description, notes: transaction.notes || '',
-                date: transaction.date.split('T')[0],
+                type: transaction.type,
+                amount: transaction.amount,
+                description: transaction.description,
+                notes: transaction.notes || '',
+                date: rawDate || new Date().toISOString().split('T')[0],
                 category_id: transaction.category_id || '',
-                tags: transaction.tags || [],
+                tags: Array.isArray(transaction.tags) ? transaction.tags : [],
             });
         } else {
             setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toISOString().split('T')[0], category_id: '', tags: [] });
