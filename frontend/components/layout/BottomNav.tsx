@@ -126,12 +126,12 @@ export function BottomNav() {
             <nav style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
                 background: 'var(--bg-secondary)',
-                borderTop: '1px solid var(--bg-border)',
+                borderTop: '0.5px solid var(--bg-border)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-around',
                 paddingTop: '8px',
                 paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
                 zIndex: 100,
-                boxShadow: '0 -4px 20px rgba(0,0,0,0.3)',
+                boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.3)',
             }}>
                 {mainTabs.map(({ href, icon: Icon, label }) => {
                     const isActive = pathname === href;

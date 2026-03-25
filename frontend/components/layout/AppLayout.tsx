@@ -18,7 +18,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     useEffect(() => { loadTheme(); }, []);
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <div className="page-glow" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
             <style>{`
                 .fintrack-card {
                     transition: transform 150ms ease-out, box-shadow 150ms ease-out;

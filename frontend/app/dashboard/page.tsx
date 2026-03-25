@@ -202,6 +202,7 @@ export default function DashboardPage() {
                         borderRadius: '16px', padding: '28px',
                         minHeight: '220px', height: '100%', boxSizing: 'border-box',
                         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                        boxShadow: 'var(--hero-glow)',
                     }}>
                         {/* Decorative circles */}
                         <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '60px', height: '60px', background: 'var(--accent-blue)', opacity: 0.06, borderRadius: '50%', pointerEvents: 'none' }} />
