@@ -3,14 +3,33 @@ import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 
 export const viewport: Viewport = {
-  themeColor: '#0a0f1e',
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)',  color: '#0a0f1e' },
+    { media: '(prefers-color-scheme: light)', color: '#f0f4f8' },
+  ],
 };
 
 export const metadata: Metadata = {
   title: 'FinTrack — Personal Finance',
   description: 'Track your income, expenses and budgets',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'FinTrack',
+  },
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({
