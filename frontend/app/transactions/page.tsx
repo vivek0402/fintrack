@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search, Download, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
@@ -18,6 +18,7 @@ const MONTHS = ['All Months', 'January', 'February', 'March', 'April', 'May', 'J
 
 export default function TransactionsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
@@ -72,6 +73,12 @@ export default function TransactionsPage() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+    useEffect(() => {
+        if (searchParams.get('add') === 'true') {
+            setModalOpen(true);
+            router.replace('/transactions');
+        }
+    }, [searchParams]);
 
     const fetchTransactions = async () => {
         if (!user) return;

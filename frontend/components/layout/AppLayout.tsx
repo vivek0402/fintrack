@@ -4,8 +4,11 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
+import { FAB } from '@/components/ui/FAB';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
+
+const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
@@ -29,6 +32,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 {children}
             </main>
             {isMobile && <BottomNav />}
+            {isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && <FAB />}
         </div>
     );
 }

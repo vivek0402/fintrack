@@ -197,6 +197,9 @@ h6 {
   border-radius: 4px;
 }
 
+.fab-btn { transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
+.fab-btn:active { transform: scale(0.93); }
+
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
