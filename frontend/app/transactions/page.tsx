@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+
 import { Plus, Search, Download, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
@@ -16,7 +17,7 @@ import { exportToCSV } from '@/lib/utils';
 
 const MONTHS = ['All Months', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-export default function TransactionsPage() {
+function TransactionsPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isLoading, loadFromStorage } = useAuthStore();
@@ -253,4 +254,8 @@ export default function TransactionsPage() {
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
+}
+
+export default function TransactionsPage() {
+    return <Suspense><TransactionsPageInner /></Suspense>;
 }
