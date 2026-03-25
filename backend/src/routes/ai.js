@@ -187,90 +187,30 @@ Financial data: ${context}`,
     }
 });
 
-// ─── FEATURE 2: AI Chat (with memory) ─────────────────────────────
+// ─── FEATURE 2: AI Chat ─────────────────────────────────────────────
 router.post('/chat', authMiddleware, async (req, res) => {
     try {
-        const { message, history } = req.body;
+        const { message } = req.body;
         if (!message) return res.status(400).json({ error: 'Message is required' });
 
-        const userId = req.user.id;
-
-        const [txRes, budgetRes, goalRes, memoryRes] = await Promise.all([
-            pool.query(
-                `SELECT t.*, c.name as category_name FROM transactions t
-                 LEFT JOIN categories c ON t.category_id = c.id
-                 WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '3 months'
-                 ORDER BY t.date DESC`,
-                [userId]
-            ),
-            pool.query(`SELECT b.*, c.name as category_name FROM budgets b LEFT JOIN categories c ON b.category_id = c.id WHERE b.user_id = $1`, [userId]),
-            pool.query(`SELECT * FROM savings_goals WHERE user_id = $1`, [userId]),
-            pool.query(`SELECT summary, message_count FROM ai_chat_memory WHERE user_id = $1`, [userId]),
-        ]);
-
-        const memory = memoryRes.rows[0];
-        const memoryContext = memory && memory.summary ? `\nWhat you know about this user from past conversations: ${memory.summary}` : '';
-
-        const context = JSON.stringify({
-            transactions: txRes.rows.map(t => ({ date: t.date, type: t.type, amount: parseFloat(t.amount), description: t.description, category: t.category_name })),
-            budgets: budgetRes.rows.map(b => ({ category: b.category_name, amount: parseFloat(b.amount), month: b.month, year: b.year })),
-            goals: goalRes.rows.map(g => ({ name: g.name, target: parseFloat(g.target_amount), saved: parseFloat(g.saved_amount), deadline: g.deadline })),
-        });
-
-        const systemPrompt = `You are a helpful personal finance advisor for FinTrack. You have access to the user's financial data below. Answer questions specifically using their data. Be concise, friendly, and use Indian Rupee (₹) formatting. Never make up numbers — only use what's in the data provided.${memoryContext}\nUser's financial data: ${context}`;
-
         const groq = getGroqClient();
-        const messages = [
-            { role: 'system', content: systemPrompt },
-            ...(history || []).map(h => ({
-                role: h.role === 'user' ? 'user' : 'assistant',
-                content: h.content,
-            })),
-            { role: 'user', content: message },
-        ];
-
         const completion = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
-            messages,
+            messages: [
+                {
+                    role: 'system',
+                    content: `You are a helpful financial advisor for an Indian personal finance app called FinTrack. Give clear, practical advice. Keep responses concise and relevant to personal finance. Use INR (₹) for currency.`,
+                },
+                { role: 'user', content: message },
+            ],
             max_tokens: 1000,
         });
-        const reply = completion.choices[0].message.content.trim();
+        const reply = completion.choices[0].message.content;
 
-        // Save memory every 10 messages or update rolling summary
-        const currentCount = (memory?.message_count || 0) + 1;
-        if (currentCount % 10 === 0 || !memory) {
-            const allMessages = [...(history || []), { role: 'user', content: message }, { role: 'ai', content: reply }];
-            const convText = allMessages.map(m => `${m.role}: ${m.content}`).join('\n');
-            try {
-                const summaryCompletion = await groq.chat.completions.create({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [{
-                        role: 'user',
-                        content: `Summarize this financial chat conversation into 2-3 key facts about the user's financial situation, goals, and concerns. Be specific. This will be used as context for future conversations.\nConversation:\n${convText.slice(0, 4000)}`,
-                    }],
-                    max_tokens: 500,
-                });
-                const summary = summaryCompletion.choices[0].message.content.trim();
-                await pool.query(
-                    `INSERT INTO ai_chat_memory (user_id, summary, message_count, updated_at)
-                     VALUES ($1, $2, $3, NOW())
-                     ON CONFLICT (user_id) DO UPDATE SET summary = $2, message_count = $3, updated_at = NOW()`,
-                    [userId, summary, currentCount]
-                );
-            } catch { /* silent — don't fail chat if memory save fails */ }
-        } else {
-            await pool.query(
-                `INSERT INTO ai_chat_memory (user_id, summary, message_count, updated_at)
-                 VALUES ($1, '', $2, NOW())
-                 ON CONFLICT (user_id) DO UPDATE SET message_count = $2, updated_at = NOW()`,
-                [userId, currentCount]
-            ).catch(() => {});
-        }
-
-        res.json({ reply, memory_active: !!(memory?.summary) });
+        res.json({ reply });
     } catch (err) {
         console.error('AI chat error:', err.message);
-        res.json({ reply: 'I\'m having trouble connecting right now. Please try again in a moment.', memory_active: false });
+        res.status(500).json({ error: 'AI chat unavailable' });
     }
 });
 

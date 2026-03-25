@@ -27,7 +27,6 @@ export default function AiChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [memoryActive, setMemoryActive] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { loadFromStorage(); }, []);
@@ -42,10 +41,10 @@ export default function AiChatPage() {
         setInput('');
         setLoading(true);
         try {
-            const history = messages.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
-            const res = await aiAPI.chat(text.trim(), history);
-            if (res.data.memory_active) setMemoryActive(true);
-            setMessages([...newMessages, { role: 'ai', content: res.data.reply }]);
+            const res = await aiAPI.chat(text.trim(), []);
+            const reply = res.data.reply;
+            if (!reply) throw new Error('No reply');
+            setMessages([...newMessages, { role: 'ai', content: reply }]);
         } catch {
             setMessages([...newMessages, { role: 'ai', content: "I'm having trouble connecting right now. Please try again." }]);
         } finally {
@@ -77,11 +76,6 @@ export default function AiChatPage() {
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                 <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>AI Finance Advisor</h1>
-                                {memoryActive && (
-                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 8px', borderRadius: '20px' }}>
-                                        🧠 Memory active
-                                    </span>
-                                )}
                             </div>
                             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Ask anything about your finances</p>
                         </div>
