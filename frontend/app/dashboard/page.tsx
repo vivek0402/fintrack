@@ -80,7 +80,7 @@ export default function DashboardPage() {
         // Fetch salary intelligence silently
         aiAPI.salaryIntelligence().then(res => {
             if (res.data.detected) setSalaryData(res.data);
-        }).catch(() => {});
+        }).catch(() => { });
     }, [user]);
 
     const handleGenerateReport = async () => {
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             </div>
             <SkeletonCard height={160} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                {[1,2,3,4].map(i => <SkeletonCard key={i} height={80} />)}
+                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={80} />)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', marginBottom: '16px' }}>
                 <SkeletonCard height={200} />
@@ -136,7 +136,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
                 <Skeleton width="30%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
-                {[1,2,3,4,5].map(i => (
+                {[1, 2, 3, 4, 5].map(i => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '12px', paddingBottom: '12px', borderBottom: i < 5 ? '1px solid var(--bg-border)' : 'none' }}>
                         <SkeletonCircle size={40} />
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -205,13 +205,12 @@ export default function DashboardPage() {
                         display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                         boxShadow: 'var(--hero-glow)',
                     }}>
-                        {/* Decorative circles */}
-                        <div style={{ position: 'absolute', top: '-10px', right: '-10px', width: '60px', height: '60px', background: 'var(--accent-blue)', opacity: 0.06, borderRadius: '50%', pointerEvents: 'none' }} />
+                        {/* Decorative circle */}
                         <div style={{ position: 'absolute', bottom: '-20px', right: '30px', width: '100px', height: '100px', background: 'var(--accent-green)', opacity: 0.04, borderRadius: '50%', pointerEvents: 'none' }} />
 
                         {/* Top label row */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Net worth</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Net Balance</span>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{MONTH_NAMES[month]} {year}</span>
                         </div>
 
@@ -257,7 +256,7 @@ export default function DashboardPage() {
                 <div style={{ gridArea: 'stats' }}>
                     {dataLoading ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', height: '100%' }}>
-                            {[1,2,3,4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', minHeight: '80px' }} />)}
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', minHeight: '80px' }} />)}
                         </div>
                     ) : summary && (
                         <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} />
@@ -311,7 +310,7 @@ export default function DashboardPage() {
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                             <input
                                 type="text"
-                                placeholder="e.g. iPhone 15 for ₹79,000"
+                                placeholder="Item X for ₹Y"
                                 value={affordQuery}
                                 onChange={e => setAffordQuery(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleAffordCheck()}

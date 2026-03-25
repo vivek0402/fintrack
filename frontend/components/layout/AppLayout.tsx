@@ -28,7 +28,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <Sidebar />
-            <main key={pathname} style={{ marginLeft: isMobile ? '0' : '220px', flex: 1, paddingTop: isMobile ? '16px' : '28px', paddingRight: isMobile ? '16px' : '32px', paddingBottom: isMobile ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : '28px', paddingLeft: isMobile ? '16px' : '32px', minHeight: '100vh', overflowX: 'hidden', background: 'var(--bg-primary)', color: 'var(--text-primary)', animation: 'pageEnter 0.2s ease-out forwards' }}>
+            <main key={pathname} style={{ marginLeft: isMobile ? '0' : '220px', flex: 1, paddingTop: isMobile ? '16px' : '28px', paddingRight: isMobile ? '16px' : '32px', paddingBottom: isMobile ? 'calc(160px + env(safe-area-inset-bottom))' : '28px', paddingLeft: isMobile ? '16px' : '32px', minHeight: '100vh', overflowX: 'hidden', background: 'var(--bg-primary)', color: 'var(--text-primary)', animation: 'pageEnter 0.2s ease-out forwards' }}>
                 {children}
             </main>
             {isMobile && <BottomNav />}
