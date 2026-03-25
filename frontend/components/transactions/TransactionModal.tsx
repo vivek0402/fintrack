@@ -12,10 +12,11 @@ interface Props {
     onClose: () => void;
     onSuccess: () => void;
     transaction?: any;
+    prefill?: any;
     defaultDate?: string;
 }
 
-export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defaultDate }: Props) {
+export function TransactionModal({ isOpen, onClose, onSuccess, transaction, prefill, defaultDate }: Props) {
     const isEditing = !!transaction;
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense',
@@ -55,6 +56,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
         categoriesAPI.getAll().then(res => setCategories(res.data.categories));
     }, [isOpen]);
 
+    // Populate form when modal opens or transaction/prefill changes
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
@@ -67,22 +69,49 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                 category_id: transaction.category_id || '',
                 tags: Array.isArray(transaction.tags) ? transaction.tags : [],
             });
+        } else if (prefill) {
+            setForm({
+                type: prefill.type === 'income' ? 'income' : 'expense',
+                amount: prefill.amount ? String(prefill.amount) : '',
+                description: prefill.description || '',
+                notes: prefill.notes || '',
+                date: prefill.date || defaultDate || new Date().toISOString().split('T')[0],
+                category_id: '', // matched below once categories load
+                tags: [],
+            });
+            setTagInput('');
         } else {
             setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toISOString().split('T')[0], category_id: '', tags: [] });
             setTagInput('');
         }
         setError('');
         setImagePreview(null);
-    }, [transaction, isOpen, defaultDate]);
+    }, [transaction, isOpen, defaultDate, prefill]);
+
+    // Match prefill category string → category_id once categories are loaded
+    useEffect(() => {
+        if (!prefill?.category || !categories.length) return;
+        const matched = categories.find(
+            c => c.name.toLowerCase() === prefill.category.toLowerCase()
+        );
+        if (matched) {
+            setForm(prev => ({ ...prev, category_id: String(matched.id) }));
+        }
+    }, [prefill, categories]);
 
     const applyParsed = (parsed: any) => {
         if (!parsed) return;
+        const matched = categories.find(
+            c => c.name.toLowerCase() === (parsed.category || '').toLowerCase()
+        );
         setForm(prev => ({
             ...prev,
             amount: parsed.amount ? String(parsed.amount) : prev.amount,
             description: parsed.description || parsed.merchant || prev.description,
             date: parsed.date || prev.date,
             type: parsed.type === 'income' ? 'income' : 'expense',
+            notes: parsed.notes || prev.notes,
+            category_id: matched ? String(matched.id) : prev.category_id,
         }));
     };
 
@@ -189,7 +218,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                     <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '420px', boxShadow: 'var(--shadow-modal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>📱 Paste Bank SMS</span>
-                            <button onClick={() => setShowSmsOverlay(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={16} /></button>
+                            <button type="button" onClick={() => setShowSmsOverlay(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={16} /></button>
                         </div>
                         <textarea
                             autoFocus
@@ -256,7 +285,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                 {imagePreview && (
                     <div style={{ marginBottom: '12px', position: 'relative', display: 'inline-block' }}>
                         <img src={imagePreview} alt="Receipt preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid var(--bg-border)' }} />
-                        <button onClick={() => setImagePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: 'var(--accent-red)', border: 'none', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+                        <button type="button" onClick={() => setImagePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: 'var(--accent-red)', border: 'none', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                     </div>
                 )}
 

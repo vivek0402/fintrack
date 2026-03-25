@@ -28,6 +28,7 @@ function TransactionsPageInner() {
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState<any>(null);
+    const [prefillData, setPrefillData] = useState<any>(null);
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState(new Date().getMonth() + 1);
@@ -60,10 +61,13 @@ function TransactionsPageInner() {
         setQuickAddError('');
         try {
             const res = await aiAPI.parseSMS(quickAddText.trim());
-            const parsed = res.data.transaction || res.data;
+            const parsed = res.data.parsed;
+            if (!parsed) throw new Error('No parsed result');
             setQuickAddOpen(false);
             setQuickAddText('');
-            setEditingTx(parsed);
+            // Open modal in ADD mode with prefill — never set editingTx here
+            setEditingTx(null);
+            setPrefillData(parsed);
             setModalOpen(true);
         } catch (e: any) {
             setQuickAddError('Could not parse — try rephrasing');
@@ -111,6 +115,12 @@ function TransactionsPageInner() {
     const totalIncome = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
 
+    const handleModalClose = () => {
+        setModalOpen(false);
+        setEditingTx(null);
+        setPrefillData(null);
+    };
+
     if (isLoading || !user) return (
         <AppLayout>
             <div style={{ marginBottom: '24px' }}>
@@ -157,7 +167,7 @@ function TransactionsPageInner() {
                     <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
                         <Sparkles size={16} />Quick Add ✨
                     </Button>
-                    <Button onClick={() => { setEditingTx(null); setModalOpen(true); }} size="md">
+                    <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
                         <Plus size={16} />{isMobile ? 'Add' : 'Add Transaction'}
                     </Button>
                 </div>
@@ -203,11 +213,11 @@ function TransactionsPageInner() {
                 {loading ? (
                     <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
                 ) : (
-                    <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setModalOpen(true); }} onRefresh={fetchTransactions} />
+                    <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
                 )}
             </div>
 
-            <TransactionModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditingTx(null); }} onSuccess={fetchTransactions} transaction={editingTx} />
+            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
 
             {/* Quick Add Modal */}
             {quickAddOpen && (
@@ -223,7 +233,7 @@ function TransactionsPageInner() {
                                     <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>Describe the transaction in plain language</p>
                                 </div>
                             </div>
-                            <button onClick={() => setQuickAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
+                            <button type="button" onClick={() => setQuickAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
                         </div>
 
                         <textarea
