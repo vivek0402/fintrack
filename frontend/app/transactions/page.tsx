@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { Plus, Search, Download, Sparkles, X } from 'lucide-react';
+import { Plus, Search, Download, Sparkles, X, CalendarDays, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -15,7 +15,10 @@ import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { exportToCSV } from '@/lib/utils';
 
-const MONTHS = ['All Months', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const NOW_YEAR = new Date().getFullYear();
+const NOW_MONTH = new Date().getMonth() + 1;
+const YEARS = Array.from({ length: NOW_YEAR - 2021 }, (_, i) => 2022 + i);
 
 function TransactionsPageInner() {
     const router = useRouter();
@@ -31,14 +34,17 @@ function TransactionsPageInner() {
     const [prefillData, setPrefillData] = useState<any>(null);
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
-    const [monthFilter, setMonthFilter] = useState(new Date().getMonth() + 1);
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(NOW_MONTH);
+    const [selectedYear, setSelectedYear] = useState(NOW_YEAR);
+    const [pendingMonth, setPendingMonth] = useState<number | null>(NOW_MONTH);
+    const [pendingYear, setPendingYear] = useState(NOW_YEAR);
+    const [showMonthSheet, setShowMonthSheet] = useState(false);
     const [tagFilter, setTagFilter] = useState('');
     const [quickAddOpen, setQuickAddOpen] = useState(false);
     const [quickAddText, setQuickAddText] = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState('');
     const [placeholderIdx, setPlaceholderIdx] = useState(0);
-    const currentYear = new Date().getFullYear();
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -47,6 +53,10 @@ function TransactionsPageInner() {
         'netflix subscription 649',
         'grocery shopping 2300 at dmart',
     ];
+
+    const filterLabel = selectedMonth
+        ? `${MONTHS_SHORT[selectedMonth - 1]} ${selectedYear}`
+        : 'All time';
 
     useEffect(() => {
         if (!quickAddOpen) return;
@@ -88,14 +98,14 @@ function TransactionsPageInner() {
         if (!user) return;
         setLoading(true);
         try {
-            const params = monthFilter > 0 ? { month: monthFilter, year: currentYear } : {};
+            const params = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
             const res = await transactionsAPI.getAll(params);
             setTransactions(res.data.transactions);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
 
-    useEffect(() => { if (user) fetchTransactions(); }, [user, monthFilter]);
+    useEffect(() => { if (user) fetchTransactions(); }, [user, selectedMonth, selectedYear]);
 
     useEffect(() => {
         let result = [...transactions];
@@ -119,6 +129,33 @@ function TransactionsPageInner() {
         setEditingTx(null);
         setPrefillData(null);
     };
+
+    const openMonthSheet = () => {
+        setPendingMonth(selectedMonth);
+        setPendingYear(selectedYear);
+        setShowMonthSheet(true);
+    };
+
+    const applyMonthFilter = () => {
+        setSelectedMonth(pendingMonth);
+        setSelectedYear(pendingYear);
+        setShowMonthSheet(false);
+    };
+
+    const clearMonthFilter = () => {
+        setSelectedMonth(null);
+        setSelectedYear(NOW_YEAR);
+        setShowMonthSheet(false);
+    };
+
+    // Month filter chip shared style helper
+    const monthChipStyle = (active: boolean): React.CSSProperties => ({
+        height: '32px', padding: '0 12px', borderRadius: '999px', border: active ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)',
+        background: active ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: active ? 'var(--accent-blue)' : 'var(--text-secondary)',
+        fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' as const, flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'DM Sans, sans-serif',
+        transition: 'all var(--transition-fast)',
+    });
 
     if (isLoading || !user) return (
         <AppLayout>
@@ -176,7 +213,7 @@ function TransactionsPageInner() {
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
+                        <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
                             <Download size={16} />Export CSV
                         </Button>
                         <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
@@ -220,11 +257,9 @@ function TransactionsPageInner() {
             {/* Filters */}
             {isMobile ? (
                 <div style={{ marginBottom: '16px' }}>
-                    {/* Search bar — full width */}
                     <div style={{ marginBottom: '10px' }}>
                         <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
                     </div>
-                    {/* Filter chips — horizontal scroll, no wrap */}
                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
                         {['all', 'income', 'expense'].map(t => (
                             <button key={t} onClick={() => setTypeFilter(t)}
@@ -232,10 +267,11 @@ function TransactionsPageInner() {
                                 {t === 'all' ? 'All' : t}
                             </button>
                         ))}
-                        <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
-                            style={{ height: '32px', padding: '0 10px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                        </select>
+                        <button onClick={openMonthSheet} style={monthChipStyle(!!selectedMonth)}>
+                            <CalendarDays size={12} />
+                            {filterLabel}
+                            <ChevronDown size={11} />
+                        </button>
                         <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
                             style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
                     </div>
@@ -253,10 +289,11 @@ function TransactionsPageInner() {
                             </button>
                         ))}
                     </div>
-                    <select value={monthFilter} onChange={e => setMonthFilter(Number(e.target.value))}
-                        style={{ padding: '8px 12px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', cursor: 'pointer' }}>
-                        {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-                    </select>
+                    <button onClick={openMonthSheet} style={{ padding: '8px 12px', borderRadius: '10px', border: selectedMonth ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)', background: selectedMonth ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: selectedMonth ? 'var(--accent-blue)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif', transition: 'all var(--transition-fast)' }}>
+                        <CalendarDays size={14} />
+                        {filterLabel}
+                        <ChevronDown size={13} />
+                    </button>
                     <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
                         style={{ padding: '8px 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
                 </div>
@@ -272,6 +309,90 @@ function TransactionsPageInner() {
             </div>
 
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
+
+            {/* Month + Year filter sheet */}
+            {showMonthSheet && (
+                <>
+                    <div onClick={() => setShowMonthSheet(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 400, backdropFilter: 'blur(2px)' }} />
+                    <div style={{
+                        position: 'fixed', left: 0, right: 0,
+                        bottom: isMobile ? 0 : 'auto',
+                        top: isMobile ? 'auto' : '50%',
+                        ...(isMobile ? {} : { left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', width: '360px' }),
+                        background: 'var(--bg-secondary)',
+                        borderTop: isMobile ? '1px solid var(--bg-border)' : 'none',
+                        border: isMobile ? undefined : '1px solid var(--bg-border)',
+                        borderRadius: isMobile ? '20px 20px 0 0' : '20px',
+                        zIndex: 500,
+                        padding: '20px 16px',
+                        paddingBottom: isMobile ? 'calc(20px + env(safe-area-inset-bottom))' : '20px',
+                        boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
+                        maxHeight: isMobile ? '80vh' : '520px',
+                        overflowY: 'auto',
+                    }}>
+                        {/* Sheet header */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>Filter by period</span>
+                            <button onClick={() => setShowMonthSheet(false)} style={{ background: 'var(--bg-hover)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        {/* Section 1 — Year pills */}
+                        <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px 0' }}>Year</p>
+                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '4px', marginBottom: '20px' }}>
+                            {YEARS.map(yr => (
+                                <button key={yr} onClick={() => setPendingYear(yr)} style={{
+                                    padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
+                                    background: pendingYear === yr ? 'var(--accent-blue)' : 'var(--bg-hover)',
+                                    color: pendingYear === yr ? '#fff' : 'var(--text-secondary)',
+                                    fontSize: '14px', fontWeight: 600, flexShrink: 0,
+                                    fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
+                                }}>
+                                    {yr}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Section 2 — Month grid */}
+                        <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px 0' }}>Month</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+                            {MONTHS_SHORT.map((name, idx) => {
+                                const m = idx + 1;
+                                const isFuture = pendingYear === NOW_YEAR && m > NOW_MONTH;
+                                const isSelected = pendingMonth === m;
+                                return (
+                                    <button
+                                        key={m}
+                                        onClick={() => !isFuture && setPendingMonth(m)}
+                                        style={{
+                                            borderRadius: '10px', padding: '10px 0', textAlign: 'center',
+                                            fontSize: '13px', fontWeight: 500, cursor: isFuture ? 'not-allowed' : 'pointer',
+                                            border: 'none',
+                                            background: isSelected ? 'var(--accent-blue)' : 'var(--bg-hover)',
+                                            color: isSelected ? '#fff' : 'var(--text-secondary)',
+                                            opacity: isFuture ? 0.4 : 1,
+                                            fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
+                                        }}
+                                    >
+                                        {name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Section 3 — Action row */}
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={clearMonthFilter} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--bg-hover)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                                Clear
+                            </button>
+                            <button onClick={applyMonthFilter} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Quick Add Modal */}
             {quickAddOpen && (
