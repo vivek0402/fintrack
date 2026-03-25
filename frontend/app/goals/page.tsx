@@ -10,6 +10,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton'
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { formatCurrency } from '@/lib/utils';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
@@ -132,16 +133,10 @@ export default function GoalsPage() {
             </div>
 
             {/* Life Event Modal */}
-            {showLifeEvent && (
-                <>
-                    <div onClick={() => setShowLifeEvent(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101, boxShadow: 'var(--shadow-modal)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Sparkles size={18} color="var(--accent-blue)" />
-                                <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Plan a Life Event</h2>
-                            </div>
-                            <button onClick={() => setShowLifeEvent(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '6px', borderRadius: '8px' }}><XIcon size={18} /></button>
+            <Modal isOpen={showLifeEvent} onClose={() => setShowLifeEvent(false)} title="Plan a Life Event" maxWidth="500px">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                            <Sparkles size={18} color="var(--accent-blue)" />
+                            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Plan a Life Event</h2>
                         </div>
 
                         {!lifeEventResult ? (
@@ -221,9 +216,7 @@ export default function GoalsPage() {
                                 </div>
                             </div>
                         )}
-                    </div>
-                </>
-            )}
+            </Modal>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
@@ -266,11 +259,7 @@ export default function GoalsPage() {
             )}
 
             {/* Add Funds Modal */}
-            {fundsGoalId && (
-                <>
-                    <div onClick={() => setFundsGoalId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '360px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101, boxShadow: 'var(--shadow-modal)' }}>
-                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Update Savings</h3>
+            <Modal isOpen={!!fundsGoalId} onClose={() => { setFundsGoalId(null); setFundsAmount(''); }} title="Update Savings" maxWidth="360px">
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                             {(['add', 'withdraw'] as const).map(t => (
                                 <button key={t} type="button" onClick={() => setFundsType(t)}
@@ -284,9 +273,7 @@ export default function GoalsPage() {
                             <Button onClick={handleAddFunds} isLoading={fundsLoading} size="md" style={{ flex: 1 }}>Confirm</Button>
                             <Button variant="secondary" size="md" onClick={() => { setFundsGoalId(null); setFundsAmount(''); }}>Cancel</Button>
                         </div>
-                    </div>
-                </>
-            )}
+            </Modal>
 
             {loading ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>

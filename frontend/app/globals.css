@@ -200,6 +200,24 @@ h6 {
 .fab-btn { transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
 .fab-btn:active { transform: scale(0.93); }
 
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes sheetDown {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.sheet-enter { animation: sheetUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+.sheet-exit  { animation: sheetDown 0.22s ease-in forwards; }
+
+@media (max-width: 768px) {
+  .sheet-form-field { margin-bottom: 16px; }
+  .sheet-form-field input,
+  .sheet-form-field select,
+  .sheet-form-field textarea { min-height: 44px; font-size: 16px; }
+}
+
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }

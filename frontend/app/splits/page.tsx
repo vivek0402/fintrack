@@ -8,6 +8,7 @@ import { splitsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/lib/utils';
 
 export default function SplitsPage() {
@@ -123,14 +124,7 @@ export default function SplitsPage() {
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <>
-                    <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101, boxShadow: 'var(--shadow-modal)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>New Split</h2>
-                            <button onClick={() => setShowModal(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '6px', borderRadius: '8px' }}><X size={18} /></button>
-                        </div>
+            <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Split" maxWidth="500px">
 
                         {/* Natural language input */}
                         <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px' }}>
@@ -203,9 +197,7 @@ export default function SplitsPage() {
                                 <Button type="submit" size="lg" isLoading={formLoading}>Create Split</Button>
                             </div>
                         </form>
-                    </div>
-                </>
-            )}
+            </Modal>
 
             {/* Splits list */}
             {loading ? (

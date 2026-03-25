@@ -5,7 +5,7 @@ import { X, Calendar, FileText, Mic, Camera } from 'lucide-react';
 import { transactionsAPI, categoriesAPI, aiAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useIsMobile } from '@/hooks/useWindowSize';
+import { Modal } from '@/components/ui/Modal';
 
 interface Props {
     isOpen: boolean;
@@ -17,7 +17,6 @@ interface Props {
 
 export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defaultDate }: Props) {
     const isEditing = !!transaction;
-    const isMobile = useIsMobile();
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense',
         amount: '', description: '', notes: '',
@@ -174,17 +173,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
         setTagInput('');
     };
 
-    if (!isOpen) return null;
-
     const isIncome = form.type === 'income';
 
     return (
-        <>
-            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', zIndex: 100 }} />
-
-            {/* SMS overlay */}
+        <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Edit Transaction' : 'Add Transaction'}>
+            {/* SMS overlay — position:fixed, renders above the modal */}
             {showSmsOverlay && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
                     <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '420px', boxShadow: 'var(--shadow-modal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>📱 Paste Bank SMS</span>
@@ -205,29 +200,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                     </div>
                 </div>
             )}
-
-            <div style={{
-                position: 'fixed', zIndex: 101,
-                ...(isMobile
-                    ? { bottom: 0, left: 0, right: 0, borderRadius: '20px 20px 0 0', maxHeight: '92vh' }
-                    : { top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '480px', borderRadius: '20px', maxHeight: '90vh' }
-                ),
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--bg-border)',
-                boxShadow: 'var(--shadow-modal)',
-                overflowY: 'auto',
-                padding: '24px',
-            }}>
-                {isMobile && <div style={{ width: '36px', height: '4px', background: 'var(--bg-border)', borderRadius: '2px', margin: '0 auto 16px' }} />}
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                        {isEditing ? 'Edit Transaction' : 'Add Transaction'}
-                    </h2>
-                    <button onClick={onClose} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '6px', borderRadius: '8px' }}>
-                        <X size={18} />
-                    </button>
-                </div>
 
                 {/* AI Input helpers */}
                 {!isEditing && (
@@ -351,8 +323,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                         <Button type="submit" size="lg" isLoading={loading}>{isEditing ? 'Save Changes' : 'Add Transaction'}</Button>
                     </div>
                 </form>
-            </div>
             <style>{`@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }`}</style>
-        </>
+        </Modal>
     );
 }
