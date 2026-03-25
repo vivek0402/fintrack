@@ -201,3 +201,21 @@ h6 {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
 }
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pageEnter {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}

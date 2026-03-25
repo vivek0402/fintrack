@@ -152,7 +152,7 @@ export default function BudgetsPage() {
                         const isConfirmDelete = confirmDeleteId === budget.id;
 
                         return (
-                            <div key={budget.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isOver ? 'var(--accent-red-border)' : isNear ? 'var(--accent-yellow-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
+                            <div key={budget.id} className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: `1px solid ${isOver ? 'var(--accent-red-border)' : isNear ? 'var(--accent-yellow-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                                         <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.category_color }} />

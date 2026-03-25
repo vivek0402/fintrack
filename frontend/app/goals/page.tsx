@@ -309,7 +309,7 @@ export default function GoalsPage() {
                         const isConfirmDelete = confirmDeleteId === goal.id;
 
                         return (
-                            <div key={goal.id} style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'var(--accent-green-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
+                            <div key={goal.id} className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'var(--accent-green-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
                                         <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${goal.color}18`, border: `1px solid ${goal.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
