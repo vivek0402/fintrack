@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
 import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { useIsMobile } from '@/hooks/useWindowSize';
 
 interface Props {
     transactions: any[];
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh }: Props) {
+    const isMobile = useIsMobile();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
     const [regrettingId, setRegrettingId] = useState<string | null>(null);
@@ -58,13 +61,15 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                     {txs.map(tx => {
                         const isIncome = tx.type === 'income';
                         const isConfirm = confirmId === tx.id;
-                        return (
-                            <div key={tx.id}
+
+                        const rowInner = (
+                            <div
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
                                     borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
+                                    opacity: tx.is_regretted ? 0.7 : 1,
                                 }}
                                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
@@ -124,6 +129,20 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 </div>
                             </div>
                         );
+
+                        if (isMobile) {
+                            return (
+                                <SwipeableRow
+                                    key={tx.id}
+                                    onSwipeLeft={() => handleDelete(tx.id)}
+                                    onSwipeRight={() => handleRegret(tx.id)}
+                                    isRegretted={tx.is_regretted}
+                                >
+                                    {rowInner}
+                                </SwipeableRow>
+                            );
+                        }
+                        return <div key={tx.id}>{rowInner}</div>;
                     })}
                 </div>
             ))}

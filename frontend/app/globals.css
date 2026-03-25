@@ -250,6 +250,15 @@ h6 {
 .sheet-enter { animation: sheetUp 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
 .sheet-exit  { animation: sheetDown 0.22s ease-in forwards; }
 
+.swipe-row-exit {
+  transition: opacity 250ms ease-out, max-height 300ms ease-out, margin 300ms ease-out, padding 300ms ease-out;
+  opacity: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 @media (max-width: 768px) {
   .sheet-form-field { margin-bottom: 16px; }
   .sheet-form-field input,
