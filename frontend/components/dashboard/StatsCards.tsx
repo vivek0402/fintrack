@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useWindowSize';
+
+const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 interface Props {
     totalIncome: number;
@@ -10,6 +13,8 @@ interface Props {
     balance: number;
     savingsRate: number;
     currency?: string;
+    month?: number;
+    year?: number;
 }
 
 function useCountUp(target: number, duration = 900) {
@@ -27,92 +32,111 @@ function useCountUp(target: number, duration = 900) {
     return value;
 }
 
-export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, currency = 'INR' }: Props) {
+export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, currency = 'INR', month = new Date().getMonth() + 1, year = new Date().getFullYear() }: Props) {
+    const isMobile = useIsMobile();
     const animIncome = useCountUp(totalIncome);
     const animExpenses = useCountUp(totalExpenses);
     const animBalance = useCountUp(Math.abs(balance));
     const animSavings = useCountUp(savingsRate);
 
     const savingsLabel = savingsRate < 10 ? 'Needs work' : savingsRate <= 20 ? 'Getting there' : 'On track';
-    const savingsColor = savingsRate < 10 ? 'var(--accent-red)' : savingsRate <= 20 ? 'var(--accent-yellow)' : 'var(--accent-green)';
-    const savingsColorRaw = savingsRate < 10 ? '#f43f5e' : savingsRate <= 20 ? '#f59e0b' : '#10b981';
+    const periodLabel = `${MONTH_NAMES[month]} ${year}`;
 
     const cards = [
         {
-            label: 'Total Income', animValue: animIncome,
-            icon: TrendingUp, gradient: 'var(--gradient-green)',
-            glow: 'var(--shadow-glow-green)', accent: 'var(--accent-green)',
-            accentBg: 'var(--accent-green-bg)', accentBorder: 'var(--accent-green-border)',
+            id: 'income',
+            label: 'TOTAL INCOME',
+            animValue: animIncome,
+            icon: TrendingUp,
+            bg: 'linear-gradient(135deg,#062e1a,#0d2818,#0a1f12)',
+            glowBg: 'linear-gradient(135deg,#10b981,transparent)',
+            accent: '#10b981',
+            iconBg: 'rgba(16,185,129,0.15)',
             format: (v: number) => formatCurrency(v, currency),
+            subLabel: periodLabel,
         },
         {
-            label: 'Total Expenses', animValue: animExpenses,
-            icon: TrendingDown, gradient: 'var(--gradient-red)',
-            glow: 'var(--shadow-glow-red)', accent: 'var(--accent-red)',
-            accentBg: 'var(--accent-red-bg)', accentBorder: 'var(--accent-red-border)',
+            id: 'expenses',
+            label: 'TOTAL EXPENSES',
+            animValue: animExpenses,
+            icon: TrendingDown,
+            bg: 'linear-gradient(135deg,#2d0a12,#1e0a10,#180810)',
+            glowBg: 'linear-gradient(135deg,#f43f5e,transparent)',
+            accent: '#f43f5e',
+            iconBg: 'rgba(244,63,94,0.15)',
             format: (v: number) => formatCurrency(v, currency),
+            subLabel: periodLabel,
         },
         {
-            label: 'Net Balance', animValue: animBalance,
-            icon: Wallet, gradient: 'var(--gradient-blue)',
-            glow: 'var(--shadow-glow-blue)', accent: balance >= 0 ? 'var(--accent-blue)' : 'var(--accent-red)',
-            accentBg: 'var(--accent-blue-bg)', accentBorder: 'var(--accent-blue-border)',
+            id: 'balance',
+            label: 'NET BALANCE',
+            animValue: animBalance,
+            icon: Wallet,
+            bg: 'linear-gradient(135deg,#091628,#0d1a2a,#081320)',
+            glowBg: 'linear-gradient(135deg,#3b82f6,transparent)',
+            accent: '#3b82f6',
+            iconBg: 'rgba(59,130,246,0.15)',
             format: (v: number) => (balance < 0 ? '-' : '') + formatCurrency(v, currency),
+            subLabel: 'All time',
         },
         {
-            label: 'Savings Rate', animValue: animSavings,
-            icon: PiggyBank, gradient: 'var(--gradient-yellow)',
-            glow: '0 0 24px var(--accent-yellow-border)', accent: savingsColor,
-            accentBg: 'var(--accent-yellow-bg)', accentBorder: 'var(--accent-yellow-border)',
+            id: 'savings',
+            label: 'SAVINGS RATE',
+            animValue: animSavings,
+            icon: PiggyBank,
+            bg: 'linear-gradient(135deg,#1e1400,#1a1200,#140e00)',
+            glowBg: 'linear-gradient(135deg,#f59e0b,transparent)',
+            accent: '#f59e0b',
+            iconBg: 'rgba(245,158,11,0.15)',
             format: (v: number) => `${Math.round(v)}%`,
+            subLabel: null,
         },
     ];
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '8px', height: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '10px' }}>
             {cards.map(card => {
                 const Icon = card.icon;
                 return (
                     <div
-                        key={card.label}
+                        key={card.id}
                         style={{
-                            background: card.gradient,
-                            border: `1px solid ${card.accentBorder}`,
-                            borderRadius: '16px', padding: '18px',
-                            boxShadow: 'var(--shadow-card)',
-                            transition: 'all var(--transition-base)',
+                            background: card.bg,
+                            borderRadius: 14,
+                            padding: '16px 18px',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            position: 'relative',
+                            overflow: 'hidden',
                             cursor: 'default',
+                            transition: 'transform 0.2s',
                         }}
-                        onMouseEnter={e => {
-                            (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                            (e.currentTarget as HTMLElement).style.boxShadow = card.glow;
-                        }}
-                        onMouseLeave={e => {
-                            (e.currentTarget as HTMLElement).style.transform = '';
-                            (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-card)';
-                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; }}
                     >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{card.label}</span>
-                            <div style={{ width: '32px', height: '32px', background: card.accentBg, border: `1px solid ${card.accentBorder}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon size={15} color={card.accent} />
+                        {/* Glow overlay */}
+                        <div style={{ position: 'absolute', inset: 0, borderRadius: 14, opacity: 0.18, pointerEvents: 'none', zIndex: 0, background: card.glowBg }} />
+
+                        {/* Content */}
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                                <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{card.label}</span>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: card.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Icon size={13} color={card.accent} />
+                                </div>
                             </div>
+
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 800, color: card.accent, margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                                {card.format(card.animValue)}
+                            </p>
+
+                            {card.id === 'savings' ? (
+                                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: 600, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', borderRadius: '20px', padding: '2px 8px' }}>
+                                    {savingsLabel}
+                                </span>
+                            ) : (
+                                <p style={{ fontSize: '11px', color: `${card.accent}8c`, margin: 0, fontWeight: 500 }}>{card.subLabel}</p>
+                            )}
                         </div>
-                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: card.accent, margin: 0, letterSpacing: '-0.02em' }}>
-                            {card.format(card.animValue)}
-                        </p>
-                        {card.label === 'Savings Rate' && (
-                            <span style={{
-                                display: 'inline-block', marginTop: '6px',
-                                fontSize: '11px', fontWeight: 600,
-                                color: savingsColor,
-                                background: `${savingsColorRaw}26`,
-                                borderRadius: '20px',
-                                padding: '2px 8px',
-                            }}>
-                                {savingsLabel}
-                            </span>
-                        )}
                     </div>
                 );
             })}

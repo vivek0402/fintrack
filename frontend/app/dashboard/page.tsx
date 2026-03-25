@@ -17,6 +17,7 @@ import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -32,15 +33,12 @@ export default function DashboardPage() {
     const [forecast, setForecast] = useState<any>(null);
     const [dataLoading, setDataLoading] = useState(true);
 
-    // Salary intelligence state
     const [salaryData, setSalaryData] = useState<any>(null);
     const [salaryBannerDismissed, setSalaryBannerDismissed] = useState(false);
 
-    // AI Insights state
     const [aiReport, setAiReport] = useState('');
     const [aiReportLoading, setAiReportLoading] = useState(false);
 
-    // Afford check state
     const [affordQuery, setAffordQuery] = useState('');
     const [affordResult, setAffordResult] = useState<{ recommendation: string; sentiment: string } | null>(null);
     const [affordLoading, setAffordLoading] = useState(false);
@@ -77,7 +75,6 @@ export default function DashboardPage() {
         };
         fetchData();
 
-        // Fetch salary intelligence silently
         aiAPI.salaryIntelligence().then(res => {
             if (res.data.detected) setSalaryData(res.data);
         }).catch(() => { });
@@ -109,16 +106,22 @@ export default function DashboardPage() {
         }
     };
 
-    const sentimentBorder = (s: string) => {
-        if (s === 'positive') return 'var(--accent-green)';
-        if (s === 'negative') return 'var(--accent-red)';
-        return '#f59e0b';
-    };
-    const sentimentBg = (s: string) => {
-        if (s === 'positive') return 'var(--accent-green-bg)';
-        if (s === 'negative') return 'var(--accent-red-bg)';
-        return 'rgba(245,158,11,0.08)';
-    };
+    // Build sparkline data (last 6 months) from raw trends
+    const sparklineData = (() => {
+        const map: Record<string, { month: number; year: number; income: number; expenses: number }> = {};
+        trends.forEach(row => {
+            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+            if (!map[key]) map[key] = { month: row.month, year: row.year, income: 0, expenses: 0 };
+            if (row.type === 'income') map[key].income = parseFloat(row.total);
+            if (row.type === 'expense') map[key].expenses = parseFloat(row.total);
+        });
+        return Object.values(map)
+            .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month)
+            .slice(-6);
+    })();
+    const sparkMax = Math.max(...sparklineData.flatMap(d => [d.income, d.expenses]), 1);
+
+    const topCategory = categories && categories.length > 0 ? categories[0] : null;
 
     if (isLoading || !user) return (
         <AppLayout>
@@ -126,10 +129,10 @@ export default function DashboardPage() {
                 <SkeletonTitle />
                 <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
             </div>
-            <SkeletonCard height={160} style={{ marginBottom: '16px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={80} />)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={90} />)}
             </div>
+            <SkeletonCard height={110} style={{ marginBottom: '12px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', marginBottom: '16px' }}>
                 <SkeletonCard height={200} />
                 <SkeletonCard height={200} />
@@ -156,9 +159,124 @@ export default function DashboardPage() {
         setSalaryBannerDismissed(true);
     };
 
+    // ── HERO CARD (wide 3-column) ──
+    const HeroCard = () => (
+        <div style={{
+            background: 'linear-gradient(135deg,#0a0f1e 0%,#0f1629 50%,#0a1225 100%)',
+            borderRadius: 16,
+            border: '1px solid rgba(255,255,255,0.06)',
+            padding: '22px 24px',
+            display: isMobile ? 'flex' : 'grid',
+            flexDirection: isMobile ? 'column' : undefined,
+            gridTemplateColumns: isMobile ? undefined : '1fr 1px 1.6fr 1px 1fr',
+            alignItems: isMobile ? undefined : 'stretch',
+            gap: isMobile ? '20px' : undefined,
+            position: 'relative',
+            overflow: 'hidden',
+        }}>
+            {/* Radial glow decoration */}
+            <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+
+            {/* LEFT — Net Worth */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>Net Worth</p>
+                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '34px', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: '0 0 10px 0', lineHeight: 1 }}>
+                    {dataLoading ? '—' : formatCurrency(summary?.balance ?? 0, user.currency)}
+                </p>
+                {!dataLoading && summary && (
+                    <span style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        fontSize: '12px', fontWeight: 600,
+                        color: summary.balance >= 0 ? '#10b981' : '#f43f5e',
+                        background: summary.balance >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
+                        borderRadius: '20px', padding: '3px 10px',
+                    }}>
+                        {summary.balance >= 0 ? '+' : ''}{formatCurrency(summary.balance, user.currency)} this month
+                    </span>
+                )}
+                <p style={{ fontSize: '11px', color: '#4a5568', margin: '10px 0 0 0' }}>{MONTH_NAMES[month]} {year}</p>
+            </div>
+
+            {/* DIVIDER 1 */}
+            {!isMobile && <div style={{ background: 'rgba(255,255,255,0.07)', width: 1, margin: '0 20px', alignSelf: 'stretch' }} />}
+            {isMobile && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />}
+
+            {/* MIDDLE — Sparkline + Top Spending */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>6-Month Trend</p>
+
+                {/* Sparkline bars */}
+                {sparklineData.length > 0 ? (
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '44px', marginBottom: '4px' }}>
+                            {sparklineData.map((d, i) => (
+                                <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
+                                    <div style={{ flex: 1, height: `${Math.max((d.income / sparkMax) * 44, 2)}px`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0' }} />
+                                    <div style={{ flex: 1, height: `${Math.max((d.expenses / sparkMax) * 44, 2)}px`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0' }} />
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {sparklineData.map((d, i) => (
+                                <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '9px', color: '#4a5568' }}>{MONTH_SHORT[d.month]}</div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ height: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>No trend data yet</p>
+                    </div>
+                )}
+
+                {/* Top Spending */}
+                {topCategory && (
+                    <div style={{ marginTop: '12px' }}>
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0' }}>Top Spending</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: topCategory.color || '#f43f5e', flexShrink: 0 }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: '12px', color: '#c8d4f0', fontWeight: 500, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.category_name}</p>
+                                <p style={{ fontSize: '10px', color: '#8892aa', margin: '1px 0 0 0' }}>{Math.round(topCategory.percentage ?? 0)}% of expenses</p>
+                            </div>
+                            <p style={{ fontSize: '12px', color: '#f43f5e', fontWeight: 600, margin: 0, flexShrink: 0 }}>
+                                {formatCurrency(topCategory.total ?? topCategory.amount ?? 0, user.currency)}
+                            </p>
+                        </div>
+                        <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Math.min(topCategory.percentage ?? 0, 100)}%`, background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: '2px' }} />
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* DIVIDER 2 */}
+            {!isMobile && <div style={{ background: 'rgba(255,255,255,0.07)', width: 1, margin: '0 20px', alignSelf: 'stretch' }} />}
+            {isMobile && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />}
+
+            {/* RIGHT — AI Insight */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>✦ AI Insight</p>
+                <p style={{ fontSize: '13px', color: '#c8d4f0', lineHeight: 1.55, margin: '0 0 12px 0' }}>
+                    {aiReport
+                        ? aiReport.slice(0, 120) + (aiReport.length > 120 ? '…' : '')
+                        : 'Tap generate to get your monthly AI summary.'}
+                </p>
+                <button
+                    onClick={handleGenerateReport}
+                    disabled={aiReportLoading}
+                    style={{ width: '100%', padding: '7px 14px', background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
+                >
+                    {aiReportLoading
+                        ? <><span style={{ width: '11px', height: '11px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>
+                        : aiReport ? 'Regenerate Report' : 'Generate Report'}
+                </button>
+            </div>
+        </div>
+    );
+
     return (
         <AppLayout>
-            {/* Salary Banner — full-width above grid */}
+            {/* Salary Banner */}
             {salaryData && !salaryBannerDismissed && salaryData.plan && (
                 <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '16px', position: 'relative' }}>
                     <button onClick={dismissSalaryBanner} style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
@@ -186,173 +304,122 @@ export default function DashboardPage() {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
             </div>
 
-            {/* Bento Grid */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, minmax(0, 1fr))',
-                gap: '12px',
-                gridTemplateAreas: isMobile
-                    ? `"hero" "stats" "ai" "chart" "budget" "recent" "forecast"`
-                    : `"hero hero stats stats" "hero hero chart chart" "ai ai budget budget" "recent recent recent forecast"`,
-            }}>
-                {/* ── HERO TILE ── */}
-                <div style={{ gridArea: 'hero' }}>
-                    <div style={{
-                        position: 'relative', overflow: 'hidden',
-                        background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)',
-                        borderRadius: '16px', padding: '28px',
-                        minHeight: '220px', height: '100%', boxSizing: 'border-box',
-                        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                        boxShadow: 'var(--hero-glow)',
-                    }}>
-                        {/* Decorative circle */}
-                        <div style={{ position: 'absolute', bottom: '-20px', right: '30px', width: '100px', height: '100px', background: 'var(--accent-green)', opacity: 0.04, borderRadius: '50%', pointerEvents: 'none' }} />
-
-                        {/* Top label row */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Net Balance</span>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{MONTH_NAMES[month]} {year}</span>
-                        </div>
-
-                        {/* Large balance + pill */}
-                        <div>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '40px', fontWeight: 700, color: 'var(--text-primary)', margin: '16px 0 10px 0', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                                {dataLoading ? '—' : formatCurrency(summary?.balance ?? 0, user.currency)}
-                            </p>
-                            {!dataLoading && summary && (
-                                <span style={{
-                                    display: 'inline-flex', alignItems: 'center',
-                                    fontSize: '12px', fontWeight: 600,
-                                    color: summary.balance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
-                                    background: summary.balance >= 0 ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)',
-                                    border: `1px solid ${summary.balance >= 0 ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`,
-                                    padding: '3px 10px', borderRadius: '20px',
-                                }}>
-                                    {summary.balance >= 0 ? '+' : ''}{formatCurrency(summary.balance, user.currency)} this month
-                                </span>
-                            )}
-                        </div>
-
-                        {/* AI insight snippet or tap prompt */}
-                        <div>
-                            {aiReport ? (
-                                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                                    {aiReport}
-                                </p>
-                            ) : (
-                                <button
-                                    onClick={handleGenerateReport}
-                                    disabled={aiReportLoading}
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: aiReportLoading ? 'wait' : 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'left', fontFamily: 'DM Sans, sans-serif' }}
-                                >
-                                    {aiReportLoading ? 'Generating insight…' : 'Tap to generate your monthly insight →'}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── STATS TILE ── */}
-                <div style={{ gridArea: 'stats' }}>
+            {/* ── DESKTOP BENTO GRID ── */}
+            {!isMobile ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Row 1 — Stat tiles */}
                     {dataLoading ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', height: '100%' }}>
-                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', minHeight: '80px' }} />)}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '14px', height: '90px' }} />)}
                         </div>
                     ) : summary && (
-                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} />
+                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
                     )}
-                </div>
 
-                {/* ── CHART TILE ── */}
-                <div style={{ gridArea: 'chart', overflow: 'hidden' }}>
+                    {/* Row 2 — Hero card */}
+                    <HeroCard />
+
+                    {/* Row 3 — Trend chart */}
                     <TrendChart trends={trends} />
-                </div>
 
-                {/* ── AI TILE ── */}
-                <div style={{ gridArea: 'ai', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
-
-                    {/* AI Insights section */}
-                    <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px', marginBottom: '4px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                            <span style={{ fontSize: '1.1rem' }}>✨</span>
-                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
+                    {/* Row 4 — AI tile + Budget tile */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
+                            <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px', marginBottom: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>✨</span>
+                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
+                                </div>
+                                {aiReport ? (
+                                    <AIResponseCard message={aiReport} type="insight" onAction={route => router.push(route)} style={{ marginBottom: '10px' }} />
+                                ) : (
+                                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
+                                )}
+                                <button onClick={handleGenerateReport} disabled={aiReportLoading} style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}>
+                                    {aiReportLoading ? (<><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>) : aiReport ? 'Regenerate' : 'Generate Report'}
+                                </button>
+                            </div>
+                            <div style={{ height: '1px', background: 'var(--bg-border)', margin: '16px 0' }} />
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>🤔</span>
+                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                                    <input type="text" placeholder="Item X for ₹Y" value={affordQuery} onChange={e => setAffordQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAffordCheck()} style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
+                                    <button onClick={handleAffordCheck} disabled={affordLoading || !affordQuery.trim()} style={{ padding: '8px 14px', background: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}>
+                                        {affordLoading ? '…' : 'Ask AI'}
+                                    </button>
+                                </div>
+                                {affordResult && <AIResponseCard message={affordResult.recommendation} type="afford" onAction={route => router.push(route)} />}
+                            </div>
                         </div>
-                        {aiReport ? (
-                            <AIResponseCard
-                                message={aiReport}
-                                type="insight"
-                                onAction={route => router.push(route)}
-                                style={{ marginBottom: '10px' }}
-                            />
-                        ) : (
-                            <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
-                        )}
-                        <button
-                            onClick={handleGenerateReport}
-                            disabled={aiReportLoading}
-                            style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
-                        >
-                            {aiReportLoading ? (
-                                <><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>
-                            ) : aiReport ? 'Regenerate' : 'Generate Report'}
-                        </button>
+
+                        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                            {budgets.length > 0
+                                ? <BudgetAlerts budgets={budgets} currency={user.currency} />
+                                : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
+                            }
+                        </div>
                     </div>
 
-                    <div style={{ height: '1px', background: 'var(--bg-border)', margin: '16px 0' }} />
-
-                    {/* Can I Afford widget */}
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                            <span style={{ fontSize: '1.1rem' }}>🤔</span>
-                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
+                    {/* Row 5 — Recent + Forecast */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '12px' }}>
+                        <RecentTransactions transactions={transactions} currency={user.currency} />
+                        <SpendingForecast forecast={forecast} currency={user.currency} />
+                    </div>
+                </div>
+            ) : (
+                /* ── MOBILE STACK ── */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {/* Stats 2x2 */}
+                    {dataLoading ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '14px', height: '80px' }} />)}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                            <input
-                                type="text"
-                                placeholder="Item X for ₹Y"
-                                value={affordQuery}
-                                onChange={e => setAffordQuery(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleAffordCheck()}
-                                style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }}
-                            />
-                            <button
-                                onClick={handleAffordCheck}
-                                disabled={affordLoading || !affordQuery.trim()}
-                                style={{ padding: '8px 14px', background: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}
-                            >
-                                {affordLoading ? '…' : 'Ask AI'}
+                    ) : summary && (
+                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
+                    )}
+
+                    {/* Hero */}
+                    <HeroCard />
+
+                    {/* AI Insight */}
+                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
+                        <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px' }}>
+                            {aiReport ? (
+                                <AIResponseCard message={aiReport} type="insight" onAction={route => router.push(route)} style={{ marginBottom: '10px' }} />
+                            ) : (
+                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
+                            )}
+                            <button onClick={handleGenerateReport} disabled={aiReportLoading} style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}>
+                                {aiReportLoading ? (<><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>) : aiReport ? 'Regenerate' : 'Generate Report'}
                             </button>
                         </div>
-                        {affordResult && (
-                            <AIResponseCard
-                                message={affordResult.recommendation}
-                                type="afford"
-                                onAction={route => router.push(route)}
-                            />
-                        )}
                     </div>
-                </div>
 
-                {/* ── BUDGET TILE ── */}
-                <div style={{ gridArea: 'budget', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
-                    {budgets.length > 0
-                        ? <BudgetAlerts budgets={budgets} currency={user.currency} />
-                        : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
-                    }
-                </div>
+                    {/* Trend Chart */}
+                    <TrendChart trends={trends} />
 
-                {/* ── RECENT TILE ── */}
-                <div style={{ gridArea: 'recent', overflow: 'hidden' }}>
+                    {/* Budgets */}
+                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                        {budgets.length > 0
+                            ? <BudgetAlerts budgets={budgets} currency={user.currency} />
+                            : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
+                        }
+                    </div>
+
+                    {/* Recent Transactions */}
                     <RecentTransactions transactions={transactions} currency={user.currency} />
-                </div>
 
-                {/* ── FORECAST TILE ── */}
-                <div style={{ gridArea: 'forecast', overflow: 'hidden' }}>
+                    {/* Forecast */}
                     <SpendingForecast forecast={forecast} currency={user.currency} />
                 </div>
-            </div>
+            )}
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
