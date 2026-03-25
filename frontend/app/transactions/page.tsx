@@ -50,7 +50,8 @@ export default function TransactionsPage() {
         return () => clearInterval(t);
     }, [quickAddOpen]);
 
-    const handleQuickAdd = async () => {
+    const handleQuickAdd = async (e?: React.MouseEvent) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (!quickAddText.trim()) return;
         setQuickAddLoading(true);
         setQuickAddError('');
@@ -209,8 +210,8 @@ export default function TransactionsPage() {
                         {quickAddError && <p style={{ fontSize: '0.8rem', color: '#f43f5e', margin: '8px 0 0 0' }}>{quickAddError}</p>}
 
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                            <Button variant="secondary" size="md" onClick={() => setQuickAddOpen(false)}>Cancel</Button>
-                            <Button size="md" onClick={handleQuickAdd} isLoading={quickAddLoading} disabled={!quickAddText.trim()}>
+                            <Button type="button" variant="secondary" size="md" onClick={() => setQuickAddOpen(false)}>Cancel</Button>
+                            <Button type="button" size="md" onClick={handleQuickAdd} isLoading={quickAddLoading} disabled={!quickAddText.trim()}>
                                 <Sparkles size={14} />Parse & Fill
                             </Button>
                         </div>
