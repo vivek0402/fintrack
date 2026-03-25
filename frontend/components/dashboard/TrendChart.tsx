@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface Props { trends: any[] }
 
@@ -29,7 +29,7 @@ export function TrendChart({ trends }: Props) {
                 <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>{label}</p>
                 {payload.map((p: any) => (
                     <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.fill, flexShrink: 0 }} />
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
                         <p style={{ color: 'var(--text-primary)', margin: 0 }}>{p.name}: <strong>₹{p.value?.toLocaleString('en-IN')}</strong></p>
                     </div>
                 ))}
@@ -48,15 +48,25 @@ export function TrendChart({ trends }: Props) {
                 </div>
             ) : (
                 <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={chartData} barGap={4} barCategoryGap="30%">
+                    <AreaChart data={chartData}>
+                        <defs>
+                            <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                            </linearGradient>
+                            <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.0} />
+                            </linearGradient>
+                        </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" vertical={false} />
                         <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} width={48} />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--bg-hover)' } as any} />
+                        <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: '0.78rem', paddingTop: '14px' }} />
-                        <Bar dataKey="income" name="Income" fill="var(--accent-green)" radius={[6, 6, 0, 0]} />
-                        <Bar dataKey="expenses" name="Expenses" fill="var(--accent-red)" radius={[6, 6, 0, 0]} />
-                    </BarChart>
+                        <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                    </AreaChart>
                 </ResponsiveContainer>
             )}
         </div>

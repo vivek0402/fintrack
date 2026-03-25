@@ -151,8 +151,8 @@ export default function AnalyticsPage() {
                             <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '16px' }} />
-                            <Bar dataKey="income" name="Income" fill="#10b981" radius={[6, 6, 0, 0]} />
-                            <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[6, 6, 0, 0]} />
+                            <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                            <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
                         </BarChart>
                     </ResponsiveContainer>
                 )}
@@ -167,7 +167,7 @@ export default function AnalyticsPage() {
                     ) : (
                         <ResponsiveContainer width="100%" height={220}>
                             <PieChart>
-                                <Pie data={categories.map(c => ({ name: c.name, value: parseFloat(c.total), color: c.color }))} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value">
+                                <Pie data={categories.map(c => ({ name: c.name, value: parseFloat(c.total), color: c.color }))} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" cornerRadius={4} isAnimationActive={true} animationDuration={800}>
                                     {categories.map((c, i) => <Cell key={i} fill={c.color} />)}
                                 </Pie>
                                 <Tooltip content={<PieTooltip />} />

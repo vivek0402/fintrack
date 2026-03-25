@@ -40,6 +40,9 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
                                 data={chartData} cx="50%" cy="50%"
                                 innerRadius={50} outerRadius={76}
                                 paddingAngle={3} dataKey="value" strokeWidth={0}
+                                cornerRadius={4}
+                                isAnimationActive={true}
+                                animationDuration={800}
                                 label={({ cx, cy }) => (
                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
                                         <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" fontFamily="DM Sans">Total</tspan>
