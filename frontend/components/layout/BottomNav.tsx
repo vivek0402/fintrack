@@ -136,7 +136,7 @@ export function BottomNav() {
                     const isActive = pathname === href;
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)', borderTop: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 16px', borderRadius: '12px', color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)', background: isActive ? 'var(--accent-blue-bg)' : 'transparent', transition: 'all 0.2s' }}>
                                 <Icon size={20} />
                                 <span style={{ fontSize: '0.62rem', fontWeight: isActive ? 600 : 400 }}>{label}</span>
                             </div>
@@ -147,7 +147,7 @@ export function BottomNav() {
                 {/* More tab */}
                 <button
                     onClick={() => setShowMore(v => !v)}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', border: 'none', borderTop: isMoreActive || showMore ? '2px solid var(--accent-blue)' : '2px solid transparent', background: 'transparent', cursor: 'pointer', color: isMoreActive || showMore ? 'var(--accent-blue)' : 'var(--text-muted)', transition: 'all 0.2s' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 16px', borderRadius: '12px', border: 'none', background: isMoreActive || showMore ? 'var(--accent-blue-bg)' : 'transparent', cursor: 'pointer', color: isMoreActive || showMore ? 'var(--accent-blue)' : 'var(--text-muted)', transition: 'all 0.2s' }}
                 >
                     <MoreHorizontal size={20} />
                     <span style={{ fontSize: '0.62rem', fontWeight: isMoreActive || showMore ? 600 : 400 }}>More</span>

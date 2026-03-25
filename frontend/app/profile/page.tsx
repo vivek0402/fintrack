@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Lock, Globe, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { profileAPI, categoriesAPI } from '@/lib/api';
+import { profileAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -35,8 +35,6 @@ export default function ProfilePage() {
     const [passLoading, setPassLoading] = useState(false);
     const [passMsg, setPassMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    const [categories, setCategories] = useState<any[]>([]);
-    const [catDeleting, setCatDeleting] = useState<string | null>(null);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -47,20 +45,7 @@ export default function ProfilePage() {
             setProfile(res.data.profile);
             setProfileForm({ full_name: res.data.profile.full_name, email: res.data.profile.email, currency: res.data.profile.currency });
         }).catch(console.error).finally(() => setLoading(false));
-        categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(console.error);
     }, [user]);
-
-    const handleDeleteCategory = async (id: string) => {
-        setCatDeleting(id);
-        try {
-            await categoriesAPI.delete(id);
-            setCategories(prev => prev.filter(c => String(c.id) !== id));
-        } catch {
-            // silent
-        } finally {
-            setCatDeleting(null);
-        }
-    };
 
     const handleProfileSave = async (e: React.FormEvent) => {
         e.preventDefault(); setProfileMsg(null); setProfileLoading(true);
@@ -195,41 +180,6 @@ export default function ProfilePage() {
                         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--bg-border)' }}>
                             <h4 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: '#f43f5e', margin: '0 0 8px 0' }}>Session</h4>
                             <Button variant="danger" size="sm" onClick={() => { useAuthStore.getState().logout(); router.push('/login'); }}>Sign Out</Button>
-                        </div>
-                    </div>
-
-                    {/* Categories Management */}
-                    <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
-                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Categories</h3>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>Custom categories can be deleted. Default ones are protected.</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
-                            {categories.map(cat => (
-                                <div
-                                    key={cat.id}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '10px' }}
-                                >
-                                    <span style={{ fontSize: '16px', flexShrink: 0 }}>{cat.icon || '📦'}</span>
-                                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color || 'var(--bg-border)', flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>{cat.name}</span>
-                                    {cat.is_default ? (
-                                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', background: 'var(--bg-border)', padding: '2px 7px', borderRadius: '10px' }}>default</span>
-                                    ) : (
-                                        <button
-                                            onClick={() => handleDeleteCategory(String(cat.id))}
-                                            disabled={catDeleting === String(cat.id)}
-                                            style={{ background: 'none', border: 'none', cursor: catDeleting === String(cat.id) ? 'wait' : 'pointer', color: 'var(--text-muted)', fontSize: '14px', padding: '2px 4px', borderRadius: '4px', opacity: catDeleting === String(cat.id) ? 0.4 : 1, transition: 'color 0.15s' }}
-                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#f43f5e'}
-                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
-                                            title="Delete category"
-                                        >
-                                            🗑️
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            {categories.length === 0 && (
-                                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>No categories yet.</p>
-                            )}
                         </div>
                     </div>
                 </div>
