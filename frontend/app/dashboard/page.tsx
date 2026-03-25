@@ -30,6 +30,10 @@ export default function DashboardPage() {
     const [forecast, setForecast] = useState<any>(null);
     const [dataLoading, setDataLoading] = useState(true);
 
+    // Salary intelligence state
+    const [salaryData, setSalaryData] = useState<any>(null);
+    const [salaryBannerDismissed, setSalaryBannerDismissed] = useState(false);
+
     // AI Insights state
     const [aiReport, setAiReport] = useState('');
     const [aiReportLoading, setAiReportLoading] = useState(false);
@@ -41,6 +45,11 @@ export default function DashboardPage() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
+    useEffect(() => {
+        const key = `salary-banner-dismissed-${month}-${year}`;
+        setSalaryBannerDismissed(localStorage.getItem(key) === 'true');
+    }, [month, year]);
 
     useEffect(() => {
         if (!user) return;
@@ -65,6 +74,11 @@ export default function DashboardPage() {
             finally { setDataLoading(false); }
         };
         fetchData();
+
+        // Fetch salary intelligence silently
+        aiAPI.salaryIntelligence().then(res => {
+            if (res.data.detected) setSalaryData(res.data);
+        }).catch(() => {});
     }, [user]);
 
     const handleGenerateReport = async () => {
@@ -113,8 +127,36 @@ export default function DashboardPage() {
         );
     }
 
+    const dismissSalaryBanner = () => {
+        const key = `salary-banner-dismissed-${month}-${year}`;
+        localStorage.setItem(key, 'true');
+        setSalaryBannerDismissed(true);
+    };
+
     return (
         <AppLayout>
+            {/* Salary Intelligence Banner */}
+            {salaryData && !salaryBannerDismissed && salaryData.plan && (
+                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '20px', position: 'relative' }}>
+                    <button onClick={dismissSalaryBanner} style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                        <span style={{ fontSize: '1.1rem' }}>💰</span>
+                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>Salary Detected — AI Allocation Plan</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{salaryData.description} · ₹{salaryData.salary?.toLocaleString('en-IN')}</span>
+                    </div>
+                    {salaryData.insight && <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>{salaryData.insight}</p>}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
+                        {Object.entries(salaryData.plan).map(([key, val]: [string, any]) => (
+                            <div key={key} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '10px', padding: '10px 12px' }}>
+                                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '0 0 3px 0', textTransform: 'capitalize' }}>{key}</p>
+                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-green)', margin: 0 }}>₹{val.amount?.toLocaleString('en-IN')}</p>
+                                <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>{val.percentage}%</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div style={{ marginBottom: '24px' }}>
                 <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Dashboard</h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>

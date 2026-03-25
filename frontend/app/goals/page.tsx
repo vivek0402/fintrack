@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Target, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Target, CheckCircle, Sparkles, X as XIcon } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { goalsAPI } from '@/lib/api';
+import { goalsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -30,6 +30,13 @@ export default function GoalsPage() {
     const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', color: '#10b981' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
+
+    // Life event state
+    const [showLifeEvent, setShowLifeEvent] = useState(false);
+    const [lifeEventForm, setLifeEventForm] = useState({ event_type: '', target_amount: '', target_date: '' });
+    const [lifeEventLoading, setLifeEventLoading] = useState(false);
+    const [lifeEventResult, setLifeEventResult] = useState<any>(null);
+    const [lifeEventError, setLifeEventError] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -70,6 +77,24 @@ export default function GoalsPage() {
         finally { setDeletingId(null); setConfirmDeleteId(null); }
     };
 
+    const handleLifeEvent = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLifeEventError(''); setLifeEventLoading(true);
+        try {
+            const res = await aiAPI.lifeEvent({
+                event_type: lifeEventForm.event_type,
+                target_amount: parseFloat(lifeEventForm.target_amount),
+                target_date: lifeEventForm.target_date,
+            });
+            setLifeEventResult(res.data);
+            fetchGoals();
+        } catch (err: any) {
+            setLifeEventError(err.response?.data?.error || 'Failed to create plan.');
+        } finally {
+            setLifeEventLoading(false);
+        }
+    };
+
     const daysRemaining = (deadline?: string) => {
         if (!deadline) return null;
         const diff = Math.ceil((new Date(deadline + 'T00:00:00').getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -94,8 +119,105 @@ export default function GoalsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Savings Goals</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track your financial targets</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />New Goal</Button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button variant="secondary" onClick={() => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); }} size="md"><Sparkles size={16} />Plan Life Event</Button>
+                    <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />New Goal</Button>
+                </div>
             </div>
+
+            {/* Life Event Modal */}
+            {showLifeEvent && (
+                <>
+                    <div onClick={() => setShowLifeEvent(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100 }} />
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '24px', zIndex: 101, boxShadow: 'var(--shadow-modal)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Sparkles size={18} color="var(--accent-blue)" />
+                                <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Plan a Life Event</h2>
+                            </div>
+                            <button onClick={() => setShowLifeEvent(false)} style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', padding: '6px', borderRadius: '8px' }}><XIcon size={18} /></button>
+                        </div>
+
+                        {!lifeEventResult ? (
+                            <form onSubmit={handleLifeEvent} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <div>
+                                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500, display: 'block', marginBottom: '8px' }}>Life Event Type</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '8px' }}>
+                                        {[
+                                            { type: 'wedding', emoji: '💍', label: 'Wedding' },
+                                            { type: 'bike', emoji: '🏍️', label: 'Bike' },
+                                            { type: 'vacation', emoji: '✈️', label: 'Vacation' },
+                                            { type: 'home', emoji: '🏠', label: 'Home' },
+                                            { type: 'baby', emoji: '👶', label: 'Baby' },
+                                            { type: 'education', emoji: '🎓', label: 'Education' },
+                                            { type: 'car', emoji: '🚗', label: 'Car' },
+                                            { type: 'business', emoji: '💼', label: 'Business' },
+                                            { type: 'emergency', emoji: '🛡️', label: 'Emergency Fund' },
+                                        ].map(ev => (
+                                            <button key={ev.type} type="button" onClick={() => setLifeEventForm({ ...lifeEventForm, event_type: ev.type })}
+                                                style={{ padding: '12px 8px', borderRadius: '12px', border: lifeEventForm.event_type === ev.type ? '2px solid var(--accent-blue)' : '1px solid var(--bg-border)', background: lifeEventForm.event_type === ev.type ? 'var(--accent-blue-bg)' : 'var(--bg-card)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}>
+                                                <span style={{ fontSize: '1.4rem' }}>{ev.emoji}</span>
+                                                <span style={{ fontSize: '0.72rem', color: lifeEventForm.event_type === ev.type ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: lifeEventForm.event_type === ev.type ? 600 : 400 }}>{ev.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Target Amount (₹)</label>
+                                        <input type="number" min="1" placeholder="500000" value={lifeEventForm.target_amount} onChange={e => setLifeEventForm({ ...lifeEventForm, target_amount: e.target.value })} required
+                                            style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Target Date</label>
+                                        <input type="date" value={lifeEventForm.target_date} onChange={e => setLifeEventForm({ ...lifeEventForm, target_date: e.target.value })} required
+                                            style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
+                                    </div>
+                                </div>
+                                {lifeEventError && <p style={{ fontSize: '0.8rem', color: 'var(--accent-red)', margin: 0 }}>{lifeEventError}</p>}
+                                <Button type="submit" isLoading={lifeEventLoading} size="lg">✨ Generate Plan</Button>
+                            </form>
+                        ) : (
+                            <div>
+                                <div style={{ padding: '16px', background: lifeEventResult.plan?.is_achievable ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${lifeEventResult.plan?.is_achievable ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`, borderRadius: '12px', marginBottom: '16px' }}>
+                                    <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', lineHeight: 1.6 }}>{lifeEventResult.plan?.summary}</p>
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#10b981' }}>₹{lifeEventResult.plan?.monthly_required?.toLocaleString('en-IN')}/month needed</span>
+                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', padding: '2px 8px', background: 'var(--bg-card)', borderRadius: '6px' }}>{lifeEventResult.plan?.difficulty}</span>
+                                    </div>
+                                </div>
+                                {lifeEventResult.plan?.milestones?.length > 0 && (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>Key Milestones</p>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            {lifeEventResult.plan.milestones.map((m: any, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'var(--bg-card)', borderRadius: '8px' }}>
+                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: '50px' }}>Month {m.month}</span>
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', flex: 1 }}>{m.label}</span>
+                                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.82rem', fontWeight: 600, color: '#10b981' }}>₹{m.target_saved?.toLocaleString('en-IN')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {lifeEventResult.plan?.tips?.length > 0 && (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>Tips</p>
+                                        {lifeEventResult.plan.tips.map((tip: string, i: number) => (
+                                            <p key={i} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>💡 {tip}</p>
+                                        ))}
+                                    </div>
+                                )}
+                                <p style={{ fontSize: '0.78rem', color: 'var(--accent-green)', margin: '0 0 16px 0' }}>✅ Goal "{lifeEventResult.goal?.name}" has been created automatically.</p>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <Button onClick={() => { setLifeEventResult(null); setLifeEventForm({ event_type: '', target_amount: '', target_date: '' }); }} variant="secondary" size="md">Plan Another</Button>
+                                    <Button onClick={() => setShowLifeEvent(false)} size="md">Done</Button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[

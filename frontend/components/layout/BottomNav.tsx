@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
-    Sparkles, Users
+    Sparkles, Users, Brain, CalendarClock
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -21,6 +21,8 @@ const moreItems = [
     { href: '/budgets', icon: Target, label: 'Budgets' },
     { href: '/goals', icon: Flag, label: 'Goals' },
     { href: '/reports', icon: FileText, label: 'Reports' },
+    { href: '/forecast', icon: CalendarClock, label: 'Forecast' },
+    { href: '/personality', icon: Brain, label: 'Personality' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
     { href: '/splits', icon: Users, label: 'Splits' },
     { href: '/ai-chat', icon: Sparkles, label: 'AI Chat' },

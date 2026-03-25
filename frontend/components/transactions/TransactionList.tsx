@@ -15,12 +15,20 @@ interface Props {
 export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh }: Props) {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
+    const [regrettingId, setRegrettingId] = useState<string | null>(null);
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
         try { await transactionsAPI.delete(id); onRefresh(); }
         catch { alert('Failed to delete.'); }
         finally { setDeletingId(null); setConfirmId(null); }
+    };
+
+    const handleRegret = async (id: string) => {
+        setRegrettingId(id);
+        try { await transactionsAPI.toggleRegret(id); onRefresh(); }
+        catch { /* silent */ }
+        finally { setRegrettingId(null); }
     };
 
     if (transactions.length === 0) {
@@ -79,6 +87,17 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
                                         {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
                                     </p>
+                                    {/* Regret toggle */}
+                                    <button
+                                        onClick={() => handleRegret(tx.id)}
+                                        disabled={regrettingId === tx.id}
+                                        title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
+                                        style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent', border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent', color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
+                                        onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.08)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; } }}
+                                        onMouseLeave={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; } }}
+                                    >
+                                        🤦
+                                    </button>
                                     <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
                                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>

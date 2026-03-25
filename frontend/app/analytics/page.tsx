@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +26,8 @@ export default function AnalyticsPage() {
     const [trends, setTrends] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [yearlyData, setYearlyData] = useState<any>(null);
+    const [regretData, setRegretData] = useState<any>(null);
+    const [regretLoading, setRegretLoading] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -237,6 +239,76 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Regret Score Section */}
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginTop: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>🤦 Regret Score</h3>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Mark transactions as regretted using the 🤦 button in your transaction list</p>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            setRegretLoading(true);
+                            try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); }
+                            catch { /* silent */ }
+                            finally { setRegretLoading(false); }
+                        }}
+                        disabled={regretLoading}
+                        style={{ padding: '8px 16px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 600, cursor: regretLoading ? 'wait' : 'pointer', opacity: regretLoading ? 0.7 : 1, fontFamily: 'DM Sans, sans-serif' }}
+                    >
+                        {regretLoading ? 'Analysing…' : regretData ? 'Refresh Analysis' : 'Analyse Regrets'}
+                    </button>
+                </div>
+
+                {regretData && (
+                    <>
+                        {regretData.count === 0 ? (
+                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>No regretted transactions yet. Mark transactions with 🤦 to track patterns.</p>
+                        ) : (
+                            <>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
+                                        <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Regretted</p>
+                                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: '#f43f5e', margin: 0 }}>{regretData.count} transactions</p>
+                                    </div>
+                                    {regretData.total > 0 && (
+                                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
+                                            <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Total Regret Value</p>
+                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: '#f43f5e', margin: 0 }}>₹{regretData.total?.toLocaleString('en-IN')}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                {regretData.insight && (
+                                    <div style={{ padding: '12px 16px', background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.15)', borderRadius: '12px', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                                        {regretData.insight}
+                                    </div>
+                                )}
+                                {regretData.patterns && regretData.patterns.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {regretData.patterns.map((p: any, i: number) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '10px' }}>
+                                                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.pattern}</span>
+                                                        <span style={{ fontSize: '0.7rem', color: '#f43f5e', background: 'rgba(244,63,94,0.08)', padding: '1px 7px', borderRadius: '6px' }}>{p.count}× · ₹{p.total_amount?.toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                    <p style={{ fontSize: '0.78rem', color: 'var(--accent-green)', margin: 0 }}>💡 {p.tip}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </>
+                )}
+
+                {!regretData && !regretLoading && (
+                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>Click "Analyse Regrets" to see AI patterns in your regretted purchases.</p>
+                )}
+            </div>
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>

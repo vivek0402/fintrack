@@ -89,6 +89,26 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+router.patch('/:id/regret', async (req, res) => {
+    try {
+        const existing = await pool.query(
+            'SELECT id, is_regretted FROM transactions WHERE id = $1 AND user_id = $2',
+            [req.params.id, req.user.id]
+        );
+        if (existing.rows.length === 0)
+            return res.status(404).json({ error: 'Transaction not found.' });
+
+        const result = await pool.query(
+            `UPDATE transactions SET is_regretted = NOT is_regretted, updated_at = NOW()
+             WHERE id = $1 AND user_id = $2 RETURNING *`,
+            [req.params.id, req.user.id]
+        );
+        res.json({ transaction: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 router.delete('/:id', async (req, res) => {
     try {
         const result = await pool.query(

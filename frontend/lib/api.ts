@@ -46,6 +46,7 @@ export const transactionsAPI = {
     create: (data: object) => api.post('/api/transactions', data),
     update: (id: string, data: object) => api.put(`/api/transactions/${id}`, data),
     delete: (id: string) => api.delete(`/api/transactions/${id}`),
+    toggleRegret: (id: string) => api.patch(`/api/transactions/${id}/regret`),
 };
 
 export const categoriesAPI = {
@@ -108,6 +109,13 @@ export const aiAPI = {
         return api.post('/api/ai/parse-image', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     },
     parseSplit: (text: string) => api.post('/api/ai/parse-split', { text }),
+    salaryIntelligence: () => api.get('/api/ai/salary-intelligence'),
+    personality: () => api.post('/api/ai/personality'),
+    regretPatterns: () => api.get('/api/ai/regret-patterns'),
+    lifeEvent: (data: { event_type: string; target_amount: number; target_date: string }) =>
+        api.post('/api/ai/life-event', data),
+    forecastCalendar: () => api.get('/api/ai/forecast-calendar'),
+    healthReport: (data?: { month?: number; year?: number }) => api.post('/api/ai/health-report', data || {}),
 };
 
 export const splitsAPI = {

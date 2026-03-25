@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Download } from 'lucide-react';
+import { Plus, Search, Download, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { transactionsAPI } from '@/lib/api';
+import { transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +29,44 @@ export default function TransactionsPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState(new Date().getMonth() + 1);
     const [tagFilter, setTagFilter] = useState('');
+    const [quickAddOpen, setQuickAddOpen] = useState(false);
+    const [quickAddText, setQuickAddText] = useState('');
+    const [quickAddLoading, setQuickAddLoading] = useState(false);
+    const [quickAddError, setQuickAddError] = useState('');
+    const [placeholderIdx, setPlaceholderIdx] = useState(0);
     const currentYear = new Date().getFullYear();
+
+    const QUICK_ADD_PLACEHOLDERS = [
+        'paid 450 for lunch at cafe',
+        'received salary 85000',
+        'uber 180 to airport',
+        'netflix subscription 649',
+        'grocery shopping 2300 at dmart',
+    ];
+
+    useEffect(() => {
+        if (!quickAddOpen) return;
+        const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % QUICK_ADD_PLACEHOLDERS.length), 2500);
+        return () => clearInterval(t);
+    }, [quickAddOpen]);
+
+    const handleQuickAdd = async () => {
+        if (!quickAddText.trim()) return;
+        setQuickAddLoading(true);
+        setQuickAddError('');
+        try {
+            const res = await aiAPI.parseSMS(quickAddText.trim());
+            const parsed = res.data.transaction || res.data;
+            setQuickAddOpen(false);
+            setQuickAddText('');
+            setEditingTx(parsed);
+            setModalOpen(true);
+        } catch (e: any) {
+            setQuickAddError('Could not parse — try rephrasing');
+        } finally {
+            setQuickAddLoading(false);
+        }
+    };
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -85,6 +122,9 @@ export default function TransactionsPage() {
                             <Download size={16} />Export CSV
                         </Button>
                     )}
+                    <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
+                        <Sparkles size={16} />Quick Add ✨
+                    </Button>
                     <Button onClick={() => { setEditingTx(null); setModalOpen(true); }} size="md">
                         <Plus size={16} />{isMobile ? 'Add' : 'Add Transaction'}
                     </Button>
@@ -136,6 +176,49 @@ export default function TransactionsPage() {
             </div>
 
             <TransactionModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditingTx(null); }} onSuccess={fetchTransactions} transaction={editingTx} />
+
+            {/* Quick Add Modal */}
+            {quickAddOpen && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={e => { if (e.target === e.currentTarget) { setQuickAddOpen(false); } }}>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Sparkles size={18} color="#10b981" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Quick Add</h3>
+                                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>Describe the transaction in plain language</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setQuickAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}><X size={18} /></button>
+                        </div>
+
+                        <textarea
+                            value={quickAddText}
+                            onChange={e => setQuickAddText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleQuickAdd(); }}
+                            placeholder={QUICK_ADD_PLACEHOLDERS[placeholderIdx]}
+                            rows={3}
+                            autoFocus
+                            style={{ width: '100%', padding: '14px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '12px', fontSize: '0.95rem', fontFamily: 'DM Sans, sans-serif', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
+                            onFocus={e => (e.target.style.borderColor = 'rgba(16,185,129,0.5)')}
+                            onBlur={e => (e.target.style.borderColor = 'var(--bg-border)')}
+                        />
+
+                        {quickAddError && <p style={{ fontSize: '0.8rem', color: '#f43f5e', margin: '8px 0 0 0' }}>{quickAddError}</p>}
+
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
+                            <Button variant="secondary" size="md" onClick={() => setQuickAddOpen(false)}>Cancel</Button>
+                            <Button size="md" onClick={handleQuickAdd} isLoading={quickAddLoading} disabled={!quickAddText.trim()}>
+                                <Sparkles size={14} />Parse & Fill
+                            </Button>
+                        </div>
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '12px 0 0 0', textAlign: 'center' }}>AI will parse your text and pre-fill the transaction form</p>
+                    </div>
+                </div>
+            )}
+
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
