@@ -13,31 +13,47 @@ router.post('/parse-sms', authMiddleware, async (req, res) => {
         const { sms } = req.body;
         if (!sms) return res.status(400).json({ error: 'SMS text is required' });
 
+        const today = new Date().toISOString().split('T')[0];
         const groq = getGroqClient();
         const completion = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
             messages: [{
                 role: 'user',
-                content: `Extract transaction details from this Indian bank SMS. Return ONLY valid JSON with these fields (no markdown, no explanation):
-{
-  "amount": number,
-  "type": "income" or "expense",
-  "description": string,
-  "date": "YYYY-MM-DD",
-  "merchant": string
-}
-If you cannot extract a field, use null. SMS: ${sms}`,
+                content: `You are a financial transaction parser for an Indian personal finance app.
+Extract transaction details from the following text.
+
+Rules:
+- amount: extract the numeric amount (no currency symbol)
+- type: 'expense' unless the text clearly mentions salary/received/credited
+- category: pick the BEST match from this list only:
+  Food & Dining, Transportation, Shopping, Entertainment, Healthcare,
+  Education, Utilities, Rent, Salary, Investments, Personal Care, Other
+- description: short 2-4 word title (e.g. 'Coffee at Cafe', 'Uber Ride')
+- date: today's date in YYYY-MM-DD format if not mentioned (today is ${today})
+- notes: payment mode if mentioned (UPI, cash, card), else empty string
+
+Text to parse: "${sms}"
+
+Respond with ONLY a raw JSON object. No markdown. No backticks. No explanation.
+Format: {
+  "type": "expense",
+  "amount": 200,
+  "description": "Coffee at Cafe",
+  "category": "Food & Dining",
+  "date": "${today}",
+  "notes": "UPI"
+}`,
             }],
             max_tokens: 1000,
         });
 
         const text = completion.choices[0].message.content.trim();
-        const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(jsonStr);
+        const clean = text.replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(clean);
         res.json({ parsed });
     } catch (err) {
         console.error('AI parse-sms error:', err.message);
-        res.json({ parsed: null, error: 'Could not parse the SMS. Please enter details manually.' });
+        res.status(500).json({ error: 'Failed to parse transaction' });
     }
 });
 

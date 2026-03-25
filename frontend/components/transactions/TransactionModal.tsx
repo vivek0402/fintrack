@@ -32,6 +32,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
     const [showSmsOverlay, setShowSmsOverlay] = useState(false);
     const [smsText, setSmsText] = useState('');
     const [smsLoading, setSmsLoading] = useState(false);
+    const [isParsing, setIsParsing] = useState(false);
 
     // Image state
     const [imageLoading, setImageLoading] = useState(false);
@@ -89,6 +90,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
     const handleParseSMS = async () => {
         if (!smsText.trim()) return;
         setSmsLoading(true);
+        setIsParsing(true);
         try {
             const res = await aiAPI.parseSMS(smsText);
             applyParsed(res.data.parsed);
@@ -98,6 +100,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
             // silent fail — user keeps manual form
         } finally {
             setSmsLoading(false);
+            setIsParsing(false);
         }
     };
 
@@ -197,7 +200,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, defa
                             style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: '12px' }}
                         />
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <Button type="button" size="sm" onClick={handleParseSMS} isLoading={smsLoading}>Extract Details</Button>
+                            <button
+                                type="button"
+                                onClick={handleParseSMS}
+                                disabled={isParsing || !smsText.trim()}
+                                style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: isParsing ? 'var(--bg-card)' : 'var(--accent-blue)', border: '1px solid var(--accent-blue-border)', borderRadius: '8px', color: isParsing ? 'var(--text-secondary)' : '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: isParsing ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: isParsing ? 0.7 : 1, transition: 'all 0.15s' }}
+                            >
+                                {isParsing && (
+                                    <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid var(--text-muted)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6 }} />
+                                )}
+                                {isParsing ? 'Parsing…' : 'Extract Details'}
+                            </button>
                             <Button type="button" variant="secondary" size="sm" onClick={() => setShowSmsOverlay(false)}>Cancel</Button>
                         </div>
                     </div>
