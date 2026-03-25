@@ -17,15 +17,15 @@ const mainTabs = [
 ];
 
 const moreItems = [
-    { href: '/calendar',    icon: CalendarDays,  label: 'Calendar' },
-    { href: '/budgets',     icon: Target,        label: 'Budgets' },
-    { href: '/goals',       icon: Flag,          label: 'Goals' },
-    { href: '/reports',     icon: FileText,      label: 'Reports' },
-    { href: '/forecast',    icon: CalendarClock, label: 'Forecast' },
-    { href: '/personality', icon: Brain,         label: 'Personality' },
-    { href: '/recurring',   icon: RefreshCw,     label: 'Recurring' },
-    { href: '/splits',      icon: Users,         label: 'Splits' },
-    { href: '/profile',     icon: Settings,      label: 'Settings' },
+    { href: '/calendar',     icon: CalendarDays,  label: 'Calendar' },
+    { href: '/budgets',      icon: Target,        label: 'Budgets' },
+    { href: '/goals',        icon: Flag,          label: 'Goals' },
+    { href: '/reports',      icon: FileText,      label: 'Reports' },
+    { href: '/forecast',     icon: CalendarClock, label: 'Forecast' },
+    { href: '/personality',  icon: Brain,         label: 'Personality' },
+    { href: '/recurring',    icon: RefreshCw,     label: 'Recurring' },
+    { href: '/splits',       icon: Users,         label: 'Splits' },
+    { href: '/profile',      icon: Settings,      label: 'Settings' },
 ];
 
 const moreHrefs = moreItems.map(i => i.href);
@@ -96,8 +96,8 @@ export function BottomNav() {
                                     style={{
                                         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
                                         padding: '14px 8px', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                                        background: isActive ? 'rgba(16,185,129,0.12)' : 'var(--bg-card)',
-                                        color: isActive ? '#10b981' : 'var(--text-secondary)',
+                                        background: isActive ? 'var(--accent-blue-bg)' : 'var(--bg-card)',
+                                        color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
                                         transition: 'all 0.2s',
                                     }}
                                 >
@@ -136,7 +136,7 @@ export function BottomNav() {
                     const isActive = pathname === href;
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', color: isActive ? '#10b981' : 'var(--text-muted)', transition: 'all 0.2s' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', color: isActive ? 'var(--accent-blue)' : 'var(--text-muted)', borderTop: isActive ? '2px solid var(--accent-blue)' : '2px solid transparent', transition: 'all 0.2s' }}>
                                 <Icon size={20} />
                                 <span style={{ fontSize: '0.62rem', fontWeight: isActive ? 600 : 400 }}>{label}</span>
                             </div>
@@ -147,7 +147,7 @@ export function BottomNav() {
                 {/* More tab */}
                 <button
                     onClick={() => setShowMore(v => !v)}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', border: 'none', background: 'transparent', cursor: 'pointer', color: isMoreActive || showMore ? '#10b981' : 'var(--text-muted)', transition: 'all 0.2s' }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', padding: '6px 20px', borderRadius: '12px', border: 'none', borderTop: isMoreActive || showMore ? '2px solid var(--accent-blue)' : '2px solid transparent', background: 'transparent', cursor: 'pointer', color: isMoreActive || showMore ? 'var(--accent-blue)' : 'var(--text-muted)', transition: 'all 0.2s' }}
                 >
                     <MoreHorizontal size={20} />
                     <span style={{ fontSize: '0.62rem', fontWeight: isMoreActive || showMore ? 600 : 400 }}>More</span>

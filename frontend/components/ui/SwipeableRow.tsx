@@ -16,11 +16,13 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
     const [isDragging, setIsDragging] = useState(false);
     const startX = useRef(0);
     const draggingRef = useRef(false);
+    const didSwipeRef = useRef(false);
     const rowRef = useRef<HTMLDivElement>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         startX.current = e.touches[0].clientX;
         draggingRef.current = true;
+        didSwipeRef.current = false;
         setIsDragging(true);
         setTransitioning(false);
     };
@@ -28,6 +30,7 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!draggingRef.current) return;
         const raw = e.touches[0].clientX - startX.current;
+        if (Math.abs(raw) > 8) didSwipeRef.current = true;
         setDragX(Math.max(-100, Math.min(100, raw)));
     };
 
@@ -98,6 +101,7 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                onClick={(e) => { if (didSwipeRef.current) { e.stopPropagation(); didSwipeRef.current = false; } }}
                 style={{
                     position: 'relative',
                     transform: `translateX(${dragX}px)`,

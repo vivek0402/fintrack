@@ -9,48 +9,62 @@ interface ModalProps {
     onClose: () => void;
     title?: string;
     children: React.ReactNode;
+    footer?: React.ReactNode;
     maxWidth?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children, maxWidth = '480px' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px' }: ModalProps) {
     const isMobile = useIsMobile();
 
     if (!isOpen) return null;
 
     if (isMobile) {
         return (
-            <BottomSheet isOpen={isOpen} onClose={onClose} title={title}>
+            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer}>
                 {children}
             </BottomSheet>
         );
     }
 
     return (
-        <>
-            <div
-                onClick={onClose}
-                style={{
-                    position: 'fixed', inset: 0,
-                    background: 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(6px)',
-                    zIndex: 1000,
-                }}
-            />
-            <div style={{
+        <div
+            onClick={onClose}
+            style={{
                 position: 'fixed',
-                top: '50%', left: '50%',
-                transform: 'translate(-50%,-50%)',
-                width: '100%', maxWidth,
-                maxHeight: '85vh', overflowY: 'auto',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--bg-border)',
-                borderRadius: '20px',
-                padding: '24px',
-                boxShadow: 'var(--shadow-modal)',
-                zIndex: 1001,
-            }}>
+                top: 0, left: 0,
+                width: '100vw', height: '100vh',
+                background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
+        >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth,
+                    maxHeight: '90vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--bg-border)',
+                    borderRadius: '20px',
+                    boxShadow: 'var(--shadow-modal)',
+                    zIndex: 1001,
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Header */}
                 {title && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '20px 24px 16px',
+                        borderBottom: '1px solid var(--bg-border)',
+                        flexShrink: 0,
+                    }}>
                         <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
                         <button
                             onClick={onClose}
@@ -60,8 +74,24 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = '480px' }: 
                         </button>
                     </div>
                 )}
-                {children}
+
+                {/* Scrollable body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                    {children}
+                </div>
+
+                {/* Sticky footer */}
+                {footer && (
+                    <div style={{
+                        flexShrink: 0,
+                        padding: '16px 24px',
+                        borderTop: '1px solid var(--bg-border)',
+                        background: 'var(--bg-secondary)',
+                    }}>
+                        {footer}
+                    </div>
+                )}
             </div>
-        </>
+        </div>
     );
 }

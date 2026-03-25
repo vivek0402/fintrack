@@ -116,7 +116,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense',
         amount: '', description: '', notes: '',
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         category_id: '', tags: [] as string[],
     });
     const [tagInput, setTagInput] = useState('');
@@ -189,7 +189,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 amount: transaction.amount,
                 description: transaction.description,
                 notes: transaction.notes || '',
-                date: rawDate || new Date().toISOString().split('T')[0],
+                date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
                 category_id: transaction.category_id || '',
                 tags: Array.isArray(transaction.tags) ? transaction.tags : [],
             });
@@ -199,13 +199,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 amount: prefill.amount ? String(prefill.amount) : '',
                 description: prefill.description || '',
                 notes: prefill.notes || '',
-                date: prefill.date || defaultDate || new Date().toISOString().split('T')[0],
+                date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
                 category_id: '',
                 tags: [],
             });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toISOString().split('T')[0], category_id: '', tags: [] });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [] });
             setTagInput('');
         }
         setError('');
@@ -319,20 +319,35 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     const handleVoice = () => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+        if (!SpeechRecognition) {
+            setError('Voice input is not supported on this device. Please type your transaction.');
+            return;
+        }
         if (voiceListening) { recognitionRef.current?.stop(); setVoiceListening(false); return; }
-        const recognition = new SpeechRecognition();
-        recognitionRef.current = recognition;
-        recognition.lang = 'en-IN';
-        recognition.interimResults = false;
-        recognition.onstart = () => setVoiceListening(true);
-        recognition.onend = () => setVoiceListening(false);
-        recognition.onerror = () => setVoiceListening(false);
-        recognition.onresult = async (event: any) => {
-            const transcript = event.results[0][0].transcript;
-            try { const res = await aiAPI.parseSMS(transcript); applyParsed(res.data.parsed); } catch { /* silent */ }
-        };
-        recognition.start();
+        try {
+            const recognition = new SpeechRecognition();
+            recognitionRef.current = recognition;
+            recognition.lang = 'en-IN';
+            recognition.interimResults = false;
+            recognition.onstart = () => setVoiceListening(true);
+            recognition.onend = () => setVoiceListening(false);
+            recognition.onerror = (e: any) => {
+                setVoiceListening(false);
+                const msg = e?.error;
+                if (msg === 'not-allowed') setError('Microphone permission denied. Please allow microphone access and try again.');
+                else if (msg === 'no-speech') setError('No speech detected. Please try again.');
+                else setError('Voice input failed. Please try again or type your transaction.');
+            };
+            recognition.onresult = async (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                try { const res = await aiAPI.parseSMS(transcript); applyParsed(res.data.parsed); }
+                catch { setError('Could not parse voice input. Please try again or type your transaction.'); }
+            };
+            recognition.start();
+        } catch (e) {
+            setVoiceListening(false);
+            setError('Voice input is not supported on this device. Please type your transaction.');
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -392,7 +407,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? 'Edit Transaction' : 'Add Transaction'}>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isEditing ? 'Edit Transaction' : 'Add Transaction'}
+            footer={
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <Button type="button" variant="secondary" size="lg" onClick={onClose}>Cancel</Button>
+                    <Button type="submit" form="transaction-form" size="lg" isLoading={loading}>{isEditing ? 'Save Changes' : 'Add Transaction'}</Button>
+                </div>
+            }
+        >
             {/* SMS overlay */}
             {showSmsOverlay && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -427,13 +452,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                         <Camera size={13} />{imageLoading ? 'Scanning…' : 'Scan Receipt'}
                     </button>
                     <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
-                    {voiceSupported && (
-                        <button type="button" onClick={handleVoice}
-                            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: voiceListening ? 'rgba(244,63,94,0.12)' : 'var(--bg-card)', border: `1px solid ${voiceListening ? 'rgba(244,63,94,0.4)' : 'var(--bg-border)'}`, borderRadius: '8px', color: voiceListening ? '#f43f5e' : 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                            <Mic size={13} style={{ animation: voiceListening ? 'pulse 1s ease-in-out infinite' : 'none' }} />
-                            {voiceListening ? 'Listening…' : 'Voice'}
-                        </button>
-                    )}
+                    <button type="button" onClick={handleVoice}
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: voiceListening ? 'rgba(244,63,94,0.12)' : 'var(--bg-card)', border: `1px solid ${voiceListening ? 'rgba(244,63,94,0.4)' : 'var(--bg-border)'}`, borderRadius: '8px', color: voiceListening ? '#f43f5e' : 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                        <Mic size={13} style={{ animation: voiceListening ? 'pulse 1s ease-in-out infinite' : 'none' }} />
+                        {voiceListening ? 'Listening…' : 'Voice'}
+                    </button>
                 </div>
             )}
 
@@ -497,7 +520,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form id="transaction-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Type toggle */}
                 <div>
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Type</label>
@@ -660,11 +683,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 </div>
 
                 {error && <div style={{ padding: '10px 14px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', borderRadius: '10px', fontSize: '0.8rem', color: 'var(--accent-red)' }}>{error}</div>}
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
-                    <Button type="button" variant="secondary" size="lg" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" size="lg" isLoading={loading}>{isEditing ? 'Save Changes' : 'Add Transaction'}</Button>
-                </div>
             </form>
             <style>{`
                 @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }

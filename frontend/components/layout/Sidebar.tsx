@@ -77,13 +77,13 @@ export function Sidebar() {
             {/* Nav */}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px' }}>
                 {navItems.map(({ href, icon: Icon, label }) => {
-                    const isActive = pathname === href;
+                    const isActive = pathname === href || pathname.startsWith(href + '/');
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: '10px',
                                 padding: '9px 12px', borderRadius: '10px',
-                                background: isActive ? 'linear-gradient(135deg, var(--accent-blue-bg), var(--accent-blue-bg))' : 'transparent',
+                                background: isActive ? 'var(--bg-hover)' : 'transparent',
                                 borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
                                 paddingLeft: isActive ? '9px' : '12px',
                                 color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',

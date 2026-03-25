@@ -72,7 +72,9 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                         // ── Mobile row ──────────────────────────────────────────────
                         const mobileRowInner = (
-                            <div style={{
+                            <div
+                                onClick={() => onEdit(tx)}
+                                style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 padding: '12px 16px',
@@ -80,6 +82,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 background: 'var(--bg-card)',
                                 minHeight: '64px',
                                 opacity: tx.is_regretted ? 0.7 : 1,
+                                cursor: 'pointer',
                             }}>
                                 {/* Category color dot */}
                                 <div style={{

@@ -4,7 +4,15 @@
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(ls \"e:/Projects/Finance Tracker/frontend/app/\\(auth\\)/\")",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(find 'e:/Projects/Finance Tracker/frontend' -name globals.css -o -name AppLayout.tsx -o -name *Skeleton*)",
+      "Bash(xargs grep:*)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"fintech dashboard\" --domain ux -n 5)",
+      "Bash(py .claude/skills/ui-ux-pro-max/scripts/search.py \"fintech dashboard chart\" --domain ux -n 5)",
+      "Bash(py .claude/skills/ui-ux-pro-max/scripts/search.py \"animation accessibility touch\" --domain ux -n 8)",
+      "Bash(grep -rn \"cursor: ''''pointer''''\" --include=\"*.tsx\")",
+      "Bash(node -e \"require\\(''./src/routes/ai.js''\\); require\\(''./src/utils/gemini.js''\\); console.log\\(''OK — no import errors''\\);\")",
+      "Bash(npx tsc:*)"
     ]
   }
 }

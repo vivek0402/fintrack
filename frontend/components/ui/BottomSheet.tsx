@@ -9,10 +9,11 @@ interface BottomSheetProps {
     onClose: () => void;
     children: React.ReactNode;
     title?: string;
+    footer?: React.ReactNode;
     maxHeight?: string;
 }
 
-export function BottomSheet({ isOpen, onClose, children, title, maxHeight = '90vh' }: BottomSheetProps) {
+export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh' }: BottomSheetProps) {
     const [mounted, setMounted] = useState(false);
     const [closing, setClosing] = useState(false);
     const [dragY, setDragY] = useState(0);
@@ -68,44 +69,69 @@ export function BottomSheet({ isOpen, onClose, children, title, maxHeight = '90v
             />
             <div
                 className={closing ? 'sheet-exit' : 'sheet-enter'}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
                 style={{
                     position: 'fixed',
                     bottom: 0, left: 0, right: 0,
                     maxHeight,
+                    display: 'flex',
+                    flexDirection: 'column',
                     background: 'var(--bg-secondary)',
                     borderRadius: '20px 20px 0 0',
-                    overflowY: 'auto',
                     zIndex: 1000,
-                    padding: `0 20px calc(20px + env(safe-area-inset-bottom, 0px))`,
                     transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
                     transition: dragY > 0 ? 'none' : 'transform 200ms ease-out',
+                    overflow: 'hidden',
                 }}
             >
-                {/* Drag handle */}
-                <div style={{
-                    width: '36px', height: '4px',
-                    background: 'var(--bg-border)',
-                    borderRadius: '2px',
-                    margin: '12px auto 16px',
-                    flexShrink: 0,
-                }} />
+                {/* Sticky header: drag handle + title */}
+                <div
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    style={{ flexShrink: 0 }}
+                >
+                    <div style={{
+                        width: '36px', height: '4px',
+                        background: 'var(--bg-border)',
+                        borderRadius: '2px',
+                        margin: '12px auto 0',
+                    }} />
+                    {title && (
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '14px 20px 12px',
+                            borderBottom: '1px solid var(--bg-border)',
+                        }}>
+                            <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
+                            <button
+                                onClick={handleClose}
+                                style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '6px', borderRadius: '8px' }}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-                {title && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
-                        <button
-                            onClick={handleClose}
-                            style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '6px', borderRadius: '8px' }}
-                        >
-                            <X size={18} />
-                        </button>
+                {/* Scrollable body */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 0' }}>
+                    {children}
+                </div>
+
+                {/* Sticky footer */}
+                {footer && (
+                    <div style={{
+                        flexShrink: 0,
+                        padding: `16px 20px calc(16px + env(safe-area-inset-bottom, 0px))`,
+                        borderTop: '1px solid var(--bg-border)',
+                        background: 'var(--bg-secondary)',
+                    }}>
+                        {footer}
                     </div>
                 )}
-
-                {children}
+                {!footer && (
+                    <div style={{ flexShrink: 0, height: 'calc(16px + env(safe-area-inset-bottom, 0px))' }} />
+                )}
             </div>
         </>
     );
