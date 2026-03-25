@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { TrendChart } from '@/components/dashboard/TrendChart';
@@ -118,14 +119,35 @@ export default function DashboardPage() {
         return 'rgba(245,158,11,0.08)';
     };
 
-    if (isLoading || !user) {
-        return (
-            <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    if (isLoading || !user) return (
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
             </div>
-        );
-    }
+            <SkeletonCard height={160} style={{ marginBottom: '16px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                {[1,2,3,4].map(i => <SkeletonCard key={i} height={80} />)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', marginBottom: '16px' }}>
+                <SkeletonCard height={200} />
+                <SkeletonCard height={200} />
+            </div>
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
+                <Skeleton width="30%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
+                {[1,2,3,4,5].map(i => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '12px', paddingBottom: '12px', borderBottom: i < 5 ? '1px solid var(--bg-border)' : 'none' }}>
+                        <SkeletonCircle size={40} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <SkeletonText />
+                            <Skeleton width="50%" height={12} borderRadius={4} />
+                        </div>
+                        <Skeleton width={72} height={16} borderRadius={4} />
+                    </div>
+                ))}
+            </div>
+        </AppLayout>
+    );
 
     const dismissSalaryBanner = () => {
         const key = `salary-banner-dismissed-${month}-${year}`;

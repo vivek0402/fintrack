@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { TrendingUp, TrendingDown, Award, Calendar, Download } from 'lucide-react';
@@ -99,10 +100,28 @@ export default function AnalyticsPage() {
     const pctChange = (curr: number, last: number) => last === 0 ? null : ((curr - last) / last * 100).toFixed(1);
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                {[1,2,3].map(i => <Skeleton key={i} height={72} borderRadius={12} />)}
+            </div>
+            <SkeletonCard height={240} style={{ marginBottom: '16px' }} />
+            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
+                <Skeleton width="40%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
+                {[1,2,3,4,5,6].map(i => (
+                    <div key={i} style={{ marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                            <Skeleton width="35%" height={14} borderRadius={4} />
+                            <Skeleton width={60} height={14} borderRadius={4} />
+                        </div>
+                        <Skeleton width="100%" height={6} borderRadius={4} />
+                    </div>
+                ))}
+            </div>
+        </AppLayout>
     );
 
     return (

@@ -6,6 +6,7 @@ import { Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils';
@@ -72,10 +73,15 @@ export default function BudgetsPage() {
     const overBudget = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount)).length;
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid var(--accent-green)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
+                {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} height={120} />)}
+            </div>
+        </AppLayout>
     );
 
     return (

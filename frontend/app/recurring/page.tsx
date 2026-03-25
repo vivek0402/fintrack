@@ -6,6 +6,7 @@ import { Plus, Trash2, RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkle
 import { useAuthStore } from '@/store/authStore';
 import { recurringAPI, categoriesAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { formatCurrency } from '@/lib/utils';
@@ -118,10 +119,24 @@ export default function RecurringPage() {
     const visiblePatterns = patterns.filter((_, i) => !dismissedPatterns.has(i));
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[1,2,3,4,5].map(i => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px' }}>
+                        <SkeletonCircle size={40} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <Skeleton width="50%" height={14} borderRadius={4} />
+                            <Skeleton width="30%" height={12} borderRadius={4} />
+                        </div>
+                        <Skeleton width={72} height={20} borderRadius={6} />
+                    </div>
+                ))}
+            </div>
+        </AppLayout>
     );
 
     return (

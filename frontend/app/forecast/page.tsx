@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { formatCurrency } from '@/lib/utils';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -27,10 +28,15 @@ export default function ForecastPage() {
     }, [user]);
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} />
+        </AppLayout>
     );
 
     // Build a 30-day grid starting from today

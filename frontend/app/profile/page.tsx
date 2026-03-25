@@ -6,6 +6,7 @@ import { User, Mail, Lock, Globe, CheckCircle, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -68,10 +69,15 @@ export default function ProfilePage() {
     };
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} />
+        </AppLayout>
     );
 
     const Msg = ({ msg }: { msg: { type: string; text: string } }) => (

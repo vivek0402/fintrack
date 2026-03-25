@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, X } from 'lu
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { formatCurrency } from '@/lib/utils';
 
@@ -64,10 +65,15 @@ export default function CalendarPage() {
     const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); } else setCurrentMonth(m => m + 1); setSelectedDate(null); };
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={120} />
+        </AppLayout>
     );
 
     return (

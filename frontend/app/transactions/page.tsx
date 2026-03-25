@@ -6,6 +6,7 @@ import { Plus, Search, Download, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { Skeleton, SkeletonTitle, SkeletonCircle, SkeletonText, SkeletonButton } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -103,10 +104,32 @@ export default function TransactionsPage() {
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
 
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        <AppLayout>
+            <div style={{ marginBottom: '24px' }}>
+                <SkeletonTitle />
+                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                <SkeletonButton />
+                <SkeletonButton />
+                <Skeleton width="100%" height={36} borderRadius={8} />
+            </div>
+            {[1,2,3].map(group => (
+                <div key={group} style={{ marginBottom: '16px' }}>
+                    <Skeleton width="120px" height={14} borderRadius={4} style={{ marginBottom: '10px' }} />
+                    {[1,2,3].map(i => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', borderBottom: '1px solid var(--bg-border)' }}>
+                            <SkeletonCircle size={40} />
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <SkeletonText />
+                                <Skeleton width="50%" height={12} borderRadius={4} />
+                            </div>
+                            <Skeleton width={72} height={16} borderRadius={4} />
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </AppLayout>
     );
 
     return (
