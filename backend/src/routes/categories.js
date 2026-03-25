@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            `DELETE FROM categories WHERE id = $1 AND user_id = $2 AND is_default = false RETURNING id`,
+            `DELETE FROM categories WHERE id = $1 AND user_id = $2 RETURNING id`,
             [req.params.id, req.user.id]
         );
         if (result.rows.length === 0)

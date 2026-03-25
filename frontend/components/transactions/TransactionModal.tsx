@@ -41,36 +41,60 @@ const CategoryIcon = ({ name, size = 14, color = 'currentColor' }: {
     if (!name) return <span style={{ fontSize: size }}>📦</span>;
     const Icon = ICON_MAP[name];
     if (Icon) return <Icon size={size} color={color} />;
-    // emoji or unknown string — render as text
     return <span style={{ fontSize: size, lineHeight: 1 }}>{name}</span>;
 };
 
 // ─── Dropdown option ─────────────────────────────────────────────────────────
 
-function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; onSelect: () => void }) {
+function CatOption({ cat, selected, onSelect, onDelete }: {
+    cat: any; selected: boolean; onSelect: () => void; onDelete: () => void;
+}) {
+    const handleDelete = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const msg = cat.is_default
+            ? `Delete "${cat.name}"? This is a default category. Existing transactions using it will become uncategorized.`
+            : `Delete "${cat.name}"? Existing transactions using it will become uncategorized.`;
+        if (window.confirm(msg)) onDelete();
+    };
+
     return (
-        <button
-            type="button"
+        <div
             onClick={onSelect}
             style={{
-                width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
-                padding: '9px 14px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '9px 14px', cursor: 'pointer',
                 background: selected ? 'var(--bg-hover)' : 'transparent',
-                color: 'var(--text-primary)', fontSize: '0.875rem',
-                fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
                 transition: 'background 0.1s',
             }}
             onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
             onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
             <CategoryIcon name={cat.icon} size={14} color={cat.color} />
-            <span style={{ flex: 1 }}>{cat.name}</span>
+            <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>
+                {cat.name}
+            </span>
             {Number(cat.usage_count) > 0 && (
                 <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>
                     {cat.usage_count}×
                 </span>
             )}
-        </button>
+            <button
+                type="button"
+                onClick={handleDelete}
+                style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', padding: '2px 4px', borderRadius: '4px',
+                    fontSize: '11px', lineHeight: 1, flexShrink: 0,
+                    display: 'flex', alignItems: 'center',
+                    transition: 'color 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
+                title="Delete category"
+            >
+                ✕
+            </button>
+        </div>
     );
 }
 
@@ -109,6 +133,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const [newCatName, setNewCatName] = useState('');
     const [newCatColor, setNewCatColor] = useState('#6366f1');
     const [addCatLoading, setAddCatLoading] = useState(false);
+
+    // AI new-category prompt
+    const [pendingNewCategory, setPendingNewCategory] = useState('');
+    const [showNewCategoryPrompt, setShowNewCategoryPrompt] = useState(false);
+    const [approvingCat, setApprovingCat] = useState(false);
 
     // SMS
     const [showSmsOverlay, setShowSmsOverlay] = useState(false);
@@ -183,6 +212,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         setImagePreview(null);
         setCatDropdownOpen(false);
         setShowAddCat(false);
+        setShowNewCategoryPrompt(false);
+        setPendingNewCategory('');
     }, [transaction, isOpen, defaultDate, prefill]);
 
     const findCategory = (cats: any[], aiCat: string) => {
@@ -206,7 +237,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     const applyParsed = (parsed: any) => {
         if (!parsed) return;
-        const matched = findCategory(categories, parsed.category || '');
+
+        // Fill all non-category fields first
         setForm(prev => ({
             ...prev,
             amount: parsed.amount ? String(parsed.amount) : prev.amount,
@@ -214,8 +246,53 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             date: parsed.date || prev.date,
             type: parsed.type === 'income' ? 'income' : 'expense',
             notes: parsed.notes || prev.notes,
-            category_id: matched ? String(matched.id) : prev.category_id,
         }));
+
+        // Try to match category
+        const matched = findCategory(categories, parsed.category || '');
+        if (matched) {
+            setForm(prev => ({ ...prev, category_id: String(matched.id) }));
+        } else if (parsed.category) {
+            // No match — prompt user to approve creating it
+            setPendingNewCategory(parsed.category);
+            setShowNewCategoryPrompt(true);
+        }
+    };
+
+    const handleApproveNewCategory = async () => {
+        if (!pendingNewCategory) return;
+        setApprovingCat(true);
+        try {
+            const colors = [
+                '#f59e0b', '#3b82f6', '#ec4899', '#a855f7', '#10b981',
+                '#06b6d4', '#f97316', '#8b5cf6', '#059669', '#f43f5e',
+            ];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const res = await categoriesAPI.create({ name: pendingNewCategory, color, icon: '📦' });
+            const newCat = res.data.category;
+            setCategories(prev => [...prev, { ...newCat, usage_count: 0, last_used: null }]);
+            setForm(prev => ({ ...prev, category_id: String(newCat.id) }));
+            setShowNewCategoryPrompt(false);
+            setPendingNewCategory('');
+        } catch {
+            setShowNewCategoryPrompt(false);
+        } finally {
+            setApprovingCat(false);
+        }
+    };
+
+    const handleDeleteCategory = async (cat: any) => {
+        // Optimistic remove
+        setCategories(prev => prev.filter(c => c.id !== cat.id));
+        if (form.category_id === String(cat.id)) {
+            setForm(prev => ({ ...prev, category_id: '' }));
+        }
+        try {
+            await categoriesAPI.delete(String(cat.id));
+        } catch {
+            // Restore on failure
+            setCategories(prev => [...prev, cat]);
+        }
     };
 
     const handleParseSMS = async () => {
@@ -312,7 +389,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     const frequentCats = sortedCategories.filter(c => Number(c.usage_count) > 0);
     const neverUsedCats = sortedCategories.filter(c => !Number(c.usage_count));
-
     const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
 
     return (
@@ -358,6 +434,58 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                             {voiceListening ? 'Listening…' : 'Voice'}
                         </button>
                     )}
+                </div>
+            )}
+
+            {/* AI new-category prompt banner */}
+            {showNewCategoryPrompt && (
+                <div style={{
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--accent-blue)',
+                    borderRadius: 10,
+                    padding: '10px 14px',
+                    marginBottom: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 10,
+                }}>
+                    <div>
+                        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                            ✨ New category detected
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            AI suggested: <strong>"{pendingNewCategory}"</strong>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        <button
+                            type="button"
+                            onClick={handleApproveNewCategory}
+                            disabled={approvingCat}
+                            style={{
+                                background: 'var(--accent-blue)', color: '#fff',
+                                border: 'none', borderRadius: 6, padding: '5px 12px',
+                                fontSize: 12, cursor: approvingCat ? 'wait' : 'pointer',
+                                fontWeight: 600, opacity: approvingCat ? 0.7 : 1,
+                                fontFamily: 'DM Sans, sans-serif',
+                            }}
+                        >
+                            {approvingCat ? '…' : 'Add it'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowNewCategoryPrompt(false)}
+                            style={{
+                                background: 'var(--bg-card)', color: 'var(--text-secondary)',
+                                border: '1px solid var(--bg-border)', borderRadius: 6,
+                                padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+                                fontFamily: 'DM Sans, sans-serif',
+                            }}
+                        >
+                            Skip
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -442,21 +570,31 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                     <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading…</div>
                                 ) : (
                                     <>
-                                        {/* Frequently used group */}
                                         {frequentCats.length > 0 && (
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'DM Sans, sans-serif' }}>
                                                 Frequently Used
                                             </div>
                                         )}
-                                        {frequentCats.map(cat => <CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />)}
+                                        {frequentCats.map(cat => (
+                                            <CatOption key={cat.id} cat={cat}
+                                                selected={form.category_id === String(cat.id)}
+                                                onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }}
+                                                onDelete={() => handleDeleteCategory(cat)}
+                                            />
+                                        ))}
 
-                                        {/* All categories group */}
                                         {neverUsedCats.length > 0 && frequentCats.length > 0 && (
                                             <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--bg-border)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'DM Sans, sans-serif' }}>
                                                 All Categories
                                             </div>
                                         )}
-                                        {neverUsedCats.map(cat => <CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />)}
+                                        {neverUsedCats.map(cat => (
+                                            <CatOption key={cat.id} cat={cat}
+                                                selected={form.category_id === String(cat.id)}
+                                                onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }}
+                                                onDelete={() => handleDeleteCategory(cat)}
+                                            />
+                                        ))}
                                     </>
                                 )}
                             </div>
