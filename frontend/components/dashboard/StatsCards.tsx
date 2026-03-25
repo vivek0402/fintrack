@@ -33,6 +33,10 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
     const animBalance = useCountUp(Math.abs(balance));
     const animSavings = useCountUp(savingsRate);
 
+    const savingsLabel = savingsRate < 10 ? 'Needs work' : savingsRate <= 20 ? 'Getting there' : 'On track';
+    const savingsColor = savingsRate < 10 ? 'var(--accent-red)' : savingsRate <= 20 ? 'var(--accent-yellow)' : 'var(--accent-green)';
+    const savingsColorRaw = savingsRate < 10 ? '#f43f5e' : savingsRate <= 20 ? '#f59e0b' : '#10b981';
+
     const cards = [
         {
             label: 'Total Income', animValue: animIncome,
@@ -58,7 +62,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
         {
             label: 'Savings Rate', animValue: animSavings,
             icon: PiggyBank, gradient: 'var(--gradient-yellow)',
-            glow: '0 0 24px var(--accent-yellow-border)', accent: 'var(--accent-yellow)',
+            glow: '0 0 24px var(--accent-yellow-border)', accent: savingsColor,
             accentBg: 'var(--accent-yellow-bg)', accentBorder: 'var(--accent-yellow-border)',
             format: (v: number) => `${Math.round(v)}%`,
         },
@@ -97,6 +101,18 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
                         <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.25rem', fontWeight: 700, color: card.accent, margin: 0, letterSpacing: '-0.02em' }}>
                             {card.format(card.animValue)}
                         </p>
+                        {card.label === 'Savings Rate' && (
+                            <span style={{
+                                display: 'inline-block', marginTop: '6px',
+                                fontSize: '11px', fontWeight: 600,
+                                color: savingsColor,
+                                background: `${savingsColorRaw}26`,
+                                borderRadius: '20px',
+                                padding: '2px 8px',
+                            }}>
+                                {savingsLabel}
+                            </span>
+                        )}
                     </div>
                 );
             })}
