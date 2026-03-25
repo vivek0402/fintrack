@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
-    Sparkles, Users, Brain, CalendarClock
+    Users, Brain, CalendarClock
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -17,16 +17,15 @@ const mainTabs = [
 ];
 
 const moreItems = [
-    { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
-    { href: '/budgets', icon: Target, label: 'Budgets' },
-    { href: '/goals', icon: Flag, label: 'Goals' },
-    { href: '/reports', icon: FileText, label: 'Reports' },
-    { href: '/forecast', icon: CalendarClock, label: 'Forecast' },
-    { href: '/personality', icon: Brain, label: 'Personality' },
-    { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
-    { href: '/splits', icon: Users, label: 'Splits' },
-    { href: '/ai-chat', icon: Sparkles, label: 'AI Chat' },
-    { href: '/profile', icon: Settings, label: 'Settings' },
+    { href: '/calendar',    icon: CalendarDays,  label: 'Calendar' },
+    { href: '/budgets',     icon: Target,        label: 'Budgets' },
+    { href: '/goals',       icon: Flag,          label: 'Goals' },
+    { href: '/reports',     icon: FileText,      label: 'Reports' },
+    { href: '/forecast',    icon: CalendarClock, label: 'Forecast' },
+    { href: '/personality', icon: Brain,         label: 'Personality' },
+    { href: '/recurring',   icon: RefreshCw,     label: 'Recurring' },
+    { href: '/splits',      icon: Users,         label: 'Splits' },
+    { href: '/profile',     icon: Settings,      label: 'Settings' },
 ];
 
 const moreHrefs = moreItems.map(i => i.href);
@@ -58,7 +57,7 @@ export function BottomNav() {
                     onClick={() => setShowMore(false)}
                     style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        zIndex: 150, backdropFilter: 'blur(2px)'
+                        zIndex: 150, backdropFilter: 'blur(2px)',
                     }}
                 />
             )}
