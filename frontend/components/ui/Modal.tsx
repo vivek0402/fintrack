@@ -50,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    backgroundColor: '#141d35',
+                    backgroundColor: '#000000',
                     border: '1px solid #1e2d4a',
                     borderRadius: '16px',
                     overflow: 'hidden',

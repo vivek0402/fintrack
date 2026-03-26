@@ -150,7 +150,7 @@ export default function DashboardPage() {
     // ── HERO CARD ──
     const HeroCard = () => isMobile ? (
         /* ── MOBILE HERO CARD ── */
-        <div style={{background:'linear-gradient(160deg,#0a0f1e 0%,#0d1628 60%,#080d1a 100%)',borderRadius:20,border:'1px solid rgba(255,255,255,0.06)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
+        <div style={{background:'#000000',borderRadius:20,border:'1px solid rgba(255,255,255,0.06)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
 
             {/* Ambient glows */}
             <div style={{position:'absolute',bottom:-40,left:-20,width:180,height:180,background:'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
@@ -364,7 +364,7 @@ export default function DashboardPage() {
     ) : (
         /* ── DESKTOP HERO CARD (3-column) ── */
         <div style={{
-            background: 'linear-gradient(135deg,#0a0f1e 0%,#0f1629 50%,#0a1225 100%)',
+            background: '#000000',
             borderRadius: 16,
             border: '1px solid rgba(255,255,255,0.06)',
             padding: '20px 24px',
