@@ -44,16 +44,15 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
             <div
                 onClick={e => e.stopPropagation()}
                 style={{
+                    position: 'relative',
                     width: '100%',
                     maxWidth,
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--bg-border)',
-                    borderRadius: '20px',
-                    boxShadow: 'var(--shadow-modal)',
-                    zIndex: 1001,
+                    backgroundColor: '#141d35',
+                    border: '1px solid #1e2d4a',
+                    borderRadius: '16px',
                     overflow: 'hidden',
                 }}
             >
@@ -61,8 +60,8 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 {title && (
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '20px 24px 16px',
-                        borderBottom: '1px solid var(--bg-border)',
+                        padding: '20px 24px',
+                        borderBottom: '1px solid #1e2d4a',
                         flexShrink: 0,
                     }}>
                         <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
@@ -76,7 +75,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 )}
 
                 {/* Scrollable body */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                     {children}
                 </div>
 
@@ -85,8 +84,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     <div style={{
                         flexShrink: 0,
                         padding: '16px 24px',
-                        borderTop: '1px solid var(--bg-border)',
-                        background: 'var(--bg-secondary)',
+                        borderTop: '1px solid #1e2d4a',
                     }}>
                         {footer}
                     </div>

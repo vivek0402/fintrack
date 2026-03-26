@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    X, Calendar, FileText, Mic, Camera, ChevronDown,
+    X, FileText, Mic, Camera, ChevronDown,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
@@ -94,6 +94,113 @@ function CatOption({ cat, selected, onSelect, onDelete }: {
             >
                 ✕
             </button>
+        </div>
+    );
+}
+
+// ─── Inline Calendar ─────────────────────────────────────────────────────────
+
+function InlineCalendar({ value, onChange }: { value: string; onChange: (d: string) => void }) {
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    const [viewDate, setViewDate] = useState(() => {
+        if (value) {
+            const [y, m] = value.split('-').map(Number);
+            return new Date(y, m - 1, 1);
+        }
+        return new Date(today.getFullYear(), today.getMonth(), 1);
+    });
+
+    useEffect(() => {
+        if (value) {
+            const [y, m] = value.split('-').map(Number);
+            setViewDate(new Date(y, m - 1, 1));
+        }
+    }, [value]);
+
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const monthName = viewDate.toLocaleString('default', { month: 'long' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const cells: { date: Date; current: boolean }[] = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+        cells.push({ date: new Date(year, month - 1, daysInPrevMonth - i), current: false });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+        cells.push({ date: new Date(year, month, d), current: true });
+    }
+    const remaining = 42 - cells.length;
+    for (let d = 1; d <= remaining; d++) {
+        cells.push({ date: new Date(year, month + 1, d), current: false });
+    }
+
+    const toYMD = (d: Date) => d.toLocaleDateString('en-CA');
+
+    return (
+        <div style={{ background: '#141d35', border: '1px solid #1e2d4a', borderRadius: '12px', padding: '12px', userSelect: 'none' }}>
+            {/* Month nav header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <button
+                    type="button"
+                    onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
+                >
+                    ‹
+                </button>
+                <span style={{ color: '#f0f4ff', fontSize: '0.875rem', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>
+                    {monthName} {year}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
+                >
+                    ›
+                </button>
+            </div>
+            {/* Weekday labels */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                    <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#8892aa', textTransform: 'uppercase', padding: '2px 0', fontFamily: 'DM Sans, sans-serif' }}>{d}</div>
+                ))}
+            </div>
+            {/* Day grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                {cells.map((cell, i) => {
+                    const dStr = toYMD(cell.date);
+                    const isSelected = dStr === value;
+                    const isToday = dStr === todayStr;
+                    return (
+                        <div
+                            key={i}
+                            onClick={() => onChange(dStr)}
+                            style={{
+                                width: '36px', height: '36px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                borderRadius: '50%', cursor: 'pointer', margin: '0 auto',
+                                fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif',
+                                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                color: isSelected ? '#fff' : cell.current ? '#f0f4ff' : '#4a5568',
+                                border: isToday && !isSelected ? '2px solid #3b82f6' : '2px solid transparent',
+                                transition: 'background 0.1s',
+                            }}
+                            onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; }}
+                            onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
+                        >
+                            {cell.date.getDate()}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -649,7 +756,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                     )}
                 </div>
 
-                <Input label="Date" type="date" icon={<Calendar size={15} />} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required />
+                {/* Date — inline calendar */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Date</label>
+                    <InlineCalendar value={form.date} onChange={d => setForm({ ...form, date: d })} />
+                </div>
 
                 {/* Tags */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
