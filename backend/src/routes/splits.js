@@ -57,6 +57,57 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
+// PUT /api/splits/:id — edit a split
+router.put('/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { description, total_amount, participants, date } = req.body;
+
+        if (!description || !total_amount || !participants || !Array.isArray(participants) || participants.length === 0) {
+            return res.status(400).json({ error: 'description, total_amount, and participants are required' });
+        }
+
+        const { rows } = await pool.query(
+            `SELECT * FROM expense_splits WHERE id = $1 AND user_id = $2`,
+            [id, req.user.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'Split not found' });
+
+        const existing = rows[0];
+        const splitCount = participants.length + 1;
+        const yourShare = parseFloat(total_amount) / splitCount;
+        const splitDate = date || existing.date;
+
+        // Preserve settled status for participants with the same name
+        const settledMap: Record<string, boolean> = {};
+        (existing.participants || []).forEach((p: any) => { settledMap[p.name] = p.settled; });
+
+        const updatedParticipants = participants.map((p: any) => ({
+            name: p.name,
+            share: yourShare.toFixed(2),
+            settled: settledMap[p.name] ?? false,
+        }));
+
+        // Update the linked transaction
+        await pool.query(
+            `UPDATE transactions SET amount = $1, description = $2, date = $3 WHERE id = $4 AND user_id = $5`,
+            [yourShare.toFixed(2), description, splitDate, existing.transaction_id, req.user.id]
+        );
+
+        const { rows: updated } = await pool.query(
+            `UPDATE expense_splits
+             SET description = $1, total_amount = $2, split_count = $3, your_share = $4, participants = $5, date = $6
+             WHERE id = $7 AND user_id = $8 RETURNING *`,
+            [description, parseFloat(total_amount).toFixed(2), splitCount, yourShare.toFixed(2), JSON.stringify(updatedParticipants), splitDate, id, req.user.id]
+        );
+
+        res.json({ split: updated[0] });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update split' });
+    }
+});
+
 // PATCH /api/splits/:id/settle/:participantIndex — mark one participant as settled
 router.patch('/:id/settle/:index', authMiddleware, async (req, res) => {
     try {

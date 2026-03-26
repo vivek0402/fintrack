@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Users, Sparkles, X, Check } from 'lucide-react';
+import { Plus, Trash2, Users, Sparkles, X, Check, Pencil } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { splitsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -18,6 +18,7 @@ export default function SplitsPage() {
     const [splits, setSplits] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [editingSplit, setEditingSplit] = useState<any | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     // Form state
@@ -70,18 +71,41 @@ export default function SplitsPage() {
     const splitCount = form.participants.length + 1;
     const yourShare = form.total_amount ? (parseFloat(form.total_amount) / splitCount) : 0;
 
+    const openEdit = (split: any) => {
+        setEditingSplit(split);
+        setForm({
+            description: split.description,
+            total_amount: String(parseFloat(split.total_amount)),
+            participants: (split.participants || []).map((p: any) => ({ name: p.name })),
+            date: split.date?.split('T')[0] || new Date().toISOString().split('T')[0],
+        });
+        setNlInput('');
+        setFormError('');
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingSplit(null);
+        setNlInput('');
+        setForm({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] });
+        setFormError('');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setFormError(''); setFormLoading(true);
         try {
             const validParticipants = form.participants.filter(p => p.name.trim());
             if (!validParticipants.length) { setFormError('Add at least one participant.'); setFormLoading(false); return; }
-            await splitsAPI.create({ description: form.description, total_amount: parseFloat(form.total_amount), participants: validParticipants, date: form.date });
-            setShowModal(false);
-            setNlInput('');
-            setForm({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] });
+            if (editingSplit) {
+                await splitsAPI.update(editingSplit.id, { description: form.description, total_amount: parseFloat(form.total_amount), participants: validParticipants, date: form.date });
+            } else {
+                await splitsAPI.create({ description: form.description, total_amount: parseFloat(form.total_amount), participants: validParticipants, date: form.date });
+            }
+            closeModal();
             fetchSplits();
-        } catch (err: any) { setFormError(err.response?.data?.error || 'Failed to create split.'); }
+        } catch (err: any) { setFormError(err.response?.data?.error || (editingSplit ? 'Failed to update split.' : 'Failed to create split.')); }
         finally { setFormLoading(false); }
     };
 
@@ -124,7 +148,7 @@ export default function SplitsPage() {
             </div>
 
             {/* Modal */}
-            <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Split" maxWidth="500px">
+            <Modal isOpen={showModal} onClose={closeModal} title={editingSplit ? 'Edit Split' : 'New Split'} maxWidth="500px">
 
                         {/* Natural language input */}
                         <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px' }}>
@@ -193,8 +217,8 @@ export default function SplitsPage() {
                             {formError && <div style={{ padding: '8px 12px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', borderRadius: '8px', fontSize: '0.8rem', color: 'var(--accent-red)' }}>{formError}</div>}
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                <Button type="button" variant="secondary" size="lg" onClick={() => setShowModal(false)}>Cancel</Button>
-                                <Button type="submit" size="lg" isLoading={formLoading}>Create Split</Button>
+                                <Button type="button" variant="secondary" size="lg" onClick={closeModal}>Cancel</Button>
+                                <Button type="submit" size="lg" isLoading={formLoading}>{editingSplit ? 'Save Changes' : 'Create Split'}</Button>
                             </div>
                         </form>
             </Modal>
@@ -228,12 +252,20 @@ export default function SplitsPage() {
                                             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{formatDate(split.date)}</span>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDelete(split.id)} disabled={deletingId === split.id}
-                                        style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, opacity: deletingId === split.id ? 0.5 : 1 }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                        <Trash2 size={13} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                        <button onClick={() => openEdit(split)}
+                                            style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; (e.currentTarget as HTMLElement).style.color = '#3b82f6'; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                            <Pencil size={13} />
+                                        </button>
+                                        <button onClick={() => handleDelete(split.id)} disabled={deletingId === split.id}
+                                            style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid transparent', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer', opacity: deletingId === split.id ? 0.5 : 1 }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.1)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Participants */}

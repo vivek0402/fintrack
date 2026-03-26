@@ -122,6 +122,8 @@ export const splitsAPI = {
     getAll: () => api.get('/api/splits'),
     create: (data: { description: string; total_amount: number; participants: { name: string }[]; date?: string }) =>
         api.post('/api/splits', data),
+    update: (id: string, data: { description: string; total_amount: number; participants: { name: string }[]; date?: string }) =>
+        api.put(`/api/splits/${id}`, data),
     settle: (id: string, index: number) => api.patch(`/api/splits/${id}/settle/${index}`),
     delete: (id: string) => api.delete(`/api/splits/${id}`),
 };
