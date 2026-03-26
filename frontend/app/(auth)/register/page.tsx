@@ -2,33 +2,31 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Mail, Lock, User, TrendingUp, ShieldCheck } from 'lucide-react';
+import { Mail, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 
 export default function RegisterPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage, setAuth } = useAuthStore();
 
-    // Step: 'register' | 'verify'
     const [step, setStep] = useState<'register' | 'verify'>('register');
     const [pendingEmail, setPendingEmail] = useState('');
-
     const [form, setForm] = useState({ full_name: '', email: '', password: '' });
     const [otp, setOtp] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // Resend cooldown
     const [cooldown, setCooldown] = useState(0);
     const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+    // UI-only state
+    const [focusedField, setFocusedField] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+    const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
+    const otpRefs = useRef<Array<HTMLInputElement | null>>(Array(6).fill(null));
+
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && user) router.push('/onboarding'); }, [user, isLoading]);
-
     useEffect(() => {
         return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
     }, []);
@@ -94,133 +92,251 @@ export default function RegisterPage() {
         }
     };
 
-    return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <div style={{ width: '100%', maxWidth: '400px' }}>
+    // Password strength
+    const pw = form.password;
+    const pwStrength = pw.length === 0 ? 0
+        : pw.length < 6 ? 1
+        : pw.length < 8 ? 2
+        : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4
+        : 3;
+    const strengthColors = ['', '#f43f5e', '#f59e0b', '#3b82f6', '#10b981'];
+    const strengthLabels = ['', 'Too short', 'Fair', 'Good', 'Strong'];
 
-                {/* Logo */}
-                <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <div style={{ width: '56px', height: '56px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        {step === 'verify'
-                            ? <ShieldCheck size={24} color="#10b981" />
-                            : <TrendingUp size={24} color="#10b981" />}
-                    </div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
-                        {step === 'verify' ? 'Verify your email' : 'Create account'}
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>
-                        {step === 'verify'
-                            ? `We sent a 6-digit code to ${pendingEmail}`
-                            : 'Start tracking your finances today'}
-                    </p>
+    const handleOtpChange = (index: number, value: string) => {
+        const digit = value.replace(/\D/g, '').slice(-1);
+        const newDigits = [...otpDigits];
+        newDigits[index] = digit;
+        setOtpDigits(newDigits);
+        setOtp(newDigits.join(''));
+        if (digit && index < 5) otpRefs.current[index + 1]?.focus();
+    };
+
+    const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+            otpRefs.current[index - 1]?.focus();
+        }
+    };
+
+    const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+        e.preventDefault();
+        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+        const newDigits = Array(6).fill('');
+        pasted.split('').forEach((d, i) => { newDigits[i] = d; });
+        setOtpDigits(newDigits);
+        setOtp(newDigits.join(''));
+        otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+    };
+
+    const inputStyle = (field: string): React.CSSProperties => ({
+        width: '100%',
+        background: '#141d35',
+        border: focusedField === field ? '1px solid #3b82f6' : '1px solid #1e2d4a',
+        borderRadius: 8,
+        padding: '10px 12px',
+        fontSize: 14,
+        color: '#f0f4ff',
+        outline: 'none',
+        boxSizing: 'border-box',
+        boxShadow: focusedField === field ? '0 0 0 2px rgba(59,130,246,0.12)' : 'none',
+    });
+
+    const btnStyle: React.CSSProperties = {
+        background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+        color: 'white',
+        border: 'none',
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 14,
+        fontWeight: 600,
+        width: '100%',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    };
+
+    return (
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'DM Sans, sans-serif', position: 'relative', overflow: 'hidden' }}>
+            {/* Ambient glows */}
+            <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, background: 'radial-gradient(circle,rgba(59,130,246,0.11),transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -50, left: -30, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, background: 'rgba(12,18,36,0.95)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '32px 28px' }}>
+
+                {/* Brand wordmark */}
+                <div style={{ fontFamily: 'Sora,sans-serif', fontSize: 26, fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.02em', marginBottom: 24 }}>
+                    Fin<span style={{ color: '#3b82f6' }}>Track</span>
                 </div>
 
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '28px' }}>
+                {/* ── Register step ── */}
+                {step === 'register' && (
+                    <form onSubmit={handleRegister} autoComplete="off">
+                        <div style={{ fontSize: 22, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', marginBottom: 4 }}>Create account</div>
+                        <div style={{ fontSize: 13, color: '#4a5568', marginBottom: 24 }}>Start your financial journey</div>
 
-                    {step === 'register' && (
-                        <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <Input
-                                label="Full Name"
+                        {/* Full Name */}
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 10, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>FULL NAME</div>
+                            <input
                                 type="text"
-                                placeholder="Your full name"
-                                icon={<User size={15} />}
                                 value={form.full_name}
                                 onChange={e => setForm({ ...form, full_name: e.target.value })}
+                                onFocus={() => setFocusedField('name')}
+                                onBlur={() => setFocusedField(null)}
                                 autoComplete="off"
                                 required
+                                placeholder="Your full name"
+                                style={inputStyle('name')}
                             />
-                            <Input
-                                label="Email"
+                        </div>
+
+                        {/* Email */}
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: 10, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>EMAIL</div>
+                            <input
                                 type="email"
-                                placeholder="you@example.com"
-                                icon={<Mail size={15} />}
                                 value={form.email}
                                 onChange={e => setForm({ ...form, email: e.target.value })}
+                                onFocus={() => setFocusedField('email')}
+                                onBlur={() => setFocusedField(null)}
                                 autoComplete="off"
                                 required
+                                placeholder="you@example.com"
+                                style={inputStyle('email')}
                             />
-                            <Input
-                                label="Password"
-                                type="password"
-                                placeholder="Min. 6 characters"
-                                icon={<Lock size={15} />}
-                                value={form.password}
-                                onChange={e => setForm({ ...form, password: e.target.value })}
-                                autoComplete="new-password"
-                                required
-                            />
+                        </div>
 
-                            {error && (
-                                <div style={{ padding: '10px 14px', background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', fontSize: '0.8rem', color: '#f87171' }}>
-                                    {error}
-                                </div>
-                            )}
-
-                            <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                                Create Account
-                            </Button>
-                        </form>
-                    )}
-
-                    {step === 'verify' && (
-                        <form onSubmit={handleVerify} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <Input
-                                label="6-digit code"
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]{6}"
-                                maxLength={6}
-                                placeholder="000000"
-                                icon={<ShieldCheck size={15} />}
-                                value={otp}
-                                onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                autoComplete="one-time-code"
-                                required
-                            />
-
-                            {error && (
-                                <div style={{ padding: '10px 14px', background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', fontSize: '0.8rem', color: '#f87171' }}>
-                                    {error}
-                                </div>
-                            )}
-
-                            <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                                Verify & Activate
-                            </Button>
-
-                            <div style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                Didn't receive it?{' '}
-                                {cooldown > 0 ? (
-                                    <span style={{ color: 'var(--text-secondary)' }}>Resend in {cooldown}s</span>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={handleResend}
-                                        style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, padding: 0 }}
-                                    >
-                                        Resend code
-                                    </button>
-                                )}
+                        {/* Password */}
+                        <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 10, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>PASSWORD</div>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    value={form.password}
+                                    onChange={e => setForm({ ...form, password: e.target.value })}
+                                    onFocus={() => setFocusedField('password')}
+                                    onBlur={() => setFocusedField(null)}
+                                    autoComplete="new-password"
+                                    required
+                                    placeholder="Min. 6 characters"
+                                    style={{ ...inputStyle('password'), paddingRight: 40 }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#4a5568', padding: 0, display: 'flex', alignItems: 'center' }}
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
+                            {pw.length > 0 && (
+                                <>
+                                    <div style={{ display: 'flex', gap: 4, marginTop: 6, marginBottom: 4 }}>
+                                        {[1, 2, 3, 4].map(i => (
+                                            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= pwStrength ? strengthColors[pwStrength] : '#1e2d4a' }} />
+                                        ))}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: strengthColors[pwStrength] }}>{strengthLabels[pwStrength]}</div>
+                                </>
+                            )}
+                        </div>
 
+                        {error && (
+                            <div style={{ marginTop: 12, marginBottom: 4, padding: '10px 12px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 8, fontSize: 12, color: '#f43f5e' }}>{error}</div>
+                        )}
+
+                        <button type="submit" disabled={loading} style={{ ...btnStyle, marginTop: 20 }}>
+                            {loading
+                                ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                                : 'Create Account'}
+                        </button>
+
+                        <div style={{ fontSize: 10, color: '#4a5568', textAlign: 'center', marginTop: 14, lineHeight: 1.6 }}>
+                            By signing up you agree to our{' '}
+                            <span style={{ color: '#3b82f6' }}>Terms of Service</span>
+                            {' '}and{' '}
+                            <span style={{ color: '#3b82f6' }}>Privacy Policy</span>
+                        </div>
+                        <div style={{ textAlign: 'center', fontSize: 12, color: '#4a5568', marginTop: 12 }}>
+                            Already have an account?{' '}
+                            <span style={{ color: '#3b82f6', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/login')}>Sign in</span>
+                        </div>
+                    </form>
+                )}
+
+                {/* ── OTP verify step ── */}
+                {step === 'verify' && (
+                    <form onSubmit={handleVerify} autoComplete="off">
+                        <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                            <Mail size={24} color="#3b82f6" />
+                        </div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Check your email</div>
+                        <div style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 8, lineHeight: 1.6 }}>
+                            We sent a 6-digit code to<br />
+                            <span style={{ color: '#f0f4ff', fontWeight: 600 }}>{pendingEmail}</span>
+                        </div>
+
+                        {/* OTP boxes */}
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 20, marginBottom: 20 }}>
+                            {otpDigits.map((digit, i) => (
+                                <input
+                                    key={i}
+                                    ref={el => { otpRefs.current[i] = el; }}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={1}
+                                    value={digit}
+                                    onChange={e => handleOtpChange(i, e.target.value)}
+                                    onKeyDown={e => handleOtpKeyDown(i, e)}
+                                    onPaste={handleOtpPaste}
+                                    onFocus={() => setFocusedField(`otp-${i}`)}
+                                    onBlur={() => setFocusedField(null)}
+                                    style={{
+                                        width: 44, height: 52, textAlign: 'center', fontSize: 20, fontWeight: 700,
+                                        background: '#141d35',
+                                        border: focusedField === `otp-${i}` ? '1px solid #3b82f6' : digit ? '1px solid rgba(59,130,246,0.4)' : '1px solid #1e2d4a',
+                                        borderRadius: 10, color: '#f0f4ff', outline: 'none',
+                                        boxShadow: focusedField === `otp-${i}` ? '0 0 0 2px rgba(59,130,246,0.15)' : 'none',
+                                        boxSizing: 'border-box',
+                                    }}
+                                />
+                            ))}
+                        </div>
+
+                        {error && (
+                            <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 8, fontSize: 12, color: '#f43f5e' }}>{error}</div>
+                        )}
+
+                        <button type="submit" disabled={loading} style={btnStyle}>
+                            {loading
+                                ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                                : 'Verify Email'}
+                        </button>
+
+                        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#4a5568' }}>
+                            {cooldown > 0 ? (
+                                `Resend code in ${cooldown}s`
+                            ) : (
+                                <>Didn&apos;t receive a code?{' '}
+                                    <span style={{ color: '#3b82f6', fontWeight: 600, cursor: 'pointer' }} onClick={handleResend}>Resend</span>
+                                </>
+                            )}
+                        </div>
+                        <div style={{ textAlign: 'center', marginTop: 12 }}>
                             <button
                                 type="button"
-                                onClick={() => { setStep('register'); setError(''); setOtp(''); }}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline', padding: 0 }}
+                                onClick={() => { setStep('register'); setError(''); setOtp(''); setOtpDigits(Array(6).fill('')); }}
+                                style={{ background: 'none', border: 'none', color: '#4a5568', cursor: 'pointer', fontSize: 12 }}
                             >
-                                ← Change email or details
+                                ← Back to login
                             </button>
-                        </form>
-                    )}
-
-                    <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Already have an account?{' '}
-                        <Link href="/login" style={{ color: '#10b981', textDecoration: 'none', fontWeight: 500 }}>
-                            Sign in
-                        </Link>
-                    </p>
-                </div>
+                        </div>
+                    </form>
+                )}
             </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }

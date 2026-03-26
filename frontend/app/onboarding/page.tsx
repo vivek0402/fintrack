@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, Globe, Target, CheckCircle, ArrowRight, Moon, Sun, Eclipse } from 'lucide-react';
+import { Globe, Target, CheckCircle, ArrowRight, Moon, Sun, Eclipse, User, DollarSign, PieChart } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, budgetsAPI, categoriesAPI } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
 
 const CURRENCIES = [
     { code: 'INR', symbol: '₹', label: 'Indian Rupee' },
@@ -85,7 +84,6 @@ export default function OnboardingPage() {
         if (!isNaN(parsed) && parsed > 0) {
             const newAmount = Math.floor(parsed);
             setAmounts(prev => ({ ...prev, [name]: newAmount }));
-            // Update amount in budgets list if this category is already selected
             setBudgets(prev => prev.map(b => b.name === name ? { ...b, amount: newAmount } : b));
         }
         setEditingBudget(null);
@@ -105,90 +103,128 @@ export default function OnboardingPage() {
 
     const skip = () => { localStorage.setItem(`onboarded-${user!.id}`, 'true'); router.push('/dashboard'); };
 
+    const TOTAL_STEPS = 4;
+
+    const btnStyle: React.CSSProperties = {
+        background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+        color: 'white',
+        border: 'none',
+        borderRadius: 10,
+        padding: 12,
+        fontSize: 14,
+        fontWeight: 600,
+        width: '100%',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+    };
+
     if (isLoading || !user) return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid #10b981', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '24px', height: '24px', border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ position: 'absolute', top: '-100px', left: '50%', transform: 'translateX(-50%)', width: '600px', height: '400px', background: 'radial-gradient(ellipse, rgba(16,185,129,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'DM Sans, sans-serif', position: 'relative', overflow: 'hidden' }}>
+            {/* Ambient glows */}
+            <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, background: 'radial-gradient(circle,rgba(59,130,246,0.11),transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -50, left: -30, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {/* Progress dots */}
-            <div style={{ position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px' }}>
-                {[0, 1, 2, 3].map(i => <div key={i} style={{ width: i === step ? '24px' : '8px', height: '8px', borderRadius: '4px', background: i <= step ? '#10b981' : 'var(--bg-border)', transition: 'all 0.3s ease' }} />)}
-            </div>
+            <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 440, background: 'rgba(12,18,36,0.95)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '32px 28px' }}>
 
-            <div style={{ width: '100%', maxWidth: '480px' }}>
+                {/* Progress indicator */}
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+                    {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+                        <div key={i} style={{
+                            width: i === step ? 20 : 6,
+                            height: 6,
+                            borderRadius: 3,
+                            background: i === step ? '#3b82f6' : i < step ? '#10b981' : '#1e2d4a',
+                            boxShadow: i === step ? '0 0 8px rgba(59,130,246,0.4)' : 'none',
+                            transition: 'all 0.3s ease',
+                        }} />
+                    ))}
+                </div>
 
                 {/* Step 0 — Welcome */}
                 {step === 0 && (
-                    <div style={{ textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
-                        <div style={{ width: '80px', height: '80px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                            <TrendingUp size={36} color="#10b981" />
+                    <div style={{ animation: 'fadeIn 0.4s ease' }}>
+                        {/* Step icon */}
+                        <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(59,130,246,0.12)' }}>
+                            <User size={24} color="#3b82f6" />
                         </div>
-                        <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.8rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>Welcome to FinTrack! 🎉</h1>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', margin: '0 0 32px 0', lineHeight: 1.6 }}>
-                            Hey <strong style={{ color: '#10b981' }}>{user.full_name.split(' ')[0]}</strong>! Let's get you set up in 2 minutes.
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Welcome to FinTrack!</div>
+                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>
+                            Hey <strong style={{ color: '#3b82f6' }}>{user.full_name.split(' ')[0]}</strong>! Let&apos;s get you set up in 2 minutes.
                         </p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '32px', textAlign: 'left' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
                             {[
                                 { icon: '💰', text: 'Track income and expenses effortlessly' },
                                 { icon: '📊', text: 'Visualize spending with beautiful charts' },
                                 { icon: '🎯', text: 'Set budgets and savings goals' },
                                 { icon: '📅', text: 'Calendar view of all transactions' },
                             ].map(item => (
-                                <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px' }}>
-                                    <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
-                                    <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{item.text}</span>
+                                <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: '#141d35', border: '1px solid #1e2d4a', borderRadius: '12px' }}>
+                                    <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
+                                    <span style={{ fontSize: '13px', color: '#8892aa' }}>{item.text}</span>
                                 </div>
                             ))}
                         </div>
-                        <Button onClick={() => setStep(1)} size="lg" style={{ width: '100%' }}>Let's Get Started <ArrowRight size={16} /></Button>
-                        <button onClick={skip} style={{ marginTop: '12px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'block', width: '100%' }}>Skip → go to dashboard</button>
+                        <button onClick={() => setStep(1)} style={btnStyle}>
+                            Let&apos;s Get Started <ArrowRight size={16} />
+                        </button>
+                        <button onClick={skip} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>
+                            Skip → go to dashboard
+                        </button>
                     </div>
                 )}
 
                 {/* Step 1 — Currency */}
                 {step === 1 && (
                     <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-                            <div style={{ width: '56px', height: '56px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                <Globe size={24} color="#3b82f6" />
-                            </div>
-                            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Choose Your Currency</h2>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>All amounts will be shown in this currency</p>
+                        {/* Step icon */}
+                        <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,185,129,0.12)' }}>
+                            <DollarSign size={24} color="#10b981" />
                         </div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Choose Your Currency</div>
+                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>All amounts will be shown in this currency</p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
                             {CURRENCIES.map(c => (
                                 <button key={c.code} onClick={() => setCurrency(c.code)}
-                                    style={{ padding: '14px 16px', borderRadius: '12px', border: currency === c.code ? '2px solid #10b981' : '1px solid var(--bg-border)', background: currency === c.code ? 'rgba(16,185,129,0.08)' : 'var(--bg-secondary)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                                    style={{ padding: '14px 16px', borderRadius: '12px', border: currency === c.code ? '1px solid #3b82f6' : '1px solid #1e2d4a', background: currency === c.code ? 'rgba(59,130,246,0.08)' : '#141d35', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div>
-                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: currency === c.code ? '#10b981' : 'var(--text-primary)', margin: '0 0 2px 0' }}>{c.symbol}</p>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>{c.code} · {c.label}</p>
+                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: currency === c.code ? '#3b82f6' : '#f0f4ff', margin: '0 0 2px 0' }}>{c.symbol}</p>
+                                            <p style={{ fontSize: '0.75rem', color: '#8892aa', margin: 0 }}>{c.code} · {c.label}</p>
                                         </div>
-                                        {currency === c.code && <CheckCircle size={16} color="#10b981" />}
+                                        {currency === c.code && <CheckCircle size={16} color="#3b82f6" />}
                                     </div>
                                 </button>
                             ))}
                         </div>
-                        <Button onClick={handleCurrencyNext} isLoading={saving} size="lg" style={{ width: '100%' }}>Continue <ArrowRight size={16} /></Button>
+                        <button onClick={handleCurrencyNext} disabled={saving} style={btnStyle}>
+                            {saving
+                                ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                                : <><span>Continue</span> <ArrowRight size={16} /></>
+                            }
+                        </button>
+                        <button onClick={() => setStep(0)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>← Back</button>
                     </div>
                 )}
 
                 {/* Step 2 — Theme */}
                 {step === 2 && (
                     <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-                            <div style={{ width: '56px', height: '56px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                <Moon size={24} color="#8b5cf6" />
-                            </div>
-                            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Choose Your Theme</h2>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Pick how FinTrack looks. You can change this anytime in Settings.</p>
+                        {/* Step icon */}
+                        <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(167,139,250,0.12)' }}>
+                            <Moon size={24} color="#a78bfa" />
                         </div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Choose Your Theme</div>
+                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Pick how FinTrack looks. You can change this anytime in Settings.</p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                             {[
@@ -223,55 +259,36 @@ export default function OnboardingPage() {
                                 <button
                                     key={t.value}
                                     onClick={() => handleThemeNext(t.value)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '16px',
-                                        padding: '16px 20px', borderRadius: '14px', textAlign: 'left',
-                                        border: '1px solid var(--bg-border)',
-                                        background: 'var(--bg-secondary)',
-                                        cursor: 'pointer', transition: 'all 0.2s', width: '100%',
-                                    }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '14px', textAlign: 'left', border: '1px solid #1e2d4a', background: '#141d35', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
                                     onMouseEnter={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = '#10b981';
-                                        (e.currentTarget as HTMLElement).style.background = 'rgba(16,185,129,0.05)';
+                                        (e.currentTarget as HTMLElement).style.borderColor = '#3b82f6';
+                                        (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.05)';
                                     }}
                                     onMouseLeave={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)';
-                                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)';
+                                        (e.currentTarget as HTMLElement).style.borderColor = '#1e2d4a';
+                                        (e.currentTarget as HTMLElement).style.background = '#141d35';
                                     }}
                                 >
-                                    {/* Theme preview swatch */}
-                                    <div style={{
-                                        width: '52px', height: '52px', borderRadius: '12px',
-                                        background: t.bg, flexShrink: 0, overflow: 'hidden',
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        display: 'flex', flexDirection: 'column',
-                                        padding: '6px', gap: '4px',
-                                    }}>
+                                    <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: t.bg, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', padding: '6px', gap: '4px' }}>
                                         <div style={{ width: '100%', height: '10px', borderRadius: '3px', background: t.accent }} />
                                         <div style={{ width: '70%', height: '6px', borderRadius: '3px', background: t.accent }} />
-                                        <div style={{ width: '100%', height: '14px', borderRadius: '3px', background: '#10b981', opacity: 0.8 }} />
+                                        <div style={{ width: '100%', height: '14px', borderRadius: '3px', background: '#3b82f6', opacity: 0.8 }} />
                                     </div>
-
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                {t.label}
-                                            </span>
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: '#f0f4ff' }}>{t.label}</span>
                                             {t.recommended && (
-                                                <span style={{ fontSize: '0.65rem', color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', padding: '2px 7px', borderRadius: '6px', fontWeight: 600 }}>
-                                                    Default
-                                                </span>
+                                                <span style={{ fontSize: '0.65rem', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: '2px 7px', borderRadius: '6px', fontWeight: 600 }}>Default</span>
                                             )}
                                         </div>
-                                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>{t.desc}</p>
+                                        <p style={{ fontSize: '0.78rem', color: '#8892aa', margin: '3px 0 0 0' }}>{t.desc}</p>
                                     </div>
-
-                                    <ArrowRight size={16} color="var(--text-muted)" />
+                                    <ArrowRight size={16} color="#4a5568" />
                                 </button>
                             ))}
                         </div>
 
-                        <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
+                        <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
                             Skip — keep Dark theme
                         </button>
                     </div>
@@ -280,13 +297,13 @@ export default function OnboardingPage() {
                 {/* Step 3 — Budgets */}
                 {step === 3 && (
                     <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                            <div style={{ width: '56px', height: '56px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                <Target size={24} color="#f59e0b" />
-                            </div>
-                            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Set Monthly Budgets</h2>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: 0 }}>Select categories to set budgets for. You can change these anytime.</p>
+                        {/* Step icon */}
+                        <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(245,158,11,0.12)' }}>
+                            <PieChart size={24} color="#f59e0b" />
                         </div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Set Monthly Budgets</div>
+                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Select categories to set budgets for. You can change these anytime.</p>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                             {POPULAR_BUDGETS.map(budget => {
                                 const cat = categories.find(c => c.name === budget.name);
@@ -295,55 +312,57 @@ export default function OnboardingPage() {
                                 if (!cat) return null;
                                 return (
                                     <div key={budget.name}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: '12px', border: selected ? `1px solid ${budget.color}60` : '1px solid var(--bg-border)', background: selected ? `${budget.color}10` : 'var(--bg-secondary)', transition: 'all 0.15s' }}>
-                                        {/* Left: dot + name — clicking toggles selection */}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '12px', border: selected ? '1px solid #3b82f6' : '1px solid #1e2d4a', background: selected ? 'rgba(59,130,246,0.08)' : '#141d35', transition: 'all 0.15s' }}>
                                         <div onClick={() => toggleBudget(budget.name)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', flex: 1 }}>
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                                             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.color, flexShrink: 0 }} />
-                                            <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>{budget.name}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 500, color: '#c8d4f0' }}>{budget.name}</span>
                                         </div>
-                                        {/* Right: editable amount + circle toggle */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             {isEditing ? (
-                                                <input
-                                                    autoFocus
-                                                    type="number"
-                                                    min="1"
-                                                    value={editingValue}
-                                                    onChange={e => setEditingValue(e.target.value)}
-                                                    onBlur={() => commitEdit(budget.name)}
-                                                    onKeyDown={e => { if (e.key === 'Enter') commitEdit(budget.name); if (e.key === 'Escape') setEditingBudget(null); }}
-                                                    style={{ width: '80px', padding: '2px 6px', fontSize: '0.8rem', fontFamily: 'Sora, sans-serif', color: 'var(--text-primary)', background: 'var(--bg-primary)', border: '1px solid #10b981', borderRadius: '6px', outline: 'none', textAlign: 'right' }}
-                                                />
+                                                <div style={{ position: 'relative' }}>
+                                                    <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#4a5568', fontSize: 14, pointerEvents: 'none' }}>₹</span>
+                                                    <input
+                                                        autoFocus
+                                                        type="number"
+                                                        min="1"
+                                                        value={editingValue}
+                                                        onChange={e => setEditingValue(e.target.value)}
+                                                        onBlur={() => commitEdit(budget.name)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') commitEdit(budget.name); if (e.key === 'Escape') setEditingBudget(null); }}
+                                                        style={{ width: '90px', padding: '4px 6px 4px 22px', fontSize: '12px', color: '#f0f4ff', background: '#0a0f1e', border: '1px solid #3b82f6', borderRadius: '6px', outline: 'none', textAlign: 'right' }}
+                                                    />
+                                                </div>
                                             ) : (
                                                 <span
                                                     onClick={() => startEditing(budget.name)}
                                                     title="Click to edit"
-                                                    style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'Sora, sans-serif', cursor: 'text', borderBottom: '1px dashed var(--bg-border)', paddingBottom: '1px' }}>
+                                                    style={{ fontSize: '11px', color: '#4a5568', cursor: 'text', borderBottom: '1px dashed #1e2d4a', paddingBottom: '1px' }}>
                                                     ₹{amounts[budget.name].toLocaleString('en-IN')}/mo
                                                 </span>
                                             )}
                                             <div onClick={() => toggleBudget(budget.name)}
-                                                style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${selected ? budget.color : 'var(--bg-border)'}`, background: selected ? budget.color : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
-                                                {selected && <CheckCircle size={12} color="#fff" />}
-                                            </div>
+                                                style={{ width: 10, height: 10, borderRadius: '50%', background: selected ? '#3b82f6' : '#1e2d4a', boxShadow: selected ? '0 0 8px rgba(59,130,246,0.5)' : 'none', cursor: 'pointer', flexShrink: 0 }} />
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
-                        <Button onClick={handleFinish} isLoading={saving} size="lg" style={{ width: '100%' }}>
-                            {budgets.length > 0 ? `Set ${budgets.length} Budget${budgets.length > 1 ? 's' : ''} & Finish` : 'Skip & Go to Dashboard'}
-                            <ArrowRight size={16} />
-                        </Button>
-                        <button onClick={skip} style={{ marginTop: '12px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', display: 'block', width: '100%' }}>Skip for now</button>
+
+                        <button onClick={handleFinish} disabled={saving} style={btnStyle}>
+                            {saving
+                                ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                                : <><span>{budgets.length > 0 ? `Set ${budgets.length} Budget${budgets.length > 1 ? 's' : ''} & Finish` : 'Skip & Go to Dashboard'}</span> <ArrowRight size={16} /></>
+                            }
+                        </button>
+                        <button onClick={skip} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>Skip for now</button>
                     </div>
                 )}
             </div>
             <style>{`
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
+                @keyframes spin   { to { transform: rotate(360deg); } }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            `}</style>
         </div>
     );
 }
