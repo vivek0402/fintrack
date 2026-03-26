@@ -342,34 +342,63 @@ export default function DashboardPage() {
                 {/* Sparkline label */}
                 <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
 
-                {/* Sparkline bar chart */}
+                {/* Neon line chart */}
                 {(() => {
-                    const data = sparklineData && sparklineData.length > 0 ? sparklineData.slice(-6) : [];
-                    const maxVal = Math.max(...data.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
-                    const months = ['Oct','Nov','Dec','Jan','Feb','Mar'];
-                    const padded = Array(6).fill(null).map((_: null, i: number) => data[i - (6 - data.length)] || { income: 0, expenses: 0 });
+                    const raw = (sparklineData||[]).slice(-6);
+                    const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+                    const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
+                    const W=340, H=80, pad=6;
+                    const toY = (v:number) => pad + (1-(v/maxVal))*(H-pad*2);
+                    const xs = [0,68,136,204,272,340];
+                    const incPts = padded.map((m,i):[number,number] => [xs[i], toY(m.income||0)]);
+                    const expPts = padded.map((m,i):[number,number] => [xs[i], toY(m.expenses||0)]);
+                    const curve = (pts:[number,number][]) => {
+                        if(!pts.length) return '';
+                        let d=`M${pts[0][0]},${pts[0][1]}`;
+                        for(let i=0;i<pts.length-1;i++){
+                            const cpx=pts[i][0]+(pts[i+1][0]-pts[i][0])*0.5;
+                            d+=` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                        }
+                        return d;
+                    };
+                    const ip=curve(incPts), ep=curve(expPts);
+                    const monthLabels = padded.map((m,i) => {
+                        if(m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
+                        const d=new Date(); d.setMonth(d.getMonth()-(5-i));
+                        return d.toLocaleString('default',{month:'short'});
+                    });
                     return (
                         <div>
-                            <div style={{display:'flex',flexDirection:'row',alignItems:'flex-end',height:44,width:'100%',gap:4}}>
-                                {padded.map((m: {income:number,expenses:number}, i: number) => (
-                                    <div key={i} style={{flex:1,display:'flex',flexDirection:'row',alignItems:'flex-end',gap:2}}>
-                                        <div style={{
-                                            flex:1,
-                                            height: Math.max(4, Math.round(((m.income||0) / maxVal) * 44)) + 'px',
-                                            background:'linear-gradient(180deg,#10b981,rgba(16,185,129,0.25))',
-                                            borderRadius:'2px 2px 0 0',
-                                        }} />
-                                        <div style={{
-                                            flex:1,
-                                            height: Math.max(4, Math.round(((m.expenses||0) / maxVal) * 44)) + 'px',
-                                            background:'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.25))',
-                                            borderRadius:'2px 2px 0 0',
-                                        }} />
-                                    </div>
-                                ))}
+                            <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block',overflow:'visible'}}>
+                                <defs>
+                                    <filter id="dgneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                    <filter id="drneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                    <linearGradient id="dig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.18"/><stop offset="100%" stopColor="#10b981" stopOpacity="0"/></linearGradient>
+                                    <linearGradient id="deg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity="0.13"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/></linearGradient>
+                                </defs>
+                                {[0.25,0.5,0.75].map((r,i)=><line key={i} x1="0" y1={pad+r*(H-pad*2)} x2={W} y2={pad+r*(H-pad*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
+                                <path d={ip+` L${W},${H} L0,${H} Z`} fill="url(#dig)"/>
+                                <path d={ep+` L${W},${H} L0,${H} Z`} fill="url(#deg)"/>
+                                <path d={ip} fill="none" stroke="rgba(16,185,129,0.22)" strokeWidth="5" strokeLinecap="round"/>
+                                <path d={ep} fill="none" stroke="rgba(244,63,94,0.18)" strokeWidth="5" strokeLinecap="round"/>
+                                <path d={ip} fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" filter="url(#dgneon)"/>
+                                <path d={ep} fill="none" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" filter="url(#drneon)"/>
+                                {incPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#10b981" filter="url(#dgneon)"/>)}
+                                {expPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#f43f5e" filter="url(#drneon)"/>)}
+                                <line x1={W} y1="0" x2={W} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 3"/>
+                            </svg>
+                            <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+                                {monthLabels.map((m,i)=><span key={i} style={{fontSize:9,color:i===5?'#f0f4ff':'#4a5568',fontWeight:i===5?600:400}}>{m}</span>)}
                             </div>
-                            <div style={{display:'flex',flexDirection:'row',justifyContent:'space-between',marginTop:4}}>
-                                {months.map(m => <span key={m} style={{fontSize:9,color:'#4a5568'}}>{m}</span>)}
+                            <div style={{display:'flex',gap:14,marginTop:8}}>
+                                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                                    <div style={{width:8,height:8,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981'}}/>
+                                    <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
+                                </div>
+                                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                                    <div style={{width:8,height:8,borderRadius:'50%',background:'#f43f5e',boxShadow:'0 0 6px #f43f5e'}}/>
+                                    <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                                </div>
                             </div>
                         </div>
                     );
