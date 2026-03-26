@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -75,18 +75,6 @@ export default function AnalyticsPage() {
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem' }}>
                 <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600 }}>{label}</p>
                 {payload.map((p: any) => <p key={p.name} style={{ color: p.fill, margin: '4px 0' }}>{p.name}: ₹{p.value?.toLocaleString('en-IN')}</p>)}
-            </div>
-        );
-    };
-
-    const PieTooltip = ({ active, payload }: any) => {
-        if (!active || !payload?.length) return null;
-        const item = payload[0];
-        const pct = totalExpenses > 0 ? ((item.value / totalExpenses) * 100).toFixed(1) : 0;
-        return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem' }}>
-                <p style={{ color: item.payload.color, margin: 0, fontWeight: 600 }}>{item.name}</p>
-                <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>₹{item.value?.toLocaleString('en-IN')} ({pct}%)</p>
             </div>
         );
     };
@@ -177,24 +165,8 @@ export default function AnalyticsPage() {
                 )}
             </div>
 
-            {/* Pie + Category */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
-                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Spending by Category</h3>
-                    {categories.length === 0 ? (
-                        <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No data yet</div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={220}>
-                            <PieChart>
-                                <Pie data={categories.map(c => ({ name: c.name, value: parseFloat(c.total), color: c.color }))} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" cornerRadius={4} isAnimationActive={true} animationDuration={800}>
-                                    {categories.map((c, i) => <Cell key={i} fill={c.color} />)}
-                                </Pie>
-                                <Tooltip content={<PieTooltip />} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    )}
-                </div>
-
+            {/* Category Breakdown */}
+            <div style={{ marginBottom: '16px' }}>
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
                     <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
                     {categories.length === 0 ? (

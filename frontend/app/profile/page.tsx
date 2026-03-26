@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Check } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 import { profileAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const CURRENCIES = [
     { code: 'INR', label: 'Indian Rupee (₹)' },
@@ -24,6 +24,7 @@ const CURRENCIES = [
 export default function ProfilePage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage, setAuth, token } = useAuthStore();
+    const { theme, setTheme } = useThemeStore();
     const isMobile = useIsMobile();
 
     const [profile, setProfile] = useState<any>(null);
@@ -173,8 +174,40 @@ export default function ProfilePage() {
                         </form>
 
                         <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--bg-border)' }}>
-                            <h4 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Appearance</h4>
-                            <ThemeToggle />
+                            <h4 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>Appearance</h4>
+                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 14px 0' }}>Choose your preferred colour theme</p>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                {([
+                                    { value: 'dark', label: 'Dark', swatch: '#0a0f1e' },
+                                    { value: 'pitch', label: 'Pitch', swatch: '#000000' },
+                                    { value: 'light', label: 'Light', swatch: '#f8fafc' },
+                                ] as const).map(t => {
+                                    const isSelected = theme === t.value;
+                                    return (
+                                        <button
+                                            key={t.value}
+                                            onClick={() => setTheme(t.value)}
+                                            style={{
+                                                width: '96px', padding: '12px', borderRadius: '10px',
+                                                border: isSelected ? '2px solid var(--accent-blue)' : '1px solid var(--bg-border)',
+                                                backgroundColor: 'var(--bg-card)',
+                                                cursor: 'pointer',
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                                transition: 'border-color 0.15s',
+                                            }}
+                                        >
+                                            <div style={{ position: 'relative', width: '40px', height: '24px', borderRadius: '4px', background: t.swatch, border: '1px solid var(--bg-border)' }}>
+                                                {isSelected && (
+                                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Check size={14} color="var(--accent-blue)" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: isSelected ? 600 : 400, color: isSelected ? 'var(--accent-blue)' : 'var(--text-secondary)' }}>{t.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--bg-border)' }}>

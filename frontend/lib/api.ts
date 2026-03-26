@@ -47,6 +47,7 @@ export const transactionsAPI = {
     update: (id: string, data: object) => api.put(`/api/transactions/${id}`, data),
     delete: (id: string) => api.delete(`/api/transactions/${id}`),
     toggleRegret: (id: string) => api.patch(`/api/transactions/${id}/regret`),
+    earliest: () => api.get('/api/transactions/earliest'),
 };
 
 export const categoriesAPI = {

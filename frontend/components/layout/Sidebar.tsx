@@ -13,7 +13,6 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const navItems = [
     { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -27,7 +26,6 @@ const navItems = [
     { href: '/personality', icon: Brain, label: 'Personality' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
     { href: '/splits', icon: Users, label: 'Splits' },
-    { href: '/ai-chat', icon: Sparkles, label: 'AI Chat' },
     { href: '/profile', icon: Settings, label: 'Settings' },
 ];
 
@@ -71,9 +69,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 <button
                     onClick={onToggle}
                     title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f0f4ff'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8892aa'; }}
+                    style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                 >
                     {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
                 </button>
@@ -147,8 +145,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
             {/* Bottom */}
             <div>
-                {!collapsed && <ThemeToggle />}
-
                 {/* User info */}
                 {collapsed ? (
                     <div title={user?.full_name} style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>

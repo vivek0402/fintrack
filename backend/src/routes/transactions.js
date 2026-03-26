@@ -5,6 +5,18 @@ const router = express.Router();
 
 router.use(auth);
 
+router.get('/earliest', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT date FROM transactions WHERE user_id = $1 ORDER BY date ASC LIMIT 1',
+            [req.user.id]
+        );
+        res.json({ date: result.rows[0]?.date || new Date().toISOString() });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 router.get('/search', async (req, res) => {
     try {
         const { q } = req.query;

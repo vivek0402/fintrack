@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { Sparkles } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { FAB } from '@/components/ui/FAB';
@@ -14,7 +15,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
     const { loadTheme } = useThemeStore();
     const pathname = usePathname();
+    const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
+    const [aiFabHover, setAiFabHover] = useState(false);
 
     useEffect(() => { loadTheme(); }, []);
 
@@ -65,6 +68,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </main>
             {isMobile && <BottomNav />}
             {isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && <FAB />}
+
+            {/* Desktop AI Chat FAB */}
+            {!isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && (
+                <div style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
+                    {aiFabHover && (
+                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                            AI Chat
+                        </div>
+                    )}
+                    <button
+                        onClick={() => router.push('/ai-chat')}
+                        onMouseEnter={() => setAiFabHover(true)}
+                        onMouseLeave={() => setAiFabHover(false)}
+                        style={{
+                            width: '52px', height: '52px', borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: aiFabHover ? '0 6px 28px rgba(99,102,241,0.6)' : '0 4px 20px rgba(99,102,241,0.4)',
+                            transform: aiFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}
+                    >
+                        <Sparkles size={22} color="white" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

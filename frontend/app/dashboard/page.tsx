@@ -150,7 +150,7 @@ export default function DashboardPage() {
     // ── HERO CARD ──
     const HeroCard = () => isMobile ? (
         /* ── MOBILE HERO CARD ── */
-        <div style={{background:'#000000',borderRadius:20,border:'1px solid rgba(255,255,255,0.06)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
+        <div style={{background:'var(--bg-primary)',borderRadius:20,border:'1px solid var(--bg-border)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
 
             {/* Ambient glows */}
             <div style={{position:'absolute',bottom:-40,left:-20,width:180,height:180,background:'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
@@ -160,24 +160,24 @@ export default function DashboardPage() {
             {/* ── SECTION 1: Net Worth + mini income/expense stats ── */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',position:'relative',zIndex:1}}>
                 <div>
-                    <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Net worth</div>
-                    <div style={{fontSize:38,fontWeight:800,color:'#f0f4ff',letterSpacing:'-0.03em',lineHeight:1}}>
+                    <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Net worth</div>
+                    <div style={{fontSize:38,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
                         {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                     </div>
                     <div style={{marginTop:8,display:'inline-block',padding:'4px 12px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
                         {'+₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN') + ' this month'}
                     </div>
-                    <div style={{fontSize:11,color:'#4a5568',marginTop:6}}>
+                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>
                         {new Date().toLocaleString('default',{month:'long'})} {new Date().getFullYear()}
                     </div>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'flex-end'}}>
                     <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:10,color:'#4a5568',marginBottom:2}}>Income</div>
+                        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:2}}>Income</div>
                         <div style={{fontSize:13,fontWeight:700,color:'#10b981'}}>{'₹'+Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                     <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:10,color:'#4a5568',marginBottom:2}}>Expenses</div>
+                        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:2}}>Expenses</div>
                         <div style={{fontSize:13,fontWeight:700,color:'#f43f5e'}}>{'₹'+Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                 </div>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
 
                 return (
                     <div style={{position:'relative',zIndex:1,marginTop:16}}>
-                        <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+                        <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
                         <div>
                             <svg
                                 width="100%"
@@ -295,11 +295,11 @@ export default function DashboardPage() {
                             <div style={{display:'flex',gap:16,marginTop:6}}>
                                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                                     <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
-                                    <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
+                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Income</span>
                                 </div>
                                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                                     <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
-                                    <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Expenses</span>
                                 </div>
                             </div>
                         </div>
@@ -320,20 +320,20 @@ export default function DashboardPage() {
                 const pct = totalExp>0 ? Math.round((topAmt/totalExp)*100) : 0;
                 return (
                     <div style={{position:'relative',zIndex:1}}>
-                        <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Top spending</div>
+                        <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Top spending</div>
                         <div style={{display:'flex',alignItems:'center',gap:10}}>
                             <div style={{width:32,height:32,borderRadius:10,background:'rgba(244,63,94,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                                 <div style={{width:10,height:10,borderRadius:'50%',background:top.color||'#f43f5e',boxShadow:`0 0 8px ${top.color||'#f43f5e'}`}}/>
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-                                    <span style={{fontSize:13,color:'#c8d4f0',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{top.name}</span>
+                                    <span style={{fontSize:13,color:'var(--text-primary)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{top.name}</span>
                                     <span style={{fontSize:13,color:'#f43f5e',fontWeight:700,flexShrink:0,marginLeft:8}}>{'₹'+Math.round(topAmt).toLocaleString('en-IN')}</span>
                                 </div>
                                 <div style={{height:4,borderRadius:2,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
                                     <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}}/>
                                 </div>
-                                <div style={{fontSize:10,color:'#8892aa',marginTop:3}}>{pct}% of total expenses</div>
+                                <div style={{fontSize:10,color:'var(--text-secondary)',marginTop:3}}>{pct}% of total expenses</div>
                             </div>
                         </div>
                     </div>
@@ -345,11 +345,11 @@ export default function DashboardPage() {
 
             {/* ── SECTION 4: AI Insight ── */}
             <div style={{position:'relative',zIndex:1}}>
-                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                     <span style={{color:'#a78bfa',fontSize:13}}>✦</span>
                     <span>AI insight</span>
                 </div>
-                <div style={{fontSize:13,color:'#c8d4f0',lineHeight:1.6,marginBottom:12,padding:'10px 12px',background:'rgba(167,139,250,0.06)',borderRadius:10,borderLeft:'2px solid rgba(167,139,250,0.3)'}}>
+                <div style={{fontSize:13,color:'var(--text-primary)',lineHeight:1.6,marginBottom:12,padding:'10px 12px',background:'rgba(167,139,250,0.06)',borderRadius:10,borderLeft:'2px solid rgba(167,139,250,0.3)'}}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
                 <button
@@ -364,9 +364,9 @@ export default function DashboardPage() {
     ) : (
         /* ── DESKTOP HERO CARD (3-column) ── */
         <div style={{
-            background: '#000000',
+            background: 'var(--bg-primary)',
             borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.06)',
+            border: '1px solid var(--bg-border)',
             padding: '20px 24px',
             display: 'flex',
             flexDirection: 'row',
@@ -382,14 +382,14 @@ export default function DashboardPage() {
 
             {/* ── LEFT: This Month ── */}
             <div style={{width: 200, flexShrink: 0, paddingRight: 24}}>
-                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>This month</div>
-                <div style={{fontSize:34,fontWeight:800,color:'#f0f4ff',letterSpacing:'-0.03em',lineHeight:1}}>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>This month</div>
+                <div style={{fontSize:34,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
                     {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                 </div>
                 <div style={{marginTop:8,display:'inline-block',padding:'3px 10px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
                     +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
                 </div>
-                <div style={{marginTop:10,fontSize:12,color:'#4a5568'}}>
+                <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)'}}>
                     {'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')} in · {'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')} out
                 </div>
             </div>
@@ -401,7 +401,7 @@ export default function DashboardPage() {
             <div style={{flex:1,paddingLeft:24,paddingRight:24,minWidth:0,overflow:'hidden'}}>
 
                 {/* Sparkline label */}
-                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
 
                 {/* Neon line chart */}
                 {(() => {
@@ -513,11 +513,11 @@ export default function DashboardPage() {
                             <div style={{display:'flex',gap:16,marginTop:6}}>
                                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                                     <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
-                                    <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
+                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Income</span>
                                 </div>
                                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                                     <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
-                                    <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Expenses</span>
                                 </div>
                             </div>
                         </div>
@@ -526,11 +526,11 @@ export default function DashboardPage() {
 
                 {/* Top Spending */}
                 <div style={{marginTop:14}}>
-                    <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>Top spending</div>
+                    <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>Top spending</div>
                     {(() => {
                         const sorted = [...(categories || [])].sort((a,b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
                         const top = sorted[0];
-                        if (!top) return <div style={{fontSize:12,color:'#4a5568'}}>No spending data yet</div>;
+                        if (!top) return <div style={{fontSize:12,color:'var(--text-muted)'}}>No spending data yet</div>;
                         const totalExp = (categories||[]).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
                         const amt = parseFloat(top.total ?? top.value ?? 0);
                         const pct = totalExp > 0 ? Math.round((amt / totalExp) * 100) : 0;
@@ -539,8 +539,8 @@ export default function DashboardPage() {
                                 <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
                                     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
                                         <div style={{width:8,height:8,borderRadius:'50%',background:top.color||'#f43f5e',flexShrink:0}} />
-                                        <span style={{fontSize:12,color:'#c8d4f0',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{top.name}</span>
-                                        <span style={{fontSize:10,color:'#8892aa',flexShrink:0}}>{pct}% of expenses</span>
+                                        <span style={{fontSize:12,color:'var(--text-primary)',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{top.name}</span>
+                                        <span style={{fontSize:10,color:'var(--text-secondary)',flexShrink:0}}>{pct}% of expenses</span>
                                     </div>
                                     <div style={{height:3,borderRadius:2,background:'rgba(255,255,255,0.08)',overflow:'hidden'}}>
                                         <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}} />
@@ -560,10 +560,10 @@ export default function DashboardPage() {
 
             {/* ── RIGHT: AI Insight ── */}
             <div style={{width:260,flexShrink:0,paddingLeft:24}}>
-                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
                     <span>✦</span><span>AI insight</span>
                 </div>
-                <div style={{fontSize:13,color:'#c8d4f0',lineHeight:1.55,marginBottom:12}}>
+                <div style={{fontSize:13,color:'var(--text-primary)',lineHeight:1.55,marginBottom:12}}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
                 <button

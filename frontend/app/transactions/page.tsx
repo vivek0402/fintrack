@@ -18,7 +18,6 @@ import { exportToCSV } from '@/lib/utils';
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const NOW_YEAR = new Date().getFullYear();
 const NOW_MONTH = new Date().getMonth() + 1;
-const YEARS = Array.from({ length: NOW_YEAR - 2021 }, (_, i) => 2022 + i);
 
 function TransactionsPageInner() {
     const router = useRouter();
@@ -45,6 +44,8 @@ function TransactionsPageInner() {
     const [quickAddLoading, setQuickAddLoading] = useState(false);
     const [quickAddError, setQuickAddError] = useState('');
     const [placeholderIdx, setPlaceholderIdx] = useState(0);
+    const [earliestYear, setEarliestYear] = useState(NOW_YEAR);
+    const [earliestMonth, setEarliestMonth] = useState(1);
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -87,6 +88,15 @@ function TransactionsPageInner() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
+    useEffect(() => {
+        if (!user) return;
+        transactionsAPI.earliest().then(res => {
+            const d = new Date(res.data.date);
+            setEarliestYear(d.getFullYear());
+            setEarliestMonth(d.getMonth() + 1);
+        }).catch(() => {});
+    }, [user]);
     useEffect(() => {
         if (searchParams.get('add') === 'true') {
             setModalOpen(true);
@@ -310,24 +320,21 @@ function TransactionsPageInner() {
 
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
 
-            {/* Month + Year filter sheet */}
+            {/* Month + Year filter dialog */}
             {showMonthSheet && (
-                <>
-                    <div onClick={() => setShowMonthSheet(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 400, backdropFilter: 'blur(2px)' }} />
+                <div
+                    onClick={e => { if (e.target === e.currentTarget) setShowMonthSheet(false); }}
+                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+                >
                     <div style={{
-                        position: 'fixed', left: 0, right: 0,
-                        bottom: isMobile ? 0 : 'auto',
-                        top: isMobile ? 'auto' : '50%',
-                        ...(isMobile ? {} : { left: '50%', transform: 'translate(-50%, -50%)', right: 'auto', width: '360px' }),
-                        background: 'var(--bg-secondary)',
-                        borderTop: isMobile ? '1px solid var(--bg-border)' : 'none',
-                        border: isMobile ? undefined : '1px solid var(--bg-border)',
-                        borderRadius: isMobile ? '20px 20px 0 0' : '20px',
-                        zIndex: 500,
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--bg-border)',
+                        borderRadius: '16px',
+                        width: '100%',
+                        maxWidth: '400px',
                         padding: '20px 16px',
-                        paddingBottom: isMobile ? 'calc(20px + env(safe-area-inset-bottom))' : '20px',
-                        boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
-                        maxHeight: isMobile ? '80vh' : '520px',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+                        maxHeight: '90vh',
                         overflowY: 'auto',
                     }}>
                         {/* Sheet header */}
@@ -341,7 +348,7 @@ function TransactionsPageInner() {
                         {/* Section 1 — Year pills */}
                         <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px 0' }}>Year</p>
                         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '4px', marginBottom: '20px' }}>
-                            {YEARS.map(yr => (
+                            {Array.from({ length: NOW_YEAR - earliestYear + 1 }, (_, i) => earliestYear + i).map(yr => (
                                 <button key={yr} onClick={() => setPendingYear(yr)} style={{
                                     padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
                                     background: pendingYear === yr ? 'var(--accent-blue)' : 'var(--bg-hover)',
@@ -360,18 +367,19 @@ function TransactionsPageInner() {
                             {MONTHS_SHORT.map((name, idx) => {
                                 const m = idx + 1;
                                 const isFuture = pendingYear === NOW_YEAR && m > NOW_MONTH;
+                                const isPast = pendingYear === earliestYear && m < earliestMonth;
                                 const isSelected = pendingMonth === m;
                                 return (
                                     <button
                                         key={m}
-                                        onClick={() => !isFuture && setPendingMonth(m)}
+                                        onClick={() => !isFuture && !isPast && setPendingMonth(m)}
                                         style={{
                                             borderRadius: '10px', padding: '10px 0', textAlign: 'center',
-                                            fontSize: '13px', fontWeight: 500, cursor: isFuture ? 'not-allowed' : 'pointer',
+                                            fontSize: '13px', fontWeight: 500, cursor: (isFuture || isPast) ? 'not-allowed' : 'pointer',
                                             border: 'none',
                                             background: isSelected ? 'var(--accent-blue)' : 'var(--bg-hover)',
                                             color: isSelected ? '#fff' : 'var(--text-secondary)',
-                                            opacity: isFuture ? 0.4 : 1,
+                                            opacity: (isFuture || isPast) ? 0.4 : 1,
                                             fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
                                         }}
                                     >
@@ -391,7 +399,7 @@ function TransactionsPageInner() {
                             </button>
                         </div>
                     </div>
-                </>
+                </div>
             )}
 
             {/* Quick Add Modal */}
