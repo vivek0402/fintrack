@@ -150,62 +150,62 @@ export default function DashboardPage() {
     // ── HERO CARD ──
     const HeroCard = () => isMobile ? (
         /* ── MOBILE HERO CARD ── */
-        <div style={{background:'var(--bg-primary)',borderRadius:20,border:'1px solid var(--bg-border)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
+        <div style={{ background: 'var(--bg-primary)', borderRadius: 20, border: '1px solid var(--bg-border)', padding: '20px', position: 'relative', overflow: 'hidden', marginBottom: 12 }}>
 
             {/* Ambient glows */}
-            <div style={{position:'absolute',bottom:-40,left:-20,width:180,height:180,background:'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
-            <div style={{position:'absolute',bottom:-40,right:-20,width:180,height:180,background:'radial-gradient(circle,rgba(244,63,94,0.08),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
-            <div style={{position:'absolute',top:-30,right:-30,width:140,height:140,background:'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
+            <div style={{ position: 'absolute', bottom: -40, left: -20, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -40, right: -20, width: 180, height: 180, background: 'radial-gradient(circle,rgba(244,63,94,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, background: 'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             {/* ── SECTION 1: Net Worth + mini income/expense stats ── */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',position:'relative',zIndex:1}}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
                 <div>
-                    <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Net worth</div>
-                    <div style={{fontSize:38,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Net Balance</div>
+                    <div style={{ fontSize: 38, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                         {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                     </div>
-                    <div style={{marginTop:8,display:'inline-block',padding:'4px 12px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
+                    <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>
                         {'+₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN') + ' this month'}
                     </div>
-                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:6}}>
-                        {new Date().toLocaleString('default',{month:'long'})} {new Date().getFullYear()}
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                        {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
                     </div>
                 </div>
-                <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'flex-end'}}>
-                    <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:2}}>Income</div>
-                        <div style={{fontSize:13,fontWeight:700,color:'#10b981'}}>{'₹'+Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Income</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>{'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
                     </div>
-                    <div style={{textAlign:'right'}}>
-                        <div style={{fontSize:10,color:'var(--text-muted)',marginBottom:2}}>Expenses</div>
-                        <div style={{fontSize:13,fontWeight:700,color:'#f43f5e'}}>{'₹'+Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Expenses</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#f43f5e' }}>{'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                 </div>
             </div>
 
             {/* ── SECTION 2: Neon line chart ── */}
             {(() => {
-                const raw = (sparklineData||[]).slice(-6);
-                const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+                const raw = (sparklineData || []).slice(-6);
+                const padded: { income: number, expenses: number, month?: number }[] = Array(6).fill(null).map((_, i) => raw[i - (6 - raw.length)] || { income: 0, expenses: 0 });
 
                 const CHART_W = 400, CHART_H = 100;
                 const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
                 const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
                 const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
 
-                const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
+                const maxVal = Math.max(...padded.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
                 const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
                 const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
 
-                const incPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.income||0)]);
-                const expPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.expenses||0)]);
+                const incPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.income || 0)]);
+                const expPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.expenses || 0)]);
 
-                const smoothPath = (pts: [number,number][]) => {
+                const smoothPath = (pts: [number, number][]) => {
                     if (pts.length < 2) return '';
                     let d = `M${pts[0][0]},${pts[0][1]}`;
                     for (let i = 0; i < pts.length - 1; i++) {
-                        const cpx = pts[i][0] + (pts[i+1][0] - pts[i][0]) * 0.5;
-                        d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                        const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
+                        d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
                     }
                     return d;
                 };
@@ -218,73 +218,73 @@ export default function DashboardPage() {
                     y: yPos(v),
                 }));
 
-                const monthLabels = padded.map((m,i) => {
-                    if (m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
-                    const d = new Date(); d.setMonth(d.getMonth()-(5-i));
-                    return d.toLocaleString('default',{month:'short'});
+                const monthLabels = padded.map((m, i) => {
+                    if (m.month) return new Date(0, m.month - 1).toLocaleString('default', { month: 'short' });
+                    const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
+                    return d.toLocaleString('default', { month: 'short' });
                 });
 
                 return (
-                    <div style={{position:'relative',zIndex:1,marginTop:16}}>
-                        <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+                    <div style={{ position: 'relative', zIndex: 1, marginTop: 16 }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>6-month trend</div>
                         <div>
                             <svg
                                 width="100%"
                                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                                 preserveAspectRatio="xMidYMid meet"
-                                style={{display:'block',overflow:'visible'}}
+                                style={{ display: 'block', overflow: 'visible' }}
                             >
                                 <defs>
                                     <filter id="mgneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                                     </filter>
                                     <filter id="mrneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                                     </filter>
                                     <linearGradient id="mgfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14"/>
-                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14" />
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
                                     </linearGradient>
                                     <linearGradient id="mrfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10"/>
-                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/>
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10" />
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
                                     </linearGradient>
                                 </defs>
 
-                                {yLabels.map((lbl,i) => (
+                                {yLabels.map((lbl, i) => (
                                     <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
                                         textAnchor="end" fontSize="9" fill="#4a5568"
                                         fontFamily="DM Sans, sans-serif">{lbl.value}</text>
                                 ))}
-                                {yLabels.map((lbl,i) => (
+                                {yLabels.map((lbl, i) => (
                                     <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
-                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
                                 ))}
-                                {incPts.map(([x],i) => (
+                                {incPts.map(([x], i) => (
                                     <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
-                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
+                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
                                 ))}
 
-                                <path d={incPath + ` L${incPts[incPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#mgfill2)"/>
-                                <path d={expPath + ` L${expPts[expPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#mrfill2)"/>
+                                <path d={incPath + ` L${incPts[incPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#mgfill2)" />
+                                <path d={expPath + ` L${expPts[expPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#mrfill2)" />
 
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#mgneon2)" vectorEffect="non-scaling-stroke"/>
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#mrneon2)" vectorEffect="non-scaling-stroke"/>
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#mgneon2)" vectorEffect="non-scaling-stroke" />
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#mrneon2)" vectorEffect="non-scaling-stroke" />
 
-                                {incPts.slice(0,-1).map(([x,y],i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                {incPts.slice(0, -1).map(([x, y], i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 ))}
-                                {expPts.slice(0,-1).map(([x,y],i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                {expPts.slice(0, -1).map(([x, y], i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 ))}
-                                <circle cx={incPts[incPts.length-1][0]} cy={incPts[incPts.length-1][1]} r="4.5" fill="#10b981" filter="url(#mgneon2)"/>
-                                <circle cx={expPts[expPts.length-1][0]} cy={expPts[expPts.length-1][1]} r="4.5" fill="#f43f5e" filter="url(#mrneon2)"/>
+                                <circle cx={incPts[incPts.length - 1][0]} cy={incPts[incPts.length - 1][1]} r="4.5" fill="#10b981" filter="url(#mgneon2)" />
+                                <circle cx={expPts[expPts.length - 1][0]} cy={expPts[expPts.length - 1][1]} r="4.5" fill="#f43f5e" filter="url(#mrneon2)" />
 
-                                {monthLabels.map((m,i) => (
+                                {monthLabels.map((m, i) => (
                                     <text key={i} x={xPos(i)} y={CHART_H - 4}
                                         textAnchor="middle" fontSize="9"
                                         fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
@@ -292,14 +292,14 @@ export default function DashboardPage() {
                                         fontFamily="DM Sans, sans-serif">{m}</text>
                                 ))}
                             </svg>
-                            <div style={{display:'flex',gap:16,marginTop:6}}>
-                                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                    <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
-                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Income</span>
+                            <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 20, height: 2, background: '#10b981', borderRadius: 1, boxShadow: '0 0 4px #10b981' }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Income</span>
                                 </div>
-                                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                    <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
-                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Expenses</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 20, height: 2, background: '#f43f5e', borderRadius: 1, boxShadow: '0 0 4px #f43f5e' }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Expenses</span>
                                 </div>
                             </div>
                         </div>
@@ -308,32 +308,32 @@ export default function DashboardPage() {
             })()}
 
             {/* divider */}
-            <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'16px 0'}}/>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
 
             {/* ── SECTION 3: Top Spending ── */}
             {(() => {
-                const sorted = [...(categories||[])].sort((a,b)=>parseFloat(b.total??b.value??0)-parseFloat(a.total??a.value??0));
+                const sorted = [...(categories || [])].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
                 const top = sorted[0];
-                if(!top) return null;
-                const totalExp = (categories||[]).reduce((s:number,c:any)=>s+parseFloat(c.total??c.value??0),0);
-                const topAmt = parseFloat(top.total??top.value??0);
-                const pct = totalExp>0 ? Math.round((topAmt/totalExp)*100) : 0;
+                if (!top) return null;
+                const totalExp = (categories || []).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
+                const topAmt = parseFloat(top.total ?? top.value ?? 0);
+                const pct = totalExp > 0 ? Math.round((topAmt / totalExp) * 100) : 0;
                 return (
-                    <div style={{position:'relative',zIndex:1}}>
-                        <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Top spending</div>
-                        <div style={{display:'flex',alignItems:'center',gap:10}}>
-                            <div style={{width:32,height:32,borderRadius:10,background:'rgba(244,63,94,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                                <div style={{width:10,height:10,borderRadius:'50%',background:top.color||'#f43f5e',boxShadow:`0 0 8px ${top.color||'#f43f5e'}`}}/>
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Top spending</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(244,63,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: top.color || '#f43f5e', boxShadow: `0 0 8px ${top.color || '#f43f5e'}` }} />
                             </div>
-                            <div style={{flex:1,minWidth:0}}>
-                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-                                    <span style={{fontSize:13,color:'var(--text-primary)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{top.name}</span>
-                                    <span style={{fontSize:13,color:'#f43f5e',fontWeight:700,flexShrink:0,marginLeft:8}}>{'₹'+Math.round(topAmt).toLocaleString('en-IN')}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{top.name}</span>
+                                    <span style={{ fontSize: 13, color: '#f43f5e', fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{'₹' + Math.round(topAmt).toLocaleString('en-IN')}</span>
                                 </div>
-                                <div style={{height:4,borderRadius:2,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
-                                    <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}}/>
+                                <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
                                 </div>
-                                <div style={{fontSize:10,color:'var(--text-secondary)',marginTop:3}}>{pct}% of total expenses</div>
+                                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>{pct}% of total expenses</div>
                             </div>
                         </div>
                     </div>
@@ -341,22 +341,22 @@ export default function DashboardPage() {
             })()}
 
             {/* divider */}
-            <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'16px 0'}}/>
+            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
 
             {/* ── SECTION 4: AI Insight ── */}
-            <div style={{position:'relative',zIndex:1}}>
-                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
-                    <span style={{color:'#a78bfa',fontSize:13}}>✦</span>
+            <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ color: '#a78bfa', fontSize: 13 }}>✦</span>
                     <span>AI insight</span>
                 </div>
-                <div style={{fontSize:13,color:'var(--text-primary)',lineHeight:1.6,marginBottom:12,padding:'10px 12px',background:'rgba(167,139,250,0.06)',borderRadius:10,borderLeft:'2px solid rgba(167,139,250,0.3)'}}>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 12, padding: '10px 12px', background: 'rgba(167,139,250,0.06)', borderRadius: 10, borderLeft: '2px solid rgba(167,139,250,0.3)' }}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
                 <button
                     onClick={handleGenerateReport}
-                    style={{width:'100%',background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'white',border:'none',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+                    style={{ width: '100%', background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
-                    <span style={{fontSize:14}}>✦</span> Generate Report
+                    <span style={{ fontSize: 14 }}>✦</span> Generate Report
                 </button>
             </div>
 
@@ -378,54 +378,54 @@ export default function DashboardPage() {
         }}>
 
             {/* Decorative glow */}
-            <div style={{position:'absolute',top:-60,right:-60,width:200,height:200,background:'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}} />
+            <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             {/* ── LEFT: This Month ── */}
-            <div style={{width: 200, flexShrink: 0, paddingRight: 24}}>
-                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>This month</div>
-                <div style={{fontSize:34,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
+            <div style={{ width: 200, flexShrink: 0, paddingRight: 24 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>This month</div>
+                <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                     {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                 </div>
-                <div style={{marginTop:8,display:'inline-block',padding:'3px 10px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
+                <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>
                     +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
                 </div>
-                <div style={{marginTop:10,fontSize:12,color:'var(--text-muted)'}}>
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
                     {'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')} in · {'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')} out
                 </div>
             </div>
 
             {/* Divider */}
-            <div style={{width:1,background:'rgba(255,255,255,0.07)',flexShrink:0,alignSelf:'stretch'}} />
+            <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0, alignSelf: 'stretch' }} />
 
             {/* ── MIDDLE: Trend + Top Spending ── */}
-            <div style={{flex:1,paddingLeft:24,paddingRight:24,minWidth:0,overflow:'hidden'}}>
+            <div style={{ flex: 1, paddingLeft: 24, paddingRight: 24, minWidth: 0, overflow: 'hidden' }}>
 
                 {/* Sparkline label */}
-                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>6-month trend</div>
 
                 {/* Neon line chart */}
                 {(() => {
-                    const raw = (sparklineData||[]).slice(-6);
-                    const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+                    const raw = (sparklineData || []).slice(-6);
+                    const padded: { income: number, expenses: number, month?: number }[] = Array(6).fill(null).map((_, i) => raw[i - (6 - raw.length)] || { income: 0, expenses: 0 });
 
                     const CHART_W = 600, CHART_H = 100;
                     const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
                     const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
                     const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
 
-                    const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
+                    const maxVal = Math.max(...padded.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
                     const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
                     const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
 
-                    const incPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.income||0)]);
-                    const expPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.expenses||0)]);
+                    const incPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.income || 0)]);
+                    const expPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.expenses || 0)]);
 
-                    const smoothPath = (pts: [number,number][]) => {
+                    const smoothPath = (pts: [number, number][]) => {
                         if (pts.length < 2) return '';
                         let d = `M${pts[0][0]},${pts[0][1]}`;
                         for (let i = 0; i < pts.length - 1; i++) {
-                            const cpx = pts[i][0] + (pts[i+1][0] - pts[i][0]) * 0.5;
-                            d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                            const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
+                            d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
                         }
                         return d;
                     };
@@ -438,10 +438,10 @@ export default function DashboardPage() {
                         y: yPos(v),
                     }));
 
-                    const monthLabels = padded.map((m,i) => {
-                        if (m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
-                        const d = new Date(); d.setMonth(d.getMonth()-(5-i));
-                        return d.toLocaleString('default',{month:'short'});
+                    const monthLabels = padded.map((m, i) => {
+                        if (m.month) return new Date(0, m.month - 1).toLocaleString('default', { month: 'short' });
+                        const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
+                        return d.toLocaleString('default', { month: 'short' });
                     });
 
                     return (
@@ -450,59 +450,59 @@ export default function DashboardPage() {
                                 width="100%"
                                 viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                                 preserveAspectRatio="xMidYMid meet"
-                                style={{display:'block',overflow:'visible'}}
+                                style={{ display: 'block', overflow: 'visible' }}
                             >
                                 <defs>
                                     <filter id="dgneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                                     </filter>
                                     <filter id="drneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
-                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                                     </filter>
                                     <linearGradient id="dgfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14"/>
-                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14" />
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
                                     </linearGradient>
                                     <linearGradient id="drfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10"/>
-                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/>
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10" />
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
                                     </linearGradient>
                                 </defs>
 
-                                {yLabels.map((lbl,i) => (
+                                {yLabels.map((lbl, i) => (
                                     <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
                                         textAnchor="end" fontSize="9" fill="#4a5568"
                                         fontFamily="DM Sans, sans-serif">{lbl.value}</text>
                                 ))}
-                                {yLabels.map((lbl,i) => (
+                                {yLabels.map((lbl, i) => (
                                     <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
-                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
                                 ))}
-                                {incPts.map(([x],i) => (
+                                {incPts.map(([x], i) => (
                                     <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
-                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
+                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
                                 ))}
 
-                                <path d={incPath + ` L${incPts[incPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#dgfill2)"/>
-                                <path d={expPath + ` L${expPts[expPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#drfill2)"/>
+                                <path d={incPath + ` L${incPts[incPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#dgfill2)" />
+                                <path d={expPath + ` L${expPts[expPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#drfill2)" />
 
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#dgneon2)" vectorEffect="non-scaling-stroke"/>
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#drneon2)" vectorEffect="non-scaling-stroke"/>
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#dgneon2)" vectorEffect="non-scaling-stroke" />
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#drneon2)" vectorEffect="non-scaling-stroke" />
 
-                                {incPts.slice(0,-1).map(([x,y],i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                {incPts.slice(0, -1).map(([x, y], i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 ))}
-                                {expPts.slice(0,-1).map(([x,y],i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                {expPts.slice(0, -1).map(([x, y], i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
                                 ))}
-                                <circle cx={incPts[incPts.length-1][0]} cy={incPts[incPts.length-1][1]} r="4.5" fill="#10b981" filter="url(#dgneon2)"/>
-                                <circle cx={expPts[expPts.length-1][0]} cy={expPts[expPts.length-1][1]} r="4.5" fill="#f43f5e" filter="url(#drneon2)"/>
+                                <circle cx={incPts[incPts.length - 1][0]} cy={incPts[incPts.length - 1][1]} r="4.5" fill="#10b981" filter="url(#dgneon2)" />
+                                <circle cx={expPts[expPts.length - 1][0]} cy={expPts[expPts.length - 1][1]} r="4.5" fill="#f43f5e" filter="url(#drneon2)" />
 
-                                {monthLabels.map((m,i) => (
+                                {monthLabels.map((m, i) => (
                                     <text key={i} x={xPos(i)} y={CHART_H - 4}
                                         textAnchor="middle" fontSize="9"
                                         fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
@@ -510,14 +510,14 @@ export default function DashboardPage() {
                                         fontFamily="DM Sans, sans-serif">{m}</text>
                                 ))}
                             </svg>
-                            <div style={{display:'flex',gap:16,marginTop:6}}>
-                                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                    <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
-                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Income</span>
+                            <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 20, height: 2, background: '#10b981', borderRadius: 1, boxShadow: '0 0 4px #10b981' }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Income</span>
                                 </div>
-                                <div style={{display:'flex',alignItems:'center',gap:6}}>
-                                    <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
-                                    <span style={{fontSize:11,color:'var(--text-secondary)'}}>Expenses</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 20, height: 2, background: '#f43f5e', borderRadius: 1, boxShadow: '0 0 4px #f43f5e' }} />
+                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Expenses</span>
                                 </div>
                             </div>
                         </div>
@@ -525,28 +525,28 @@ export default function DashboardPage() {
                 })()}
 
                 {/* Top Spending */}
-                <div style={{marginTop:14}}>
-                    <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>Top spending</div>
+                <div style={{ marginTop: 14 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Top spending</div>
                     {(() => {
-                        const sorted = [...(categories || [])].sort((a,b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
+                        const sorted = [...(categories || [])].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
                         const top = sorted[0];
-                        if (!top) return <div style={{fontSize:12,color:'var(--text-muted)'}}>No spending data yet</div>;
-                        const totalExp = (categories||[]).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
+                        if (!top) return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No spending data yet</div>;
+                        const totalExp = (categories || []).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
                         const amt = parseFloat(top.total ?? top.value ?? 0);
                         const pct = totalExp > 0 ? Math.round((amt / totalExp) * 100) : 0;
                         return (
-                            <div style={{display:'flex',alignItems:'center',gap:8,overflow:'hidden'}}>
-                                <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
-                                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
-                                        <div style={{width:8,height:8,borderRadius:'50%',background:top.color||'#f43f5e',flexShrink:0}} />
-                                        <span style={{fontSize:12,color:'var(--text-primary)',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{top.name}</span>
-                                        <span style={{fontSize:10,color:'var(--text-secondary)',flexShrink:0}}>{pct}% of expenses</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: top.color || '#f43f5e', flexShrink: 0 }} />
+                                        <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{top.name}</span>
+                                        <span style={{ fontSize: 10, color: 'var(--text-secondary)', flexShrink: 0 }}>{pct}% of expenses</span>
                                     </div>
-                                    <div style={{height:3,borderRadius:2,background:'rgba(255,255,255,0.08)',overflow:'hidden'}}>
-                                        <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}} />
+                                    <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
                                     </div>
                                 </div>
-                                <div style={{fontSize:12,color:'#f43f5e',fontWeight:600,flexShrink:0}}>
+                                <div style={{ fontSize: 12, color: '#f43f5e', fontWeight: 600, flexShrink: 0 }}>
                                     {'₹' + Math.round(amt).toLocaleString('en-IN')}
                                 </div>
                             </div>
@@ -556,19 +556,19 @@ export default function DashboardPage() {
             </div>
 
             {/* Divider */}
-            <div style={{width:1,background:'rgba(255,255,255,0.07)',flexShrink:0,alignSelf:'stretch'}} />
+            <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0, alignSelf: 'stretch' }} />
 
             {/* ── RIGHT: AI Insight ── */}
-            <div style={{width:260,flexShrink:0,paddingLeft:24}}>
-                <div style={{fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+            <div style={{ width: 260, flexShrink: 0, paddingLeft: 24 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>✦</span><span>AI insight</span>
                 </div>
-                <div style={{fontSize:13,color:'var(--text-primary)',lineHeight:1.55,marginBottom:12}}>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 12 }}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
                 <button
                     onClick={handleGenerateReport}
-                    style={{background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'white',border:'none',borderRadius:8,padding:'8px 14px',fontSize:13,fontWeight:600,cursor:'pointer',width:'100%'}}
+                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', width: '100%' }}
                 >
                     Generate Report
                 </button>
