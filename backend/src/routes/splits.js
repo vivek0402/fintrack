@@ -79,10 +79,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
         const splitDate = date || existing.date;
 
         // Preserve settled status for participants with the same name
-        const settledMap: Record<string, boolean> = {};
-        (existing.participants || []).forEach((p: any) => { settledMap[p.name] = p.settled; });
+        const settledMap = {};
+        (existing.participants || []).forEach(p => { settledMap[p.name] = p.settled; });
 
-        const updatedParticipants = participants.map((p: any) => ({
+        const updatedParticipants = participants.map(p => ({
             name: p.name,
             share: yourShare.toFixed(2),
             settled: settledMap[p.name] ?? false,
