@@ -9,12 +9,9 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { StatsCards } from '@/components/dashboard/StatsCards';
-import { TrendChart } from '@/components/dashboard/TrendChart';
-import { CategoryChart } from '@/components/dashboard/CategoryChart';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
 import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
-import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -40,9 +37,6 @@ export default function DashboardPage() {
     const [aiReport, setAiReport] = useState('');
     const [aiReportLoading, setAiReportLoading] = useState(false);
 
-    const [affordQuery, setAffordQuery] = useState('');
-    const [affordResult, setAffordResult] = useState<{ recommendation: string; sentiment: string } | null>(null);
-    const [affordLoading, setAffordLoading] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -93,19 +87,6 @@ export default function DashboardPage() {
         }
     };
 
-    const handleAffordCheck = async () => {
-        if (!affordQuery.trim()) return;
-        setAffordLoading(true);
-        setAffordResult(null);
-        try {
-            const res = await aiAPI.afford(affordQuery);
-            setAffordResult(res.data);
-        } catch {
-            setAffordResult({ recommendation: 'Unable to analyse right now. Please try again.', sentiment: 'cautious' });
-        } finally {
-            setAffordLoading(false);
-        }
-    };
 
     // Build sparkline data (last 6 months) from raw trends
     const sparklineData = (() => {
@@ -184,9 +165,9 @@ export default function DashboardPage() {
             {/* Radial glow decoration */}
             <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {/* LEFT — Net Worth */}
+            {/* LEFT — This Month */}
             <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>Net Worth</p>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>This Month</p>
                 <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '34px', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: '0 0 10px 0', lineHeight: 1 }}>
                     {dataLoading ? '—' : fmt(summary?.balance ?? 0)}
                 </p>
@@ -201,7 +182,9 @@ export default function DashboardPage() {
                         {summary.balance >= 0 ? '+' : ''}{fmt(summary.balance)} this month
                     </span>
                 )}
-                <p style={{ fontSize: '11px', color: '#4a5568', margin: '10px 0 0 0' }}>{MONTH_NAMES[month]} {year}</p>
+                <p style={{ fontSize: '11px', color: '#4a5568', margin: '10px 0 0 0' }}>
+                    {dataLoading || !summary ? '—' : `${fmt(summary.total_income)} in · ${fmt(summary.total_expenses)} out`}
+                </p>
             </div>
 
             {/* DIVIDER 1 */}
@@ -215,10 +198,11 @@ export default function DashboardPage() {
                 {/* Sparkline bars */}
                 {sparklineData.length > 0 ? (
                     <div>
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 44, overflow: 'hidden', width: '100%' }}>
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 44, overflow: 'hidden', width: '100%' }}>
                             {sparklineData.flatMap((d, i) => [
-                                <div key={`i-${i}`} style={{ width: 'calc((100% - 30px) / 12)', height: `${Math.max(4, (d.income / sparkMax) * 100)}%`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
-                                <div key={`e-${i}`} style={{ width: 'calc((100% - 30px) / 12)', height: `${Math.max(4, (d.expenses / sparkMax) * 100)}%`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
+                                <div key={`i-${i}`} style={{ width: 'calc((100% - 60px) / 12)', height: `${Math.max(4, Math.round((d.income / sparkMax) * 44))}px`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
+                                <div key={`e-${i}`} style={{ width: 'calc((100% - 60px) / 12)', height: `${Math.max(4, Math.round((d.expenses / sparkMax) * 44))}px`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
+                                i < sparklineData.length - 1 ? <div key={`s-${i}`} style={{ width: 4, flexShrink: 0 }} /> : null,
                             ])}
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
@@ -254,7 +238,7 @@ export default function DashboardPage() {
                 ) : (
                     <div style={{ marginTop: '12px' }}>
                         <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>Top Spending</p>
-                        <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>No data yet</p>
+                        <div style={{ fontSize: 12, color: '#4a5568' }}>No spending data yet</div>
                     </div>
                 )}
             </div>
@@ -329,50 +313,13 @@ export default function DashboardPage() {
                     {/* Row 2 — Hero card */}
                     <HeroCard />
 
-                    {/* Row 3 — Trend chart */}
-                    <TrendChart trends={trends} />
-
-                    {/* Row 4 — AI tile + Budget tile */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
-                            <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px', marginBottom: '4px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>✨</span>
-                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>AI Insights</span>
-                                </div>
-                                {aiReport ? (
-                                    <AIResponseCard message={aiReport} type="insight" onAction={route => router.push(route)} style={{ marginBottom: '10px' }} />
-                                ) : (
-                                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
-                                )}
-                                <button onClick={handleGenerateReport} disabled={aiReportLoading} style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}>
-                                    {aiReportLoading ? (<><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>) : aiReport ? 'Regenerate' : 'Generate Report'}
-                                </button>
-                            </div>
-                            <div style={{ height: '1px', background: 'var(--bg-border)', margin: '16px 0' }} />
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '1.1rem' }}>🤔</span>
-                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Can I afford this?</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                                    <input type="text" placeholder="Item X for ₹Y" value={affordQuery} onChange={e => setAffordQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAffordCheck()} style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '8px', fontSize: '0.82rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
-                                    <button onClick={handleAffordCheck} disabled={affordLoading || !affordQuery.trim()} style={{ padding: '8px 14px', background: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 600, cursor: affordLoading || !affordQuery.trim() ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: affordLoading || !affordQuery.trim() ? 0.6 : 1 }}>
-                                        {affordLoading ? '…' : 'Ask AI'}
-                                    </button>
-                                </div>
-                                {affordResult && <AIResponseCard message={affordResult.recommendation} type="afford" onAction={route => router.push(route)} />}
-                            </div>
-                        </div>
-
-                        <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
-                            {budgets.length > 0
-                                ? <BudgetAlerts budgets={budgets} currency={user.currency} />
-                                : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
-                            }
-                        </div>
+                    {/* Row 3 — Budget tile */}
+                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                        {budgets.length > 0
+                            ? <BudgetAlerts budgets={budgets} currency={user.currency} />
+                            : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
+                        }
                     </div>
 
                     {/* Row 5 — Recent + Forecast */}
@@ -396,23 +343,6 @@ export default function DashboardPage() {
                     {/* Hero */}
                     <HeroCard />
 
-                    {/* AI Insight */}
-                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Insight</p>
-                        <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: '12px' }}>
-                            {aiReport ? (
-                                <AIResponseCard message={aiReport} type="insight" onAction={route => router.push(route)} style={{ marginBottom: '10px' }} />
-                            ) : (
-                                <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>Get a plain-English summary of your spending this month.</p>
-                            )}
-                            <button onClick={handleGenerateReport} disabled={aiReportLoading} style={{ padding: '7px 14px', background: 'var(--accent-blue-bg)', border: '1px solid var(--accent-blue-border, var(--bg-border))', borderRadius: '8px', color: 'var(--accent-blue)', fontSize: '0.78rem', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}>
-                                {aiReportLoading ? (<><span style={{ width: '12px', height: '12px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>) : aiReport ? 'Regenerate' : 'Generate Report'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Trend Chart */}
-                    <TrendChart trends={trends} />
 
                     {/* Budgets */}
                     <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>

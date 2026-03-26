@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp, TrendingDown, Calendar, Zap } from 'lucide-react';
+import { TrendingUp, Calendar, Zap } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface Props { forecast: any; currency?: string; }
@@ -9,7 +9,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
     if (!forecast || forecast.income === 0) return null;
 
     const {
-        income, expenses_so_far, projected_expenses, projected_savings,
+        income, projected_expenses, projected_savings,
         daily_rate, ideal_daily_budget, day_of_month, days_in_month,
         days_remaining, is_on_track, savings_rate,
     } = forecast;
@@ -40,7 +40,6 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '14px' }}>
                 {[
-                    { label: 'Spent So Far', value: formatCurrency(expenses_so_far, currency), color: 'var(--accent-red)', icon: TrendingDown },
                     { label: 'Projected Total', value: formatCurrency(projected_expenses, currency), color: isOverBudget ? 'var(--accent-red)' : 'var(--accent-yellow)', icon: Calendar },
                     { label: 'Projected Savings', value: formatCurrency(Math.max(projected_savings, 0), currency), color: projected_savings >= 0 ? 'var(--accent-green)' : 'var(--accent-red)', icon: TrendingUp },
                 ].map(stat => {
@@ -71,7 +70,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
                 {[
                     { label: 'Your daily spend', value: formatCurrency(daily_rate, currency) + '/day', warn: daily_rate > ideal_daily_budget },
                     { label: 'Ideal daily budget', value: formatCurrency(ideal_daily_budget, currency) + '/day', positive: true },
-                    { label: 'Savings rate', value: savings_rate + '%', positive: parseFloat(savings_rate) >= 20, warn: parseFloat(savings_rate) < 20 },
+                    { label: 'Projected savings rate', value: savings_rate + '%', positive: parseFloat(savings_rate) >= 20, warn: parseFloat(savings_rate) < 20 },
                 ].map((item, i) => (
                     <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {i > 0 && <div style={{ width: '1px', height: '30px', background: 'var(--bg-border)' }} />}

@@ -30,7 +30,7 @@ export function TrendChart({ trends }: Props) {
                 {payload.map((p: any) => (
                     <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
-                        <p style={{ color: 'var(--text-primary)', margin: 0 }}>{p.name}: <strong>₹{p.value?.toLocaleString('en-IN')}</strong></p>
+                        <p style={{ color: 'var(--text-primary)', margin: 0 }}>{p.name}: <strong>₹{Math.round(p.value ?? 0).toLocaleString('en-IN')}</strong></p>
                     </div>
                 ))}
             </div>
@@ -61,7 +61,7 @@ export function TrendChart({ trends }: Props) {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" vertical={false} />
                         <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} width={48} />
+                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'k'} width={48} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: '0.78rem', paddingTop: '14px' }} />
                         <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
