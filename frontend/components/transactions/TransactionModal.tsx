@@ -201,7 +201,7 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
                     borderRadius: '12px',
                     padding: '12px',
                     width: '100%',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
                     userSelect: 'none',
                 }}>
                     {/* Month nav header */}
@@ -251,7 +251,8 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
                                         fontSize: '13px', fontFamily: 'DM Sans, sans-serif',
                                         backgroundColor: isSelected ? '#3b82f6' : 'transparent',
                                         color: isSelected ? '#ffffff' : isToday ? '#f0f4ff' : cell.current ? '#8892aa' : '#2a3550',
-                                        border: isToday && !isSelected ? '2px solid #3b82f6' : '2px solid transparent',
+                                        outline: isToday && !isSelected ? '2px solid #3b82f6' : 'none',
+                                        border: 'none',
                                         transition: 'background 0.1s',
                                     }}
                                     onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; }}
