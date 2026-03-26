@@ -150,36 +150,155 @@ export default function DashboardPage() {
     // ── HERO CARD ──
     const HeroCard = () => isMobile ? (
         /* ── MOBILE HERO CARD ── */
-        <div style={{
-            background: 'var(--bg-card)',
-            borderRadius: 16,
-            border: '1px solid var(--bg-border)',
-            padding: '20px',
-            position: 'relative',
-            overflow: 'hidden',
-            marginBottom: 12,
-        }}>
-            {/* Decorative circle top-right */}
-            <div style={{position:'absolute',top:16,right:16,width:60,height:60,borderRadius:'50%',background:'var(--accent-blue)',opacity:0.06,pointerEvents:'none'}} />
+        <div style={{background:'linear-gradient(160deg,#0a0f1e 0%,#0d1628 60%,#080d1a 100%)',borderRadius:20,border:'1px solid rgba(255,255,255,0.06)',padding:'20px',position:'relative',overflow:'hidden',marginBottom:12}}>
 
-            {/* NET WORTH label */}
-            <div style={{fontSize:11,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Net worth</div>
+            {/* Ambient glows */}
+            <div style={{position:'absolute',bottom:-40,left:-20,width:180,height:180,background:'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
+            <div style={{position:'absolute',bottom:-40,right:-20,width:180,height:180,background:'radial-gradient(circle,rgba(244,63,94,0.08),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
+            <div style={{position:'absolute',top:-30,right:-30,width:140,height:140,background:'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}}/>
 
-            {/* Big balance number */}
-            <div style={{fontSize:42,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
-                {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
+            {/* ── SECTION 1: Net Worth + mini income/expense stats ── */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',position:'relative',zIndex:1}}>
+                <div>
+                    <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:4}}>Net worth</div>
+                    <div style={{fontSize:38,fontWeight:800,color:'#f0f4ff',letterSpacing:'-0.03em',lineHeight:1}}>
+                        {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{marginTop:8,display:'inline-block',padding:'4px 12px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
+                        {'+₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN') + ' this month'}
+                    </div>
+                    <div style={{fontSize:11,color:'#4a5568',marginTop:6}}>
+                        {new Date().toLocaleString('default',{month:'long'})} {new Date().getFullYear()}
+                    </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:10,alignItems:'flex-end'}}>
+                    <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:10,color:'#4a5568',marginBottom:2}}>Income</div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#10b981'}}>{'₹'+Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:10,color:'#4a5568',marginBottom:2}}>Expenses</div>
+                        <div style={{fontSize:13,fontWeight:700,color:'#f43f5e'}}>{'₹'+Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
+                    </div>
+                </div>
             </div>
 
-            {/* Monthly change pill */}
-            <div style={{marginTop:10,display:'inline-block',padding:'4px 12px',borderRadius:20,background:'rgba(16,185,129,0.15)',color:'var(--accent-green)',fontSize:13,fontWeight:600}}>
-                +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
+            {/* ── SECTION 2: Neon line chart ── */}
+            {(() => {
+                const raw = (sparklineData||[]).slice(-6);
+                const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+                const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
+                const W=340, H=72, pad=6;
+                const toY = (v:number) => pad + (1-(v/maxVal))*(H-pad*2);
+                const xs = [0,68,136,204,272,340];
+                const incPts = padded.map((m,i):[number,number] => [xs[i], toY(m.income||0)]);
+                const expPts = padded.map((m,i):[number,number] => [xs[i], toY(m.expenses||0)]);
+                const curve = (pts:[number,number][]) => {
+                    if(!pts.length) return '';
+                    let d=`M${pts[0][0]},${pts[0][1]}`;
+                    for(let i=0;i<pts.length-1;i++){
+                        const cpx=pts[i][0]+(pts[i+1][0]-pts[i][0])*0.5;
+                        d+=` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                    }
+                    return d;
+                };
+                const ip=curve(incPts), ep=curve(expPts);
+                const monthLabels = padded.map((m,i) => {
+                    if(m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
+                    const d=new Date(); d.setMonth(d.getMonth()-(5-i));
+                    return d.toLocaleString('default',{month:'short'});
+                });
+                return (
+                    <div style={{position:'relative',zIndex:1,marginTop:16}}>
+                        <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+                        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block',overflow:'visible'}}>
+                            <defs>
+                                <filter id="mgneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                <filter id="mrneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                <linearGradient id="mig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.18"/><stop offset="100%" stopColor="#10b981" stopOpacity="0"/></linearGradient>
+                                <linearGradient id="meg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity="0.13"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/></linearGradient>
+                            </defs>
+                            {[0.25,0.5,0.75].map((r,i)=><line key={i} x1="0" y1={pad+r*(H-pad*2)} x2={W} y2={pad+r*(H-pad*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
+                            <path d={ip+` L${W},${H} L0,${H} Z`} fill="url(#mig)"/>
+                            <path d={ep+` L${W},${H} L0,${H} Z`} fill="url(#meg)"/>
+                            <path d={ip} fill="none" stroke="rgba(16,185,129,0.22)" strokeWidth="5" strokeLinecap="round"/>
+                            <path d={ep} fill="none" stroke="rgba(244,63,94,0.18)" strokeWidth="5" strokeLinecap="round"/>
+                            <path d={ip} fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" filter="url(#mgneon)"/>
+                            <path d={ep} fill="none" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" filter="url(#mrneon)"/>
+                            {incPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#10b981" filter="url(#mgneon)"/>)}
+                            {expPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#f43f5e" filter="url(#mrneon)"/>)}
+                            <line x1={W} y1="0" x2={W} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 3"/>
+                        </svg>
+                        <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
+                            {monthLabels.map((m,i)=><span key={i} style={{fontSize:9,color:i===5?'#f0f4ff':'#4a5568',fontWeight:i===5?600:400}}>{m}</span>)}
+                        </div>
+                        <div style={{display:'flex',gap:14,marginTop:8}}>
+                            <div style={{display:'flex',alignItems:'center',gap:5}}>
+                                <div style={{width:8,height:8,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981'}}/>
+                                <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
+                            </div>
+                            <div style={{display:'flex',alignItems:'center',gap:5}}>
+                                <div style={{width:8,height:8,borderRadius:'50%',background:'#f43f5e',boxShadow:'0 0 6px #f43f5e'}}/>
+                                <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* divider */}
+            <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'16px 0'}}/>
+
+            {/* ── SECTION 3: Top Spending ── */}
+            {(() => {
+                const sorted = [...(categories||[])].sort((a,b)=>parseFloat(b.total??b.value??0)-parseFloat(a.total??a.value??0));
+                const top = sorted[0];
+                if(!top) return null;
+                const totalExp = (categories||[]).reduce((s:number,c:any)=>s+parseFloat(c.total??c.value??0),0);
+                const topAmt = parseFloat(top.total??top.value??0);
+                const pct = totalExp>0 ? Math.round((topAmt/totalExp)*100) : 0;
+                return (
+                    <div style={{position:'relative',zIndex:1}}>
+                        <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Top spending</div>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                            <div style={{width:32,height:32,borderRadius:10,background:'rgba(244,63,94,0.12)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                                <div style={{width:10,height:10,borderRadius:'50%',background:top.color||'#f43f5e',boxShadow:`0 0 8px ${top.color||'#f43f5e'}`}}/>
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
+                                    <span style={{fontSize:13,color:'#c8d4f0',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{top.name}</span>
+                                    <span style={{fontSize:13,color:'#f43f5e',fontWeight:700,flexShrink:0,marginLeft:8}}>{'₹'+Math.round(topAmt).toLocaleString('en-IN')}</span>
+                                </div>
+                                <div style={{height:4,borderRadius:2,background:'rgba(255,255,255,0.07)',overflow:'hidden'}}>
+                                    <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}}/>
+                                </div>
+                                <div style={{fontSize:10,color:'#8892aa',marginTop:3}}>{pct}% of total expenses</div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* divider */}
+            <div style={{height:1,background:'rgba(255,255,255,0.06)',margin:'16px 0'}}/>
+
+            {/* ── SECTION 4: AI Insight ── */}
+            <div style={{position:'relative',zIndex:1}}>
+                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                    <span style={{color:'#a78bfa',fontSize:13}}>✦</span>
+                    <span>AI insight</span>
+                </div>
+                <div style={{fontSize:13,color:'#c8d4f0',lineHeight:1.6,marginBottom:12,padding:'10px 12px',background:'rgba(167,139,250,0.06)',borderRadius:10,borderLeft:'2px solid rgba(167,139,250,0.3)'}}>
+                    {aiReport || 'Tap generate to get your monthly AI summary.'}
+                </div>
+                <button
+                    onClick={handleGenerateReport}
+                    style={{width:'100%',background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'white',border:'none',borderRadius:10,padding:'10px',fontSize:13,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+                >
+                    <span style={{fontSize:14}}>✦</span> Generate Report
+                </button>
             </div>
 
-            {/* AI insight text */}
-            <div style={{marginTop:16,fontSize:13,color:'var(--text-muted)',fontStyle:'italic',cursor:'pointer'}}
-                onClick={handleGenerateReport}>
-                {aiReport ? aiReport : 'Tap to generate your monthly insight →'}
-            </div>
         </div>
     ) : (
         /* ── DESKTOP HERO CARD (3-column) ── */
