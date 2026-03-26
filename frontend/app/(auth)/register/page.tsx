@@ -96,9 +96,9 @@ export default function RegisterPage() {
     const pw = form.password;
     const pwStrength = pw.length === 0 ? 0
         : pw.length < 6 ? 1
-        : pw.length < 8 ? 2
-        : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4
-        : 3;
+            : pw.length < 8 ? 2
+                : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4
+                    : 3;
     const strengthColors = ['', '#f43f5e', '#f59e0b', '#3b82f6', '#10b981'];
     const strengthLabels = ['', 'Too short', 'Fair', 'Good', 'Strong'];
 
@@ -202,7 +202,7 @@ export default function RegisterPage() {
                                 onBlur={() => setFocusedField(null)}
                                 autoComplete="off"
                                 required
-                                placeholder="you@example.com"
+                                placeholder="email"
                                 style={inputStyle('email')}
                             />
                         </div>

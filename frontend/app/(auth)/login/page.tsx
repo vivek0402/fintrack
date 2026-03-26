@@ -76,7 +76,7 @@ export default function LoginPage() {
                             onBlur={() => setFocusedField(null)}
                             autoComplete="off"
                             required
-                            placeholder="you@example.com"
+                            placeholder="email"
                             style={inputStyle('email')}
                         />
                     </div>
