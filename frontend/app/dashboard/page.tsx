@@ -147,8 +147,42 @@ export default function DashboardPage() {
         setSalaryBannerDismissed(true);
     };
 
-    // ── HERO CARD (wide 3-column) ──
-    const HeroCard = () => (
+    // ── HERO CARD ──
+    const HeroCard = () => isMobile ? (
+        /* ── MOBILE HERO CARD ── */
+        <div style={{
+            background: 'var(--bg-card)',
+            borderRadius: 16,
+            border: '1px solid var(--bg-border)',
+            padding: '20px',
+            position: 'relative',
+            overflow: 'hidden',
+            marginBottom: 12,
+        }}>
+            {/* Decorative circle top-right */}
+            <div style={{position:'absolute',top:16,right:16,width:60,height:60,borderRadius:'50%',background:'var(--accent-blue)',opacity:0.06,pointerEvents:'none'}} />
+
+            {/* NET WORTH label */}
+            <div style={{fontSize:11,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Net worth</div>
+
+            {/* Big balance number */}
+            <div style={{fontSize:42,fontWeight:800,color:'var(--text-primary)',letterSpacing:'-0.03em',lineHeight:1}}>
+                {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
+            </div>
+
+            {/* Monthly change pill */}
+            <div style={{marginTop:10,display:'inline-block',padding:'4px 12px',borderRadius:20,background:'rgba(16,185,129,0.15)',color:'var(--accent-green)',fontSize:13,fontWeight:600}}>
+                +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
+            </div>
+
+            {/* AI insight text */}
+            <div style={{marginTop:16,fontSize:13,color:'var(--text-muted)',fontStyle:'italic',cursor:'pointer'}}
+                onClick={handleGenerateReport}>
+                {aiReport ? aiReport : 'Tap to generate your monthly insight →'}
+            </div>
+        </div>
+    ) : (
+        /* ── DESKTOP HERO CARD (3-column) ── */
         <div style={{
             background: 'linear-gradient(135deg,#0a0f1e 0%,#0f1629 50%,#0a1225 100%)',
             borderRadius: 16,
@@ -276,6 +310,7 @@ export default function DashboardPage() {
     );
 
     return (
+
         <AppLayout>
             {/* Salary Banner */}
             {salaryData && !salaryBannerDismissed && salaryData.plan && (
