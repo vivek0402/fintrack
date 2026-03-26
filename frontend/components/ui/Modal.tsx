@@ -28,28 +28,30 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
 
     return (
         <div
-            onClick={onClose}
+            onClick={e => e.stopPropagation()}
             style={{
                 position: 'fixed',
-                top: 0, left: 0,
-                width: '100vw', height: '100vh',
-                background: 'rgba(0,0,0,0.6)',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'rgba(0,0,0,0.7)',
                 backdropFilter: 'blur(6px)',
                 zIndex: 1000,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                pointerEvents: 'all',
             }}
         >
             <div
-                onClick={e => e.stopPropagation()}
                 style={{
-                    position: 'relative',
-                    width: '100%',
+                    width: '90%',
                     maxWidth,
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
+                    margin: '0 auto',
                     backgroundColor: '#000000',
                     border: '1px solid #1e2d4a',
                     borderRadius: '16px',

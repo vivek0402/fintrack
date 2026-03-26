@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
-    X, FileText, Mic, Camera, ChevronDown,
+    X, FileText, Mic, Camera, ChevronDown, CalendarDays,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
@@ -98,9 +98,11 @@ function CatOption({ cat, selected, onSelect, onDelete }: {
     );
 }
 
-// ─── Inline Calendar ─────────────────────────────────────────────────────────
+// ─── Date Picker Field ────────────────────────────────────────────────────────
 
-function InlineCalendar({ value, onChange }: { value: string; onChange: (d: string) => void }) {
+function DatePickerField({ value, onChange }: { value: string; onChange: (d: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
     const today = new Date();
     const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
@@ -118,6 +120,22 @@ function InlineCalendar({ value, onChange }: { value: string; onChange: (d: stri
             setViewDate(new Date(y, m - 1, 1));
         }
     }, [value]);
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    const formatDisplay = (d: string) => {
+        const [y, m, day] = d.split('-').map(Number);
+        return new Date(y, m - 1, day).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
 
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
@@ -142,65 +160,107 @@ function InlineCalendar({ value, onChange }: { value: string; onChange: (d: stri
     const toYMD = (d: Date) => d.toLocaleDateString('en-CA');
 
     return (
-        <div style={{ background: '#141d35', border: '1px solid #1e2d4a', borderRadius: '12px', padding: '12px', userSelect: 'none' }}>
-            {/* Month nav header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <button
-                    type="button"
-                    onClick={() => setViewDate(new Date(year, month - 1, 1))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
-                >
-                    ‹
-                </button>
-                <span style={{ color: '#f0f4ff', fontSize: '0.875rem', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>
-                    {monthName} {year}
+        <div ref={containerRef} style={{ position: 'relative' }}>
+            {/* Trigger button */}
+            <button
+                type="button"
+                onClick={() => setOpen(v => !v)}
+                style={{
+                    backgroundColor: '#0a0f1e',
+                    border: '1px solid #1e2d4a',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: '#f0f4ff',
+                    fontSize: '14px',
+                    width: '100%',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontFamily: 'DM Sans, sans-serif',
+                }}
+            >
+                <span style={{ color: value ? '#f0f4ff' : '#4a5568' }}>
+                    {value ? formatDisplay(value) : 'Select a date'}
                 </span>
-                <button
-                    type="button"
-                    onClick={() => setViewDate(new Date(year, month + 1, 1))}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
-                >
-                    ›
-                </button>
-            </div>
-            {/* Weekday labels */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
-                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                    <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#8892aa', textTransform: 'uppercase', padding: '2px 0', fontFamily: 'DM Sans, sans-serif' }}>{d}</div>
-                ))}
-            </div>
-            {/* Day grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-                {cells.map((cell, i) => {
-                    const dStr = toYMD(cell.date);
-                    const isSelected = dStr === value;
-                    const isToday = dStr === todayStr;
-                    return (
-                        <div
-                            key={i}
-                            onClick={() => onChange(dStr)}
-                            style={{
-                                width: '36px', height: '36px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                borderRadius: '50%', cursor: 'pointer', margin: '0 auto',
-                                fontSize: '0.8rem', fontFamily: 'DM Sans, sans-serif',
-                                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-                                color: isSelected ? '#fff' : cell.current ? '#f0f4ff' : '#4a5568',
-                                border: isToday && !isSelected ? '2px solid #3b82f6' : '2px solid transparent',
-                                transition: 'background 0.1s',
-                            }}
-                            onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; }}
-                            onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
+                <CalendarDays size={16} color="#8892aa" />
+            </button>
+
+            {/* Popover calendar */}
+            {open && (
+                <div style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    zIndex: 50,
+                    backgroundColor: '#0a0f1e',
+                    border: '1px solid #1e2d4a',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    width: '100%',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    userSelect: 'none',
+                }}>
+                    {/* Month nav header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
                         >
-                            {cell.date.getDate()}
-                        </div>
-                    );
-                })}
-            </div>
+                            ‹
+                        </button>
+                        <span style={{ color: '#f0f4ff', fontSize: '14px', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>
+                            {monthName} {year}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
+                        >
+                            ›
+                        </button>
+                    </div>
+                    {/* Weekday labels */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                            <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#4a5568', fontWeight: 500, textTransform: 'uppercase', padding: '2px 0', fontFamily: 'DM Sans, sans-serif' }}>{d}</div>
+                        ))}
+                    </div>
+                    {/* Day grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
+                        {cells.map((cell, i) => {
+                            const dStr = toYMD(cell.date);
+                            const isSelected = dStr === value;
+                            const isToday = dStr === todayStr;
+                            return (
+                                <div
+                                    key={i}
+                                    onClick={() => { onChange(dStr); setOpen(false); }}
+                                    style={{
+                                        width: '36px', height: '36px',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        borderRadius: '50%', cursor: 'pointer', margin: '0 auto',
+                                        fontSize: '13px', fontFamily: 'DM Sans, sans-serif',
+                                        backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                        color: isSelected ? '#ffffff' : isToday ? '#f0f4ff' : cell.current ? '#8892aa' : '#2a3550',
+                                        border: isToday && !isSelected ? '2px solid #3b82f6' : '2px solid transparent',
+                                        transition: 'background 0.1s',
+                                    }}
+                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; }}
+                                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
+                                >
+                                    {cell.date.getDate()}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -756,10 +816,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                     )}
                 </div>
 
-                {/* Date — inline calendar */}
+                {/* Date picker */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Date</label>
-                    <InlineCalendar value={form.date} onChange={d => setForm({ ...form, date: d })} />
+                    <DatePickerField value={form.date} onChange={d => setForm({ ...form, date: d })} />
                 </div>
 
                 {/* Tags */}
