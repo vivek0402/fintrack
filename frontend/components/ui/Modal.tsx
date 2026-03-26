@@ -31,8 +31,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
             onClick={e => e.stopPropagation()}
             style={{
                 position: 'fixed',
-                top: 0,
-                left: 0,
+                inset: 0,
                 width: '100vw',
                 height: '100vh',
                 backgroundColor: 'rgba(0,0,0,0.7)',
@@ -51,7 +50,6 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    margin: '0 auto',
                     backgroundColor: '#000000',
                     border: '1px solid #1e2d4a',
                     borderRadius: '16px',

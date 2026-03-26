@@ -295,3 +295,11 @@ h6 {
     to   { opacity: 1; }
   }
 }
+
+/* Hide native number spinner arrows */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }

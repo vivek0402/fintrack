@@ -162,9 +162,11 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
     return (
         <div ref={containerRef} style={{ position: 'relative' }}>
             {/* Trigger button */}
-            <button
-                type="button"
+            <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setOpen(v => !v)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setOpen(v => !v); }}
                 style={{
                     backgroundColor: '#0a0f1e',
                     border: '1px solid #1e2d4a',
@@ -177,6 +179,7 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    boxSizing: 'border-box',
                     fontFamily: 'DM Sans, sans-serif',
                 }}
             >
@@ -184,7 +187,7 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
                     {value ? formatDisplay(value) : 'Select a date'}
                 </span>
                 <CalendarDays size={16} color="#8892aa" />
-            </button>
+            </div>
 
             {/* Popover calendar */}
             {open && (
@@ -712,7 +715,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                     <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>Amount</label>
                     <div style={{ position: 'relative' }}>
                         <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: '1.2rem' }}>₹</span>
-                        <input type="number" placeholder="0.00" min="0.01" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
+                        <input type="number" placeholder="0" min="0.01" step="any" value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
                             style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--bg-secondary)', color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', border: `1px solid ${isIncome ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`, borderRadius: '12px', fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 700, outline: 'none', boxSizing: 'border-box', transition: 'border-color var(--transition-fast)' }} />
                     </div>
                 </div>
