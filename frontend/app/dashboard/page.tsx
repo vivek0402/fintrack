@@ -187,59 +187,120 @@ export default function DashboardPage() {
             {(() => {
                 const raw = (sparklineData||[]).slice(-6);
                 const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+
+                const CHART_W = 400, CHART_H = 100;
+                const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
+                const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
+                const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
+
                 const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
-                const W=340, H=72, pad=6;
-                const toY = (v:number) => pad + (1-(v/maxVal))*(H-pad*2);
-                const xs = [0,68,136,204,272,340];
-                const incPts = padded.map((m,i):[number,number] => [xs[i], toY(m.income||0)]);
-                const expPts = padded.map((m,i):[number,number] => [xs[i], toY(m.expenses||0)]);
-                const curve = (pts:[number,number][]) => {
-                    if(!pts.length) return '';
-                    let d=`M${pts[0][0]},${pts[0][1]}`;
-                    for(let i=0;i<pts.length-1;i++){
-                        const cpx=pts[i][0]+(pts[i+1][0]-pts[i][0])*0.5;
-                        d+=` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
+                const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
+
+                const incPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.income||0)]);
+                const expPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.expenses||0)]);
+
+                const smoothPath = (pts: [number,number][]) => {
+                    if (pts.length < 2) return '';
+                    let d = `M${pts[0][0]},${pts[0][1]}`;
+                    for (let i = 0; i < pts.length - 1; i++) {
+                        const cpx = pts[i][0] + (pts[i+1][0] - pts[i][0]) * 0.5;
+                        d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
                     }
                     return d;
                 };
-                const ip=curve(incPts), ep=curve(expPts);
+
+                const incPath = smoothPath(incPts);
+                const expPath = smoothPath(expPts);
+
+                const yLabels = [maxVal, maxVal * 0.5, 0].map(v => ({
+                    value: '₹' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)),
+                    y: yPos(v),
+                }));
+
                 const monthLabels = padded.map((m,i) => {
-                    if(m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
-                    const d=new Date(); d.setMonth(d.getMonth()-(5-i));
+                    if (m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
+                    const d = new Date(); d.setMonth(d.getMonth()-(5-i));
                     return d.toLocaleString('default',{month:'short'});
                 });
+
                 return (
                     <div style={{position:'relative',zIndex:1,marginTop:16}}>
                         <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
-                        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block',overflow:'visible'}}>
-                            <defs>
-                                <filter id="mgneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                                <filter id="mrneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                                <linearGradient id="mig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.18"/><stop offset="100%" stopColor="#10b981" stopOpacity="0"/></linearGradient>
-                                <linearGradient id="meg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity="0.13"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/></linearGradient>
-                            </defs>
-                            {[0.25,0.5,0.75].map((r,i)=><line key={i} x1="0" y1={pad+r*(H-pad*2)} x2={W} y2={pad+r*(H-pad*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
-                            <path d={ip+` L${W},${H} L0,${H} Z`} fill="url(#mig)"/>
-                            <path d={ep+` L${W},${H} L0,${H} Z`} fill="url(#meg)"/>
-                            <path d={ip} fill="none" stroke="rgba(16,185,129,0.22)" strokeWidth="5" strokeLinecap="round"/>
-                            <path d={ep} fill="none" stroke="rgba(244,63,94,0.18)" strokeWidth="5" strokeLinecap="round"/>
-                            <path d={ip} fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" filter="url(#mgneon)"/>
-                            <path d={ep} fill="none" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" filter="url(#mrneon)"/>
-                            {incPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#10b981" filter="url(#mgneon)"/>)}
-                            {expPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#f43f5e" filter="url(#mrneon)"/>)}
-                            <line x1={W} y1="0" x2={W} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 3"/>
-                        </svg>
-                        <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-                            {monthLabels.map((m,i)=><span key={i} style={{fontSize:9,color:i===5?'#f0f4ff':'#4a5568',fontWeight:i===5?600:400}}>{m}</span>)}
-                        </div>
-                        <div style={{display:'flex',gap:14,marginTop:8}}>
-                            <div style={{display:'flex',alignItems:'center',gap:5}}>
-                                <div style={{width:8,height:8,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981'}}/>
-                                <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
-                            </div>
-                            <div style={{display:'flex',alignItems:'center',gap:5}}>
-                                <div style={{width:8,height:8,borderRadius:'50%',background:'#f43f5e',boxShadow:'0 0 6px #f43f5e'}}/>
-                                <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                        <div>
+                            <svg
+                                width="100%"
+                                viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+                                preserveAspectRatio="xMidYMid meet"
+                                style={{display:'block',overflow:'visible'}}
+                            >
+                                <defs>
+                                    <filter id="mgneon2" x="-50%" y="-100%" width="200%" height="300%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                    </filter>
+                                    <filter id="mrneon2" x="-50%" y="-100%" width="200%" height="300%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                    </filter>
+                                    <linearGradient id="mgfill2" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14"/>
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+                                    </linearGradient>
+                                    <linearGradient id="mrfill2" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10"/>
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/>
+                                    </linearGradient>
+                                </defs>
+
+                                {yLabels.map((lbl,i) => (
+                                    <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
+                                        textAnchor="end" fontSize="9" fill="#4a5568"
+                                        fontFamily="DM Sans, sans-serif">{lbl.value}</text>
+                                ))}
+                                {yLabels.map((lbl,i) => (
+                                    <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
+                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                                ))}
+                                {incPts.map(([x],i) => (
+                                    <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
+                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
+                                ))}
+
+                                <path d={incPath + ` L${incPts[incPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#mgfill2)"/>
+                                <path d={expPath + ` L${expPts[expPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#mrfill2)"/>
+
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#mgneon2)" vectorEffect="non-scaling-stroke"/>
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#mrneon2)" vectorEffect="non-scaling-stroke"/>
+
+                                {incPts.slice(0,-1).map(([x,y],i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                ))}
+                                {expPts.slice(0,-1).map(([x,y],i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                ))}
+                                <circle cx={incPts[incPts.length-1][0]} cy={incPts[incPts.length-1][1]} r="4.5" fill="#10b981" filter="url(#mgneon2)"/>
+                                <circle cx={expPts[expPts.length-1][0]} cy={expPts[expPts.length-1][1]} r="4.5" fill="#f43f5e" filter="url(#mrneon2)"/>
+
+                                {monthLabels.map((m,i) => (
+                                    <text key={i} x={xPos(i)} y={CHART_H - 4}
+                                        textAnchor="middle" fontSize="9"
+                                        fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
+                                        fontWeight={i === monthLabels.length - 1 ? '600' : '400'}
+                                        fontFamily="DM Sans, sans-serif">{m}</text>
+                                ))}
+                            </svg>
+                            <div style={{display:'flex',gap:16,marginTop:6}}>
+                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                    <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
+                                    <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
+                                </div>
+                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                    <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
+                                    <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -346,57 +407,116 @@ export default function DashboardPage() {
                 {(() => {
                     const raw = (sparklineData||[]).slice(-6);
                     const padded: {income:number,expenses:number,month?:number}[] = Array(6).fill(null).map((_,i) => raw[i-(6-raw.length)] || {income:0,expenses:0});
+
+                    const CHART_W = 600, CHART_H = 100;
+                    const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
+                    const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
+                    const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
+
                     const maxVal = Math.max(...padded.flatMap(m => [m.income||0, m.expenses||0]), 1);
-                    const W=340, H=80, pad=6;
-                    const toY = (v:number) => pad + (1-(v/maxVal))*(H-pad*2);
-                    const xs = [0,68,136,204,272,340];
-                    const incPts = padded.map((m,i):[number,number] => [xs[i], toY(m.income||0)]);
-                    const expPts = padded.map((m,i):[number,number] => [xs[i], toY(m.expenses||0)]);
-                    const curve = (pts:[number,number][]) => {
-                        if(!pts.length) return '';
-                        let d=`M${pts[0][0]},${pts[0][1]}`;
-                        for(let i=0;i<pts.length-1;i++){
-                            const cpx=pts[i][0]+(pts[i+1][0]-pts[i][0])*0.5;
-                            d+=` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
+                    const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
+                    const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
+
+                    const incPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.income||0)]);
+                    const expPts: [number,number][] = padded.map((m,i) => [xPos(i), yPos(m.expenses||0)]);
+
+                    const smoothPath = (pts: [number,number][]) => {
+                        if (pts.length < 2) return '';
+                        let d = `M${pts[0][0]},${pts[0][1]}`;
+                        for (let i = 0; i < pts.length - 1; i++) {
+                            const cpx = pts[i][0] + (pts[i+1][0] - pts[i][0]) * 0.5;
+                            d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i+1][1]} ${pts[i+1][0]},${pts[i+1][1]}`;
                         }
                         return d;
                     };
-                    const ip=curve(incPts), ep=curve(expPts);
+
+                    const incPath = smoothPath(incPts);
+                    const expPath = smoothPath(expPts);
+
+                    const yLabels = [maxVal, maxVal * 0.5, 0].map(v => ({
+                        value: '₹' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)),
+                        y: yPos(v),
+                    }));
+
                     const monthLabels = padded.map((m,i) => {
-                        if(m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
-                        const d=new Date(); d.setMonth(d.getMonth()-(5-i));
+                        if (m.month) return new Date(0,m.month-1).toLocaleString('default',{month:'short'});
+                        const d = new Date(); d.setMonth(d.getMonth()-(5-i));
                         return d.toLocaleString('default',{month:'short'});
                     });
+
                     return (
                         <div>
-                            <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{display:'block',overflow:'visible'}}>
+                            <svg
+                                width="100%"
+                                viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+                                preserveAspectRatio="xMidYMid meet"
+                                style={{display:'block',overflow:'visible'}}
+                            >
                                 <defs>
-                                    <filter id="dgneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                                    <filter id="drneon"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                                    <linearGradient id="dig" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity="0.18"/><stop offset="100%" stopColor="#10b981" stopOpacity="0"/></linearGradient>
-                                    <linearGradient id="deg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f43f5e" stopOpacity="0.13"/><stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/></linearGradient>
+                                    <filter id="dgneon2" x="-50%" y="-100%" width="200%" height="300%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                    </filter>
+                                    <filter id="drneon2" x="-50%" y="-100%" width="200%" height="300%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+                                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                                    </filter>
+                                    <linearGradient id="dgfill2" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14"/>
+                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0"/>
+                                    </linearGradient>
+                                    <linearGradient id="drfill2" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10"/>
+                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/>
+                                    </linearGradient>
                                 </defs>
-                                {[0.25,0.5,0.75].map((r,i)=><line key={i} x1="0" y1={pad+r*(H-pad*2)} x2={W} y2={pad+r*(H-pad*2)} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
-                                <path d={ip+` L${W},${H} L0,${H} Z`} fill="url(#dig)"/>
-                                <path d={ep+` L${W},${H} L0,${H} Z`} fill="url(#deg)"/>
-                                <path d={ip} fill="none" stroke="rgba(16,185,129,0.22)" strokeWidth="5" strokeLinecap="round"/>
-                                <path d={ep} fill="none" stroke="rgba(244,63,94,0.18)" strokeWidth="5" strokeLinecap="round"/>
-                                <path d={ip} fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" filter="url(#dgneon)"/>
-                                <path d={ep} fill="none" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" filter="url(#drneon)"/>
-                                {incPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#10b981" filter="url(#dgneon)"/>)}
-                                {expPts.map(([x,y],i)=><circle key={i} cx={x} cy={y} r={i===5?4:2.5} fill="#f43f5e" filter="url(#drneon)"/>)}
-                                <line x1={W} y1="0" x2={W} y2={H} stroke="rgba(255,255,255,0.05)" strokeWidth="1" strokeDasharray="3 3"/>
+
+                                {yLabels.map((lbl,i) => (
+                                    <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
+                                        textAnchor="end" fontSize="9" fill="#4a5568"
+                                        fontFamily="DM Sans, sans-serif">{lbl.value}</text>
+                                ))}
+                                {yLabels.map((lbl,i) => (
+                                    <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
+                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>
+                                ))}
+                                {incPts.map(([x],i) => (
+                                    <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
+                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
+                                ))}
+
+                                <path d={incPath + ` L${incPts[incPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#dgfill2)"/>
+                                <path d={expPath + ` L${expPts[expPts.length-1][0]},${PAD_TOP+plotH} L${PAD_LEFT},${PAD_TOP+plotH} Z`} fill="url(#drfill2)"/>
+
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#dgneon2)" vectorEffect="non-scaling-stroke"/>
+                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#drneon2)" vectorEffect="non-scaling-stroke"/>
+
+                                {incPts.slice(0,-1).map(([x,y],i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                ))}
+                                {expPts.slice(0,-1).map(([x,y],i) => (
+                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke"/>
+                                ))}
+                                <circle cx={incPts[incPts.length-1][0]} cy={incPts[incPts.length-1][1]} r="4.5" fill="#10b981" filter="url(#dgneon2)"/>
+                                <circle cx={expPts[expPts.length-1][0]} cy={expPts[expPts.length-1][1]} r="4.5" fill="#f43f5e" filter="url(#drneon2)"/>
+
+                                {monthLabels.map((m,i) => (
+                                    <text key={i} x={xPos(i)} y={CHART_H - 4}
+                                        textAnchor="middle" fontSize="9"
+                                        fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
+                                        fontWeight={i === monthLabels.length - 1 ? '600' : '400'}
+                                        fontFamily="DM Sans, sans-serif">{m}</text>
+                                ))}
                             </svg>
-                            <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
-                                {monthLabels.map((m,i)=><span key={i} style={{fontSize:9,color:i===5?'#f0f4ff':'#4a5568',fontWeight:i===5?600:400}}>{m}</span>)}
-                            </div>
-                            <div style={{display:'flex',gap:14,marginTop:8}}>
-                                <div style={{display:'flex',alignItems:'center',gap:5}}>
-                                    <div style={{width:8,height:8,borderRadius:'50%',background:'#10b981',boxShadow:'0 0 6px #10b981'}}/>
+                            <div style={{display:'flex',gap:16,marginTop:6}}>
+                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                    <div style={{width:20,height:2,background:'#10b981',borderRadius:1,boxShadow:'0 0 4px #10b981'}}/>
                                     <span style={{fontSize:11,color:'#8892aa'}}>Income</span>
                                 </div>
-                                <div style={{display:'flex',alignItems:'center',gap:5}}>
-                                    <div style={{width:8,height:8,borderRadius:'50%',background:'#f43f5e',boxShadow:'0 0 6px #f43f5e'}}/>
+                                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                    <div style={{width:20,height:2,background:'#f43f5e',borderRadius:1,boxShadow:'0 0 4px #f43f5e'}}/>
                                     <span style={{fontSize:11,color:'#8892aa'}}>Expenses</span>
                                 </div>
                             </div>
