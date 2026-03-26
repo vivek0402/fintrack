@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     X, FileText, Mic, Camera, ChevronDown, CalendarDays,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
@@ -102,7 +103,9 @@ function CatOption({ cat, selected, onSelect, onDelete }: {
 
 function DatePickerField({ value, onChange }: { value: string; onChange: (d: string) => void }) {
     const [open, setOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState({ top: 0, left: 0, width: 320 });
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const calendarRef = useRef<HTMLDivElement>(null);
     const today = new Date();
     const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
@@ -123,14 +126,34 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
 
     useEffect(() => {
         if (!open) return;
-        const handler = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        const handleMouseDown = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (!triggerRef.current?.contains(target) && !calendarRef.current?.contains(target)) {
                 setOpen(false);
             }
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', handleMouseDown);
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('mousedown', handleMouseDown);
+            document.removeEventListener('keydown', handleKey);
+        };
     }, [open]);
+
+    const handleToggle = () => {
+        if (!open && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setPos({
+                top: rect.bottom + 8,
+                left: rect.left,
+                width: Math.max(rect.width, 320),
+            });
+        }
+        setOpen(v => !v);
+    };
 
     const formatDisplay = (d: string) => {
         const [y, m, day] = d.split('-').map(Number);
@@ -159,14 +182,95 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
 
     const toYMD = (d: Date) => d.toLocaleDateString('en-CA');
 
+    const calendarPortal = open ? createPortal(
+        <div
+            ref={calendarRef}
+            style={{
+                position: 'fixed',
+                top: pos.top,
+                left: pos.left,
+                width: pos.width,
+                zIndex: 9999,
+                backgroundColor: '#0a0f1e',
+                border: '1px solid #1e2d4a',
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                userSelect: 'none',
+            }}
+        >
+            {/* Month nav header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', backgroundColor: 'transparent' }}>
+                <button
+                    type="button"
+                    onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
+                >
+                    ‹
+                </button>
+                <span style={{ color: '#f0f4ff', fontSize: '14px', fontWeight: 600, fontFamily: 'Sora, sans-serif', backgroundColor: 'transparent' }}>
+                    {monthName} {year}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
+                >
+                    ›
+                </button>
+            </div>
+            {/* Weekday labels */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px', backgroundColor: 'transparent' }}>
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                    <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#4a5568', fontWeight: 500, textTransform: 'uppercase', padding: '2px 0', fontFamily: 'DM Sans, sans-serif', backgroundColor: 'transparent' }}>{d}</div>
+                ))}
+            </div>
+            {/* Day grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px', backgroundColor: 'transparent' }}>
+                {cells.map((cell, i) => {
+                    const dStr = toYMD(cell.date);
+                    const isSelected = dStr === value;
+                    const isToday = dStr === todayStr;
+                    return (
+                        <div
+                            key={i}
+                            onClick={() => { onChange(dStr); setOpen(false); }}
+                            style={{
+                                width: '36px', height: '36px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                borderRadius: '50%', cursor: 'pointer', margin: '0 auto',
+                                fontSize: '13px', fontFamily: 'DM Sans, sans-serif',
+                                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                                color: isSelected ? '#ffffff' : isToday ? '#f0f4ff' : cell.current ? '#8892aa' : '#2a3550',
+                                outline: isToday && !isSelected ? '2px solid #3b82f6' : 'none',
+                                border: 'none',
+                                transition: 'background 0.1s',
+                            }}
+                            onMouseEnter={e => { if (!isSelected) { (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; (e.currentTarget as HTMLDivElement).style.color = '#f0f4ff'; } }}
+                            onMouseLeave={e => { if (!isSelected) { (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLDivElement).style.color = isToday ? '#f0f4ff' : cell.current ? '#8892aa' : '#2a3550'; } }}
+                        >
+                            {cell.date.getDate()}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>,
+        document.body
+    ) : null;
+
     return (
-        <div ref={containerRef} style={{ position: 'relative' }}>
-            {/* Trigger button */}
+        <>
+            {/* Trigger */}
             <div
+                ref={triggerRef}
                 role="button"
                 tabIndex={0}
-                onClick={() => setOpen(v => !v)}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setOpen(v => !v); }}
+                onClick={handleToggle}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleToggle(); }}
                 style={{
                     backgroundColor: '#0a0f1e',
                     border: '1px solid #1e2d4a',
@@ -188,84 +292,8 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (d: str
                 </span>
                 <CalendarDays size={16} color="#8892aa" />
             </div>
-
-            {/* Popover calendar */}
-            {open && (
-                <div style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 6px)',
-                    left: 0,
-                    zIndex: 50,
-                    backgroundColor: '#0a0f1e',
-                    border: '1px solid #1e2d4a',
-                    borderRadius: '12px',
-                    padding: '12px',
-                    width: '100%',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                    userSelect: 'none',
-                }}>
-                    {/* Month nav header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                        <button
-                            type="button"
-                            onClick={() => setViewDate(new Date(year, month - 1, 1))}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
-                        >
-                            ‹
-                        </button>
-                        <span style={{ color: '#f0f4ff', fontSize: '14px', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>
-                            {monthName} {year}
-                        </span>
-                        <button
-                            type="button"
-                            onClick={() => setViewDate(new Date(year, month + 1, 1))}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#8892aa', fontSize: '18px', padding: '2px 8px', borderRadius: '6px', lineHeight: 1 }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f0f4ff'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#8892aa'; }}
-                        >
-                            ›
-                        </button>
-                    </div>
-                    {/* Weekday labels */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: '4px' }}>
-                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                            <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#4a5568', fontWeight: 500, textTransform: 'uppercase', padding: '2px 0', fontFamily: 'DM Sans, sans-serif' }}>{d}</div>
-                        ))}
-                    </div>
-                    {/* Day grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px' }}>
-                        {cells.map((cell, i) => {
-                            const dStr = toYMD(cell.date);
-                            const isSelected = dStr === value;
-                            const isToday = dStr === todayStr;
-                            return (
-                                <div
-                                    key={i}
-                                    onClick={() => { onChange(dStr); setOpen(false); }}
-                                    style={{
-                                        width: '36px', height: '36px',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        borderRadius: '50%', cursor: 'pointer', margin: '0 auto',
-                                        fontSize: '13px', fontFamily: 'DM Sans, sans-serif',
-                                        backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-                                        color: isSelected ? '#ffffff' : isToday ? '#f0f4ff' : cell.current ? '#8892aa' : '#2a3550',
-                                        outline: isToday && !isSelected ? '2px solid #3b82f6' : 'none',
-                                        border: 'none',
-                                        transition: 'background 0.1s',
-                                    }}
-                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'; }}
-                                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
-                                >
-                                    {cell.date.getDate()}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-        </div>
+            {calendarPortal}
+        </>
     );
 }
 
