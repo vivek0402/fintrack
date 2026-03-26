@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useWindowSize';
+
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -52,7 +53,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
             glowBg: 'linear-gradient(135deg,#10b981,transparent)',
             accent: '#10b981',
             iconBg: 'rgba(16,185,129,0.15)',
-            format: (v: number) => formatCurrency(v, currency),
+            format: (v: number) => fmt(v),
             subLabel: periodLabel,
         },
         {
@@ -64,7 +65,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
             glowBg: 'linear-gradient(135deg,#f43f5e,transparent)',
             accent: '#f43f5e',
             iconBg: 'rgba(244,63,94,0.15)',
-            format: (v: number) => formatCurrency(v, currency),
+            format: (v: number) => fmt(v),
             subLabel: periodLabel,
         },
         {
@@ -76,7 +77,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
             glowBg: 'linear-gradient(135deg,#3b82f6,transparent)',
             accent: '#3b82f6',
             iconBg: 'rgba(59,130,246,0.15)',
-            format: (v: number) => (balance < 0 ? '-' : '') + formatCurrency(v, currency),
+            format: (v: number) => (balance < 0 ? '-' : '') + fmt(v),
             subLabel: 'All time',
         },
         {

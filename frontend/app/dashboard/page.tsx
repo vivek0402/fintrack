@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
-import { getCurrentMonthYear, formatCurrency } from '@/lib/utils';
+import { getCurrentMonthYear } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -18,6 +18,7 @@ import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -121,7 +122,13 @@ export default function DashboardPage() {
     })();
     const sparkMax = Math.max(...sparklineData.flatMap(d => [d.income, d.expenses]), 1);
 
-    const topCategory = categories && categories.length > 0 ? categories[0] : null;
+    const sortedCategories = categories && categories.length > 0
+        ? [...categories].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0))
+        : [];
+    const topCategory = sortedCategories.length > 0 ? sortedCategories[0] : null;
+    const totalCatExpenses = categories?.reduce((sum, c) => sum + parseFloat(c.total ?? c.value ?? 0), 0) ?? 0;
+    const topCategoryAmt = topCategory ? parseFloat(topCategory.total ?? topCategory.value ?? 0) : 0;
+    const topCategoryPct = topCategory && totalCatExpenses > 0 ? Math.round((topCategoryAmt / totalCatExpenses) * 100) : 0;
 
     if (isLoading || !user) return (
         <AppLayout>
@@ -181,7 +188,7 @@ export default function DashboardPage() {
             <div style={{ position: 'relative', zIndex: 1 }}>
                 <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>Net Worth</p>
                 <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '34px', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: '0 0 10px 0', lineHeight: 1 }}>
-                    {dataLoading ? '—' : formatCurrency(summary?.balance ?? 0, user.currency)}
+                    {dataLoading ? '—' : fmt(summary?.balance ?? 0)}
                 </p>
                 {!dataLoading && summary && (
                     <span style={{
@@ -191,7 +198,7 @@ export default function DashboardPage() {
                         background: summary.balance >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
                         borderRadius: '20px', padding: '3px 10px',
                     }}>
-                        {summary.balance >= 0 ? '+' : ''}{formatCurrency(summary.balance, user.currency)} this month
+                        {summary.balance >= 0 ? '+' : ''}{fmt(summary.balance)} this month
                     </span>
                 )}
                 <p style={{ fontSize: '11px', color: '#4a5568', margin: '10px 0 0 0' }}>{MONTH_NAMES[month]} {year}</p>
@@ -208,17 +215,15 @@ export default function DashboardPage() {
                 {/* Sparkline bars */}
                 {sparklineData.length > 0 ? (
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '44px', marginBottom: '4px' }}>
-                            {sparklineData.map((d, i) => (
-                                <div key={i} style={{ flex: 1, display: 'flex', alignItems: 'flex-end', gap: '2px' }}>
-                                    <div style={{ flex: 1, height: `${Math.max((d.income / sparkMax) * 44, 2)}px`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0' }} />
-                                    <div style={{ flex: 1, height: `${Math.max((d.expenses / sparkMax) * 44, 2)}px`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0' }} />
-                                </div>
-                            ))}
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 3, height: 44, overflow: 'hidden', width: '100%' }}>
+                            {sparklineData.flatMap((d, i) => [
+                                <div key={`i-${i}`} style={{ width: 'calc((100% - 30px) / 12)', height: `${Math.max(4, (d.income / sparkMax) * 100)}%`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
+                                <div key={`e-${i}`} style={{ width: 'calc((100% - 30px) / 12)', height: `${Math.max(4, (d.expenses / sparkMax) * 100)}%`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
+                            ])}
                         </div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                             {sparklineData.map((d, i) => (
-                                <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '9px', color: '#4a5568' }}>{MONTH_SHORT[d.month]}</div>
+                                <span key={i} style={{ fontSize: 9, color: '#4a5568' }}>{MONTH_SHORT[d.month]}</span>
                             ))}
                         </div>
                     </div>
@@ -229,22 +234,27 @@ export default function DashboardPage() {
                 )}
 
                 {/* Top Spending */}
-                {topCategory && (
+                {topCategory ? (
                     <div style={{ marginTop: '12px' }}>
                         <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0' }}>Top Spending</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: topCategory.color || '#f43f5e', flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: '12px', color: '#c8d4f0', fontWeight: 500, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.category_name}</p>
-                                <p style={{ fontSize: '10px', color: '#8892aa', margin: '1px 0 0 0' }}>{Math.round(topCategory.percentage ?? 0)}% of expenses</p>
+                                <p style={{ fontSize: '12px', color: '#c8d4f0', fontWeight: 500, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.name}</p>
+                                <p style={{ fontSize: '10px', color: '#8892aa', margin: '1px 0 0 0' }}>{topCategoryPct}% of expenses</p>
                             </div>
                             <p style={{ fontSize: '12px', color: '#f43f5e', fontWeight: 600, margin: 0, flexShrink: 0 }}>
-                                {formatCurrency(topCategory.total ?? topCategory.amount ?? 0, user.currency)}
+                                {'₹' + Math.round(topCategoryAmt).toLocaleString('en-IN')}
                             </p>
                         </div>
                         <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(topCategory.percentage ?? 0, 100)}%`, background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: '2px' }} />
+                            <div style={{ height: '100%', width: `${Math.min(topCategoryPct, 100)}%`, background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: '2px' }} />
                         </div>
+                    </div>
+                ) : (
+                    <div style={{ marginTop: '12px' }}>
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>Top Spending</p>
+                        <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>No data yet</p>
                     </div>
                 )}
             </div>
