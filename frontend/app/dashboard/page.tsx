@@ -148,17 +148,23 @@ export default function DashboardPage() {
     };
 
     // ── HERO CARD (wide 3-column) ──
+    const trendData = sparklineData;
+    const maxVal = Math.max(...trendData.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
+    // Pad to 6 months
+    const paddedTrend = trendData.length >= 6 ? trendData.slice(-6) : [
+        ...Array(6 - trendData.length).fill(null),
+        ...trendData,
+    ];
+
     const HeroCard = () => (
         <div style={{
             background: 'linear-gradient(135deg,#0a0f1e 0%,#0f1629 50%,#0a1225 100%)',
             borderRadius: 16,
             border: '1px solid rgba(255,255,255,0.06)',
             padding: '22px 24px',
-            display: isMobile ? 'flex' : 'grid',
-            flexDirection: isMobile ? 'column' : undefined,
-            gridTemplateColumns: isMobile ? undefined : '1fr 1px 1.6fr 1px 1fr',
-            alignItems: isMobile ? undefined : 'stretch',
-            gap: isMobile ? '20px' : undefined,
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : '220px 1px 1fr 1px 280px',
+            alignItems: 'start',
             position: 'relative',
             overflow: 'hidden',
         }}>
@@ -166,91 +172,99 @@ export default function DashboardPage() {
             <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             {/* LEFT — This Month */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>This Month</p>
-                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '34px', fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: '0 0 10px 0', lineHeight: 1 }}>
+            <div style={{ position: 'relative', zIndex: 1, paddingRight: 0 }}>
+                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>THIS MONTH</p>
+                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 36, fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>
                     {dataLoading ? '—' : fmt(summary?.balance ?? 0)}
                 </p>
                 {!dataLoading && summary && (
                     <span style={{
-                        display: 'inline-flex', alignItems: 'center',
-                        fontSize: '12px', fontWeight: 600,
+                        display: 'inline-block', marginTop: 8,
+                        fontSize: 12, fontWeight: 600,
                         color: summary.balance >= 0 ? '#10b981' : '#f43f5e',
                         background: summary.balance >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
-                        borderRadius: '20px', padding: '3px 10px',
+                        borderRadius: 20, padding: '3px 10px',
                     }}>
                         {summary.balance >= 0 ? '+' : ''}{fmt(summary.balance)} this month
                     </span>
                 )}
-                <p style={{ fontSize: '11px', color: '#4a5568', margin: '10px 0 0 0' }}>
+                <p style={{ fontSize: 12, color: '#4a5568', margin: '10px 0 0 0' }}>
                     {dataLoading || !summary ? '—' : `${fmt(summary.total_income)} in · ${fmt(summary.total_expenses)} out`}
                 </p>
             </div>
 
             {/* DIVIDER 1 */}
-            {!isMobile && <div style={{ background: 'rgba(255,255,255,0.07)', width: 1, margin: '0 20px', alignSelf: 'stretch' }} />}
-            {isMobile && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />}
+            <div style={{ display: isMobile ? 'none' : undefined, width: 1, background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch', margin: '0 20px' }} />
 
             {/* MIDDLE — Sparkline + Top Spending */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>6-Month Trend</p>
-
-                {/* Sparkline bars */}
-                {sparklineData.length > 0 ? (
-                    <div>
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: 44, overflow: 'hidden', width: '100%' }}>
-                            {sparklineData.flatMap((d, i) => [
-                                <div key={`i-${i}`} style={{ width: 'calc((100% - 60px) / 12)', height: `${Math.max(4, Math.round((d.income / sparkMax) * 44))}px`, background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
-                                <div key={`e-${i}`} style={{ width: 'calc((100% - 60px) / 12)', height: `${Math.max(4, Math.round((d.expenses / sparkMax) * 44))}px`, background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.3))', borderRadius: '2px 2px 0 0', flexShrink: 0 }} />,
-                                i < sparklineData.length - 1 ? <div key={`s-${i}`} style={{ width: 4, flexShrink: 0 }} /> : null,
-                            ])}
+            <div style={{
+                position: 'relative', zIndex: 1,
+                paddingLeft: 0, paddingRight: 0, overflow: 'hidden', minWidth: 0,
+                ...(isMobile ? { paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' } : {}),
+            }}>
+                {/* SUB-SECTION A — Sparkline */}
+                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0' }}>6-MONTH TREND</p>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', height: 48, width: '100%', overflow: 'hidden', gap: 0 }}>
+                    {paddedTrend.map((d, i) => (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', flex: 1, gap: 2, paddingRight: 4 }}>
+                            <div style={{
+                                flex: 1,
+                                height: d ? `${Math.max(4, Math.round((d.income / maxVal) * 48))}px` : '4px',
+                                background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.25))',
+                                borderRadius: '2px 2px 0 0',
+                                opacity: d ? 1 : 0.2,
+                            }} />
+                            <div style={{
+                                flex: 1,
+                                height: d ? `${Math.max(4, Math.round((d.expenses / maxVal) * 48))}px` : '4px',
+                                background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.25))',
+                                borderRadius: '2px 2px 0 0',
+                                opacity: d ? 1 : 0.2,
+                            }} />
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                            {sparklineData.map((d, i) => (
-                                <span key={i} style={{ fontSize: 9, color: '#4a5568' }}>{MONTH_SHORT[d.month]}</span>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{ height: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>No trend data yet</p>
-                    </div>
-                )}
+                    ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    {paddedTrend.map((d, i) => (
+                        <span key={i} style={{ fontSize: 9, color: '#4a5568' }}>{d ? MONTH_SHORT[d.month] : ''}</span>
+                    ))}
+                </div>
 
-                {/* Top Spending */}
-                {topCategory ? (
-                    <div style={{ marginTop: '12px' }}>
-                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0' }}>Top Spending</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: topCategory.color || '#f43f5e', flexShrink: 0 }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <p style={{ fontSize: '12px', color: '#c8d4f0', fontWeight: 500, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.name}</p>
-                                <p style={{ fontSize: '10px', color: '#8892aa', margin: '1px 0 0 0' }}>{topCategoryPct}% of expenses</p>
+                {/* SUB-SECTION B — Top Spending */}
+                <div style={{ marginTop: 14, overflow: 'hidden' }}>
+                    <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>TOP SPENDING</p>
+                    {topCategory ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: topCategory.color || '#f43f5e', flexShrink: 0 }} />
+                                    <span style={{ fontSize: 12, color: '#c8d4f0', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.name}</span>
+                                    <span style={{ fontSize: 10, color: '#8892aa', flexShrink: 0 }}>{topCategoryPct}%</span>
+                                </div>
+                                <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.08)', marginTop: 4, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${Math.min(topCategoryPct, 100)}%`, maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
+                                </div>
                             </div>
-                            <p style={{ fontSize: '12px', color: '#f43f5e', fontWeight: 600, margin: 0, flexShrink: 0 }}>
-                                {'₹' + Math.round(topCategoryAmt).toLocaleString('en-IN')}
-                            </p>
+                            <div style={{ flexShrink: 0 }}>
+                                <span style={{ fontSize: 12, color: '#f43f5e', fontWeight: 600 }}>{fmt(topCategoryAmt)}</span>
+                            </div>
                         </div>
-                        <div style={{ height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${Math.min(topCategoryPct, 100)}%`, background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: '2px' }} />
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{ marginTop: '12px' }}>
-                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>Top Spending</p>
+                    ) : (
                         <div style={{ fontSize: 12, color: '#4a5568' }}>No spending data yet</div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             {/* DIVIDER 2 */}
-            {!isMobile && <div style={{ background: 'rgba(255,255,255,0.07)', width: 1, margin: '0 20px', alignSelf: 'stretch' }} />}
-            {isMobile && <div style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />}
+            <div style={{ display: isMobile ? 'none' : undefined, width: 1, background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch', margin: '0 20px' }} />
 
             {/* RIGHT — AI Insight */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4a5568', fontWeight: 600, margin: '0 0 10px 0' }}>✦ AI Insight</p>
-                <p style={{ fontSize: '13px', color: '#c8d4f0', lineHeight: 1.55, margin: '0 0 12px 0' }}>
+            <div style={{
+                position: 'relative', zIndex: 1, paddingLeft: 0,
+                ...(isMobile ? { paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' } : {}),
+            }}>
+                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>✦ AI INSIGHT</p>
+                <p style={{ fontSize: 13, color: '#c8d4f0', lineHeight: 1.55, margin: '0 0 12px 0' }}>
                     {aiReport
                         ? aiReport.slice(0, 120) + (aiReport.length > 120 ? '…' : '')
                         : 'Tap generate to get your monthly AI summary.'}
@@ -258,7 +272,7 @@ export default function DashboardPage() {
                 <button
                     onClick={handleGenerateReport}
                     disabled={aiReportLoading}
-                    style={{ width: '100%', padding: '7px 14px', background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', opacity: aiReportLoading ? 0.7 : 1 }}
+                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: aiReportLoading ? 0.7 : 1 }}
                 >
                     {aiReportLoading
                         ? <><span style={{ width: '11px', height: '11px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>
