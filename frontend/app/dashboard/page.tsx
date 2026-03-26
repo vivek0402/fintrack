@@ -148,137 +148,130 @@ export default function DashboardPage() {
     };
 
     // ── HERO CARD (wide 3-column) ──
-    const trendData = sparklineData;
-    const maxVal = Math.max(...trendData.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
-    // Pad to 6 months
-    const paddedTrend = trendData.length >= 6 ? trendData.slice(-6) : [
-        ...Array(6 - trendData.length).fill(null),
-        ...trendData,
-    ];
-
     const HeroCard = () => (
         <div style={{
             background: 'linear-gradient(135deg,#0a0f1e 0%,#0f1629 50%,#0a1225 100%)',
             borderRadius: 16,
             border: '1px solid rgba(255,255,255,0.06)',
-            padding: '22px 24px',
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '220px 1px 1fr 1px 280px',
-            alignItems: 'start',
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'stretch',
+            gap: 0,
             position: 'relative',
             overflow: 'hidden',
+            marginBottom: 12,
         }}>
-            {/* Radial glow decoration */}
-            <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {/* LEFT — This Month */}
-            <div style={{ position: 'relative', zIndex: 1, paddingRight: 0 }}>
-                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>THIS MONTH</p>
-                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 36, fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.03em', margin: 0, lineHeight: 1 }}>
-                    {dataLoading ? '—' : fmt(summary?.balance ?? 0)}
-                </p>
-                {!dataLoading && summary && (
-                    <span style={{
-                        display: 'inline-block', marginTop: 8,
-                        fontSize: 12, fontWeight: 600,
-                        color: summary.balance >= 0 ? '#10b981' : '#f43f5e',
-                        background: summary.balance >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
-                        borderRadius: 20, padding: '3px 10px',
-                    }}>
-                        {summary.balance >= 0 ? '+' : ''}{fmt(summary.balance)} this month
-                    </span>
-                )}
-                <p style={{ fontSize: 12, color: '#4a5568', margin: '10px 0 0 0' }}>
-                    {dataLoading || !summary ? '—' : `${fmt(summary.total_income)} in · ${fmt(summary.total_expenses)} out`}
-                </p>
-            </div>
+            {/* Decorative glow */}
+            <div style={{position:'absolute',top:-60,right:-60,width:200,height:200,background:'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)',borderRadius:'50%',pointerEvents:'none'}} />
 
-            {/* DIVIDER 1 */}
-            <div style={{ display: isMobile ? 'none' : undefined, width: 1, background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch', margin: '0 20px' }} />
-
-            {/* MIDDLE — Sparkline + Top Spending */}
-            <div style={{
-                position: 'relative', zIndex: 1,
-                paddingLeft: 0, paddingRight: 0, overflow: 'hidden', minWidth: 0,
-                ...(isMobile ? { paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' } : {}),
-            }}>
-                {/* SUB-SECTION A — Sparkline */}
-                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0' }}>6-MONTH TREND</p>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', height: 48, width: '100%', overflow: 'hidden', gap: 0 }}>
-                    {paddedTrend.map((d, i) => (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', flex: 1, gap: 2, paddingRight: 4 }}>
-                            <div style={{
-                                flex: 1,
-                                height: d ? `${Math.max(4, Math.round((d.income / maxVal) * 48))}px` : '4px',
-                                background: 'linear-gradient(180deg,#10b981,rgba(16,185,129,0.25))',
-                                borderRadius: '2px 2px 0 0',
-                                opacity: d ? 1 : 0.2,
-                            }} />
-                            <div style={{
-                                flex: 1,
-                                height: d ? `${Math.max(4, Math.round((d.expenses / maxVal) * 48))}px` : '4px',
-                                background: 'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.25))',
-                                borderRadius: '2px 2px 0 0',
-                                opacity: d ? 1 : 0.2,
-                            }} />
-                        </div>
-                    ))}
+            {/* ── LEFT: This Month ── */}
+            <div style={{width: 200, flexShrink: 0, paddingRight: 24}}>
+                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>This month</div>
+                <div style={{fontSize:34,fontWeight:800,color:'#f0f4ff',letterSpacing:'-0.03em',lineHeight:1}}>
+                    {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                    {paddedTrend.map((d, i) => (
-                        <span key={i} style={{ fontSize: 9, color: '#4a5568' }}>{d ? MONTH_SHORT[d.month] : ''}</span>
-                    ))}
+                <div style={{marginTop:8,display:'inline-block',padding:'3px 10px',borderRadius:20,background:'rgba(16,185,129,0.12)',color:'#10b981',fontSize:12,fontWeight:600}}>
+                    +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
                 </div>
-
-                {/* SUB-SECTION B — Top Spending */}
-                <div style={{ marginTop: 14, overflow: 'hidden' }}>
-                    <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 6px 0' }}>TOP SPENDING</p>
-                    {topCategory ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: topCategory.color || '#f43f5e', flexShrink: 0 }} />
-                                    <span style={{ fontSize: 12, color: '#c8d4f0', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{topCategory.name}</span>
-                                    <span style={{ fontSize: 10, color: '#8892aa', flexShrink: 0 }}>{topCategoryPct}%</span>
-                                </div>
-                                <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.08)', marginTop: 4, overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', width: `${Math.min(topCategoryPct, 100)}%`, maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
-                                </div>
-                            </div>
-                            <div style={{ flexShrink: 0 }}>
-                                <span style={{ fontSize: 12, color: '#f43f5e', fontWeight: 600 }}>{fmt(topCategoryAmt)}</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{ fontSize: 12, color: '#4a5568' }}>No spending data yet</div>
-                    )}
+                <div style={{marginTop:10,fontSize:12,color:'#4a5568'}}>
+                    {'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')} in · {'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')} out
                 </div>
             </div>
 
-            {/* DIVIDER 2 */}
-            <div style={{ display: isMobile ? 'none' : undefined, width: 1, background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch', margin: '0 20px' }} />
+            {/* Divider */}
+            <div style={{width:1,background:'rgba(255,255,255,0.07)',flexShrink:0,alignSelf:'stretch'}} />
 
-            {/* RIGHT — AI Insight */}
-            <div style={{
-                position: 'relative', zIndex: 1, paddingLeft: 0,
-                ...(isMobile ? { paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' } : {}),
-            }}>
-                <p style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4a5568', fontWeight: 600, margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>✦ AI INSIGHT</p>
-                <p style={{ fontSize: 13, color: '#c8d4f0', lineHeight: 1.55, margin: '0 0 12px 0' }}>
-                    {aiReport
-                        ? aiReport.slice(0, 120) + (aiReport.length > 120 ? '…' : '')
-                        : 'Tap generate to get your monthly AI summary.'}
-                </p>
+            {/* ── MIDDLE: Trend + Top Spending ── */}
+            <div style={{flex:1,paddingLeft:24,paddingRight:24,minWidth:0,overflow:'hidden'}}>
+
+                {/* Sparkline label */}
+                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>6-month trend</div>
+
+                {/* Sparkline bar chart */}
+                {(() => {
+                    const data = sparklineData && sparklineData.length > 0 ? sparklineData.slice(-6) : [];
+                    const maxVal = Math.max(...data.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
+                    const months = ['Oct','Nov','Dec','Jan','Feb','Mar'];
+                    const padded = Array(6).fill(null).map((_: null, i: number) => data[i - (6 - data.length)] || { income: 0, expenses: 0 });
+                    return (
+                        <div>
+                            <div style={{display:'flex',flexDirection:'row',alignItems:'flex-end',height:44,width:'100%',gap:4}}>
+                                {padded.map((m: {income:number,expenses:number}, i: number) => (
+                                    <div key={i} style={{flex:1,display:'flex',flexDirection:'row',alignItems:'flex-end',gap:2}}>
+                                        <div style={{
+                                            flex:1,
+                                            height: Math.max(4, Math.round(((m.income||0) / maxVal) * 44)) + 'px',
+                                            background:'linear-gradient(180deg,#10b981,rgba(16,185,129,0.25))',
+                                            borderRadius:'2px 2px 0 0',
+                                        }} />
+                                        <div style={{
+                                            flex:1,
+                                            height: Math.max(4, Math.round(((m.expenses||0) / maxVal) * 44)) + 'px',
+                                            background:'linear-gradient(180deg,#f43f5e,rgba(244,63,94,0.25))',
+                                            borderRadius:'2px 2px 0 0',
+                                        }} />
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{display:'flex',flexDirection:'row',justifyContent:'space-between',marginTop:4}}>
+                                {months.map(m => <span key={m} style={{fontSize:9,color:'#4a5568'}}>{m}</span>)}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Top Spending */}
+                <div style={{marginTop:14}}>
+                    <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:6}}>Top spending</div>
+                    {(() => {
+                        const sorted = [...(categories || [])].sort((a,b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
+                        const top = sorted[0];
+                        if (!top) return <div style={{fontSize:12,color:'#4a5568'}}>No spending data yet</div>;
+                        const totalExp = (categories||[]).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
+                        const amt = parseFloat(top.total ?? top.value ?? 0);
+                        const pct = totalExp > 0 ? Math.round((amt / totalExp) * 100) : 0;
+                        return (
+                            <div style={{display:'flex',alignItems:'center',gap:8,overflow:'hidden'}}>
+                                <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                                        <div style={{width:8,height:8,borderRadius:'50%',background:top.color||'#f43f5e',flexShrink:0}} />
+                                        <span style={{fontSize:12,color:'#c8d4f0',fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{top.name}</span>
+                                        <span style={{fontSize:10,color:'#8892aa',flexShrink:0}}>{pct}% of expenses</span>
+                                    </div>
+                                    <div style={{height:3,borderRadius:2,background:'rgba(255,255,255,0.08)',overflow:'hidden'}}>
+                                        <div style={{height:'100%',width:pct+'%',maxWidth:'100%',background:'linear-gradient(90deg,#f43f5e,#f97316)',borderRadius:2}} />
+                                    </div>
+                                </div>
+                                <div style={{fontSize:12,color:'#f43f5e',fontWeight:600,flexShrink:0}}>
+                                    {'₹' + Math.round(amt).toLocaleString('en-IN')}
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{width:1,background:'rgba(255,255,255,0.07)',flexShrink:0,alignSelf:'stretch'}} />
+
+            {/* ── RIGHT: AI Insight ── */}
+            <div style={{width:260,flexShrink:0,paddingLeft:24}}>
+                <div style={{fontSize:10,color:'#4a5568',textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                    <span>✦</span><span>AI insight</span>
+                </div>
+                <div style={{fontSize:13,color:'#c8d4f0',lineHeight:1.55,marginBottom:12}}>
+                    {aiReport || 'Tap generate to get your monthly AI summary.'}
+                </div>
                 <button
                     onClick={handleGenerateReport}
-                    disabled={aiReportLoading}
-                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: aiReportLoading ? 'wait' : 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: aiReportLoading ? 0.7 : 1 }}
+                    style={{background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',color:'white',border:'none',borderRadius:8,padding:'8px 14px',fontSize:13,fontWeight:600,cursor:'pointer',width:'100%'}}
                 >
-                    {aiReportLoading
-                        ? <><span style={{ width: '11px', height: '11px', border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />Generating…</>
-                        : aiReport ? 'Regenerate Report' : 'Generate Report'}
+                    Generate Report
                 </button>
             </div>
+
         </div>
     );
 
