@@ -113,6 +113,7 @@ export const aiAPI = {
     salaryIntelligence: () => api.get('/api/ai/salary-intelligence'),
     personality: () => api.post('/api/ai/personality'),
     regretPatterns: () => api.get('/api/ai/regret-patterns'),
+    salaryAllocation: () => api.post('/api/ai/salary-allocation'),
     lifeEvent: (data: { event_type: string; target_amount: number; target_date: string }) =>
         api.post('/api/ai/life-event', data),
     forecastCalendar: () => api.get('/api/ai/forecast-calendar'),

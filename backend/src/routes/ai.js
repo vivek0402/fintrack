@@ -863,4 +863,159 @@ Data: ${context}`,
     }
 });
 
+// ─── Salary Allocation Plan ─────────────────────────────────────────
+router.post('/salary-allocation', authMiddleware, async (req, res) => {
+    try {
+        const groq = getGroqClient();
+        const userId = req.user.id;
+
+        const [txResult, goalsResult, monthlyResult, salaryResult] = await Promise.all([
+            pool.query(`
+                SELECT t.amount, t.type, t.date, c.name as category_name,
+                    CASE
+                        WHEN c.name IN ('Rent','EMI','Loan','Insurance','Utilities','Groceries','Transport','Medical','Education') THEN 'needs'
+                        WHEN c.name IN ('Food','Entertainment','Shopping','Subscriptions','Travel','Dining','Food & Dining') THEN 'wants'
+                        WHEN c.name IN ('Investment','SIP','Savings','Mutual Fund','Investments') THEN 'savings'
+                        ELSE 'other'
+                    END as bucket
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '3 months'
+                ORDER BY t.date DESC
+            `, [userId]),
+            pool.query(
+                'SELECT name, target_amount, current_amount, deadline FROM savings_goals WHERE user_id = $1',
+                [userId]
+            ),
+            pool.query(`
+                SELECT
+                    DATE_TRUNC('month', date) as month,
+                    SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
+                    SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expenses,
+                    json_object_agg(COALESCE(c.name, 'Uncategorized'), SUM(t.amount)) as by_category
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                WHERE t.user_id = $1
+                    AND t.date >= NOW() - INTERVAL '2 months'
+                    AND t.type = 'expense'
+                GROUP BY DATE_TRUNC('month', date)
+                ORDER BY month DESC
+            `, [userId]),
+            pool.query(
+                `SELECT amount FROM transactions WHERE user_id = $1 AND type = 'income' ORDER BY amount DESC LIMIT 1`,
+                [userId]
+            ),
+        ]);
+
+        const salaryAmount = salaryResult.rows[0]?.amount || 0;
+        const goalsText = goalsResult.rows.map(g =>
+            `${g.name}: target ₹${g.target_amount}, saved ₹${g.current_amount}` +
+            (g.deadline ? `, deadline ${g.deadline}` : '')
+        ).join('\n');
+
+        const prompt = `You are a personal finance advisor for an Indian user.
+Monthly salary/income: ₹${salaryAmount}
+
+Last 2 months spending summary:
+${JSON.stringify(monthlyResult.rows, null, 2)}
+
+User's financial goals:
+${goalsText || 'No goals set'}
+
+Create a detailed monthly salary allocation plan using ALL of these frameworks together:
+1. 50/30/20 rule adapted to their actual spending patterns
+2. Indian financial context (EMIs, SIPs, family expenses, festivals)
+3. Goal-based allocation (prioritize their stated goals)
+4. Custom % based on their real category spending
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "salary": <number>,
+  "summary": "<2 sentence overview of their financial health>",
+  "frameworks_used": ["50/30/20", "Goal-based", "Indian context", "Custom"],
+  "allocation": [
+    {
+      "bucket": "Needs",
+      "percentage": <number>,
+      "amount": <number>,
+      "color": "#10b981",
+      "description": "<why this % for their situation>",
+      "categories": [
+        { "name": "Rent/EMI", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Groceries", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Utilities", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Transport", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Insurance", "recommended_amount": <number>, "last_month_actual": <number> }
+      ]
+    },
+    {
+      "bucket": "Wants",
+      "percentage": <number>,
+      "amount": <number>,
+      "color": "#f59e0b",
+      "description": "<why this % for their situation>",
+      "categories": [
+        { "name": "Food & Dining", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Entertainment", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Shopping", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Subscriptions", "recommended_amount": <number>, "last_month_actual": <number> }
+      ]
+    },
+    {
+      "bucket": "Savings & Investments",
+      "percentage": <number>,
+      "amount": <number>,
+      "color": "#3b82f6",
+      "description": "<why this % for their situation>",
+      "categories": [
+        { "name": "Emergency Fund", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "SIP/Mutual Funds", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Goal savings", "recommended_amount": <number>, "last_month_actual": <number> }
+      ]
+    },
+    {
+      "bucket": "Family & Culture",
+      "percentage": <number>,
+      "amount": <number>,
+      "color": "#a855f7",
+      "description": "Indian context — festivals, family support, gifts",
+      "categories": [
+        { "name": "Family Support", "recommended_amount": <number>, "last_month_actual": <number> },
+        { "name": "Festivals/Events", "recommended_amount": <number>, "last_month_actual": <number> }
+      ]
+    }
+  ],
+  "insights": [
+    "<specific observation about their spending vs recommendation>",
+    "<goal progress insight>",
+    "<one actionable tip specific to their data>"
+  ],
+  "month_comparison": {
+    "last_month_total": <number>,
+    "this_month_total": <number>,
+    "trend": "improving",
+    "biggest_change_category": "<category name>",
+    "biggest_change_amount": <number>
+  }
+}
+
+Make all amounts realistic and add up to exactly the salary amount. Use their actual spending data to personalize every number.`;
+
+        const response = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.4,
+            max_tokens: 2000,
+        });
+
+        const raw = response.choices[0].message.content;
+        const clean = raw.replace(/```json|```/g, '').trim();
+        const plan = JSON.parse(clean);
+        res.json(plan);
+    } catch (err) {
+        console.error('salary-allocation error:', err);
+        res.status(500).json({ error: 'Failed to generate salary allocation plan.' });
+    }
+});
+
 module.exports = router;

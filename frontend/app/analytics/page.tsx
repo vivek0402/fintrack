@@ -9,7 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
-import { TrendingUp, TrendingDown, Award, Calendar, Download } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet } from 'lucide-react';
 import { formatCurrency, exportToCSV } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -30,6 +30,10 @@ export default function AnalyticsPage() {
     const [regretData, setRegretData] = useState<any>(null);
     const [regretLoading, setRegretLoading] = useState(false);
     const [accounts, setAccounts] = useState<any[]>([]);
+    const [allocationPlan, setAllocationPlan] = useState<any>(null);
+    const [allocationLoading, setAllocationLoading] = useState(false);
+    const [allocationError, setAllocationError] = useState('');
+    const [planGenerated, setPlanGenerated] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -118,6 +122,27 @@ export default function AnalyticsPage() {
 
     const totalBalance = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
 
+    const hexToRgba = (hex: string, alpha: number) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r},${g},${b},${alpha})`;
+    };
+
+    const handleGeneratePlan = async () => {
+        setAllocationLoading(true);
+        setAllocationError('');
+        try {
+            const res = await aiAPI.salaryAllocation();
+            setAllocationPlan(res.data);
+            setPlanGenerated(true);
+        } catch {
+            setAllocationError('Failed to generate plan. Please try again.');
+        } finally {
+            setAllocationLoading(false);
+        }
+    };
+
     return (
         <AppLayout>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
@@ -188,6 +213,116 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
             )}
+
+            {/* Salary Allocation Plan */}
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', marginBottom: '24px', overflow: 'hidden' }}>
+                {/* Prompt screen */}
+                {!planGenerated && !allocationLoading && (
+                    <div style={{ padding: '32px 24px', textAlign: 'center' }}>
+                        <Wallet size={48} color="var(--accent-blue)" style={{ margin: '0 auto' }} />
+                        <p style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '12px 0 0' }}>Salary Allocation Plan</p>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '480px', margin: '8px auto 20px', lineHeight: 1.6 }}>
+                            Get a personalised AI plan that splits your salary using the 50/30/20 rule, your financial goals, and Indian spending context — compared against what you actually spent last month.
+                        </p>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px' }}>
+                            {['50/30/20 Rule', 'Goal-Based', 'Indian Context'].map(pill => (
+                                <span key={pill} style={{ backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-secondary)' }}>{pill}</span>
+                            ))}
+                        </div>
+                        {allocationError && (
+                            <p style={{ color: 'var(--accent-red)', fontSize: '13px', marginBottom: '12px' }}>{allocationError}</p>
+                        )}
+                        <button onClick={handleGeneratePlan} style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', borderRadius: '10px', padding: '12px 28px', fontSize: '15px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <Sparkles size={16} />
+                            Generate My Plan
+                        </button>
+                    </div>
+                )}
+
+                {/* Loading state */}
+                {allocationLoading && (
+                    <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid var(--bg-border)', borderTop: '3px solid var(--accent-blue)', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '16px' }}>Analysing your spending patterns...</p>
+                    </div>
+                )}
+
+                {/* Plan display */}
+                {planGenerated && allocationPlan && !allocationLoading && (
+                    <div style={{ padding: '24px' }}>
+                        {/* Plan header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Salary Allocation Plan</p>
+                                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '500px' }}>{allocationPlan.summary}</p>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--accent-green)' }}>₹{Math.round(allocationPlan.salary).toLocaleString('en-IN')}</p>
+                                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>monthly salary</p>
+                                <button onClick={handleGeneratePlan} style={{ marginTop: '8px', backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                                    <RefreshCw size={12} />Regenerate
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Month comparison banner */}
+                        {allocationPlan.month_comparison && (
+                            <div style={{ backgroundColor: 'var(--bg-hover)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+                                <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--accent-green)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--accent-red)' : 'var(--text-muted)' }}>
+                                    {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
+                                </span>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Biggest change: {allocationPlan.month_comparison.biggest_change_category} {allocationPlan.month_comparison.biggest_change_amount >= 0 ? '+' : ''}₹{Math.abs(Math.round(allocationPlan.month_comparison.biggest_change_amount)).toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Bucket cards grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+                            {allocationPlan.allocation?.map((bucket: any) => (
+                                <div key={bucket.bucket} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `4px solid ${bucket.color}`, borderRadius: '12px', padding: '18px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                        <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>{bucket.bucket}</span>
+                                        <span style={{ backgroundColor: hexToRgba(bucket.color, 0.12), color: bucket.color, borderRadius: '20px', padding: '2px 10px', fontSize: '12px', fontWeight: 600 }}>{bucket.percentage}%</span>
+                                    </div>
+                                    <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: bucket.color }}>₹{Math.round(bucket.amount).toLocaleString('en-IN')}</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{bucket.description}</p>
+                                    <div style={{ height: '4px', borderRadius: '2px', backgroundColor: 'var(--bg-hover)', margin: '12px 0' }}>
+                                        <div style={{ height: '100%', width: `${bucket.percentage}%`, backgroundColor: bucket.color, borderRadius: '2px' }} />
+                                    </div>
+                                    <div>
+                                        {bucket.categories?.map((cat: any, ci: number) => (
+                                            <div key={cat.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: ci < bucket.categories.length - 1 ? '1px solid var(--bg-border)' : 'none' }}>
+                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{cat.name}</span>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                        {cat.recommended_amount > cat.last_month_actual ? <span style={{ color: 'var(--accent-green)', fontSize: '10px' }}>▲ </span> : cat.recommended_amount < cat.last_month_actual ? <span style={{ color: 'var(--accent-red)', fontSize: '10px' }}>▼ </span> : null}
+                                                        ₹{Math.round(cat.recommended_amount).toLocaleString('en-IN')}
+                                                    </p>
+                                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>actual: ₹{Math.round(cat.last_month_actual).toLocaleString('en-IN')}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Insights */}
+                        {allocationPlan.insights?.length > 0 && (
+                            <div>
+                                <p style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Insights</p>
+                                {allocationPlan.insights.map((insight: string, i: number) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', backgroundColor: 'var(--bg-hover)', borderRadius: '10px', marginBottom: '8px' }}>
+                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{insight}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {/* Key Metrics */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
