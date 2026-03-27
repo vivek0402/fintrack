@@ -30,6 +30,7 @@ export default function AnalyticsPage() {
     const [regretData, setRegretData] = useState<any>(null);
     const [regretLoading, setRegretLoading] = useState(false);
     const [accounts, setAccounts] = useState<any[]>([]);
+    const [accountsLoading, setAccountsLoading] = useState(true);
     const [allocationPlan, setAllocationPlan] = useState<any>(null);
     const [allocationLoading, setAllocationLoading] = useState(false);
     const [allocationError, setAllocationError] = useState('');
@@ -58,7 +59,8 @@ export default function AnalyticsPage() {
         fetchData();
         accountsAPI.getAll()
             .then((res: any) => setAccounts(res.data.accounts || []))
-            .catch(() => setAccounts([]));
+            .catch(() => setAccounts([]))
+            .finally(() => setAccountsLoading(false));
     }, [user]);
 
     const barData = (() => {
@@ -153,64 +155,69 @@ export default function AnalyticsPage() {
                 {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
             </div>
 
-            {/* Account Balances summary card */}
-            {accounts.length > 0 && (
-                <div style={{
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--bg-border)',
-                    borderRadius: '16px',
-                    padding: '20px 24px',
-                    marginBottom: '24px',
-                }}>
-                    <div style={{
-                        display: 'flex',
-                        alignItems: isMobile ? 'flex-start' : 'center',
-                        justifyContent: 'space-between',
-                        flexDirection: isMobile ? 'column' : 'row',
-                        gap: isMobile ? '8px' : '0',
-                        marginBottom: '16px',
-                    }}>
+            {/* Bank Balances card */}
+            {(accountsLoading || accounts.length > 0) && (
+                <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px 24px', marginBottom: '24px' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
                         <div>
-                            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Account Balances</p>
+                            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Bank Balances</p>
                             <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>Live balances across all your accounts</p>
                         </div>
-                        <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                            <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                ₹{Math.round(totalBalance).toLocaleString('en-IN')}
-                            </p>
-                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>total balance</p>
+                        {!accountsLoading && (
+                            <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                                <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)' }}>Total Balance</p>
+                                <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                    ₹{Math.round(totalBalance).toLocaleString('en-IN')}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Tiles row */}
+                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+                        {accountsLoading
+                            ? [1, 2, 3].map(i => (
+                                <div key={i} style={{ minWidth: '170px', height: '140px', backgroundColor: 'var(--bg-hover)', borderRadius: '12px', flex: '0 0 auto', animation: 'pulse 1.5s ease-in-out infinite', opacity: 0.5 }} />
+                            ))
+                            : accounts.map((account: any) => {
+                                const bal = Number(account.current_balance);
+                                const net = bal - Number(account.starting_balance);
+                                return (
+                                    <div key={account.id} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `3px solid ${account.color || '#3b82f6'}`, borderRadius: '12px', padding: '14px 16px', minWidth: '170px', flex: '0 0 auto' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '16px' }}>{account.icon || '🏦'}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{account.name}</span>
+                                            {account.is_default && (
+                                                <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px', marginLeft: 'auto', flexShrink: 0 }}>default</span>
+                                            )}
+                                        </div>
+                                        <p style={{ margin: '10px 0 0', fontSize: '20px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>₹{Math.round(bal).toLocaleString('en-IN')}</p>
+                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>Started ₹{Math.round(Number(account.starting_balance)).toLocaleString('en-IN')}</p>
+                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')} net</p>
+                                        <div style={{ height: '1px', backgroundColor: 'var(--bg-border)', margin: '10px 0' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-green)' }}>₹{Math.round(Number(account.total_income)).toLocaleString('en-IN')}</p>
+                                                <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)' }}>in</p>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-red)' }}>₹{Math.round(Number(account.total_expenses)).toLocaleString('en-IN')}</p>
+                                                <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)' }}>out</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        }
+                    </div>
+
+                    {/* Footer link */}
+                    {!accountsLoading && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                            <span onClick={() => router.push('/profile')} style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}>Manage accounts →</span>
                         </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                        {accounts.map((account: any) => {
-                            const bal = parseFloat(account.current_balance ?? account.starting_balance ?? 0);
-                            const net = bal - parseFloat(account.starting_balance ?? 0);
-                            return (
-                                <div key={account.id} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `3px solid ${account.color || '#3b82f6'}`, borderRadius: '12px', padding: '14px 16px', minWidth: '160px', flex: '0 0 auto' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: '16px' }}>{account.icon || '🏦'}</span>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{account.name}</span>
-                                        {account.is_default && <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px' }}>default</span>}
-                                    </div>
-                                    <p style={{ margin: '8px 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>₹{Math.round(bal).toLocaleString('en-IN')}</p>
-                                    <p style={{ margin: 0, fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')}</p>
-                                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--bg-border)', paddingTop: '8px' }}>
-                                        <div>
-                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-green)' }}>₹{Math.round(account.total_income || 0).toLocaleString('en-IN')}</p>
-                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>in</p>
-                                        </div>
-                                        <div>
-                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-red)' }}>₹{Math.round(account.total_expenses || 0).toLocaleString('en-IN')}</p>
-                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>out</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                        <span onClick={() => router.push('/profile')} style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}>Manage accounts →</span>
-                    </div>
+                    )}
                 </div>
             )}
 
@@ -503,7 +510,7 @@ export default function AnalyticsPage() {
                 )}
             </div>
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100% { opacity:0.5 } 50% { opacity:0.3 } }`}</style>
         </AppLayout>
     );
 }
