@@ -149,9 +149,14 @@ function TransactionsPageInner() {
         setPendingYear(selectedYear);
         if (filterBtnRef.current) {
             const rect = filterBtnRef.current.getBoundingClientRect();
+            const screenWidth = window.innerWidth;
+            let popoverWidth = screenWidth < 480 ? screenWidth - 16 : 280;
+            let leftPos = rect.right + window.scrollX - popoverWidth;
+            if (leftPos < 8) leftPos = 8;
+            if (leftPos + popoverWidth > screenWidth - 8) leftPos = screenWidth - popoverWidth - 8;
             setFilterPos({
                 top: rect.bottom + window.scrollY + 8,
-                left: rect.left + window.scrollX,
+                left: leftPos,
             });
         }
         setShowMonthSheet(true);
@@ -356,7 +361,7 @@ function TransactionsPageInner() {
                         top: filterPos.top,
                         left: filterPos.left,
                         zIndex: 1000,
-                        width: '280px',
+                        width: typeof window !== 'undefined' && window.innerWidth < 480 ? `${window.innerWidth - 16}px` : '280px',
                         backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--bg-border)',
                         borderRadius: '16px',
@@ -389,7 +394,7 @@ function TransactionsPageInner() {
 
                     {/* Month grid */}
                     <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 8px 0' }}>Month</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '6px', marginBottom: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
                         {MONTHS_SHORT.map((name, idx) => {
                             const m = idx + 1;
                             const isFuture = pendingYear === NOW_YEAR && m > NOW_MONTH;
@@ -400,12 +405,13 @@ function TransactionsPageInner() {
                                     key={m}
                                     onClick={() => !isFuture && !isPast && setPendingMonth(m)}
                                     style={{
-                                        padding: '6px 0', textAlign: 'center', borderRadius: '20px',
+                                        padding: '6px 0', textAlign: 'center', borderRadius: '8px',
                                         fontSize: '13px', fontWeight: 500, border: 'none',
                                         cursor: (isFuture || isPast) ? 'not-allowed' : 'pointer',
+                                        pointerEvents: (isFuture || isPast) ? 'none' : 'auto',
                                         backgroundColor: isSelected ? 'var(--accent-blue)' : 'var(--bg-hover)',
                                         color: isSelected ? '#fff' : 'var(--text-secondary)',
-                                        opacity: (isFuture || isPast) ? 0.3 : 1,
+                                        opacity: (isFuture || isPast) ? 0.35 : 1,
                                         fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
                                     }}
                                 >
