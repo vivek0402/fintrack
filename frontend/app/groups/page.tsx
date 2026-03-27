@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import AppLayout from '@/components/layout/AppLayout';
 import { formatCurrency } from '@/lib/utils';
 import {
     Plus, FolderOpen, Users, X, Check, ChevronRight,
@@ -234,6 +235,7 @@ export default function GroupsPage() {
     // ─── List view ────────────────────────────────────────────────────────────
     if (!selectedGroup) {
         return (
+            <AppLayout>
             <div style={{ maxWidth: '760px', margin: '0 auto', padding: '24px 16px' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
@@ -319,6 +321,7 @@ export default function GroupsPage() {
                     />
                 )}
             </div>
+            </AppLayout>
         );
     }
 
@@ -328,6 +331,7 @@ export default function GroupsPage() {
     const unsettledCount = splits.reduce((s, sp) => s + sp.shares.filter(sh => !sh.settled).length, 0);
 
     return (
+        <AppLayout>
         <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
             {/* Back + header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
@@ -573,6 +577,7 @@ export default function GroupsPage() {
                 </div>
             )}
         </div>
+        </AppLayout>
     );
 }
 
