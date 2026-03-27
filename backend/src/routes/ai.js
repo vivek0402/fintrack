@@ -4,7 +4,7 @@ const multer = require('multer');
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
 const { getVisionModel } = require('../utils/gemini');
-const { chatCompletion } = require('../utils/groq');
+const { aiComplete } = require('../utils/ai');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -32,7 +32,7 @@ router.post('/parse-sms', authMiddleware, async (req, res) => {
         if (!sms) return res.status(400).json({ error: 'SMS text is required' });
 
         const today = new Date().toISOString().split('T')[0];
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('parse-sms', [{
             role: 'user',
             content: `You are a financial transaction parser for an Indian personal finance app.
 Extract transaction details from the following text.
@@ -58,7 +58,7 @@ Format: {
   "date": "${today}",
   "notes": "UPI"
 }`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const clean = text.replace(/```json|```/g, '').trim();
         const parsed = JSON.parse(clean);
         res.json({ parsed });
@@ -122,10 +122,10 @@ router.post('/report', authMiddleware, async (req, res) => {
             transactionCount: transactions.length,
         });
 
-        const report = (await chatCompletion([{
+        const report = (await aiComplete('report', [{
             role: 'user',
             content: `You are a friendly personal finance advisor. Based on this month's data, write a 3-4 sentence summary in plain English. Be specific with numbers. Mention what went well and what to watch out for. Keep it conversational, not robotic. Use ₹ for amounts. Data: ${context}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
 
         res.json({ report });
     } catch (err) {
@@ -169,14 +169,14 @@ router.post('/afford', authMiddleware, async (req, res) => {
             goals: goalRes.rows.map(g => ({ name: g.name, target: parseFloat(g.target_amount), saved: parseFloat(g.saved_amount), deadline: g.deadline })),
         });
 
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('afford', [{
             role: 'user',
             content: `The user is asking: "${query}"
 Based on their financial data below, give a direct yes/no recommendation on whether they can afford it, and explain why in 2-3 sentences. Consider their current savings rate, budget status, and active goals. Be honest but encouraging. Use ₹ for amounts.
 Also include a "sentiment" field in your response: "positive", "cautious", or "negative".
 Return ONLY valid JSON (no markdown): { "recommendation": "your recommendation text", "sentiment": "positive" | "cautious" | "negative" }
 Financial data: ${context}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json(parsed);
@@ -279,11 +279,11 @@ ${txns.slice(0, 30).map(t => `${String(t.date).slice(0, 10)} | ${t.type === 'inc
 - Use ₹ and Indian number format
 - Today: ${now.toLocaleDateString('en-IN')}`;
 
-        const reply = await chatCompletion([
+        const reply = await aiComplete('chat', [
             { role: 'system', content: systemPrompt },
             ...history.slice(-6),
             { role: 'user', content: message },
-        ], { model: 'quality', maxTokens: 600, temperature: 0.3 });
+        ]);
 
         res.json({ reply });
     } catch (err) {
@@ -322,7 +322,7 @@ router.get('/detect-patterns', authMiddleware, async (req, res) => {
             description: r.description, amount: parseFloat(r.amount), frequency: r.frequency,
         }));
 
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('recurring', [{
             role: 'user',
             content: `Analyse these transactions and identify any that appear to be recurring (same merchant, similar amount, repeating monthly or weekly). Exclude transactions already in the recurring list provided.
 Return ONLY valid JSON array (no markdown):
@@ -330,7 +330,7 @@ Return ONLY valid JSON array (no markdown):
 If none found, return an empty array [].
 Transactions: ${JSON.stringify(transactions)}
 Existing recurring: ${JSON.stringify(existing)}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const patterns = JSON.parse(jsonStr);
         res.json({ patterns: Array.isArray(patterns) ? patterns : [] });
@@ -383,7 +383,7 @@ router.post('/parse-split', authMiddleware, async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ error: 'Text is required' });
 
-        const responseText = (await chatCompletion([{
+        const responseText = (await aiComplete('parse-split', [{
             role: 'user',
             content: `Parse this expense split description and return ONLY valid JSON (no markdown):
 {
@@ -393,7 +393,7 @@ router.post('/parse-split', authMiddleware, async (req, res) => {
   "participants": [{ "name": string }]
 }
 If you cannot extract a field, use null. Text: ${text}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ parsed });
@@ -468,7 +468,7 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
             totalExpenses: expenses.reduce((s, t) => s + parseFloat(t.amount), 0),
         });
 
-        const text = (await chatCompletion([
+        const text = (await aiComplete('salary-intelligence', [
             {
                 role: 'system',
                 content: 'You are a financial analysis assistant. Always respond with valid JSON only, no markdown, no explanation.',
@@ -492,7 +492,7 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
 }
 Base percentages and amounts on their actual spending. Data: ${context}`,
             },
-        ], { model: 'fast', maxTokens: 800, jsonMode: true })).trim();
+        ])).trim();
         // Extract first complete JSON object in case of any surrounding text
         const start = text.indexOf('{');
         const end = text.lastIndexOf('}');
@@ -589,12 +589,9 @@ Return ONLY valid JSON with NO markdown, NO backticks:
 
         console.log('Sending to Groq...');
 
-        const raw = await chatCompletion(
-            [{ role: 'user', content: prompt }],
-            { model: 'quality', maxTokens: 1200, temperature: 0.5 }
-        );
+        const raw = await aiComplete('personality', [{ role: 'user', content: prompt }]);
 
-        console.log('Groq response received. Preview:', raw.slice(0, 200));
+        console.log('AI response received. Preview:', raw.slice(0, 200));
 
         const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
 
@@ -650,7 +647,7 @@ router.get('/regret-patterns', authMiddleware, async (req, res) => {
             date: t.date,
         })));
 
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('regret-patterns', [{
             role: 'user',
             content: `Analyse these transactions that the user has marked as "regretted".
 Identify patterns and return ONLY valid JSON (no markdown):
@@ -661,7 +658,7 @@ Identify patterns and return ONLY valid JSON (no markdown):
   ]
 }
 Transactions: ${context}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(jsonStr);
         res.json({ ...parsed, count: regretted.length, total: regretted.reduce((s, t) => s + parseFloat(t.amount), 0) });
@@ -703,7 +700,7 @@ router.post('/life-event', authMiddleware, async (req, res) => {
             avg_monthly_income: totalIncome / 3,
         });
 
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('life-event', [{
             role: 'user',
             content: `Create a monthly savings milestone plan for this life event.
 Return ONLY valid JSON (no markdown):
@@ -718,7 +715,7 @@ Return ONLY valid JSON (no markdown):
   "summary": "2 sentence motivational summary"
 }
 Limit milestones to 6 key checkpoints. Data: ${context}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const plan = JSON.parse(jsonStr);
 
@@ -811,14 +808,14 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             });
 
             try {
-                const text = (await chatCompletion([{
+                const text = (await aiComplete('forecast-calendar', [{
                     role: 'user',
                     content: `Based on this spending history, predict likely expenses for the next 30 days.
 Look for weekly patterns, day-of-week patterns, and monthly patterns.
 Return ONLY valid JSON array (no markdown, max 10 predictions):
 [{ "date": "YYYY-MM-DD", "predicted_amount": number, "description": string, "category": string, "confidence": "medium" | "low" }]
 Only predict dates within the next 30 days from today. Data: ${context}`,
-                }], { model: 'fast', maxTokens: 800 })).trim();
+                }])).trim();
                 const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 const aiPredictions = JSON.parse(jsonStr);
                 if (Array.isArray(aiPredictions)) {
@@ -905,7 +902,7 @@ router.post('/health-report', authMiddleware, async (req, res) => {
             transactionCount: transactions.length,
         });
 
-        const text = (await chatCompletion([{
+        const text = (await aiComplete('health-report', [{
             role: 'user',
             content: `Generate a financial health report card for this month's data.
 Return ONLY valid JSON (no markdown):
@@ -924,7 +921,7 @@ Return ONLY valid JSON (no markdown):
   }
 }
 Data: ${context}`,
-        }], { model: 'fast', maxTokens: 800 })).trim();
+        }])).trim();
         const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const report = JSON.parse(jsonStr);
 
@@ -1100,10 +1097,7 @@ Return ONLY a valid JSON object with this exact structure:
 
 Make all amounts realistic and add up to exactly the salary amount. Use their actual spending data to personalize every number.`;
 
-        const raw = await chatCompletion(
-            [{ role: 'user', content: prompt }],
-            { model: 'quality', maxTokens: 1200, temperature: 0.4 }
-        );
+        const raw = await aiComplete('salary-allocation', [{ role: 'user', content: prompt }]);
         const clean = raw.replace(/```json|```/g, '').trim();
         const plan = JSON.parse(clean);
 

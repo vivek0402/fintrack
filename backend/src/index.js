@@ -7,8 +7,22 @@ const pool = require('./db/pool');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-console.log('GROQ_API_KEY present:', !!process.env.GROQ_API_KEY);
-console.log('GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
+console.log('=== AI Provider Status ===');
+console.log('GROQ_API_KEY:   ', process.env.GROQ_API_KEY   ? '✅' : '❌ MISSING');
+console.log('GROQ_API_KEY_2: ', process.env.GROQ_API_KEY_2 ? '✅' : '⚠️  using key 1 as fallback');
+console.log('GEMINI_API_KEY: ', process.env.GEMINI_API_KEY  ? '✅' : '❌ MISSING');
+console.log('=========================');
+console.log('Route distribution:');
+console.log('  chat               → Groq Key1 llama-3.3-70b  (100K TPD)');
+console.log('  salary-allocation  → Gemini Flash             (no token cap)');
+console.log('  personality        → Groq Key1 llama-4-scout  (500K TPD)');
+console.log('  report             → Groq Key2 llama-4-scout  (500K TPD)');
+console.log('  forecast           → Groq Key1 qwen3-32b      (500K TPD)');
+console.log('  salary-intelligence→ Groq Key2 qwen3-32b      (500K TPD)');
+console.log('  parse-sms          → Groq Key1 llama-3.1-8b   (500K TPD)');
+console.log('  quick-add          → Groq Key2 llama-3.1-8b   (500K TPD)');
+console.log('  recurring          → Groq Key1 llama-4-scout  (500K TPD)');
+console.log('=========================');
 
 app.use(helmet());
 
