@@ -884,7 +884,7 @@ router.post('/salary-allocation', authMiddleware, async (req, res) => {
                 ORDER BY t.date DESC
             `, [userId]),
             pool.query(
-                'SELECT name, target_amount, current_amount, deadline FROM savings_goals WHERE user_id = $1',
+                'SELECT name, target_amount, saved_amount, deadline FROM savings_goals WHERE user_id = $1',
                 [userId]
             ),
             pool.query(`
@@ -909,7 +909,7 @@ router.post('/salary-allocation', authMiddleware, async (req, res) => {
 
         const salaryAmount = salaryResult.rows[0]?.amount || 0;
         const goalsText = goalsResult.rows.map(g =>
-            `${g.name}: target ₹${g.target_amount}, saved ₹${g.current_amount}` +
+            `${g.name}: target ₹${g.target_amount}, saved ₹${g.saved_amount}` +
             (g.deadline ? `, deadline ${g.deadline}` : '')
         ).join('\n');
 
