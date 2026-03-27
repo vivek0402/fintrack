@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, aiAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -29,6 +29,7 @@ export default function AnalyticsPage() {
     const [yearlyData, setYearlyData] = useState<any>(null);
     const [regretData, setRegretData] = useState<any>(null);
     const [regretLoading, setRegretLoading] = useState(false);
+    const [accounts, setAccounts] = useState<any[]>([]);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -51,6 +52,9 @@ export default function AnalyticsPage() {
             } catch (err) { console.error(err); }
         };
         fetchData();
+        accountsAPI.getAll()
+            .then((res: any) => setAccounts(res.data.accounts || []))
+            .catch(() => setAccounts([]));
     }, [user]);
 
     const barData = (() => {
@@ -112,8 +116,104 @@ export default function AnalyticsPage() {
         </AppLayout>
     );
 
+    const totalBalance = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
+
     return (
         <AppLayout>
+            {/* Account Balances summary card */}
+            {accounts.length > 0 && (
+                <div style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--bg-border)',
+                    borderRadius: '16px',
+                    padding: '20px 24px',
+                    marginBottom: '24px',
+                }}>
+                    {/* Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: isMobile ? 'flex-start' : 'center',
+                        justifyContent: 'space-between',
+                        flexDirection: isMobile ? 'column' : 'row',
+                        gap: isMobile ? '8px' : '0',
+                        marginBottom: '16px',
+                    }}>
+                        <div>
+                            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Account Balances</p>
+                            <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>Live balances across all your accounts</p>
+                        </div>
+                        <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                            <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                ₹{Math.round(totalBalance).toLocaleString('en-IN')}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>total balance</p>
+                        </div>
+                    </div>
+
+                    {/* Account tiles */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '12px',
+                        overflowX: 'auto',
+                        paddingBottom: '4px',
+                        scrollbarWidth: 'none',
+                        WebkitOverflowScrolling: 'touch',
+                    } as React.CSSProperties}>
+                        {accounts.map((account: any) => {
+                            const bal = parseFloat(account.current_balance ?? account.starting_balance ?? 0);
+                            const net = bal - parseFloat(account.starting_balance ?? 0);
+                            return (
+                                <div key={account.id} style={{
+                                    backgroundColor: 'var(--bg-primary)',
+                                    border: '1px solid var(--bg-border)',
+                                    borderLeft: `3px solid ${account.color || '#3b82f6'}`,
+                                    borderRadius: '12px',
+                                    padding: '14px 16px',
+                                    minWidth: '160px',
+                                    flex: '0 0 auto',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <span style={{ fontSize: '16px' }}>{account.icon || '🏦'}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{account.name}</span>
+                                        {account.is_default && (
+                                            <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px' }}>
+                                                default
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p style={{ margin: '8px 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                        ₹{Math.round(bal).toLocaleString('en-IN')}
+                                    </p>
+                                    <p style={{ margin: 0, fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                        {net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')}
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--bg-border)', paddingTop: '8px' }}>
+                                        <div>
+                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-green)' }}>₹{Math.round(account.total_income || 0).toLocaleString('en-IN')}</p>
+                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>in</p>
+                                        </div>
+                                        <div>
+                                            <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-red)' }}>₹{Math.round(account.total_expenses || 0).toLocaleString('en-IN')}</p>
+                                            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>out</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Manage link */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
+                        <span
+                            onClick={() => router.push('/profile')}
+                            style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}
+                        >
+                            Manage accounts →
+                        </span>
+                    </div>
+                </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
