@@ -67,8 +67,16 @@ router.post('/', async (req, res) => {
                  VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
                 [req.user.id, name.trim(), icon, color, starting_balance, is_default]
             );
+            let linkedCount = 0;
+            if (is_default) {
+                const linked = await client.query(
+                    `UPDATE transactions SET account_id = $1 WHERE user_id = $2 AND account_id IS NULL`,
+                    [rows[0].id, req.user.id]
+                );
+                linkedCount = linked.rowCount;
+            }
             await client.query('COMMIT');
-            res.status(201).json({ account: rows[0] });
+            res.status(201).json({ account: rows[0], transactions_linked: linkedCount });
         } catch (e) {
             await client.query('ROLLBACK');
             throw e;
@@ -111,6 +119,14 @@ router.patch('/:id', async (req, res) => {
                  WHERE id = $6 AND user_id = $7`,
                 [name, icon, color, starting_balance, is_default, req.params.id, req.user.id]
             );
+            let linkedCount = 0;
+            if (is_default === true) {
+                const linked = await client.query(
+                    `UPDATE transactions SET account_id = $1 WHERE user_id = $2 AND account_id IS NULL`,
+                    [req.params.id, req.user.id]
+                );
+                linkedCount = linked.rowCount;
+            }
             await client.query('COMMIT');
         } catch (e) {
             await client.query('ROLLBACK');
@@ -120,7 +136,7 @@ router.patch('/:id', async (req, res) => {
         }
 
         const { rows } = await pool.query(STATS_SINGLE_QUERY, [req.user.id, req.params.id]);
-        res.json({ account: rows[0] });
+        res.json({ account: rows[0], transactions_linked: linkedCount });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to update account' });
@@ -136,6 +152,7 @@ router.patch('/:id/set-default', async (req, res) => {
         );
         if (!existing.length) return res.status(404).json({ error: 'Account not found' });
 
+        let linkedCount = 0;
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -147,6 +164,11 @@ router.patch('/:id/set-default', async (req, res) => {
                 `UPDATE bank_accounts SET is_default = TRUE, updated_at = NOW() WHERE id = $1`,
                 [req.params.id]
             );
+            const linked = await client.query(
+                `UPDATE transactions SET account_id = $1 WHERE user_id = $2 AND account_id IS NULL`,
+                [req.params.id, req.user.id]
+            );
+            linkedCount = linked.rowCount;
             await client.query('COMMIT');
         } catch (e) {
             await client.query('ROLLBACK');
@@ -155,7 +177,7 @@ router.patch('/:id/set-default', async (req, res) => {
             client.release();
         }
 
-        res.json({ success: true });
+        res.json({ success: true, transactions_linked: linkedCount });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to set default account' });

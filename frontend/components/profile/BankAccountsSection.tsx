@@ -33,7 +33,14 @@ export function BankAccountsSection() {
     const [form, setForm] = useState<typeof DEFAULT_FORM>({ ...DEFAULT_FORM });
     const [saving, setSaving] = useState(false);
     const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+    const [successMsg, setSuccessMsg] = useState('');
     const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!successMsg) return;
+        const t = setTimeout(() => setSuccessMsg(''), 4000);
+        return () => clearTimeout(t);
+    }, [successMsg]);
 
     const fetchAccounts = () => {
         accountsAPI.getAll()
@@ -86,9 +93,17 @@ export function BankAccountsSection() {
                 is_default: form.is_default,
             };
             if (editAccount) {
-                await accountsAPI.update(editAccount.id, payload);
+                const res = await accountsAPI.update(editAccount.id, payload);
+                if (payload.is_default) {
+                    const n = res.data.transactions_linked ?? 0;
+                    setSuccessMsg(n > 0 ? `✓ Set as default. ${n} existing transactions linked to this account.` : '✓ Set as default account.');
+                }
             } else {
-                await accountsAPI.create(payload);
+                const res = await accountsAPI.create(payload);
+                if (payload.is_default) {
+                    const n = res.data.transactions_linked ?? 0;
+                    setSuccessMsg(n > 0 ? `✓ Set as default. ${n} existing transactions linked to this account.` : '✓ Set as default account.');
+                }
             }
             setShowModal(false);
             fetchAccounts();
@@ -102,7 +117,9 @@ export function BankAccountsSection() {
     const handleSetDefault = async (id: number) => {
         setMenuOpenId(null);
         try {
-            await accountsAPI.setDefault(id);
+            const res = await accountsAPI.setDefault(id);
+            const n = res.data.transactions_linked ?? 0;
+            setSuccessMsg(n > 0 ? `✓ Set as default. ${n} existing transactions linked to this account.` : '✓ Set as default account.');
             fetchAccounts();
         } catch (err) {
             console.error(err);
@@ -130,6 +147,24 @@ export function BankAccountsSection() {
             padding: '24px',
             marginTop: '24px',
         }}>
+            {/* Success toast */}
+            {successMsg && (
+                <div style={{
+                    backgroundColor: 'rgba(16,185,129,0.1)',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    color: 'var(--accent-green)',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                }}>
+                    {successMsg}
+                </div>
+            )}
+
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
                 <div>

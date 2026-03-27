@@ -64,16 +64,33 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, account_id } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
 
         const result = await pool.query(
-            `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-            [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date]
+            `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+            [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null]
         );
-        res.status(201).json({ transaction: result.rows[0] });
+        const tx = result.rows[0];
+
+        // Auto-assign to default account if none provided
+        if (!account_id) {
+            const { rows: defaults } = await pool.query(
+                `SELECT id FROM bank_accounts WHERE user_id = $1 AND is_default = TRUE LIMIT 1`,
+                [req.user.id]
+            );
+            if (defaults.length) {
+                await pool.query(
+                    `UPDATE transactions SET account_id = $1 WHERE id = $2`,
+                    [defaults[0].id, tx.id]
+                );
+                tx.account_id = defaults[0].id;
+            }
+        }
+
+        res.status(201).json({ transaction: tx });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }

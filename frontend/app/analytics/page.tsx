@@ -120,6 +120,14 @@ export default function AnalyticsPage() {
 
     return (
         <AppLayout>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Deep insights into your spending</p>
+                </div>
+                {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
+            </div>
+
             {/* Account Balances summary card */}
             {accounts.length > 0 && (
                 <div style={{
@@ -129,7 +137,6 @@ export default function AnalyticsPage() {
                     padding: '20px 24px',
                     marginBottom: '24px',
                 }}>
-                    {/* Header */}
                     <div style={{
                         display: 'flex',
                         alignItems: isMobile ? 'flex-start' : 'center',
@@ -149,44 +156,19 @@ export default function AnalyticsPage() {
                             <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>total balance</p>
                         </div>
                     </div>
-
-                    {/* Account tiles */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '12px',
-                        overflowX: 'auto',
-                        paddingBottom: '4px',
-                        scrollbarWidth: 'none',
-                        WebkitOverflowScrolling: 'touch',
-                    } as React.CSSProperties}>
+                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
                         {accounts.map((account: any) => {
                             const bal = parseFloat(account.current_balance ?? account.starting_balance ?? 0);
                             const net = bal - parseFloat(account.starting_balance ?? 0);
                             return (
-                                <div key={account.id} style={{
-                                    backgroundColor: 'var(--bg-primary)',
-                                    border: '1px solid var(--bg-border)',
-                                    borderLeft: `3px solid ${account.color || '#3b82f6'}`,
-                                    borderRadius: '12px',
-                                    padding: '14px 16px',
-                                    minWidth: '160px',
-                                    flex: '0 0 auto',
-                                }}>
+                                <div key={account.id} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `3px solid ${account.color || '#3b82f6'}`, borderRadius: '12px', padding: '14px 16px', minWidth: '160px', flex: '0 0 auto' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: '16px' }}>{account.icon || '🏦'}</span>
                                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{account.name}</span>
-                                        {account.is_default && (
-                                            <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px' }}>
-                                                default
-                                            </span>
-                                        )}
+                                        {account.is_default && <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px' }}>default</span>}
                                     </div>
-                                    <p style={{ margin: '8px 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                        ₹{Math.round(bal).toLocaleString('en-IN')}
-                                    </p>
-                                    <p style={{ margin: 0, fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                        {net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')}
-                                    </p>
+                                    <p style={{ margin: '8px 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>₹{Math.round(bal).toLocaleString('en-IN')}</p>
+                                    <p style={{ margin: 0, fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')}</p>
                                     <div style={{ display: 'flex', gap: '12px', marginTop: '10px', borderTop: '1px solid var(--bg-border)', paddingTop: '8px' }}>
                                         <div>
                                             <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-green)' }}>₹{Math.round(account.total_income || 0).toLocaleString('en-IN')}</p>
@@ -201,26 +183,11 @@ export default function AnalyticsPage() {
                             );
                         })}
                     </div>
-
-                    {/* Manage link */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                        <span
-                            onClick={() => router.push('/profile')}
-                            style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}
-                        >
-                            Manage accounts →
-                        </span>
+                        <span onClick={() => router.push('/profile')} style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}>Manage accounts →</span>
                     </div>
                 </div>
             )}
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Deep insights into your spending</p>
-                </div>
-                {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
-            </div>
 
             {/* Key Metrics */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>

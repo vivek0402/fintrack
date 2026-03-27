@@ -97,7 +97,9 @@ export default function ProfilePage() {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Manage your account and preferences</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', alignItems: 'start' }}>
+            <BankAccountsSection />
+
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px', alignItems: 'start', marginTop: '24px' }}>
 
                 {/* Left */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -218,7 +220,6 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
-            <BankAccountsSection />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
