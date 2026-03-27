@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import AppLayout from '@/components/layout/AppLayout';
+import { AppLayout } from '@/components/layout/AppLayout';
 import { formatCurrency } from '@/lib/utils';
 import {
     Plus, FolderOpen, Users, X, Check, ChevronRight,
