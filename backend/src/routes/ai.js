@@ -888,18 +888,42 @@ router.post('/salary-allocation', authMiddleware, async (req, res) => {
                 [userId]
             ),
             pool.query(`
+                WITH monthly_category_totals AS (
+                    SELECT
+                        DATE_TRUNC('month', t.date) as month,
+                        t.type,
+                        COALESCE(c.name, 'Uncategorized') as category_name,
+                        SUM(t.amount) as category_total
+                    FROM transactions t
+                    LEFT JOIN categories c ON c.id = t.category_id
+                    WHERE t.user_id = $1
+                        AND t.date >= NOW() - INTERVAL '2 months'
+                    GROUP BY DATE_TRUNC('month', t.date), t.type, COALESCE(c.name, 'Uncategorized')
+                ),
+                monthly_totals AS (
+                    SELECT
+                        month,
+                        SUM(CASE WHEN type = 'income' THEN category_total ELSE 0 END) as income,
+                        SUM(CASE WHEN type = 'expense' THEN category_total ELSE 0 END) as expenses
+                    FROM monthly_category_totals
+                    GROUP BY month
+                ),
+                monthly_categories AS (
+                    SELECT
+                        month,
+                        json_object_agg(category_name, category_total) as by_category
+                    FROM monthly_category_totals
+                    WHERE type = 'expense'
+                    GROUP BY month
+                )
                 SELECT
-                    DATE_TRUNC('month', date) as month,
-                    SUM(CASE WHEN type='income' THEN amount ELSE 0 END) as income,
-                    SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) as expenses,
-                    json_object_agg(COALESCE(c.name, 'Uncategorized'), SUM(t.amount)) as by_category
-                FROM transactions t
-                LEFT JOIN categories c ON c.id = t.category_id
-                WHERE t.user_id = $1
-                    AND t.date >= NOW() - INTERVAL '2 months'
-                    AND t.type = 'expense'
-                GROUP BY DATE_TRUNC('month', date)
-                ORDER BY month DESC
+                    mt.month,
+                    mt.income,
+                    mt.expenses,
+                    COALESCE(mc.by_category, '{}'::json) as by_category
+                FROM monthly_totals mt
+                LEFT JOIN monthly_categories mc ON mc.month = mt.month
+                ORDER BY mt.month DESC
             `, [userId]),
             pool.query(
                 `SELECT amount FROM transactions WHERE user_id = $1 AND type = 'income' ORDER BY amount DESC LIMIT 1`,
