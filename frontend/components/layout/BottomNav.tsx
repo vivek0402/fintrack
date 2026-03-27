@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
-    CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
-    Users, FolderOpen, ChevronRight, TrendingUp
+    CalendarDays, Target, Trophy, BarChart2, RefreshCw, Settings, X, LogOut,
+    Users, FolderOpen, ChevronRight, TrendingUp, Brain, Receipt
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -22,8 +22,8 @@ const moreSections = [
         items: [
             { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
             { href: '/budgets',  icon: Target,       label: 'Budgets' },
-            { href: '/goals',    icon: Flag,         label: 'Goals' },
-            { href: '/reports',  icon: FileText,     label: 'Reports' },
+            { href: '/goals',    icon: Trophy,       label: 'Goals' },
+            { href: '/reports',  icon: BarChart2,    label: 'Reports' },
         ],
     },
     {
@@ -37,8 +37,10 @@ const moreSections = [
     {
         label: 'TOOLS',
         items: [
-            { href: '/forecast', icon: TrendingUp, label: 'Forecast' },
-            { href: '/profile',  icon: Settings,   label: 'Settings' },
+            { href: '/forecast',     icon: TrendingUp, label: 'Forecast' },
+            { href: '/personality',  icon: Brain,      label: 'Personality' },
+            { href: '/tax-estimate', icon: Receipt,    label: 'Tax Estimate' },
+            { href: '/profile',      icon: Settings,   label: 'Settings' },
         ],
     },
 ];
