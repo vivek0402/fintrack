@@ -62,8 +62,6 @@ function parseActions(message: string, type: string): ActionButton[] {
         actions.push({ label: '+ Add Transaction',  route: '/transactions?add=true', colorKey: 'blue' });
     if (lower.includes('trend') || lower.includes('pattern') || lower.includes('analytic'))
         actions.push({ label: 'See Analytics',      route: '/analytics',           colorKey: 'blue'   });
-    if (lower.includes('tax') || lower.includes('80c') || lower.includes('invest'))
-        actions.push({ label: 'Tax Estimate',       route: '/tax-estimate',        colorKey: 'yellow' });
 
     return actions.slice(0, 3);
 }
