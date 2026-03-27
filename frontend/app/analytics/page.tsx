@@ -241,7 +241,7 @@ export default function AnalyticsPage() {
                         {allocationError && (
                             <p style={{ color: 'var(--accent-red)', fontSize: '13px', marginBottom: '12px' }}>{allocationError}</p>
                         )}
-                        <button onClick={handleGeneratePlan} style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', borderRadius: '10px', padding: '12px 28px', fontSize: '15px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <button onClick={() => handleGeneratePlan()} style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', borderRadius: '10px', padding: '12px 28px', fontSize: '15px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                             <Sparkles size={16} />
                             Generate My Plan
                         </button>
