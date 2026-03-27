@@ -27,35 +27,37 @@ export default function AiChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const [keyboardOffset, setKeyboardOffset] = useState(0);
     const bottomRef = useRef<HTMLDivElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
     useEffect(() => {
-        const handleResize = () => {
-            if (window.visualViewport) {
-                const keyboardH = window.innerHeight - window.visualViewport.height;
-                setKeyboardHeight(Math.max(0, keyboardH));
-            }
+        const viewport = window.visualViewport;
+        if (!viewport) return;
+        const handleViewportChange = () => {
+            const offset = window.innerHeight - viewport.height - viewport.offsetTop;
+            setKeyboardOffset(Math.max(0, offset));
         };
-        window.visualViewport?.addEventListener('resize', handleResize);
-        window.visualViewport?.addEventListener('scroll', handleResize);
+        viewport.addEventListener('resize', handleViewportChange);
+        viewport.addEventListener('scroll', handleViewportChange);
         return () => {
-            window.visualViewport?.removeEventListener('resize', handleResize);
-            window.visualViewport?.removeEventListener('scroll', handleResize);
+            viewport.removeEventListener('resize', handleViewportChange);
+            viewport.removeEventListener('scroll', handleViewportChange);
         };
     }, []);
 
     useEffect(() => {
-        if (keyboardHeight > 0) {
+        if (keyboardOffset > 0) {
             setTimeout(() => {
-                bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 150);
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
         }
-    }, [keyboardHeight]);
+    }, [keyboardOffset]);
 
     const sendMessage = async (text: string) => {
         if (!text.trim() || loading) return;
@@ -107,7 +109,7 @@ export default function AiChatPage() {
                 </div>
 
                 {/* Messages area */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: keyboardHeight > 0 ? `calc(80px + ${keyboardHeight}px)` : 'calc(80px + env(safe-area-inset-bottom))' }}>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: keyboardOffset > 0 ? `calc(80px + ${keyboardOffset}px)` : 'calc(140px + env(safe-area-inset-bottom))' }}>
                     {messages.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px' }}>
                             <div style={{ textAlign: 'center' }}>
@@ -181,20 +183,20 @@ export default function AiChatPage() {
                         </div>
                     )}
                     <div ref={bottomRef} />
+                    <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input bar */}
                 <div style={{
                     position: 'fixed',
-                    bottom: keyboardHeight + 'px',
+                    bottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 'calc(64px + env(safe-area-inset-bottom))',
                     left: 0,
                     right: 0,
-                    zIndex: 100,
+                    zIndex: 200,
                     backgroundColor: 'var(--bg-primary)',
                     borderTop: '1px solid var(--bg-border)',
                     padding: '12px 16px',
-                    paddingBottom: keyboardHeight > 0 ? '12px' : 'calc(12px + env(safe-area-inset-bottom))',
-                    transition: 'bottom 0.15s ease',
+                    transition: 'bottom 0.1s ease',
                 }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                         <textarea
@@ -218,7 +220,9 @@ export default function AiChatPage() {
                             <Send size={16} />
                         </button>
                     </div>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '6px 0 0 4px' }}>Press Enter to send · Shift+Enter for new line</p>
+                    {!isMobile && (
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '6px 0 0 4px' }}>Press Enter to send · Shift+Enter for new line</p>
+                    )}
                 </div>
             </div>
 

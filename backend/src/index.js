@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 console.log('GROQ_API_KEY present:', !!process.env.GROQ_API_KEY);
+console.log('GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
 
 app.use(helmet());
 
@@ -18,24 +19,23 @@ const allowedOrigins = [
     'capacitor://localhost',
     'http://localhost',
     'ionic://localhost',
+    'https://localhost',
 ];
-if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
 
-const corsOptions = {
+app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        console.log('CORS blocked origin:', origin);
+        callback(null, true); // temporarily allow all origins to debug
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-};
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    optionsSuccessStatus: 200,
+}));
 
-app.options('/{*path}', cors(corsOptions));
-app.use(cors(corsOptions));
+app.options('/{*path}', cors());
 app.use(express.json());
 
 app.get('/health', async (req, res) => {
