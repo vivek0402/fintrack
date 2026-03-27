@@ -7,28 +7,35 @@ const pool = require('./db/pool');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+console.log('GROQ_API_KEY present:', !!process.env.GROQ_API_KEY);
+
 app.use(helmet());
-app.use(cors({
+
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'https://fintrack-omega-neon.vercel.app',
+    'capacitor://localhost',
+    'http://localhost',
+    'ionic://localhost',
+];
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+
+const corsOptions = {
     origin: function (origin, callback) {
-        // Allow requests with no origin (mobile apps, curl, etc.)
-        if (!origin) return callback(null, true);
-
-        const allowedOrigins = [
-            process.env.FRONTEND_URL,
-            'http://localhost:3000',
-            'capacitor://localhost',
-            'http://localhost',
-            'https://localhost',
-        ];
-
-        if (allowedOrigins.includes(origin)) {
+        if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all for now — tighten later
+            callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true,
-}));
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/health', async (req, res) => {

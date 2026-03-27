@@ -427,6 +427,7 @@ export function BankAccountsSection() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: '16px',
+                    boxSizing: 'border-box',
                 }}
                     onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
                 >
@@ -434,11 +435,14 @@ export function BankAccountsSection() {
                         backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--bg-border)',
                         borderRadius: '16px',
-                        width: '90%',
+                        width: '100%',
                         maxWidth: '440px',
+                        maxHeight: '85vh',
+                        overflowY: 'auto',
                         display: 'flex',
                         flexDirection: 'column',
-                        maxHeight: '90vh',
+                        position: 'relative',
+                        margin: '0',
                     }}>
                         {/* Modal header */}
                         <div style={{

@@ -189,10 +189,10 @@ Financial data: ${context}`,
 
 // ─── FEATURE 2: AI Chat ─────────────────────────────────────────────
 router.post('/chat', authMiddleware, async (req, res) => {
-    try {
-        const { message } = req.body;
-        if (!message) return res.status(400).json({ error: 'Message is required' });
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Message is required' });
 
+    try {
         const groq = getGroqClient();
         const completion = await groq.chat.completions.create({
             model: 'llama-3.3-70b-versatile',
@@ -206,11 +206,13 @@ router.post('/chat', authMiddleware, async (req, res) => {
             max_tokens: 1000,
         });
         const reply = completion.choices[0].message.content;
-
         res.json({ reply });
     } catch (err) {
-        console.error('AI chat error:', err.message);
-        res.status(500).json({ error: 'AI chat unavailable' });
+        console.error('Groq chat error:', err?.message || err);
+        return res.status(500).json({
+            error: 'AI service temporarily unavailable',
+            message: err?.message || 'Unknown error',
+        });
     }
 });
 

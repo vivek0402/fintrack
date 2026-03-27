@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
-    Users, Brain, FolderOpen, ChevronRight
+    Users, FolderOpen, ChevronRight, TrendingUp
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -37,8 +37,8 @@ const moreSections = [
     {
         label: 'TOOLS',
         items: [
-            { href: '/ai',      icon: Brain,     label: 'AI Chat' },
-            { href: '/profile', icon: Settings,  label: 'Settings' },
+            { href: '/forecast', icon: TrendingUp, label: 'Forecast' },
+            { href: '/profile',  icon: Settings,   label: 'Settings' },
         ],
     },
 ];

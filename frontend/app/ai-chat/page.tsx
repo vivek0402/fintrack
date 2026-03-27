@@ -27,11 +27,35 @@ export default function AiChatPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.visualViewport) {
+                const keyboardH = window.innerHeight - window.visualViewport.height;
+                setKeyboardHeight(Math.max(0, keyboardH));
+            }
+        };
+        window.visualViewport?.addEventListener('resize', handleResize);
+        window.visualViewport?.addEventListener('scroll', handleResize);
+        return () => {
+            window.visualViewport?.removeEventListener('resize', handleResize);
+            window.visualViewport?.removeEventListener('scroll', handleResize);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (keyboardHeight > 0) {
+            setTimeout(() => {
+                bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, 150);
+        }
+    }, [keyboardHeight]);
 
     const sendMessage = async (text: string) => {
         if (!text.trim() || loading) return;
@@ -83,7 +107,7 @@ export default function AiChatPage() {
                 </div>
 
                 {/* Messages area */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '12px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: keyboardHeight > 0 ? `calc(80px + ${keyboardHeight}px)` : 'calc(80px + env(safe-area-inset-bottom))' }}>
                     {messages.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px' }}>
                             <div style={{ textAlign: 'center' }}>
@@ -160,7 +184,18 @@ export default function AiChatPage() {
                 </div>
 
                 {/* Input bar */}
-                <div style={{ flexShrink: 0, paddingTop: '12px', borderTop: '1px solid var(--bg-border)' }}>
+                <div style={{
+                    position: 'fixed',
+                    bottom: keyboardHeight + 'px',
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    backgroundColor: 'var(--bg-primary)',
+                    borderTop: '1px solid var(--bg-border)',
+                    padding: '12px 16px',
+                    paddingBottom: keyboardHeight > 0 ? '12px' : 'calc(12px + env(safe-area-inset-bottom))',
+                    transition: 'bottom 0.15s ease',
+                }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                         <textarea
                             value={input}
