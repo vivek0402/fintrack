@@ -33,17 +33,21 @@ export default function PersonalityPage() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [generated, setGenerated] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     const generate = async () => {
         setLoading(true);
+        setError('');
         try {
             const res = await aiAPI.personality();
             setData(res.data);
             setGenerated(true);
-        } catch {
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err?.response?.data?.error;
+            setError(msg || 'Failed to generate profile. Please try again.');
             setData(null);
         } finally {
             setLoading(false);
@@ -83,6 +87,11 @@ export default function PersonalityPage() {
                     {generated ? '🔄 Regenerate' : '✨ Analyse My Personality'}
                 </Button>
             </div>
+            {error && (
+                <div style={{ backgroundColor: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', padding: '10px 14px', fontSize: '0.85rem', color: '#f87171', marginBottom: '16px' }}>
+                    {error}
+                </div>
+            )}
 
             {!generated && !loading && (
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '60px', textAlign: 'center' }}>

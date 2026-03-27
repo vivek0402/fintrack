@@ -188,23 +188,112 @@ Financial data: ${context}`,
 
 // ─── FEATURE 2: AI Chat ─────────────────────────────────────────────
 router.post('/chat', authMiddleware, async (req, res) => {
-    const { message } = req.body;
+    const { message, history = [] } = req.body;
     if (!message) return res.status(400).json({ error: 'Message is required' });
 
     try {
+        const userId = req.user.id;
+
+        // Fetch real financial context in parallel
+        const [txResult, budgetResult, goalResult, categoryResult] = await Promise.all([
+            pool.query(`
+                SELECT t.amount, t.type, t.date, t.description,
+                    COALESCE(c.name, 'Uncategorized') as category
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '60 days'
+                ORDER BY t.date DESC LIMIT 100
+            `, [userId]),
+            pool.query(`
+                SELECT c.name as category, b.amount as budget_limit,
+                    COALESCE(SUM(t.amount), 0) as spent
+                FROM budgets b
+                JOIN categories c ON c.id = b.category_id
+                LEFT JOIN transactions t ON t.category_id = b.category_id
+                    AND t.user_id = $1 AND t.type = 'expense'
+                    AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
+                WHERE b.user_id = $1
+                    AND b.month = EXTRACT(MONTH FROM NOW())
+                    AND b.year = EXTRACT(YEAR FROM NOW())
+                GROUP BY c.name, b.amount
+            `, [userId]),
+            pool.query(
+                `SELECT name, target_amount, saved_amount, deadline FROM savings_goals WHERE user_id = $1`,
+                [userId]
+            ),
+            pool.query(`
+                SELECT COALESCE(c.name, 'Uncategorized') as category,
+                    SUM(t.amount) as total, COUNT(*) as count
+                FROM transactions t
+                LEFT JOIN categories c ON c.id = t.category_id
+                WHERE t.user_id = $1 AND t.type = 'expense'
+                    AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
+                GROUP BY COALESCE(c.name, 'Uncategorized')
+                ORDER BY total DESC LIMIT 8
+            `, [userId]),
+        ]);
+
+        const txns = txResult.rows;
+        const now = new Date();
+        const thisMonth = txns.filter(t => {
+            const d = new Date(t.date);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        const monthIncome = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
+        const monthExpenses = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+        const monthNet = monthIncome - monthExpenses;
+        const savingsRate = monthIncome > 0 ? ((monthNet / monthIncome) * 100).toFixed(1) : 0;
+
+        const budgets = budgetResult.rows;
+        const overBudget = budgets.filter(b => Number(b.spent) > Number(b.budget_limit));
+        const goals = goalResult.rows;
+        const categories = categoryResult.rows;
+
+        const systemPrompt = `You are a personal AI financial advisor for an Indian user.
+You have FULL ACCESS to their real financial data. Always use specific numbers from this data. Never give generic advice.
+
+=== THIS MONTH (${now.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}) ===
+Income:       ₹${Math.round(monthIncome).toLocaleString('en-IN')}
+Expenses:     ₹${Math.round(monthExpenses).toLocaleString('en-IN')}
+Net:          ₹${Math.round(monthNet).toLocaleString('en-IN')}
+Savings Rate: ${savingsRate}%
+
+=== TOP SPENDING CATEGORIES THIS MONTH ===
+${categories.map(c => `${c.category}: ₹${Math.round(Number(c.total)).toLocaleString('en-IN')} (${c.count} transactions)`).join('\n') || 'No expenses this month'}
+
+=== BUDGET STATUS ===
+${budgets.length > 0 ? budgets.map(b => `${b.category}: ₹${Math.round(Number(b.spent)).toLocaleString('en-IN')} of ₹${Math.round(Number(b.budget_limit)).toLocaleString('en-IN')}${Number(b.spent) > Number(b.budget_limit) ? ' ⚠️ OVER BUDGET' : ''}`).join('\n') : 'No budgets set'}
+
+=== OVER BUDGET ===
+${overBudget.length > 0 ? overBudget.map(b => `${b.category}: ₹${Math.round(Number(b.spent) - Number(b.budget_limit)).toLocaleString('en-IN')} over`).join('\n') : 'All within budget'}
+
+=== FINANCIAL GOALS ===
+${goals.length > 0 ? goals.map(g => `${g.name}: ₹${Math.round(Number(g.saved_amount)).toLocaleString('en-IN')} saved of ₹${Math.round(Number(g.target_amount)).toLocaleString('en-IN')}${g.deadline ? ` (deadline: ${g.deadline})` : ''}`).join('\n') : 'No goals set'}
+
+=== RECENT TRANSACTIONS (last 60 days, ${txns.length} total) ===
+${txns.slice(0, 30).map(t => `${String(t.date).slice(0, 10)} | ${t.type === 'income' ? '+' : '-'}₹${Math.round(Number(t.amount)).toLocaleString('en-IN')} | ${t.category} | ${t.description || ''}`).join('\n')}
+
+=== INSTRUCTIONS ===
+- Reference specific numbers from the data above — never guess or make up figures
+- Keep responses to 3-5 sentences unless detail is asked for
+- Use ₹ and Indian number format
+- Today: ${now.toLocaleDateString('en-IN')}`;
+
         const reply = await chatCompletion([
-            {
-                role: 'system',
-                content: `You are a helpful financial advisor for an Indian personal finance app called FinTrack. Give clear, practical advice. Keep responses concise and relevant to personal finance. Use INR (₹) for currency.`,
-            },
+            { role: 'system', content: systemPrompt },
+            ...history.slice(-6),
             { role: 'user', content: message },
-        ], { model: 'quality', maxTokens: 1500, temperature: 0.4 });
+        ], { model: 'quality', maxTokens: 600, temperature: 0.3 });
+
         res.json({ reply });
     } catch (err) {
         console.error('Groq chat error:', err?.message || err);
-        return res.status(500).json({
-            error: 'AI service temporarily unavailable',
-            message: err?.message || 'Unknown error',
+        const is429 = err?.status === 429 || err?.response?.status === 429;
+        res.status(500).json({
+            error: is429
+                ? 'AI is taking a short break due to high usage. Please wait a few minutes and try again.'
+                : 'Failed to get AI response',
+            message: err?.message,
         });
     }
 });
@@ -421,78 +510,118 @@ Base percentages and amounts on their actual spending. Data: ${context}`,
 // ─── FEATURE: Financial Personality Profile ─────────────────────────
 router.post('/personality', authMiddleware, async (req, res) => {
     try {
+        console.log('Personality route hit for user:', req.user.id);
         const userId = req.user.id;
-
-        const [txRes, budgetRes, goalRes] = await Promise.all([
-            pool.query(
-                `SELECT t.*, c.name as category_name
-                 FROM transactions t
-                 LEFT JOIN categories c ON t.category_id = c.id
-                 WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '90 days'
-                 ORDER BY t.date DESC`,
-                [userId]
-            ),
-            pool.query(
-                `SELECT b.*, c.name as category_name FROM budgets b
-                 LEFT JOIN categories c ON b.category_id = c.id
-                 WHERE b.user_id = $1`,
-                [userId]
-            ),
-            pool.query('SELECT * FROM savings_goals WHERE user_id = $1', [userId]),
-        ]);
-
-        const transactions = txRes.rows;
-        const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0);
-        const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
-
-        const context = JSON.stringify({
-            transactionCount: transactions.length,
-            totalIncome,
-            totalExpenses,
-            savingsRate: totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(1) : 0,
-            transactions: transactions.slice(0, 50).map(t => ({
-                type: t.type, amount: parseFloat(t.amount), category: t.category_name, date: t.date,
-            })),
-            budgetsSet: budgetRes.rows.length,
-            goalsSet: goalRes.rows.length,
-            goalsProgress: goalRes.rows.map(g => ({
-                target: parseFloat(g.target_amount),
-                saved: parseFloat(g.saved_amount),
-                pct: g.target_amount > 0 ? (parseFloat(g.saved_amount) / parseFloat(g.target_amount) * 100).toFixed(0) : 0,
-            })),
-        });
 
         if (!req.query.force) {
             const cached = await getCached(pool, userId, 'personality');
             if (cached) return res.json({ ...cached, from_cache: true });
         }
 
-        const text = (await chatCompletion([{
-            role: 'user',
-            content: `Analyse this user's last 90 days of financial data and score them across 5 dimensions.
-Return ONLY valid JSON (no markdown):
+        const result = await pool.query(`
+            SELECT t.amount, t.type, t.date,
+                COALESCE(c.name, 'Uncategorized') as category
+            FROM transactions t
+            LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '90 days'
+            ORDER BY t.date DESC LIMIT 200
+        `, [userId]);
+
+        console.log('Transactions fetched:', result.rows.length);
+
+        if (result.rows.length < 3) {
+            return res.status(400).json({
+                error: 'Not enough data',
+                message: 'Add at least a few transactions before generating your personality profile.',
+            });
+        }
+
+        const txns = result.rows;
+        const expensesByCategory = {};
+        let totalExpenses = 0;
+        let totalIncome = 0;
+
+        txns.forEach(t => {
+            if (t.type === 'expense') {
+                expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + Number(t.amount);
+                totalExpenses += Number(t.amount);
+            } else {
+                totalIncome += Number(t.amount);
+            }
+        });
+
+        const topCategories = Object.entries(expensesByCategory)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([cat, amt]) => ({
+                category: cat,
+                amount: Math.round(amt),
+                percentage: totalExpenses > 0 ? ((amt / totalExpenses) * 100).toFixed(1) : 0,
+            }));
+
+        const savingsRate = totalIncome > 0
+            ? (((totalIncome - totalExpenses) / totalIncome) * 100).toFixed(1) : 0;
+
+        const prompt = `Analyse this person's spending and create a financial personality profile.
+
+SPENDING DATA (last 90 days):
+Total Income:      ₹${Math.round(totalIncome).toLocaleString('en-IN')}
+Total Expenses:    ₹${Math.round(totalExpenses).toLocaleString('en-IN')}
+Savings Rate:      ${savingsRate}%
+Transaction Count: ${txns.length}
+
+TOP SPENDING CATEGORIES:
+${topCategories.map(c => `${c.category}: ₹${c.amount.toLocaleString('en-IN')} (${c.percentage}%)`).join('\n')}
+
+Return ONLY valid JSON with NO markdown, NO backticks:
 {
-  "personality_type": "e.g. Cautious Saver / Balanced Planner / Impulsive Spender / Strategic Investor / etc.",
-  "personality_emoji": "single emoji",
-  "overall_score": number (0-100),
-  "dimensions": {
-    "consistency": { "score": number, "label": string, "description": "2 sentences" },
-    "discipline": { "score": number, "label": string, "description": "2 sentences" },
-    "goal_focus": { "score": number, "label": string, "description": "2 sentences" },
-    "risk_appetite": { "score": number, "label": string, "description": "2 sentences" },
-    "savings_habit": { "score": number, "label": string, "description": "2 sentences" }
-  },
-  "summary": "2-3 sentence overall profile summary"
-}
-Data: ${context}`,
-        }], { model: 'quality', maxTokens: 1500, temperature: 0.4 })).trim();
-        const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(jsonStr);
-        await setCached(pool, userId, 'personality', parsed);
-        res.json({ ...parsed, from_cache: false });
+  "personality_type": "<2-3 word type e.g. The Mindful Spender>",
+  "tagline": "<one sentence description>",
+  "traits": [
+    { "trait": "<trait name>", "description": "<1 sentence>", "score": <1-10> }
+  ],
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "areas_to_improve": ["<area 1>", "<area 2>"],
+  "spending_style": "<2-3 sentences using real numbers>",
+  "saving_style": "<1-2 sentences about saving behaviour>",
+  "tip": "<one highly specific actionable tip based on their top spending category>"
+}`;
+
+        console.log('Sending to Groq...');
+
+        const raw = await chatCompletion(
+            [{ role: 'user', content: prompt }],
+            { model: 'quality', maxTokens: 1200, temperature: 0.5 }
+        );
+
+        console.log('Groq response received. Preview:', raw.slice(0, 200));
+
+        const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+        let personality;
+        try {
+            personality = JSON.parse(clean);
+        } catch (parseErr) {
+            console.error('JSON parse error:', parseErr.message);
+            console.error('Raw was:', raw);
+            return res.status(500).json({
+                error: 'Failed to parse personality response',
+                raw: clean.slice(0, 500),
+            });
+        }
+
+        console.log('Personality generated successfully');
+        await setCached(pool, userId, 'personality', personality);
+        res.json({ ...personality, from_cache: false });
     } catch (err) {
-        console.error('AI personality error:', err.message);
-        res.status(500).json({ error: 'Could not generate personality profile.' });
+        console.error('Personality generation error:', err?.message || err);
+        const is429 = err?.status === 429 || err?.response?.status === 429;
+        res.status(500).json({
+            error: is429
+                ? 'AI is busy. Please wait a few minutes and try again.'
+                : 'Failed to generate personality profile',
+            message: err?.message,
+        });
     }
 });
 
