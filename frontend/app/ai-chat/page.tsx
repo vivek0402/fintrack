@@ -3,14 +3,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, Sparkles } from 'lucide-react';
+import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
-import { aiAPI } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
 
+const HEADER_H = 64;
+const INPUT_H  = 64;
+const NAV_H    = 64;
+
 interface Message {
-    role: 'user' | 'ai';
+    role: 'user' | 'assistant';
     content: string;
 }
 
@@ -24,57 +29,48 @@ const SUGGESTIONS = [
 export default function AiChatPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const isMobile = useIsMobile();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [keyboardOffset, setKeyboardOffset] = useState(0);
-    const bottomRef = useRef<HTMLDivElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const inputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
-
     useEffect(() => {
-        const viewport = window.visualViewport;
-        if (!viewport) return;
-        const handleViewportChange = () => {
-            const offset = window.innerHeight - viewport.height - viewport.offsetTop;
-            setKeyboardOffset(Math.max(0, offset));
-        };
-        viewport.addEventListener('resize', handleViewportChange);
-        viewport.addEventListener('scroll', handleViewportChange);
-        return () => {
-            viewport.removeEventListener('resize', handleViewportChange);
-            viewport.removeEventListener('scroll', handleViewportChange);
-        };
-    }, []);
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, loading]);
 
+    // Auto-resize textarea
     useEffect(() => {
-        if (keyboardOffset > 0) {
-            setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-        }
-    }, [keyboardOffset]);
+        if (!inputRef.current) return;
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+    }, [input]);
 
-    const sendMessage = async (text: string) => {
-        if (!text.trim() || loading) return;
-        const userMsg: Message = { role: 'user', content: text.trim() };
+    const handleSend = async (text: string) => {
+        const trimmed = text.trim();
+        if (!trimmed || loading) return;
+        const userMsg: Message = { role: 'user', content: trimmed };
         const newMessages = [...messages, userMsg];
         setMessages(newMessages);
         setInput('');
         setLoading(true);
         try {
-            const res = await aiAPI.chat(text.trim(), []);
+            const token = localStorage.getItem('fintrack_token');
+            const res = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/ai/chat`,
+                { message: trimmed, history: [] },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             const reply = res.data.reply;
             if (!reply) throw new Error('No reply');
-            setMessages([...newMessages, { role: 'ai', content: reply }]);
+            setMessages([...newMessages, { role: 'assistant', content: reply }]);
         } catch (err: any) {
             const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
             const displayMsg = serverMsg || "I'm having trouble connecting right now. Please try again.";
-            setMessages([...newMessages, { role: 'ai', content: displayMsg }]);
+            setMessages([...newMessages, { role: 'assistant', content: displayMsg }]);
         } finally {
             setLoading(false);
         }
@@ -92,145 +88,239 @@ export default function AiChatPage() {
         </AppLayout>
     );
 
+    const leftOffset = isMobile ? '0' : '220px';
+
+    // Input bar: always glued above BottomNav on mobile, at page bottom on desktop
+    const inputBarBottom = isMobile
+        ? 'calc(64px + env(safe-area-inset-bottom))'
+        : '0';
+
+    // Messages area: fills space between header and input bar
+    const messagesBottom = isMobile
+        ? `calc(${INPUT_H + NAV_H}px + env(safe-area-inset-bottom))`
+        : `${INPUT_H}px`;
+
     return (
         <AppLayout>
-            <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxWidth: '720px', margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ marginBottom: '16px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Sparkles size={18} color="var(--accent-blue)" />
-                        </div>
-                        <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>AI Finance Advisor</h1>
-                            </div>
-                            <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Ask anything about your finances</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Messages area */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: keyboardOffset > 0 ? `calc(80px + ${keyboardOffset}px)` : 'calc(140px + env(safe-area-inset-bottom))' }}>
-                    {messages.length === 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '20px', color: 'white' }}>✦</div>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>Ask me anything about your spending, budgets, or goals.</p>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '480px' }}>
-                                {SUGGESTIONS.map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => sendMessage(s)}
-                                        style={{ padding: '8px 16px', background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '20px', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'border-color 150ms, color 150ms' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
-                                    >
-                                        {s}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        messages.map((msg, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                                {msg.role === 'ai' ? (
-                                    <AIResponseCard
-                                        message={msg.content}
-                                        type="chat"
-                                        onAction={route => router.push(route)}
-                                        style={{ maxWidth: '85%', width: '100%' }}
-                                    />
-                                ) : (
-                                    <div style={{
-                                        maxWidth: '75%',
-                                        padding: '10px 14px',
-                                        borderRadius: '14px 14px 4px 14px',
-                                        background: 'var(--accent-blue)',
-                                        color: '#fff',
-                                        fontSize: '0.875rem',
-                                        lineHeight: 1.55,
-                                        whiteSpace: 'pre-wrap',
-                                    }}>
-                                        {msg.content}
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    )}
-
-                    {/* Typing indicator */}
-                    {loading && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                            <div style={{
-                                background: 'var(--bg-card)',
-                                border: '0.5px solid var(--bg-border)',
-                                borderLeft: '3px solid var(--accent-blue)',
-                                borderRadius: '12px',
-                                padding: '14px 16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                            }}>
-                                {[0, 1, 2].map(j => (
-                                    <div key={j} style={{
-                                        width: '6px', height: '6px',
-                                        borderRadius: '50%',
-                                        background: 'var(--accent-blue)',
-                                        animation: `typingDot 1.2s ease-in-out ${j * 0.2}s infinite`,
-                                    }} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    <div ref={bottomRef} />
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input bar */}
+            {/* Fixed Header */}
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: leftOffset,
+                right: 0,
+                height: `${HEADER_H}px`,
+                zIndex: 300,
+                backgroundColor: 'var(--bg-primary)',
+                borderBottom: '1px solid var(--bg-border)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 16px',
+                gap: '10px',
+            }}>
                 <div style={{
-                    position: 'fixed',
-                    bottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 'calc(64px + env(safe-area-inset-bottom))',
-                    left: 0,
-                    right: 0,
-                    zIndex: 200,
-                    backgroundColor: 'var(--bg-primary)',
-                    borderTop: '1px solid var(--bg-border)',
-                    padding: '12px 16px',
-                    transition: 'bottom 0.1s ease',
+                    width: '36px', height: '36px', borderRadius: '10px',
+                    background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                        <textarea
-                            value={input}
-                            onChange={e => setInput(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    sendMessage(input);
-                                }
-                            }}
-                            placeholder="Ask about your finances…"
-                            rows={1}
-                            style={{ flex: 1, padding: '12px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '12px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', resize: 'none', lineHeight: 1.5 }}
-                        />
-                        <button
-                            onClick={() => sendMessage(input)}
-                            disabled={loading || !input.trim()}
-                            style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--accent-blue)', border: 'none', color: '#fff', cursor: loading || !input.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: loading || !input.trim() ? 0.5 : 1, transition: 'opacity 0.15s' }}
-                        >
-                            <Send size={16} />
-                        </button>
+                    <Sparkles size={18} color="var(--accent-blue)" />
+                </div>
+                <div>
+                    <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                        AI Finance Advisor
                     </div>
-                    {!isMobile && (
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', margin: '6px 0 0 4px' }}>Press Enter to send · Shift+Enter for new line</p>
-                    )}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                        Ask anything about your finances
+                    </div>
                 </div>
             </div>
 
-            <style>{`
-                @keyframes spin { to { transform: rotate(360deg); } }
-            `}</style>
+            {/* Scrollable Messages Area */}
+            <div style={{
+                position: 'fixed',
+                top: `${HEADER_H}px`,
+                left: leftOffset,
+                right: 0,
+                bottom: messagesBottom,
+                overflowY: messages.length === 0 ? 'hidden' : 'auto',
+                overflowX: 'hidden',
+                WebkitOverflowScrolling: messages.length === 0 ? 'unset' : 'touch',
+                padding: '16px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+            }}>
+                {messages.length === 0 ? (
+                    <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px',
+                    }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                                width: '52px', height: '52px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 12px', fontSize: '22px', color: 'white',
+                            }}>✦</div>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+                                Ask me anything about your spending, budgets, or goals.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '480px' }}>
+                            {SUGGESTIONS.map(s => (
+                                <button
+                                    key={s}
+                                    onClick={() => handleSend(s)}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: 'var(--bg-card)',
+                                        border: '0.5px solid var(--bg-border)',
+                                        borderRadius: '20px',
+                                        color: 'var(--text-secondary)',
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                        fontFamily: 'DM Sans, sans-serif',
+                                        transition: 'border-color 150ms, color 150ms',
+                                    }}
+                                    onMouseEnter={e => {
+                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    messages.map((msg, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
+                            {msg.role === 'assistant' && (
+                                <div style={{
+                                    width: '28px', height: '28px', borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '13px', color: 'white', flexShrink: 0, marginBottom: '2px',
+                                }}>✦</div>
+                            )}
+                            {msg.role === 'assistant' ? (
+                                <AIResponseCard
+                                    message={msg.content}
+                                    type="chat"
+                                    onAction={route => router.push(route)}
+                                    style={{ maxWidth: '85%', width: '100%' }}
+                                />
+                            ) : (
+                                <div style={{
+                                    maxWidth: '75%',
+                                    padding: '10px 14px',
+                                    borderRadius: '18px 18px 4px 18px',
+                                    background: 'var(--accent-blue)',
+                                    color: '#fff',
+                                    fontSize: '0.875rem',
+                                    lineHeight: 1.55,
+                                    whiteSpace: 'pre-wrap',
+                                }}>
+                                    {msg.content}
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
+
+                {/* Typing indicator */}
+                {loading && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
+                        <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '13px', color: 'white', flexShrink: 0,
+                        }}>✦</div>
+                        <div style={{
+                            background: 'var(--bg-card)',
+                            border: '0.5px solid var(--bg-border)',
+                            borderRadius: '18px 18px 18px 4px',
+                            padding: '12px 16px',
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                        }}>
+                            {[0, 1, 2].map(j => (
+                                <div key={j} style={{
+                                    width: '7px', height: '7px',
+                                    borderRadius: '50%',
+                                    background: 'var(--accent-blue)',
+                                    animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite`,
+                                }} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
+
+            {/* Fixed Input Bar — always above BottomNav, never moves */}
+            <div style={{
+                position: 'fixed',
+                bottom: inputBarBottom,
+                left: leftOffset,
+                right: 0,
+                height: `${INPUT_H}px`,
+                zIndex: 200,
+                backgroundColor: 'var(--bg-primary)',
+                borderTop: '1px solid var(--bg-border)',
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '8px',
+            }}>
+                <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend(input);
+                        }
+                    }}
+                    placeholder="Ask about your finances…"
+                    rows={1}
+                    style={{
+                        flex: 1,
+                        padding: '9px 14px',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--bg-border)',
+                        borderRadius: '22px',
+                        fontSize: '0.875rem',
+                        fontFamily: 'DM Sans, sans-serif',
+                        outline: 'none',
+                        resize: 'none',
+                        lineHeight: 1.5,
+                        maxHeight: '120px',
+                        overflowY: 'auto',
+                    }}
+                />
+                <button
+                    onClick={() => handleSend(input)}
+                    disabled={loading || !input.trim()}
+                    style={{
+                        width: '40px', height: '40px', borderRadius: '50%',
+                        background: 'var(--accent-blue)',
+                        border: 'none', color: '#fff',
+                        cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                        opacity: loading || !input.trim() ? 0.45 : 1,
+                        transition: 'opacity 0.15s',
+                    }}
+                >
+                    <Send size={16} />
+                </button>
+            </div>
         </AppLayout>
     );
 }
