@@ -717,11 +717,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                         <div
                             onClick={() => setCalOpen(o => !o)}
                             style={{
-                                backgroundColor: '#0a0f1e',
-                                border: '1px solid #1e2d4a',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--bg-border)',
                                 borderRadius: '8px',
                                 padding: '10px 12px',
-                                color: selectedDate ? '#f0f4ff' : '#4a5568',
+                                color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)',
                                 fontSize: '14px',
                                 cursor: 'pointer',
                                 display: 'flex',
@@ -729,6 +729,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                 justifyContent: 'space-between',
                                 boxSizing: 'border-box',
                                 userSelect: 'none',
+                                width: '100%',
                             }}
                         >
                             <span>
@@ -737,7 +738,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                     : 'Select a date'}
                             </span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                stroke="#8892aa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                style={{ stroke: 'var(--text-secondary)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                 <line x1="16" y1="2" x2="16" y2="6" />
                                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -759,11 +760,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                 width: '100%',
                                 minWidth: '300px',
                                 zIndex: 9999,
-                                backgroundColor: '#0a0f1e',
-                                border: '1px solid #1e2d4a',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--bg-border)',
                                 borderRadius: '12px',
                                 padding: '16px',
-                                boxShadow: '0 -8px 32px rgba(0,0,0,0.6)',
+                                boxShadow: '0 -8px 32px rgba(0,0,0,0.5)',
                                 boxSizing: 'border-box',
                             }}>
 
@@ -771,21 +772,21 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                     <button
                                         onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y-- } setCalMonth(m); setCalYear(y) }}
-                                        style={{ background: 'none', border: 'none', color: '#8892aa', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
+                                        style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
                                     >‹</button>
-                                    <span style={{ color: '#f0f4ff', fontWeight: 600, fontSize: '14px' }}>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px' }}>
                                         {MONTHS[calMonth]} {calYear}
                                     </span>
                                     <button
                                         onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++ } setCalMonth(m); setCalYear(y) }}
-                                        style={{ background: 'none', border: 'none', color: '#8892aa', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
+                                        style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
                                     >›</button>
                                 </div>
 
                                 {/* Weekday headers */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
                                     {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                                        <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: '#4a5568', fontWeight: 500, padding: '4px 0' }}>
+                                        <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0' }}>
                                             {d}
                                         </div>
                                     ))}
@@ -814,14 +815,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                                     fontSize: '13px',
                                                     cursor: 'pointer',
                                                     margin: '0 auto',
-                                                    backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-                                                    color: isSelected ? '#ffffff' : isOtherMonth ? '#2a3550' : '#8892aa',
-                                                    outline: (!isSelected && isToday) ? '2px solid #3b82f6' : 'none',
+                                                    backgroundColor: isSelected ? 'var(--accent-blue)' : 'transparent',
+                                                    color: isSelected ? '#fff' : 'var(--text-secondary)',
+                                                    opacity: isOtherMonth && !isSelected ? 0.4 : 1,
+                                                    outline: (!isSelected && isToday) ? '2px solid var(--accent-blue)' : 'none',
                                                     outlineOffset: '-2px',
                                                     transition: 'background-color 0.1s',
                                                 }}
                                                 onMouseEnter={e => {
-                                                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = '#1a2540'
+                                                    if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-hover)'
                                                 }}
                                                 onMouseLeave={e => {
                                                     if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'

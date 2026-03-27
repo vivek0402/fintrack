@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Plus, Search, Download, Sparkles, X, CalendarDays, ChevronDown } from 'lucide-react';
@@ -46,6 +47,9 @@ function TransactionsPageInner() {
     const [placeholderIdx, setPlaceholderIdx] = useState(0);
     const [earliestYear, setEarliestYear] = useState(NOW_YEAR);
     const [earliestMonth, setEarliestMonth] = useState(1);
+    const filterBtnRef = useRef<HTMLButtonElement>(null);
+    const filterPopoverRef = useRef<HTMLDivElement>(null);
+    const [filterPos, setFilterPos] = useState({ top: 0, left: 0 });
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -143,8 +147,31 @@ function TransactionsPageInner() {
     const openMonthSheet = () => {
         setPendingMonth(selectedMonth);
         setPendingYear(selectedYear);
+        if (filterBtnRef.current) {
+            const rect = filterBtnRef.current.getBoundingClientRect();
+            setFilterPos({
+                top: rect.bottom + window.scrollY + 8,
+                left: rect.left + window.scrollX,
+            });
+        }
         setShowMonthSheet(true);
     };
+
+    // Close filter popover on outside click
+    useEffect(() => {
+        if (!showMonthSheet) return;
+        const handler = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (
+                filterPopoverRef.current && !filterPopoverRef.current.contains(target) &&
+                filterBtnRef.current && !filterBtnRef.current.contains(target)
+            ) {
+                setShowMonthSheet(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showMonthSheet]);
 
     const applyMonthFilter = () => {
         setSelectedMonth(pendingMonth);
@@ -277,7 +304,7 @@ function TransactionsPageInner() {
                                 {t === 'all' ? 'All' : t}
                             </button>
                         ))}
-                        <button onClick={openMonthSheet} style={monthChipStyle(!!selectedMonth)}>
+                        <button ref={filterBtnRef} onClick={openMonthSheet} style={monthChipStyle(!!selectedMonth)}>
                             <CalendarDays size={12} />
                             {filterLabel}
                             <ChevronDown size={11} />
@@ -299,7 +326,7 @@ function TransactionsPageInner() {
                             </button>
                         ))}
                     </div>
-                    <button onClick={openMonthSheet} style={{ padding: '8px 12px', borderRadius: '10px', border: selectedMonth ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)', background: selectedMonth ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: selectedMonth ? 'var(--accent-blue)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif', transition: 'all var(--transition-fast)' }}>
+                    <button ref={filterBtnRef} onClick={openMonthSheet} style={{ padding: '8px 12px', borderRadius: '10px', border: selectedMonth ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)', background: selectedMonth ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: selectedMonth ? 'var(--accent-blue)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif', transition: 'all var(--transition-fast)' }}>
                         <CalendarDays size={14} />
                         {filterLabel}
                         <ChevronDown size={13} />
@@ -320,86 +347,85 @@ function TransactionsPageInner() {
 
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
 
-            {/* Month + Year filter dialog */}
-            {showMonthSheet && (
+            {/* Month + Year filter popover — portal, anchored below the filter button */}
+            {showMonthSheet && typeof document !== 'undefined' && createPortal(
                 <div
-                    onClick={e => { if (e.target === e.currentTarget) setShowMonthSheet(false); }}
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
-                >
-                    <div style={{
-                        background: 'var(--bg-card)',
+                    ref={filterPopoverRef}
+                    style={{
+                        position: 'absolute',
+                        top: filterPos.top,
+                        left: filterPos.left,
+                        zIndex: 1000,
+                        width: '280px',
+                        backgroundColor: 'var(--bg-card)',
                         border: '1px solid var(--bg-border)',
                         borderRadius: '16px',
-                        width: '100%',
-                        maxWidth: '400px',
-                        padding: '20px 16px',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-                        maxHeight: '90vh',
-                        overflowY: 'auto',
-                    }}>
-                        {/* Sheet header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>Filter by period</span>
-                            <button onClick={() => setShowMonthSheet(false)} style={{ background: 'var(--bg-hover)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                <X size={14} />
-                            </button>
-                        </div>
-
-                        {/* Section 1 — Year pills */}
-                        <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px 0' }}>Year</p>
-                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '4px', marginBottom: '20px' }}>
-                            {Array.from({ length: NOW_YEAR - earliestYear + 1 }, (_, i) => earliestYear + i).map(yr => (
-                                <button key={yr} onClick={() => setPendingYear(yr)} style={{
-                                    padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
-                                    background: pendingYear === yr ? 'var(--accent-blue)' : 'var(--bg-hover)',
-                                    color: pendingYear === yr ? '#fff' : 'var(--text-secondary)',
-                                    fontSize: '14px', fontWeight: 600, flexShrink: 0,
-                                    fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
-                                }}>
-                                    {yr}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Section 2 — Month grid */}
-                        <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px 0' }}>Month</p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '20px' }}>
-                            {MONTHS_SHORT.map((name, idx) => {
-                                const m = idx + 1;
-                                const isFuture = pendingYear === NOW_YEAR && m > NOW_MONTH;
-                                const isPast = pendingYear === earliestYear && m < earliestMonth;
-                                const isSelected = pendingMonth === m;
-                                return (
-                                    <button
-                                        key={m}
-                                        onClick={() => !isFuture && !isPast && setPendingMonth(m)}
-                                        style={{
-                                            borderRadius: '10px', padding: '10px 0', textAlign: 'center',
-                                            fontSize: '13px', fontWeight: 500, cursor: (isFuture || isPast) ? 'not-allowed' : 'pointer',
-                                            border: 'none',
-                                            background: isSelected ? 'var(--accent-blue)' : 'var(--bg-hover)',
-                                            color: isSelected ? '#fff' : 'var(--text-secondary)',
-                                            opacity: (isFuture || isPast) ? 0.4 : 1,
-                                            fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
-                                        }}
-                                    >
-                                        {name}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        {/* Section 3 — Action row */}
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button onClick={clearMonthFilter} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--bg-hover)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                                Clear
-                            </button>
-                            <button onClick={applyMonthFilter} style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'var(--accent-blue)', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                                Apply
-                            </button>
-                        </div>
+                        padding: '20px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    }}
+                >
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>Filter by period</span>
+                        <button onClick={() => setShowMonthSheet(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '2px' }}>
+                            <X size={15} />
+                        </button>
                     </div>
-                </div>
+
+                    {/* Year pills */}
+                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 8px 0' }}>Year</p>
+                    <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '4px', marginBottom: '16px' }}>
+                        {Array.from({ length: NOW_YEAR - earliestYear + 1 }, (_, i) => earliestYear + i).map(yr => (
+                            <button key={yr} onClick={() => setPendingYear(yr)} style={{
+                                padding: '4px 12px', borderRadius: '20px', border: 'none', cursor: 'pointer', flexShrink: 0,
+                                backgroundColor: pendingYear === yr ? 'var(--accent-blue)' : 'var(--bg-hover)',
+                                color: pendingYear === yr ? '#fff' : 'var(--text-secondary)',
+                                fontSize: '13px', fontWeight: 600, fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
+                            }}>
+                                {yr}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Month grid */}
+                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 8px 0' }}>Month</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '6px', marginBottom: '16px' }}>
+                        {MONTHS_SHORT.map((name, idx) => {
+                            const m = idx + 1;
+                            const isFuture = pendingYear === NOW_YEAR && m > NOW_MONTH;
+                            const isPast = pendingYear === earliestYear && m < earliestMonth;
+                            const isSelected = pendingMonth === m;
+                            return (
+                                <button
+                                    key={m}
+                                    onClick={() => !isFuture && !isPast && setPendingMonth(m)}
+                                    style={{
+                                        padding: '6px 0', textAlign: 'center', borderRadius: '20px',
+                                        fontSize: '13px', fontWeight: 500, border: 'none',
+                                        cursor: (isFuture || isPast) ? 'not-allowed' : 'pointer',
+                                        backgroundColor: isSelected ? 'var(--accent-blue)' : 'var(--bg-hover)',
+                                        color: isSelected ? '#fff' : 'var(--text-secondary)',
+                                        opacity: (isFuture || isPast) ? 0.3 : 1,
+                                        fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
+                                    }}
+                                >
+                                    {name}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={clearMonthFilter} style={{ flex: 1, padding: '8px 16px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--bg-hover)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                            Clear
+                        </button>
+                        <button onClick={applyMonthFilter} style={{ flex: 1, padding: '8px 16px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--accent-blue)', color: '#fff', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                            Apply
+                        </button>
+                    </div>
+                </div>,
+                document.body
             )}
 
             {/* Quick Add Modal */}
