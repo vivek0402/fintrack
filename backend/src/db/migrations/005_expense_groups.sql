@@ -3,7 +3,7 @@ ALTER TABLE transactions ADD COLUMN IF NOT EXISTS group_id INTEGER;
 
 CREATE TABLE IF NOT EXISTS expense_groups (
     id          SERIAL PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
     emoji       TEXT NOT NULL DEFAULT '👥',
     description TEXT,
