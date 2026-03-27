@@ -131,15 +131,17 @@ export default function AnalyticsPage() {
         return `rgba(${r},${g},${b},${alpha})`;
     };
 
-    const handleGeneratePlan = async () => {
+    const handleGeneratePlan = async (force?: boolean) => {
         setAllocationLoading(true);
         setAllocationError('');
         try {
-            const res = await aiAPI.salaryAllocation();
+            const res = await aiAPI.salaryAllocation(force);
             setAllocationPlan(res.data);
             setPlanGenerated(true);
-        } catch {
-            setAllocationError('Failed to generate plan. Please try again.');
+        } catch (err: any) {
+            setAllocationError(err?.response?.status === 429
+                ? 'AI is taking a short break due to high usage. Please try again in a few minutes.'
+                : 'Failed to generate plan. Please try again.');
         } finally {
             setAllocationLoading(false);
         }
@@ -262,11 +264,19 @@ export default function AnalyticsPage() {
                             <div>
                                 <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Salary Allocation Plan</p>
                                 <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '500px' }}>{allocationPlan.summary}</p>
+                                {allocationPlan.from_cache && (
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                                        Cached result · Updates every 6 hours
+                                        <span onClick={() => handleGeneratePlan(true)} style={{ color: 'var(--accent-blue)', cursor: 'pointer', marginLeft: '4px' }}>
+                                            Refresh now
+                                        </span>
+                                    </span>
+                                )}
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--accent-green)' }}>₹{Math.round(allocationPlan.salary).toLocaleString('en-IN')}</p>
                                 <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>monthly salary</p>
-                                <button onClick={handleGeneratePlan} style={{ marginTop: '8px', backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                                <button onClick={() => handleGeneratePlan(true)} style={{ marginTop: '8px', backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
                                     <RefreshCw size={12} />Regenerate
                                 </button>
                             </div>

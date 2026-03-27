@@ -71,8 +71,11 @@ export default function AiChatPage() {
             const reply = res.data.reply;
             if (!reply) throw new Error('No reply');
             setMessages([...newMessages, { role: 'ai', content: reply }]);
-        } catch {
-            setMessages([...newMessages, { role: 'ai', content: "I'm having trouble connecting right now. Please try again." }]);
+        } catch (err: any) {
+            const is429 = err?.response?.status === 429;
+            setMessages([...newMessages, { role: 'ai', content: is429
+                ? 'AI is taking a short break due to high usage. Please try again in a few minutes.'
+                : "I'm having trouble connecting right now. Please try again." }]);
         } finally {
             setLoading(false);
         }
