@@ -6,6 +6,7 @@ import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Check } from 'lucide
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { profileAPI } from '@/lib/api';
+import { BankAccountsSection } from '@/components/profile/BankAccountsSection';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -217,6 +218,7 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+            <BankAccountsSection />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );

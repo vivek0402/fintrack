@@ -51,6 +51,7 @@ app.use('/api/goals', require('./routes/goals'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/splits', require('./routes/splits'));
 app.use('/api/groups', require('./routes/groups'));
+app.use('/api/accounts', require('./routes/accounts'));
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

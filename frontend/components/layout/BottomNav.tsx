@@ -1,123 +1,286 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     CalendarDays, Target, Flag, FileText, RefreshCw, Settings, X, LogOut,
-    Users, Brain, CalendarClock
+    Users, Brain, Calculator, FolderOpen, ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
 const mainTabs = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-    { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
-    { href: '/analytics', icon: PieChart, label: 'Analytics' },
+    { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
+    { href: '/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
+    { href: '/analytics',    icon: PieChart,        label: 'Analytics' },
 ];
 
-const moreItems = [
-    { href: '/calendar',     icon: CalendarDays,  label: 'Calendar' },
-    { href: '/budgets',      icon: Target,        label: 'Budgets' },
-    { href: '/goals',        icon: Flag,          label: 'Goals' },
-    { href: '/reports',      icon: FileText,      label: 'Reports' },
-    { href: '/forecast',     icon: CalendarClock, label: 'Forecast' },
-    { href: '/personality',  icon: Brain,         label: 'Personality' },
-    { href: '/recurring',    icon: RefreshCw,     label: 'Recurring' },
-    { href: '/splits',       icon: Users,         label: 'Splits' },
-    { href: '/profile',      icon: Settings,      label: 'Settings' },
+const moreSections = [
+    {
+        label: 'FINANCE',
+        items: [
+            { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
+            { href: '/budgets',  icon: Target,       label: 'Budgets' },
+            { href: '/goals',    icon: Flag,         label: 'Goals' },
+            { href: '/reports',  icon: FileText,     label: 'Reports' },
+        ],
+    },
+    {
+        label: 'GROUPS & SPLITS',
+        items: [
+            { href: '/recurring', icon: RefreshCw,  label: 'Recurring' },
+            { href: '/groups',    icon: FolderOpen, label: 'Groups' },
+            { href: '/splits',    icon: Users,      label: 'Splits' },
+        ],
+    },
+    {
+        label: 'TOOLS',
+        items: [
+            { href: '/ai',           icon: Brain,      label: 'AI Chat' },
+            { href: '/tax-estimate', icon: Calculator, label: 'Tax Estimate' },
+            { href: '/profile',      icon: Settings,   label: 'Settings' },
+        ],
+    },
 ];
 
-const moreHrefs = moreItems.map(i => i.href);
+const moreHrefs = moreSections.flatMap(s => s.items.map(i => i.href));
+
+// Pre-compute stagger indices so they're stable across renders
+const sectionsWithIndex = (() => {
+    let idx = 0;
+    return moreSections.map(s => ({
+        ...s,
+        items: s.items.map(item => ({ ...item, staggerIdx: idx++ })),
+    }));
+})();
 
 export function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const { logout } = useAuthStore();
-    const [showMore, setShowMore] = useState(false);
+
+    const [moreOpen, setMoreOpen] = useState(false);
+    const [rendered, setRendered] = useState(false);
+    const [visible, setVisible] = useState(false);
 
     const isActive = (href: string) => pathname === href || pathname.startsWith(href);
     const moreActive = !isActive('/dashboard') && !isActive('/transactions') && !isActive('/analytics');
-    const isMoreActive = moreHrefs.includes(pathname);
+
+    // Mount / unmount with slide animation
+    useEffect(() => {
+        if (moreOpen) {
+            setRendered(true);
+            requestAnimationFrame(() => setVisible(true));
+        } else {
+            setVisible(false);
+            const t = setTimeout(() => setRendered(false), 300);
+            return () => clearTimeout(t);
+        }
+    }, [moreOpen]);
+
+    // Body scroll lock
+    useEffect(() => {
+        document.body.style.overflow = moreOpen ? 'hidden' : '';
+        return () => { document.body.style.overflow = ''; };
+    }, [moreOpen]);
 
     const handleMoreItemClick = (href: string) => {
-        setShowMore(false);
+        setMoreOpen(false);
         router.push(href);
     };
 
     const handleLogout = () => {
-        setShowMore(false);
+        setMoreOpen(false);
         logout();
         router.push('/login');
     };
 
     return (
         <>
-            {/* More bottom sheet overlay */}
-            {showMore && (
+            {/* Backdrop — blocks all background interaction */}
+            {rendered && (
                 <div
-                    onClick={() => setShowMore(false)}
+                    onClick={() => setMoreOpen(false)}
                     style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                        zIndex: 150, backdropFilter: 'blur(2px)',
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 998,
+                        backgroundColor: 'rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(2px)',
+                        WebkitBackdropFilter: 'blur(2px)',
+                        opacity: moreOpen ? 1 : 0,
+                        transition: 'opacity 0.2s ease',
+                        pointerEvents: moreOpen ? 'all' : 'none',
                     }}
                 />
             )}
 
-            {/* More bottom sheet panel */}
-            {showMore && (
+            {/* More sheet */}
+            {rendered && (
                 <div style={{
-                    position: 'fixed', left: 0, right: 0,
-                    bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
-                    background: 'var(--bg-secondary)',
-                    borderTop: '1px solid var(--bg-border)',
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 999,
+                    backgroundColor: 'var(--bg-card)',
                     borderRadius: '20px 20px 0 0',
-                    zIndex: 200,
-                    padding: '16px 16px 8px',
-                    boxShadow: '0 -8px 32px rgba(0,0,0,0.4)',
+                    borderTop: '1px solid var(--bg-border)',
+                    paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
+                    maxHeight: '85vh',
+                    overflowY: 'auto',
+                    transform: moreOpen ? 'translateY(0)' : 'translateY(100%)',
+                    opacity: moreOpen ? 1 : 0,
+                    transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
                 }}>
-                    {/* Sheet header */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>More</span>
+                    {/* Drag handle */}
+                    <div style={{
+                        width: '36px',
+                        height: '4px',
+                        borderRadius: '2px',
+                        backgroundColor: 'var(--bg-border)',
+                        margin: '12px auto 8px',
+                    }} />
+
+                    {/* Header */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '4px 20px 8px',
+                    }}>
+                        <span style={{
+                            fontSize: '16px',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            fontFamily: 'Sora, sans-serif',
+                        }}>
+                            More
+                        </span>
                         <button
-                            onClick={() => setShowMore(false)}
-                            style={{ background: 'var(--bg-hover)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                            onClick={() => setMoreOpen(false)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
                         >
-                            <X size={14} />
+                            <X size={20} />
                         </button>
                     </div>
 
-                    {/* Grid of items */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                        {moreItems.map(({ href, icon: Icon, label }) => {
-                            const isActive = pathname === href;
-                            return (
-                                <button
-                                    key={href}
-                                    onClick={() => handleMoreItemClick(href)}
-                                    style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-                                        padding: '14px 8px', borderRadius: '14px', border: 'none', cursor: 'pointer',
-                                        background: isActive ? 'var(--accent-blue-bg)' : 'var(--bg-card)',
-                                        color: isActive ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                                        transition: 'all 0.2s',
-                                    }}
-                                >
-                                    <Icon size={22} />
-                                    <span style={{ fontSize: '0.72rem', fontWeight: isActive ? 600 : 400 }}>{label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {/* Sections */}
+                    {sectionsWithIndex.map((section, sectionIdx) => (
+                        <div key={section.label}>
+                            {/* Section label */}
+                            <p style={{
+                                fontSize: '11px',
+                                color: 'var(--text-muted)',
+                                letterSpacing: '1px',
+                                padding: '4px 20px',
+                                marginTop: '8px',
+                                marginBottom: 0,
+                                fontFamily: 'DM Sans, sans-serif',
+                                fontWeight: 500,
+                            }}>
+                                {section.label}
+                            </p>
 
-                    {/* Logout row */}
-                    <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px' }}>
+                            {/* Item rows */}
+                            {section.items.map(({ href, icon: Icon, label, staggerIdx }) => {
+                                const active = pathname === href;
+                                return (
+                                    <button
+                                        key={href}
+                                        onClick={() => handleMoreItemClick(href)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '16px',
+                                            padding: '14px 20px',
+                                            borderRadius: '12px',
+                                            cursor: 'pointer',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            width: '100%',
+                                            opacity: visible ? 1 : 0,
+                                            transform: visible ? 'translateY(0)' : 'translateY(16px)',
+                                            transition: `background-color 0.15s, opacity 0.25s ease ${staggerIdx * 35}ms, transform 0.25s ease ${staggerIdx * 35}ms`,
+                                        }}
+                                    >
+                                        {/* Icon container */}
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '10px',
+                                            backgroundColor: active ? 'rgba(59,130,246,0.15)' : 'var(--bg-hover)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0,
+                                        }}>
+                                            <Icon size={18} color={active ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                                        </div>
+
+                                        {/* Label */}
+                                        <span style={{
+                                            fontSize: '15px',
+                                            fontWeight: 500,
+                                            color: active ? 'var(--accent-blue)' : 'var(--text-primary)',
+                                            flex: 1,
+                                            textAlign: 'left',
+                                            fontFamily: 'DM Sans, sans-serif',
+                                        }}>
+                                            {label}
+                                        </span>
+
+                                        {/* Chevron */}
+                                        <ChevronRight size={16} color="var(--text-muted)" />
+                                    </button>
+                                );
+                            })}
+
+                            {/* Divider between sections */}
+                            {sectionIdx < sectionsWithIndex.length - 1 && (
+                                <div style={{
+                                    height: '1px',
+                                    backgroundColor: 'var(--bg-border)',
+                                    margin: '4px 20px',
+                                }} />
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Logout */}
+                    <div style={{
+                        borderTop: '1px solid var(--bg-border)',
+                        margin: '8px 0 0',
+                        padding: '4px 20px 0',
+                    }}>
                         <button
                             onClick={handleLogout}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid rgba(244,63,94,0.25)', background: 'rgba(244,63,94,0.08)', color: '#f87171', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer' }}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '12px 0',
+                                background: 'none',
+                                border: 'none',
+                                color: '#f87171',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                fontFamily: 'DM Sans, sans-serif',
+                            }}
                         >
-                            <LogOut size={15} />
-                            Logout
+                            <LogOut size={16} />
+                            Sign Out
                         </button>
                     </div>
                 </div>
@@ -125,13 +288,18 @@ export function BottomNav() {
 
             {/* Bottom nav bar */}
             <nav style={{
-                position: 'fixed', bottom: 0, left: 0, right: 0,
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
                 background: 'var(--bg-secondary)',
                 borderTop: '0.5px solid var(--bg-border)',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-around',
                 paddingTop: '8px',
                 paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-                zIndex: 100,
+                zIndex: 997,
                 boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.3)',
             }}>
                 {mainTabs.map(({ href, icon: Icon, label }) => {
@@ -149,12 +317,12 @@ export function BottomNav() {
 
                 {/* More tab */}
                 <button
-                    onClick={() => setShowMore(v => !v)}
+                    onClick={() => setMoreOpen(v => !v)}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '4px 16px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                 >
-                    <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: moreActive || showMore ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
-                    <MoreHorizontal size={22} color={moreActive || showMore ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
-                    <span style={{ fontSize: '11px', color: moreActive || showMore ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: moreActive || showMore ? 600 : 400 }}>More</span>
+                    <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: moreActive || moreOpen ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
+                    <MoreHorizontal size={22} color={moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                    <span style={{ fontSize: '11px', color: moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: moreActive || moreOpen ? 600 : 400 }}>More</span>
                 </button>
             </nav>
         </>
