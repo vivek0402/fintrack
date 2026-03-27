@@ -40,8 +40,11 @@ router.get('/search', async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const { type, month, year, category_id } = req.query;
-        let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color
-                  FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
+        let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
+                         g.name AS group_name
+                  FROM transactions t
+                  LEFT JOIN categories c ON t.category_id = c.id
+                  LEFT JOIN expense_groups g ON g.id = t.group_id
                   WHERE t.user_id = $1`;
         const params = [req.user.id];
         let n = 1;

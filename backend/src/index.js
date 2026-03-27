@@ -50,6 +50,7 @@ app.use('/api/recurring', require('./routes/recurring'));
 app.use('/api/goals', require('./routes/goals'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/splits', require('./routes/splits'));
+app.use('/api/groups', require('./routes/groups'));
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

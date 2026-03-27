@@ -140,6 +140,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</p>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                                             {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color}22`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>{tx.category_name}</span>}
+                                            {tx.group_name && <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.group_name}</span>}
                                             {(tx.tags || []).map((tag: string) => (
                                                 <span key={tag} style={{ fontSize: '0.68rem', color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px' }}>#{tag}</span>
                                             ))}

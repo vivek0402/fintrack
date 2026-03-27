@@ -129,4 +129,20 @@ export const splitsAPI = {
     delete: (id: string) => api.delete(`/api/splits/${id}`),
 };
 
+export const groupsAPI = {
+    getAll: () => api.get('/api/groups'),
+    create: (data: { name: string; emoji?: string; description?: string; budget?: number; currency?: string; members?: { name: string; email?: string }[] }) =>
+        api.post('/api/groups', data),
+    get: (id: string) => api.get(`/api/groups/${id}`),
+    update: (id: string, data: object) => api.patch(`/api/groups/${id}`, data),
+    delete: (id: string) => api.delete(`/api/groups/${id}`),
+    linkTransaction: (id: string, txId: string) => api.post(`/api/groups/${id}/transactions/${txId}`),
+    unlinkTransaction: (id: string, txId: string) => api.delete(`/api/groups/${id}/transactions/${txId}`),
+    addSplit: (id: string, data: { description: string; total_amount: number; paid_by: string; date?: string; shares: { member: string; amount: number }[] }) =>
+        api.post(`/api/groups/${id}/splits`, data),
+    settleShare: (id: string, splitId: string, shareId: string) =>
+        api.patch(`/api/groups/${id}/splits/${splitId}/shares/${shareId}/settle`),
+    settlements: (id: string) => api.get(`/api/groups/${id}/settlements`),
+};
+
 export default api;
