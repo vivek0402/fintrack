@@ -96,6 +96,9 @@ export default function OnboardingPage() {
             const year = new Date().getFullYear();
             for (const b of budgets) await budgetsAPI.create({ category_id: b.category_id, amount: b.amount, month, year });
             localStorage.setItem(`onboarded-${user!.id}`, 'true');
+            if (user?.id) {
+                localStorage.setItem(`fintrack-show-tour-${user.id}`, 'true');
+            }
             router.push('/dashboard');
         } catch { router.push('/dashboard'); }
         finally { setSaving(false); }

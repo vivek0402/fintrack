@@ -6,10 +6,13 @@ import { Sparkles } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { FAB } from '@/components/ui/FAB';
+import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
+const hideHelpRoutes = ['/login', '/register', '/onboarding', '/verify-otp'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
@@ -18,8 +21,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
     const [aiFabHover, setAiFabHover] = useState(false);
+    const [showTour, setShowTour] = useState(false);
+    const { user } = useAuthStore();
 
     useEffect(() => { loadTheme(); }, []);
+
+    useEffect(() => {
+        const u = user;
+        if (!u?.id) return;
+        const showKey = `fintrack-show-tour-${u.id}`;
+        const doneKey = `fintrack-tour-done-${u.id}`;
+        if (localStorage.getItem(showKey) === 'true') {
+            localStorage.removeItem(showKey);
+            setShowTour(true);
+        } else if (!localStorage.getItem(doneKey)) {
+            setShowTour(true);
+        }
+    }, [user?.id]);
 
     useEffect(() => {
         const stored = localStorage.getItem('sidebar-collapsed');
@@ -69,6 +87,44 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {isMobile && <BottomNav />}
             {isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && <FAB />}
 
+            {/* Help / Tour button */}
+            {!hideHelpRoutes.some(r => pathname.startsWith(r)) && (
+                <button
+                    type="button"
+                    onClick={() => setShowTour(true)}
+                    style={{
+                        position: 'fixed',
+                        bottom: 'calc(172px + env(safe-area-inset-bottom))',
+                        right: '20px',
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--bg-border)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                        zIndex: 500,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'border-color 0.15s, color 0.15s',
+                    }}
+                    onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)';
+                    }}
+                    onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                    }}
+                >
+                    ?
+                </button>
+            )}
+
             {/* Desktop AI Chat FAB */}
             {!isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && (
                 <div style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
@@ -95,6 +151,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                 </div>
             )}
+            <WalkthroughTour
+                isOpen={showTour}
+                onClose={() => {
+                    setShowTour(false);
+                    if (user?.id) {
+                        localStorage.setItem(`fintrack-tour-done-${user.id}`, 'true');
+                    }
+                }}
+                userId={user?.id || ''}
+            />
         </div>
     );
 }
