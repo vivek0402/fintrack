@@ -97,6 +97,10 @@ const executeOnProvider = async (provider, model, messages, maxTokens, temp) => 
     return await groqComplete(client, model, messages, maxTokens, temp);
 };
 
+// ── Strip <think>...</think> reasoning blocks (Qwen3, DeepSeek, etc.) ──
+const stripThinkTags = (text) =>
+    text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
 // ── Main unified function ──
 const aiComplete = async (routeKey, messages, overrides = {}) => {
     const config = ROUTES[routeKey];
@@ -118,7 +122,8 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
                 p === 'groq2' ? (model || MODELS.LLAMA4) :
                 null; // gemini doesn't need a model string
 
-            const result = await executeOnProvider(p, fallbackModel, messages, maxTokens, temp);
+            const raw = await executeOnProvider(p, fallbackModel, messages, maxTokens, temp);
+            const result = stripThinkTags(raw);
             if (p !== provider) {
                 console.log(`[AI] Route '${routeKey}' fell back from ${provider} → ${p}`);
             }
