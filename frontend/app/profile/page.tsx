@@ -12,6 +12,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton'
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import PageHelp from '@/components/ui/PageHelp';
 
 const CURRENCIES = [
     { code: 'INR', label: 'Indian Rupee (₹)' },
@@ -92,9 +93,17 @@ export default function ProfilePage() {
 
     return (
         <AppLayout>
-            <div style={{ marginBottom: '28px' }}>
-                <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Settings</h1>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Manage your account and preferences</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+                <div>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Settings</h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Manage your account and preferences</p>
+                </div>
+                <PageHelp title="Settings" sections={[
+                    { icon: '👤', heading: 'What is this page?', body: 'Manage your account details, preferences, and app settings.' },
+                    { icon: '🎨', heading: 'Themes', body: 'Switch between Dark, Pitch Black (AMOLED), and Light themes. Pitch Black is best for battery life on OLED screens.' },
+                    { icon: '💱', heading: 'Currency', body: 'Set your preferred currency. All amounts across the app will display in your chosen currency format.' },
+                    { icon: '🔒', heading: 'Security', body: 'Change your password or update your name and email here.' },
+                ]} />
             </div>
 
             <BankAccountsSection />

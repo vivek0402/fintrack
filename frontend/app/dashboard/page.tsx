@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { StatsCards } from '@/components/dashboard/StatsCards';
+import PageHelp from '@/components/ui/PageHelp';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
 import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
@@ -603,9 +604,18 @@ export default function DashboardPage() {
             )}
 
             {/* Page header */}
-            <div style={{ marginBottom: '16px' }}>
-                <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Dashboard</h1>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Dashboard</h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
+                </div>
+                <PageHelp title="Dashboard" sections={[
+                    { icon: '📊', heading: 'What is this page?', body: 'Your financial command centre. See your income, expenses, net balance, and savings rate for the current month at a glance.' },
+                    { icon: '💡', heading: 'Stat Cards', body: "The 4 coloured cards show this month's totals. The savings rate pill turns green when you save more than 20% of your income." },
+                    { icon: '📈', heading: '6-Month Trend Chart', body: 'The neon line chart shows your income vs expenses trend over the last 6 months. Green = income, red = expenses.' },
+                    { icon: '🏆', heading: 'Top Spending', body: "Shows which category you've spent the most in this month. Tap 'See all' to go to Analytics for a full breakdown." },
+                    { icon: '🤖', heading: 'AI Insight', body: "Tap 'Generate Insight' to get a personalised AI comment about your spending patterns this month." },
+                ]} />
             </div>
 
             {/* ── DESKTOP BENTO GRID ── */}

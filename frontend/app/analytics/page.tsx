@@ -11,6 +11,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet } from 'lucide-react';
 import { formatCurrency, exportToCSV } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -154,7 +155,15 @@ export default function AnalyticsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Deep insights into your spending</p>
                 </div>
-                {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
+                    <PageHelp title="Analytics" sections={[
+                        { icon: '🥧', heading: 'What is this page?', body: 'A detailed breakdown of where your money went. Switch between chart views to see spending by category.' },
+                        { icon: '📉', heading: 'Category Breakdown', body: 'Each category shows a progress bar and percentage of total spending. The longest bar is your biggest expense area.' },
+                        { icon: '🏦', heading: 'Bank Accounts', body: 'Track your account balances here. Add accounts with starting balances to get an accurate net worth picture.' },
+                        { icon: '💼', heading: 'Salary Allocation', body: "Tap 'Generate Plan' to get an AI-recommended 50/30/20 budget split based on your actual income and spending history." },
+                    ]} />
+                </div>
             </div>
 
             {/* Bank Balances card */}

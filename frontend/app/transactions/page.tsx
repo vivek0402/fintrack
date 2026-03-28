@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/Input';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { exportToCSV } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const NOW_YEAR = new Date().getFullYear();
@@ -238,13 +239,20 @@ function TransactionsPageInner() {
                             <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
                             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '2px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
                                 <Sparkles size={15} />AI
                             </Button>
                             <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
                                 <Plus size={15} />Add
                             </Button>
+                            <PageHelp title="Transactions" sections={[
+                                { icon: '💸', heading: 'What is this page?', body: 'View, add, edit and delete all your transactions. Filter by month/year or search by description.' },
+                                { icon: '➕', heading: 'Adding Transactions', body: "Tap the blue + button to add a transaction manually. Or use Quick Add — type naturally like '₹500 food at Zomato' and AI fills in the details." },
+                                { icon: '🎤', heading: 'Voice & Receipt', body: 'Use the microphone button for voice input, or the camera button to scan a receipt. Both auto-fill the transaction form.' },
+                                { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
+                                { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period. Tap the search icon to search across all months.' },
+                            ]} />
                         </div>
                     </div>
                 </div>
@@ -254,7 +262,7 @@ function TransactionsPageInner() {
                         <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
                             <Download size={16} />Export CSV
                         </Button>
@@ -264,6 +272,13 @@ function TransactionsPageInner() {
                         <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
                             <Plus size={16} />Add Transaction
                         </Button>
+                        <PageHelp title="Transactions" sections={[
+                            { icon: '💸', heading: 'What is this page?', body: 'View, add, edit and delete all your transactions. Filter by month/year or search by description.' },
+                            { icon: '➕', heading: 'Adding Transactions', body: "Tap the blue + button to add a transaction manually. Or use Quick Add — type naturally like '₹500 food at Zomato' and AI fills in the details." },
+                            { icon: '🎤', heading: 'Voice & Receipt', body: 'Use the microphone button for voice input, or the camera button to scan a receipt. Both auto-fill the transaction form.' },
+                            { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
+                            { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period. Tap the search icon to search across all months.' },
+                        ]} />
                     </div>
                 </div>
             )}

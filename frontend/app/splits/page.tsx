@@ -10,6 +10,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton'
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 export default function SplitsPage() {
     const router = useRouter();
@@ -144,7 +145,14 @@ export default function SplitsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Split Expenses</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track shared expenses and who owes you</p>
                 </div>
-                <Button onClick={() => setShowModal(true)} size="md"><Plus size={16} />Add Split</Button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <Button onClick={() => setShowModal(true)} size="md"><Plus size={16} />Add Split</Button>
+                    <PageHelp title="Splits" sections={[
+                        { icon: '👥', heading: 'What is this page?', body: "Split bills and shared expenses with friends. Track who owes what and settle up easily." },
+                        { icon: '➕', heading: 'Creating a split', body: "Tap '+ New Group' to create a split group (e.g. 'Goa Trip'). Add the total amount and list of people. FinTrack calculates each person's share." },
+                        { icon: '⚡', heading: 'Settlement', body: 'FinTrack uses a minimum-transactions algorithm — it tells you the fewest payments needed to settle the group completely.' },
+                    ]} />
+                </div>
             </div>
 
             {/* Modal */}

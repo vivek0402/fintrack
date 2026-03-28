@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { formatCurrency } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
 
@@ -126,9 +127,14 @@ export default function GoalsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Savings Goals</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track your financial targets</p>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button variant="secondary" onClick={() => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); }} size="md"><Sparkles size={16} />Plan Life Event</Button>
                     <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />New Goal</Button>
+                    <PageHelp title="Goals" sections={[
+                        { icon: '🏁', heading: 'What is this page?', body: 'Set savings goals with a target amount and deadline. Track your progress as you save towards each goal.' },
+                        { icon: '💰', heading: 'Creating a goal', body: "Tap '+ New Goal' and enter a name, target amount, and target date. FinTrack calculates how much you need to save each month." },
+                        { icon: '📊', heading: 'Progress tracking', body: 'Each goal shows a progress bar and the amount remaining. Update your saved amount anytime by tapping the goal.' },
+                    ]} />
                 </div>
             </div>
 

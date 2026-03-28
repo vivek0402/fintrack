@@ -10,6 +10,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle } from '@/compone
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { formatCurrency } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 export default function RecurringPage() {
     const router = useRouter();
@@ -146,7 +147,14 @@ export default function RecurringPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recurring Transactions</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Automate your regular income and expenses</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />Add Recurring</Button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />Add Recurring</Button>
+                    <PageHelp title="Recurring" sections={[
+                        { icon: '🔄', heading: 'What is this page?', body: 'Manage recurring transactions like monthly salary, rent, subscriptions, and EMIs that happen on a regular schedule.' },
+                        { icon: '🤖', heading: 'Auto-detection', body: "FinTrack's AI scans your transaction history and suggests recurring patterns it detects — like a monthly Netflix charge or rent payment." },
+                        { icon: '➕', heading: 'Adding recurring items', body: "Tap '+ Add Recurring' to manually set up a recurring transaction with amount, category, frequency, and next due date." },
+                    ]} />
+                </div>
             </div>
 
             {/* AI Detected Patterns Banner */}

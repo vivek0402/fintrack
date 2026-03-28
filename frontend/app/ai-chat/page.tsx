@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
+import PageHelp from '@/components/ui/PageHelp';
 
 const HEADER_H = 64;
 const INPUT_H  = 64;
@@ -116,22 +117,31 @@ export default function AiChatPage() {
                 alignItems: 'center',
                 padding: '0 16px',
                 gap: '10px',
+                justifyContent: 'space-between',
             }}>
-                <div style={{
-                    width: '36px', height: '36px', borderRadius: '10px',
-                    background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                    <Sparkles size={18} color="var(--accent-blue)" />
-                </div>
-                <div>
-                    <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                        AI Finance Advisor
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                        <Sparkles size={18} color="var(--accent-blue)" />
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        Ask anything about your finances
+                    <div>
+                        <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                            AI Finance Advisor
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                            Ask anything about your finances
+                        </div>
                     </div>
                 </div>
+                <PageHelp title="AI Chat" sections={[
+                    { icon: '🤖', heading: 'What is this page?', body: 'Chat with your personal AI financial advisor. It has full access to your transactions, budgets, and goals — ask it anything.' },
+                    { icon: '💬', heading: 'What to ask', body: "Try: 'How much did I spend on food this month?', 'Can I afford a ₹5000 purchase?', 'What are my worst spending habits?', 'Generate a savings plan for me.'" },
+                    { icon: '📱', heading: 'SMS Parser', body: 'Paste a bank SMS or UPI notification and the AI will automatically extract and add the transaction for you.' },
+                    { icon: '🧠', heading: 'Financial Personality', body: "Ask 'What is my financial personality?' to get a detailed profile of your spending behaviour and money habits." },
+                ]} />
             </div>
 
             {/* Scrollable Messages Area */}

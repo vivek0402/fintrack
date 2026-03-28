@@ -10,6 +10,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton'
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -91,7 +92,15 @@ export default function BudgetsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Budgets</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[currentMonth]} {currentYear}</p>
                 </div>
-                <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />{isMobile ? 'Add' : 'Set Budget'}</Button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />{isMobile ? 'Add' : 'Set Budget'}</Button>
+                    <PageHelp title="Budgets" sections={[
+                        { icon: '🎯', heading: 'What is this page?', body: 'Set monthly spending limits for each category. FinTrack warns you as you approach or exceed your limits.' },
+                        { icon: '🟡', heading: 'Warning colours', body: 'Green = well within budget. Yellow = over 80% spent. Red = budget exceeded. Check this page weekly to stay on track.' },
+                        { icon: '➕', heading: 'Setting a budget', body: "Tap '+ Add Budget' to set a monthly limit for any category. You can edit or delete budgets anytime." },
+                        { icon: '📅', heading: 'Monthly reset', body: 'Budgets reset automatically at the start of each month. Your limits stay the same — only the spending counter resets.' },
+                    ]} />
+                </div>
             </div>
 
             {showForm && (

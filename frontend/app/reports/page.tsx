@@ -10,6 +10,7 @@ import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton'
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/utils';
+import PageHelp from '@/components/ui/PageHelp';
 
 const QUICK_RANGES = [
     { label: 'This Month', getDates: () => { const n = new Date(); return { from: `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`, to: new Date().toISOString().split('T')[0] }; } },
@@ -80,7 +81,14 @@ export default function ReportsPage() {
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Reports</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Custom analysis & health report card</p>
                 </div>
-                {activeTab === 'range' && data && <Button variant="secondary" size="md" onClick={() => exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}><Download size={16} />Export CSV</Button>}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {activeTab === 'range' && data && <Button variant="secondary" size="md" onClick={() => exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}><Download size={16} />Export CSV</Button>}
+                    <PageHelp title="Reports" sections={[
+                        { icon: '📋', heading: 'What is this page?', body: 'Generate detailed monthly financial reports using AI. Each report analyses your income, expenses, savings, and spending patterns.' },
+                        { icon: '📤', heading: 'Generating a report', body: "Select a month and tap 'Generate Report'. The AI writes a personalised summary with insights and recommendations." },
+                        { icon: '💾', heading: 'Saving reports', body: 'Generated reports are saved so you can reference them later. Use them to track your financial progress month over month.' },
+                    ]} />
+                </div>
                 {activeTab === 'health' && healthReport && <Button variant="secondary" size="md" onClick={() => window.print()}><Download size={16} />Print / Save PDF</Button>}
             </div>
 
