@@ -63,6 +63,12 @@ export default function GroupsPage() {
     const [splitCustom, setSplitCustom] = useState<Record<string, string>>({});
     const [savingSplit, setSavingSplit] = useState(false);
 
+    // Custom split tally
+    const customTotal = Object.values(splitCustom).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    const splitTotalNum = parseFloat(splitTotal) || 0;
+    const customDiff = splitTotalNum - customTotal;
+    const customTallyOk = Math.abs(customDiff) < 0.01;
+
     // Add Transaction modal
     const [showTxModal, setShowTxModal] = useState(false);
     const [txSearch, setTxSearch] = useState('');
@@ -562,10 +568,33 @@ export default function GroupsPage() {
                                             placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.82rem' }} />
                                     </div>
                                 ))}
+                                {/* Running tally */}
+                                <div style={{
+                                    marginTop: '10px', padding: '10px 12px', borderRadius: '9px',
+                                    background: customTallyOk ? 'rgba(52,211,153,0.08)' : customTotal > 0 ? 'rgba(239,68,68,0.08)' : 'var(--bg-secondary)',
+                                    border: `1px solid ${customTallyOk ? 'rgba(52,211,153,0.3)' : customTotal > 0 ? 'rgba(239,68,68,0.3)' : 'var(--bg-border)'}`,
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                }}>
+                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Sum of shares</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: customTallyOk ? 'var(--accent-green)' : customTotal > 0 ? 'var(--accent-red)' : 'var(--text-primary)' }}>
+                                            {formatCurrency(customTotal, currency)}
+                                            {splitTotalNum > 0 && ` / ${formatCurrency(splitTotalNum, currency)}`}
+                                        </span>
+                                        {!customTallyOk && customTotal > 0 && splitTotalNum > 0 && (
+                                            <span style={{ fontSize: '0.7rem', color: customDiff > 0 ? 'var(--accent-yellow)' : 'var(--accent-red)' }}>
+                                                {customDiff > 0 ? `${formatCurrency(customDiff, currency)} unallocated` : `${formatCurrency(-customDiff, currency)} over total`}
+                                            </span>
+                                        )}
+                                        {customTallyOk && splitTotalNum > 0 && (
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)' }}>✓ Balanced</span>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
-                        <button onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy}
-                            style={{ width: '100%', padding: '11px', background: 'var(--accent-blue)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', opacity: savingSplit ? 0.6 : 1 }}>
+                        <button onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy || (splitMode === 'custom' && !customTallyOk)}
+                            style={{ width: '100%', padding: '11px', background: 'var(--accent-blue)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', opacity: (savingSplit || (splitMode === 'custom' && !customTallyOk && customTotal > 0)) ? 0.6 : 1 }}>
                             {savingSplit ? (editingSplit ? 'Saving…' : 'Adding…') : (editingSplit ? 'Save Changes' : 'Add Split')}
                         </button>
                     </div>
