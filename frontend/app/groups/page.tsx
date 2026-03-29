@@ -54,6 +54,7 @@ export default function GroupsPage() {
 
     // Add Split modal
     const [showSplitModal, setShowSplitModal] = useState(false);
+    const [editingSplit, setEditingSplit] = useState<Split | null>(null);
     const [splitDesc, setSplitDesc] = useState('');
     const [splitTotal, setSplitTotal] = useState('');
     const [splitPaidBy, setSplitPaidBy] = useState('');
@@ -159,7 +160,24 @@ export default function GroupsPage() {
         await loadGroups();
     };
 
-    // Add split
+    // Open split for editing
+    const openEditSplit = (sp: Split) => {
+        setEditingSplit(sp);
+        setSplitDesc(sp.description);
+        setSplitTotal(String(sp.total_amount));
+        setSplitPaidBy(sp.paid_by);
+        setSplitDate(String(sp.date).split('T')[0]);
+        // Detect equal vs custom
+        const amounts = sp.shares.map(s => s.amount);
+        const allEqual = amounts.every(a => Math.abs(a - amounts[0]) < 0.01);
+        setSplitMode(allEqual ? 'equal' : 'custom');
+        const customMap: Record<string, string> = {};
+        sp.shares.forEach(s => { customMap[s.member] = String(s.amount); });
+        setSplitCustom(customMap);
+        setShowSplitModal(true);
+    };
+
+    // Add/edit split
     const saveSplit = async () => {
         if (!selectedGroup || !splitDesc || !splitTotal || !splitPaidBy) return;
         setSavingSplit(true);
@@ -172,11 +190,19 @@ export default function GroupsPage() {
             shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(splitCustom[m] || '0') }));
         }
         try {
-            await groupsAPI.addSplit(String(selectedGroup.id), {
-                description: splitDesc, total_amount: parseFloat(splitTotal),
-                paid_by: splitPaidBy, date: splitDate, shares,
-            });
+            if (editingSplit) {
+                await groupsAPI.updateSplit(String(selectedGroup.id), String(editingSplit.id), {
+                    description: splitDesc, total_amount: parseFloat(splitTotal),
+                    paid_by: splitPaidBy, date: splitDate, shares,
+                });
+            } else {
+                await groupsAPI.addSplit(String(selectedGroup.id), {
+                    description: splitDesc, total_amount: parseFloat(splitTotal),
+                    paid_by: splitPaidBy, date: splitDate, shares,
+                });
+            }
             setShowSplitModal(false);
+            setEditingSplit(null);
             setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({});
             await openGroup(selectedGroup);
         } finally {
@@ -420,7 +446,7 @@ export default function GroupsPage() {
                     {activeTab === 'splits' && (
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                                <button onClick={() => setShowSplitModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-blue)', border: 'none', borderRadius: '9px', padding: '7px 14px', fontSize: '0.8rem', cursor: 'pointer', color: '#fff', fontWeight: 600 }}>
+                                <button onClick={() => { setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); setSplitDate(new Date().toISOString().split('T')[0]); setSplitMode('equal'); setShowSplitModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-blue)', border: 'none', borderRadius: '9px', padding: '7px 14px', fontSize: '0.8rem', cursor: 'pointer', color: '#fff', fontWeight: 600 }}>
                                     <Plus size={14} /> Add Split
                                 </button>
                             </div>
@@ -433,7 +459,10 @@ export default function GroupsPage() {
                                             <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>{sp.description}</p>
                                             <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Paid by {sp.paid_by} · {String(sp.date).split('T')[0]}</p>
                                         </div>
-                                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(Number(sp.total_amount), currency)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(Number(sp.total_amount), currency)}</span>
+                                            <button onClick={() => openEditSplit(sp)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '7px', padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>Edit</button>
+                                        </div>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         {(sp.shares || []).map(sh => (
@@ -491,8 +520,8 @@ export default function GroupsPage() {
                     onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false); }}>
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>Add Split</h3>
-                            <button onClick={() => setShowSplitModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
+                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{editingSplit ? 'Edit Split' : 'Add Split'}</h3>
+                            <button onClick={() => { setShowSplitModal(false); setEditingSplit(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
                         </div>
                         {([
                             { label: 'Description', value: splitDesc, set: setSplitDesc, placeholder: 'Dinner, Uber, etc.', type: 'text' },
@@ -537,7 +566,7 @@ export default function GroupsPage() {
                         )}
                         <button onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy}
                             style={{ width: '100%', padding: '11px', background: 'var(--accent-blue)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', opacity: savingSplit ? 0.6 : 1 }}>
-                            {savingSplit ? 'Adding…' : 'Add Split'}
+                            {savingSplit ? (editingSplit ? 'Saving…' : 'Adding…') : (editingSplit ? 'Save Changes' : 'Add Split')}
                         </button>
                     </div>
                 </div>

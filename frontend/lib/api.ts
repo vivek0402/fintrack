@@ -151,6 +151,8 @@ export const groupsAPI = {
     unlinkTransaction: (id: string, txId: string) => api.delete(`/api/groups/${id}/transactions/${txId}`),
     addSplit: (id: string, data: { description: string; total_amount: number; paid_by: string; date?: string; shares: { member: string; amount: number }[] }) =>
         api.post(`/api/groups/${id}/splits`, data),
+    updateSplit: (id: string, splitId: string, data: { description: string; total_amount: number; paid_by: string; date?: string; shares: { member: string; amount: number }[] }) =>
+        api.put(`/api/groups/${id}/splits/${splitId}`, data),
     settleShare: (id: string, splitId: string, shareId: string) =>
         api.patch(`/api/groups/${id}/splits/${splitId}/shares/${shareId}/settle`),
     settlements: (id: string) => api.get(`/api/groups/${id}/settlements`),

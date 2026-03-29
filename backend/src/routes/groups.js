@@ -233,6 +233,15 @@ router.post('/:id/splits', async (req, res) => {
                     [split.id, s.member, s.amount]
                 );
             }
+            // Create a transaction for the current user's share (the "Me" member)
+            const meShare = shares.find(s => s.member === 'Me');
+            if (meShare) {
+                await client.query(
+                    `INSERT INTO transactions (user_id, type, amount, description, date, group_id)
+                     VALUES ($1, 'expense', $2, $3, $4, $5)`,
+                    [req.user.id, meShare.amount, description, date || new Date().toISOString().split('T')[0], req.params.id]
+                );
+            }
             await client.query('COMMIT');
             const full = await pool.query(
                 `SELECT gs.*, COALESCE(json_agg(gss ORDER BY gss.id) FILTER (WHERE gss.id IS NOT NULL), '[]') AS shares
@@ -250,6 +259,78 @@ router.post('/:id/splits', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to create split' });
+    }
+});
+
+// PUT /api/groups/:id/splits/:splitId — update a split
+router.put('/:id/splits/:splitId', async (req, res) => {
+    try {
+        const { description, total_amount, paid_by, date, shares } = req.body;
+        if (!description || !total_amount || !paid_by || !shares || !Array.isArray(shares)) {
+            return res.status(400).json({ error: 'description, total_amount, paid_by, and shares are required' });
+        }
+        const { rows } = await pool.query(
+            `SELECT gs.id FROM group_splits gs
+             JOIN expense_groups g ON g.id = gs.group_id
+             WHERE gs.id = $1 AND g.id = $2 AND g.user_id = $3`,
+            [req.params.splitId, req.params.id, req.user.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'Split not found' });
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const splitDate = date || new Date().toISOString().split('T')[0];
+            await client.query(
+                `UPDATE group_splits SET description = $1, total_amount = $2, paid_by = $3, date = $4 WHERE id = $5`,
+                [description, total_amount, paid_by, splitDate, req.params.splitId]
+            );
+            await client.query(`DELETE FROM group_split_shares WHERE split_id = $1`, [req.params.splitId]);
+            for (const s of shares) {
+                await client.query(
+                    `INSERT INTO group_split_shares (split_id, member, amount) VALUES ($1,$2,$3)`,
+                    [req.params.splitId, s.member, s.amount]
+                );
+            }
+            // Update or create the linked transaction for "Me"
+            const meShare = shares.find(s => s.member === 'Me');
+            const existingTx = await client.query(
+                `SELECT id FROM transactions WHERE group_id = $1 AND user_id = $2 AND description = (
+                    SELECT description FROM group_splits WHERE id = $3
+                 ) LIMIT 1`,
+                [req.params.id, req.user.id, req.params.splitId]
+            );
+            if (meShare) {
+                if (existingTx.rows.length) {
+                    await client.query(
+                        `UPDATE transactions SET amount = $1, description = $2, date = $3 WHERE id = $4`,
+                        [meShare.amount, description, splitDate, existingTx.rows[0].id]
+                    );
+                } else {
+                    await client.query(
+                        `INSERT INTO transactions (user_id, type, amount, description, date, group_id)
+                         VALUES ($1, 'expense', $2, $3, $4, $5)`,
+                        [req.user.id, meShare.amount, description, splitDate, req.params.id]
+                    );
+                }
+            }
+            await client.query('COMMIT');
+            const full = await pool.query(
+                `SELECT gs.*, COALESCE(json_agg(gss ORDER BY gss.id) FILTER (WHERE gss.id IS NOT NULL), '[]') AS shares
+                 FROM group_splits gs LEFT JOIN group_split_shares gss ON gss.split_id = gs.id
+                 WHERE gs.id = $1 GROUP BY gs.id`,
+                [req.params.splitId]
+            );
+            res.json({ split: full.rows[0] });
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update split' });
     }
 });
 
