@@ -14,6 +14,7 @@ interface AuthStore {
     isLoading: boolean;
     setAuth: (user: User, token: string) => void;
     logout: () => void;
+    loadFromStorage: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -22,6 +23,10 @@ export const useAuthStore = create<AuthStore>()(
             user: null,
             token: null,
             isLoading: true,
+            
+            loadFromStorage: () => {
+                // Handled automatically by Zustand's persist middleware
+            },
 
             setAuth: (user, token) => {
                 set({ user, token, isLoading: false });
