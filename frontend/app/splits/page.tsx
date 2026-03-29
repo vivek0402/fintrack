@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { formatDate } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 
@@ -193,11 +194,11 @@ export default function SplitsPage() {
                                     <input type="number" placeholder="2400" min="1" step="0.01" value={form.total_amount} onChange={e => setForm({ ...form, total_amount: e.target.value })} required
                                         style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)' }}>Date</label>
-                                    <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })}
-                                        style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
-                                </div>
+                                <DatePicker
+                                    label="Date"
+                                    value={form.date}
+                                    onChange={date => setForm({ ...form, date })}
+                                />
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

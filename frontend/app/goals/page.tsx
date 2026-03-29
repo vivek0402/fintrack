@@ -11,6 +11,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 
@@ -175,11 +176,13 @@ export default function GoalsPage() {
                                         <input type="number" min="1" placeholder="500000" value={lifeEventForm.target_amount} onChange={e => setLifeEventForm({ ...lifeEventForm, target_amount: e.target.value })} required
                                             style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Target Date</label>
-                                        <input type="date" value={lifeEventForm.target_date} onChange={e => setLifeEventForm({ ...lifeEventForm, target_date: e.target.value })} required
-                                            style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
-                                    </div>
+                                    <DatePicker
+                                        label="Target Date"
+                                        value={lifeEventForm.target_date}
+                                        onChange={date => setLifeEventForm({ ...lifeEventForm, target_date: date })}
+                                        required
+                                        minDate={new Date().toISOString().split('T')[0]}
+                                    />
                                 </div>
                                 {lifeEventError && <p style={{ fontSize: '0.8rem', color: 'var(--accent-red)', margin: 0 }}>{lifeEventError}</p>}
                                 <Button type="submit" isLoading={lifeEventLoading} size="lg">✨ Generate Plan</Button>
@@ -244,7 +247,12 @@ export default function GoalsPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                             <Input label="Goal Name" type="text" placeholder="e.g. New Laptop" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
                             <Input label="Target Amount (₹)" type="number" placeholder="100000" min="1" value={form.target_amount} onChange={e => setForm({ ...form, target_amount: e.target.value })} required />
-                            <Input label="Deadline (optional)" type="date" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} />
+                            <DatePicker
+                                label="Deadline (optional)"
+                                value={form.deadline}
+                                onChange={date => setForm({ ...form, deadline: date })}
+                                minDate={new Date().toISOString().split('T')[0]}
+                            />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Color</label>
                                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

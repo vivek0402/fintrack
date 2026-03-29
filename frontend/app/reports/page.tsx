@@ -9,6 +9,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 
@@ -120,14 +121,17 @@ export default function ReportsPage() {
                             ))}
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>From</label>
-                                <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>To</label>
-                                <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none' }} />
-                            </div>
+                            <DatePicker
+                                label="From"
+                                value={from}
+                                onChange={setFrom}
+                            />
+                            <DatePicker
+                                label="To"
+                                value={to}
+                                onChange={setTo}
+                                minDate={from}
+                            />
                             <Button onClick={fetchReport} isLoading={loading} size="md"><Search size={15} />Generate</Button>
                         </div>
                     </div>
