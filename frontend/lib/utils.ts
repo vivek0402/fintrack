@@ -4,10 +4,22 @@ export function formatCurrency(amount: number, currency = 'INR'): string {
         JPY: '¥', AUD: 'A$', CAD: 'C$', SGD: 'S$', AED: 'د.إ',
     };
     const symbol = symbols[currency] || currency;
+
+    // Currencies that don't use decimal fractions
+    const noDecimalCurrencies = ['INR', 'JPY'];
+    const useDecimals = !noDecimalCurrencies.includes(currency);
+
     if (currency === 'INR') {
-        return `${symbol}${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+        return `${symbol}${amount.toLocaleString('en-IN', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        })}`;
     }
-    return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+    return `${symbol}${amount.toLocaleString('en-US', {
+        minimumFractionDigits: useDecimals ? 2 : 0,
+        maximumFractionDigits: useDecimals ? 2 : 0,
+    })}`;
 }
 
 export function formatDate(dateStr: string): string {

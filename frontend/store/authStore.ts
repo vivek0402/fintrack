@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface User {
     id: string;
@@ -13,37 +14,38 @@ interface AuthStore {
     isLoading: boolean;
     setAuth: (user: User, token: string) => void;
     logout: () => void;
-    loadFromStorage: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-    user: null,
-    token: null,
-    isLoading: true,
+export const useAuthStore = create<AuthStore>()(
+    persist(
+        (set) => ({
+            user: null,
+            token: null,
+            isLoading: true,
 
-    setAuth: (user, token) => {
-        localStorage.setItem('fintrack_token', token);
-        localStorage.setItem('fintrack_user', JSON.stringify(user));
-        set({ user, token, isLoading: false });
-    },
+            setAuth: (user, token) => {
+                set({ user, token, isLoading: false });
+            },
 
-    logout: () => {
-        localStorage.removeItem('fintrack_token');
-        localStorage.removeItem('fintrack_user');
-        set({ user: null, token: null, isLoading: false });
-    },
-
-    loadFromStorage: () => {
-        try {
-            const token = localStorage.getItem('fintrack_token');
-            const user = localStorage.getItem('fintrack_user');
-            if (token && user) {
-                set({ token, user: JSON.parse(user), isLoading: false });
-            } else {
-                set({ isLoading: false });
-            }
-        } catch {
-            set({ isLoading: false });
+            logout: () => {
+                set({ user: null, token: null, isLoading: false });
+            },
+        }),
+        {
+            name: 'fintrack-auth',
+            storage: createJSONStorage(() =>
+                typeof window !== 'undefined' ? localStorage : ({
+                    getItem: () => null,
+                    setItem: () => {},
+                    removeItem: () => {},
+                } as unknown as Storage)
+            ),
+            // Only persist user and token, not loading state
+            partialize: (state) => ({ user: state.user, token: state.token }),
+            // Set isLoading to false once hydration is done
+            onRehydrateStorage: () => (state) => {
+                if (state) state.isLoading = false;
+            },
         }
-    },
-}));
+    )
+);

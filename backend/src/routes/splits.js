@@ -26,28 +26,28 @@ router.post('/', authMiddleware, async (req, res) => {
         }
 
         const splitCount = participants.length + 1; // +1 for the user
-        const yourShare = parseFloat(total_amount) / splitCount;
+        const yourShare = Math.round((parseFloat(total_amount) / splitCount) * 100) / 100;
         const splitDate = date || new Date().toISOString().split('T')[0];
 
         // Create a transaction for the user's share
         const txResult = await pool.query(
             `INSERT INTO transactions (user_id, type, amount, description, date)
              VALUES ($1, 'expense', $2, $3, $4) RETURNING id`,
-            [req.user.id, yourShare.toFixed(2), description, splitDate]
+            [req.user.id, yourShare, description, splitDate]
         );
         const transactionId = txResult.rows[0].id;
 
         // Mark all participants as pending
         const participantsWithStatus = participants.map(p => ({
             name: p.name,
-            share: yourShare.toFixed(2),
+            share: yourShare,
             settled: false,
         }));
 
         const { rows } = await pool.query(
             `INSERT INTO expense_splits (user_id, transaction_id, total_amount, description, split_count, your_share, participants, date)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [req.user.id, transactionId, parseFloat(total_amount).toFixed(2), description, splitCount, yourShare.toFixed(2), JSON.stringify(participantsWithStatus), splitDate]
+            [req.user.id, transactionId, parseFloat(total_amount), description, splitCount, yourShare, JSON.stringify(participantsWithStatus), splitDate]
         );
 
         res.status(201).json({ split: rows[0] });
@@ -75,7 +75,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
         const existing = rows[0];
         const splitCount = participants.length + 1;
-        const yourShare = parseFloat(total_amount) / splitCount;
+        const yourShare = Math.round((parseFloat(total_amount) / splitCount) * 100) / 100;
         const splitDate = date || existing.date;
 
         // Preserve settled status for participants with the same name
@@ -84,21 +84,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
         const updatedParticipants = participants.map(p => ({
             name: p.name,
-            share: yourShare.toFixed(2),
+            share: yourShare,
             settled: settledMap[p.name] ?? false,
         }));
 
         // Update the linked transaction
         await pool.query(
             `UPDATE transactions SET amount = $1, description = $2, date = $3 WHERE id = $4 AND user_id = $5`,
-            [yourShare.toFixed(2), description, splitDate, existing.transaction_id, req.user.id]
+            [yourShare, description, splitDate, existing.transaction_id, req.user.id]
         );
 
         const { rows: updated } = await pool.query(
             `UPDATE expense_splits
              SET description = $1, total_amount = $2, split_count = $3, your_share = $4, participants = $5, date = $6
              WHERE id = $7 AND user_id = $8 RETURNING *`,
-            [description, parseFloat(total_amount).toFixed(2), splitCount, yourShare.toFixed(2), JSON.stringify(updatedParticipants), splitDate, id, req.user.id]
+            [description, parseFloat(total_amount), splitCount, yourShare, JSON.stringify(updatedParticipants), splitDate, id, req.user.id]
         );
 
         res.json({ split: updated[0] });
@@ -136,18 +136,43 @@ router.patch('/:id/settle/:index', authMiddleware, async (req, res) => {
     }
 });
 
-// DELETE /api/splits/:id
+// DELETE /api/splits/:id — delete split AND its linked transaction
 router.delete('/:id', authMiddleware, async (req, res) => {
+    const client = await pool.connect();
     try {
-        const { rowCount } = await pool.query(
+        await client.query('BEGIN');
+        // Fetch the linked transaction ID before deleting
+        const { rows } = await client.query(
+            `SELECT transaction_id FROM expense_splits WHERE id = $1 AND user_id = $2`,
+            [req.params.id, req.user.id]
+        );
+        if (!rows.length) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Split not found' });
+        }
+
+        // Delete the split
+        await client.query(
             `DELETE FROM expense_splits WHERE id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
         );
-        if (!rowCount) return res.status(404).json({ error: 'Split not found' });
+
+        // Delete the linked transaction (if it exists)
+        if (rows[0].transaction_id) {
+            await client.query(
+                `DELETE FROM transactions WHERE id = $1 AND user_id = $2`,
+                [rows[0].transaction_id, req.user.id]
+            );
+        }
+
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Failed to delete split' });
+    } finally {
+        client.release();
     }
 });
 

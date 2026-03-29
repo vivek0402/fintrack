@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
         const { rows } = await pool.query(
             `SELECT g.*,
                 (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count,
-                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id AND t.user_id = $1) AS total_spent
+                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id) AS total_spent
              FROM expense_groups g
              WHERE g.user_id = $1
              ORDER BY g.created_at DESC`,
@@ -71,7 +71,7 @@ router.get('/:id', async (req, res) => {
         const { rows } = await pool.query(
             `SELECT g.*,
                 (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count,
-                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id AND t.user_id = $1) AS total_spent
+                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id) AS total_spent
              FROM expense_groups g WHERE g.id = $2 AND g.user_id = $1`,
             [req.user.id, req.params.id]
         );
@@ -145,9 +145,9 @@ router.patch('/:id', async (req, res) => {
         const updated = await pool.query(
             `SELECT g.*,
                 (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS member_count,
-                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id AND t.user_id = $1) AS total_spent
-             FROM expense_groups g WHERE g.id = $2`,
-            [req.user.id, req.params.id]
+                (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.group_id = g.id) AS total_spent
+             FROM expense_groups g WHERE g.id = $1`,
+            [req.params.id]
         );
         res.json({ group: updated.rows[0] });
     } catch (err) {
@@ -157,21 +157,33 @@ router.patch('/:id', async (req, res) => {
 });
 
 // DELETE /api/groups/:id
+// Wrapped in a transaction: unlinking and deleting are atomic.
 router.delete('/:id', async (req, res) => {
+    const client = await pool.connect();
     try {
-        await pool.query(
-            `UPDATE transactions SET group_id = NULL WHERE group_id = $1 AND user_id = $2`,
+        await client.query('BEGIN');
+        // Unlink any transactions that reference this group
+        await client.query(
+            `UPDATE transactions SET group_id = NULL, split_id = NULL WHERE group_id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
         );
-        const { rowCount } = await pool.query(
+        // Delete the group (cascades to group_members, group_splits, group_split_shares via FK)
+        const { rowCount } = await client.query(
             `DELETE FROM expense_groups WHERE id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
         );
-        if (!rowCount) return res.status(404).json({ error: 'Group not found' });
+        if (!rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Group not found' });
+        }
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Failed to delete group' });
+    } finally {
+        client.release();
     }
 });
 
@@ -233,20 +245,21 @@ router.post('/:id/splits', async (req, res) => {
                     [split.id, s.member, s.amount]
                 );
             }
+
             // Create a transaction for the current user's share (the "Me" member)
             const meShare = shares.find(s => s.member === 'Me');
             if (meShare) {
-                // Get group name for the note
                 const grpRes = await client.query(`SELECT name FROM expense_groups WHERE id = $1`, [req.params.id]);
                 const groupName = grpRes.rows[0]?.name || 'Group';
                 await client.query(
-                    `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id)
-                     VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7)`,
+                    `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id)
+                     VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8)`,
                     [req.user.id, meShare.amount, description,
                      `My share in ${groupName}`, '{group-split}',
-                     date || new Date().toISOString().split('T')[0], req.params.id]
+                     date || new Date().toISOString().split('T')[0], req.params.id, split.id]
                 );
             }
+
             await client.query('COMMIT');
             const full = await pool.query(
                 `SELECT gs.*, COALESCE(json_agg(gss ORDER BY gss.id) FILTER (WHERE gss.id IS NOT NULL), '[]') AS shares
@@ -297,13 +310,12 @@ router.put('/:id/splits/:splitId', async (req, res) => {
                     [req.params.splitId, s.member, s.amount]
                 );
             }
-            // Update or create the linked transaction for "Me"
+
+            // Update or create the linked transaction for "Me" — using split_id FK (robust)
             const meShare = shares.find(s => s.member === 'Me');
             const existingTx = await client.query(
-                `SELECT id FROM transactions WHERE group_id = $1 AND user_id = $2 AND description = (
-                    SELECT description FROM group_splits WHERE id = $3
-                 ) LIMIT 1`,
-                [req.params.id, req.user.id, req.params.splitId]
+                `SELECT id FROM transactions WHERE split_id = $1 AND user_id = $2 LIMIT 1`,
+                [req.params.splitId, req.user.id]
             );
             if (meShare) {
                 const grpRes = await client.query(`SELECT name FROM expense_groups WHERE id = $1`, [req.params.id]);
@@ -315,14 +327,18 @@ router.put('/:id/splits/:splitId', async (req, res) => {
                     );
                 } else {
                     await client.query(
-                        `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id)
-                         VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7)`,
+                        `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id)
+                         VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8)`,
                         [req.user.id, meShare.amount, description,
                          `My share in ${groupName}`, '{group-split}',
-                         splitDate, req.params.id]
+                         splitDate, req.params.id, req.params.splitId]
                     );
                 }
+            } else if (existingTx.rows.length) {
+                // "Me" was removed from the split — delete the linked transaction
+                await client.query(`DELETE FROM transactions WHERE id = $1`, [existingTx.rows[0].id]);
             }
+
             await client.query('COMMIT');
             const full = await pool.query(
                 `SELECT gs.*, COALESCE(json_agg(gss ORDER BY gss.id) FILTER (WHERE gss.id IS NOT NULL), '[]') AS shares

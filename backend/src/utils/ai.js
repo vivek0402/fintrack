@@ -15,6 +15,7 @@ const MODELS = {
     LLAMA4:   'meta-llama/llama-4-scout-17b-16e-instruct',
     LLAMA8B:  'llama-3.1-8b-instant',
     QWEN32B:  'qwen/qwen3-32b',
+    DEEPSEEK: 'deepseek-r1-distill-llama-70b',
 };
 
 // ── Route config ──
@@ -24,11 +25,11 @@ const ROUTES = {
     'salary-allocation':  { provider: 'gemini',                        maxTokens: 1200, temp: 0.4 },
     'personality':        { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 1000, temp: 0.5 },
     'report':             { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.5 },
-    'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 800,  temp: 0.5 },
-    'salary-intelligence':{ provider: 'groq2', model: MODELS.QWEN32B,  maxTokens: 600,  temp: 0.4 },
+    'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
+    'salary-intelligence':{ provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.4 },
     'parse-sms':          { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'quick-add':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'recurring':          { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 600,  temp: 0.4 },
+    'recurring':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 700,  temp: 0.3 },
     // Additional routes
     'afford':             { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 400,  temp: 0.3 },
     'parse-split':        { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
@@ -98,8 +99,14 @@ const executeOnProvider = async (provider, model, messages, maxTokens, temp) => 
 };
 
 // ── Strip <think>...</think> reasoning blocks (Qwen3, DeepSeek, etc.) ──
-const stripThinkTags = (text) =>
-    text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+// Handles both complete blocks AND unclosed blocks (truncated by maxTokens)
+const stripThinkTags = (text) => {
+    // Remove complete <think>...</think> blocks
+    let result = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    // Remove unclosed <think> block (model was cut off mid-reasoning)
+    result = result.replace(/<think>[\s\S]*/gi, '');
+    return result.trim();
+};
 
 // ── Main unified function ──
 const aiComplete = async (routeKey, messages, overrides = {}) => {

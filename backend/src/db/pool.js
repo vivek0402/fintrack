@@ -11,12 +11,17 @@ const pool = new Pool({
     connectionTimeoutMillis: 10000,
 });
 
+// Log once per pool lifecycle, not per connection
+let connected = false;
 pool.on('connect', () => {
-    console.log('✅ Connected to PostgreSQL');
+    if (!connected) {
+        console.log('✅ Connected to PostgreSQL');
+        connected = true;
+    }
 });
 
 pool.on('error', (err) => {
-    console.error('❌ PostgreSQL error:', err.message);
+    console.error('❌ PostgreSQL pool error:', err.message);
 });
 
 module.exports = pool;
