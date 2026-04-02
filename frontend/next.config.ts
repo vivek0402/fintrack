@@ -15,6 +15,7 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'export',
   trailingSlash: true,
+  turbopack: {},
   images: {
     unoptimized: true,
   },
