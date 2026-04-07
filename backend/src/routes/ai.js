@@ -854,12 +854,12 @@ Rules:
 
         // Normalise and validate predictions
         const predictions = (parsed.predictions || [])
-            .filter((p: any) => p.date && p.date >= todayStr)
-            .sort((a: any, b: any) => a.date.localeCompare(b.date));
+            .filter((p) => p.date && p.date >= todayStr)
+            .sort((a, b) => a.date.localeCompare(b.date));
 
         const result = {
-            totalForecast: Math.round(parsed.totalForecast || predictions.reduce((s: number, p: any) => s + (p.amount || 0), 0)),
-            highConfidenceCount: parsed.highConfidenceCount ?? predictions.filter((p: any) => p.confidence === 'high').length,
+            totalForecast: Math.round(parsed.totalForecast || predictions.reduce((s, p) => s + (p.amount || 0), 0)),
+            highConfidenceCount: parsed.highConfidenceCount ?? predictions.filter((p) => p.confidence === 'high').length,
             predictions,
         };
 
@@ -867,7 +867,7 @@ Rules:
         await setCached(pool, userId, 'forecast', result);
 
         res.json({ success: true, data: result, from_cache: false });
-    } catch (err: any) {
+    } catch (err) {
         console.error('[AI Forecast]', err?.message || err);
         res.status(500).json({ success: false, error: 'Forecast generation failed. Try again.' });
     }
