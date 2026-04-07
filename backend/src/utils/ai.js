@@ -30,6 +30,7 @@ const ROUTES = {
     'parse-sms':          { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'quick-add':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'recurring':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 700,  temp: 0.3 },
+    'tax-estimate':       { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 900,  temp: 0.3 },
     // Additional routes
     'afford':             { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 400,  temp: 0.3 },
     'parse-split':        { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },

@@ -69,13 +69,41 @@ async function createOTP(email, type) {
 }
 
 async function verifyOTP(email, otp, type) {
+    // First, check if too many failed attempts exist (brute-force guard)
+    const attemptCheck = await pool.query(
+        `SELECT attempts FROM otp_verifications
+         WHERE email = $1 AND type = $2 AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
+        [email, type]
+    );
+
+    if (attemptCheck.rows.length > 0 && (attemptCheck.rows[0].attempts || 0) >= 5) {
+        // Invalidate the OTP — too many failed attempts
+        await pool.query(
+            'DELETE FROM otp_verifications WHERE email = $1 AND type = $2',
+            [email, type]
+        );
+        return null;
+    }
+
     const result = await pool.query(
         `SELECT * FROM otp_verifications
          WHERE email = $1 AND otp = $2 AND type = $3 AND expires_at > NOW()
          ORDER BY created_at DESC LIMIT 1`,
         [email, otp, type]
     );
-    return result.rows[0] || null;
+
+    if (!result.rows[0]) {
+        // Increment attempt counter on wrong OTP
+        await pool.query(
+            `UPDATE otp_verifications SET attempts = COALESCE(attempts, 0) + 1
+             WHERE email = $1 AND type = $2 AND expires_at > NOW()`,
+            [email, type]
+        ).catch(() => {}); // ignore if column doesn't exist yet
+        return null;
+    }
+
+    return result.rows[0];
 }
 
 // ─── Register (step 1: create unverified user, send OTP) ────────────────────

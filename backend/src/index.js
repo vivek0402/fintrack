@@ -36,7 +36,10 @@ console.log('  quick-add          → Groq Key2 llama-3.1-8b   (500K TPD)');
 console.log('  recurring          → Groq Key1 llama-4-scout  (500K TPD)');
 console.log('=========================');
 
-app.use(helmet());
+app.use(helmet({
+    contentSecurityPolicy: false,       // API server — no HTML pages
+    crossOriginEmbedderPolicy: false,   // Required for Vercel/Capacitor clients
+}));
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
@@ -64,7 +67,9 @@ app.use(cors({
 }));
 
 app.options('/{*path}', cors());
-app.use(express.json());
+// Body size limits — 10mb to support base64 receipt images
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
 // General API limiter
@@ -93,6 +98,27 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many auth requests. Please try again later.' },
+});
+
+// AI endpoint limiter — 30 req/hour per user (uses JWT id as key when available)
+const aiLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        // Try to use authenticated user id; fall back to IP
+        const auth = req.headers['authorization'];
+        if (auth && auth.startsWith('Bearer ')) {
+            try {
+                const jwt = require('jsonwebtoken');
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                return `ai:user:${decoded.id}`;
+            } catch { /* fall through to IP */ }
+        }
+        return req.ip;
+    },
+    message: { error: 'AI request limit reached. Please wait before making more AI requests.' },
 });
 
 app.use('/api', apiLimiter);
@@ -124,19 +150,20 @@ app.use('/api/analytics',    require('./routes/analytics'));
 app.use('/api/profile',      require('./routes/profile'));
 app.use('/api/recurring',    require('./routes/recurring'));
 app.use('/api/goals',        require('./routes/goals'));
-app.use('/api/ai',           require('./routes/ai'));
+app.use('/api/ai',           aiLimiter, require('./routes/ai'));
 app.use('/api/splits',       require('./routes/splits'));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/accounts',     require('./routes/accounts'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-    // CORS errors
+    // CORS errors — safe to surface the origin name
     if (err.message && err.message.includes('not allowed by CORS')) {
-        return res.status(403).json({ error: err.message });
+        return res.status(403).json({ error: 'CORS: origin not allowed' });
     }
-    console.error(err.stack);
-    res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+    console.error('[GlobalError]', err.stack || err.message);
+    // Never expose internal error details to clients
+    res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
 // ─── Server start ─────────────────────────────────────────────────────────────

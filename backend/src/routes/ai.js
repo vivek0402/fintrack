@@ -8,13 +8,13 @@ const { aiComplete } = require('../utils/ai');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// ─── AI Cache Helpers (6-hour TTL stored in users.ai_cache) ─────────
-const getCached = async (pool, userId, key) => {
+// ─── AI Cache Helpers (configurable TTL stored in users.ai_cache) ───
+const getCached = async (pool, userId, key, ttlMs = 6 * 60 * 60 * 1000) => {
     const result = await pool.query('SELECT ai_cache FROM users WHERE id = $1', [userId]);
     const cache = result.rows[0]?.ai_cache || {};
     const entry = cache[key];
     if (!entry) return null;
-    if (Date.now() - new Date(entry.generated_at).getTime() > 6 * 60 * 60 * 1000) return null;
+    if (Date.now() - new Date(entry.generated_at).getTime() > ttlMs) return null;
     return entry.data;
 };
 
@@ -514,7 +514,7 @@ router.post('/personality', authMiddleware, async (req, res) => {
         const userId = req.user.id;
 
         if (!req.query.force) {
-            const cached = await getCached(pool, userId, 'personality');
+            const cached = await getCached(pool, userId, 'personality', 24 * 60 * 60 * 1000);
             if (cached && cached.dimensions && typeof cached.overall_score === 'number') {
                 return res.json({ ...cached, from_cache: true });
             }
@@ -943,6 +943,176 @@ Data: ${context}`,
         console.error('AI health-report error:', err.message);
         res.status(500).json({ error: 'Could not generate health report.' });
     }
+});
+
+// ─── FEATURE: Natural Language Quick Add ─────────────────────────────
+router.post('/quick-add', authMiddleware, async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) return res.status(400).json({ success: false, error: 'Text is required' });
+
+        const today = new Date().toISOString().split('T')[0];
+        const raw = (await aiComplete('quick-add', [{
+            role: 'user',
+            content: `You are a financial transaction parser for an Indian personal finance app.
+Parse this natural language description into a structured transaction.
+
+Rules:
+- amount: extract numeric amount only (no currency symbols)
+- type: 'expense' unless the text clearly mentions salary/received/credited/earned
+- category: pick the BEST match from: Food & Dining, Transportation, Shopping, Entertainment, Healthcare, Education, Utilities, Rent & Housing, Salary, Investments, Personal Care, Travel, Subscriptions, Gifts & Donations, Other
+- description: short 2-4 word title (e.g. 'Coffee at Cafe', 'Uber Ride', 'Netflix Sub')
+- date: today's date in YYYY-MM-DD format unless a specific date is mentioned (today is ${today})
+- notes: payment mode if mentioned (UPI, cash, card, GPay, PhonePe), else empty string
+
+Text: "${text}"
+
+Respond with ONLY a raw JSON object. No markdown. No backticks. No explanation.
+{
+  "type": "expense",
+  "amount": 200,
+  "description": "Coffee at Cafe",
+  "category": "Food & Dining",
+  "date": "${today}",
+  "notes": "UPI"
+}`,
+        }])).trim();
+        const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(clean);
+        res.json({ success: true, data: parsed });
+    } catch (err) {
+        console.error('[AI] quick-add error:', err.message);
+        res.status(500).json({ success: false, error: 'Failed to parse transaction' });
+    }
+});
+
+// ─── FEATURE: Tax Estimate (Indian FY, April–March) ───────────────────
+router.get('/tax-estimate', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        if (!req.query.force) {
+            const cached = await getCached(pool, userId, 'tax_estimate');
+            if (cached) return res.json({ success: true, data: cached, from_cache: true });
+        }
+
+        // Indian financial year: April of current year to March of next year
+        const now = new Date();
+        const fyStart = now.getMonth() >= 3
+            ? `${now.getFullYear()}-04-01`
+            : `${now.getFullYear() - 1}-04-01`;
+        const fyEnd = now.getMonth() >= 3
+            ? `${now.getFullYear() + 1}-03-31`
+            : `${now.getFullYear()}-03-31`;
+
+        const { rows: incomeTx } = await pool.query(
+            `SELECT amount, description, date,
+                    COALESCE(c.name, 'Salary') as category_name
+             FROM transactions t
+             LEFT JOIN categories c ON c.id = t.category_id
+             WHERE t.user_id = $1 AND t.type = 'income'
+               AND t.date >= $2 AND t.date <= $3
+             ORDER BY t.date DESC`,
+            [userId, fyStart, fyEnd]
+        );
+
+        const { rows: investmentTx } = await pool.query(
+            `SELECT t.amount, t.description, c.name as category_name
+             FROM transactions t
+             LEFT JOIN categories c ON c.id = t.category_id
+             WHERE t.user_id = $1 AND t.type = 'expense'
+               AND t.date >= $2 AND t.date <= $3
+               AND LOWER(COALESCE(c.name,'')) IN ('investments','insurance','education')
+             ORDER BY t.date DESC`,
+            [userId, fyStart, fyEnd]
+        );
+
+        const grossIncome = incomeTx.reduce((s, t) => s + parseFloat(t.amount), 0);
+        const potentialDeductions = investmentTx.reduce((s, t) => s + parseFloat(t.amount), 0);
+
+        if (grossIncome === 0) {
+            return res.json({
+                success: true,
+                data: {
+                    grossIncome: 0,
+                    estimatedTax: 0,
+                    regime: 'new',
+                    breakdown: [],
+                    disclaimer: 'No income recorded for this financial year. Add salary/income transactions to see an estimate.',
+                    fyStart, fyEnd,
+                },
+                from_cache: false,
+            });
+        }
+
+        const context = JSON.stringify({
+            financialYear: `${fyStart.slice(0, 4)}–${fyEnd.slice(0, 4)}`,
+            grossIncome: Math.round(grossIncome),
+            incomeBreakdown: incomeTx.slice(0, 10).map(t => ({ amount: parseFloat(t.amount), category: t.category_name })),
+            potentialDeductions80C: Math.min(Math.round(potentialDeductions), 150000),
+            totalInvestments: Math.round(potentialDeductions),
+        });
+
+        const raw = (await aiComplete('tax-estimate', [{
+            role: 'user',
+            content: `Calculate estimated Indian income tax for this user.
+Compare Old Regime vs New Regime and recommend the better option.
+
+Data: ${context}
+
+Return ONLY valid JSON (no markdown, no backticks):
+{
+  "grossIncome": <number>,
+  "fyPeriod": "<e.g. FY 2024-25>",
+  "oldRegime": {
+    "taxableIncome": <number>,
+    "standardDeduction": 50000,
+    "deduction80C": <number up to 150000>,
+    "tax": <number>,
+    "cess": <number>,
+    "total": <number>
+  },
+  "newRegime": {
+    "taxableIncome": <number>,
+    "standardDeduction": 75000,
+    "tax": <number>,
+    "cess": <number>,
+    "total": <number>
+  },
+  "recommendedRegime": "old" | "new",
+  "savings": <amount saved by choosing recommended regime>,
+  "breakdown": [
+    { "slab": "<e.g. Up to ₹3L>", "rate": "<e.g. Nil>", "tax": <number> }
+  ],
+  "tips": ["<specific actionable tip based on their income>"],
+  "disclaimer": "This is an estimate only. Consult a CA for accurate tax filing."
+}`,
+        }])).trim();
+
+        const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const estimate = JSON.parse(clean);
+        estimate.fyStart = fyStart;
+        estimate.fyEnd = fyEnd;
+
+        await setCached(pool, userId, 'tax_estimate', estimate);
+        res.json({ success: true, data: estimate, from_cache: false });
+    } catch (err) {
+        console.error('[AI] tax-estimate error:', err.message);
+        res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+});
+
+// ─── Aliases for spec-compliant route names ──────────────────────────
+// POST /api/ai/predict → same as /api/ai/afford ("Can I afford this?")
+router.post('/predict', authMiddleware, async (req, res, next) => {
+    req.url = '/afford';
+    router.handle(req, res, next);
+});
+
+// GET /api/ai/recurring → same as /api/ai/detect-patterns
+router.get('/recurring', authMiddleware, async (req, res, next) => {
+    req.url = '/detect-patterns';
+    router.handle(req, res, next);
 });
 
 // ─── Salary Allocation Plan ─────────────────────────────────────────

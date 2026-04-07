@@ -124,6 +124,8 @@ export const aiAPI = {
         api.post('/api/ai/life-event', data),
     forecastCalendar: () => api.get('/api/ai/forecast-calendar'),
     healthReport: (data?: { month?: number; year?: number }) => api.post('/api/ai/health-report', data || {}),
+    taxEstimate: (force?: boolean) => api.get(`/api/ai/tax-estimate${force ? '?force=true' : ''}`),
+    quickAdd: (text: string) => api.post('/api/ai/quick-add', { text }),
 };
 
 export const splitsAPI = {
