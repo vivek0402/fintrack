@@ -66,4 +66,24 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+router.put('/:id', async (req, res) => {
+    try {
+        const { name, target_amount, deadline, color } = req.body;
+        if (!name || !target_amount)
+            return res.status(400).json({ error: 'Name and target amount are required.' });
+
+        const result = await pool.query(
+            `UPDATE goals
+             SET name=$1, target_amount=$2, deadline=$3, color=$4, updated_at=NOW()
+             WHERE id=$5 AND user_id=$6 RETURNING *`,
+            [name, target_amount, deadline || null, color || '#10b981', req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ error: 'Not found.' });
+        res.json({ goal: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 module.exports = router;

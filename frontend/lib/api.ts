@@ -96,6 +96,8 @@ export const recurringAPI = {
 export const goalsAPI = {
     getAll: () => api.get('/api/goals'),
     create: (data: object) => api.post('/api/goals', data),
+    update: (id: string, data: { name: string; target_amount: number; deadline?: string; color?: string }) =>
+        api.put(`/api/goals/${id}`, data),
     addFunds: (id: string, amount: number) =>
         api.patch(`/api/goals/${id}/funds`, { amount }),
     delete: (id: string) => api.delete(`/api/goals/${id}`),
