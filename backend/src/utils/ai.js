@@ -36,7 +36,7 @@ const ROUTES = {
     'parse-split':        { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'regret-patterns':    { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 500,  temp: 0.4 },
     'life-event':         { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 600,  temp: 0.4 },
-    'forecast-calendar':  { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 600,  temp: 0.5 },
+    'forecast-calendar':  { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
     'health-report':      { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 600,  temp: 0.4 },
 };
 
