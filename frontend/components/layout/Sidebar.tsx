@@ -7,7 +7,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Sparkles, Users, Brain, CalendarClock,
-    ChevronLeft, ChevronRight, FolderOpen,
+    ChevronLeft, ChevronRight, FolderOpen, MessageSquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -24,6 +24,7 @@ const navItems = [
     { href: '/reports', icon: FileText, label: 'Reports' },
     { href: '/forecast', icon: CalendarClock, label: 'Forecast' },
     { href: '/personality', icon: Brain, label: 'Personality' },
+    { href: '/ai-chat', icon: MessageSquare, label: 'AI Chat' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
     { href: '/splits', icon: Users, label: 'Splits' },
     { href: '/groups', icon: FolderOpen, label: 'Groups' },
