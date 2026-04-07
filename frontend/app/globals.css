@@ -8,11 +8,12 @@
 
 :root,
 [data-theme="dark"] {
-  --bg-primary:     #0a0f1e;
-  --bg-secondary:   #0f1629;
-  --bg-card:        #141d35;
-  --bg-hover:       #1a2540;
+  --bg-primary:     #080c18;
+  --bg-secondary:   #0d1425;
+  --bg-card:        #111a30;
+  --bg-hover:       #192140;
   --bg-border:      #1e2d4a;
+  --bg-border-strong:   #2a3d5e;
   --text-primary:   #f0f4ff;
   --text-secondary: #8892aa;
   --text-muted:     #4a5568;
