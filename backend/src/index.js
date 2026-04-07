@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const cron = require('node-cron');
 require('dotenv').config();
 
@@ -116,7 +116,7 @@ const aiLimiter = rateLimit({
                 return `ai:user:${decoded.id}`;
             } catch { /* fall through to IP */ }
         }
-        return req.ip;
+        return ipKeyGenerator(req);
     },
     message: { error: 'AI request limit reached. Please wait before making more AI requests.' },
 });

@@ -781,7 +781,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
         );
 
         // 3. Build category summary
-        const catMap: Record<string, { total: number; count: number; dates: string[] }> = {};
+        const catMap = {};
         expenses.forEach(t => {
             const cat = t.category;
             if (!catMap[cat]) catMap[cat] = { total: 0, count: 0, dates: [] };
