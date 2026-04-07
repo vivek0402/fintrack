@@ -76,6 +76,27 @@ router.delete('/:id', async (req, res) => {
     }
 });
 
+router.put('/:id', async (req, res) => {
+    try {
+        const { type, amount, description, frequency, day_of_month, category_id } = req.body;
+        if (!type || !amount || !description || !frequency)
+            return res.status(400).json({ error: 'Type, amount, description and frequency are required.' });
+
+        const result = await pool.query(
+            `UPDATE recurring_transactions
+             SET type=$1, amount=$2, description=$3, frequency=$4,
+                 day_of_month=$5, category_id=$6, updated_at=NOW()
+             WHERE id=$7 AND user_id=$8 RETURNING *`,
+            [type, amount, description, frequency, day_of_month || null, category_id || null, req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0)
+            return res.status(404).json({ error: 'Not found.' });
+        res.json({ recurring: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 router.post('/process', async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];

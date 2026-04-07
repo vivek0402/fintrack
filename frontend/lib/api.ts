@@ -86,6 +86,8 @@ export const profileAPI = {
 export const recurringAPI = {
     getAll: () => api.get('/api/recurring'),
     create: (data: object) => api.post('/api/recurring', data),
+    update: (id: string, data: { type: string; amount: number; description: string; frequency: string; day_of_month?: number; category_id?: string }) =>
+        api.put(`/api/recurring/${id}`, data),
     toggle: (id: string) => api.patch(`/api/recurring/${id}/toggle`),
     delete: (id: string) => api.delete(`/api/recurring/${id}`),
     process: () => api.post('/api/recurring/process'),
