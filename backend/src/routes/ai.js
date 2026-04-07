@@ -515,7 +515,9 @@ router.post('/personality', authMiddleware, async (req, res) => {
 
         if (!req.query.force) {
             const cached = await getCached(pool, userId, 'personality');
-            if (cached) return res.json({ ...cached, from_cache: true });
+            if (cached && cached.dimensions && typeof cached.overall_score === 'number') {
+                return res.json({ ...cached, from_cache: true });
+            }
         }
 
         const result = await pool.query(`
@@ -799,7 +801,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             }
         }
 
-        if (historyRes.rows.length > 5) {
+        if (historyRes.rows.length > 0) {
             const context = JSON.stringify({
                 history: historyRes.rows.slice(0, 60).map(t => ({
                     date: t.date, amount: parseFloat(t.amount), category: t.category_name,
@@ -828,7 +830,9 @@ Only predict dates within the next 30 days from today. Data: ${context}`,
                         });
                     });
                 }
-            } catch { /* silent — use recurring predictions only */ }
+            } catch (aiErr) {
+                console.error('Forecast AI error:', aiErr?.message || aiErr);
+            }
         }
 
         res.json({ predictions: predictions.sort((a, b) => a.date.localeCompare(b.date)) });
