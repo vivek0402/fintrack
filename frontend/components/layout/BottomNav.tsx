@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     CalendarDays, Target, Trophy, BarChart2, RefreshCw, Settings, X, LogOut,
-    Users, FolderOpen, ChevronRight, TrendingUp, Brain, MessageSquare
+    Users, FolderOpen, ChevronRight, TrendingUp, Brain, MessageSquare,
+    Receipt, Banknote,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -37,10 +38,12 @@ const moreSections = [
     {
         label: 'TOOLS',
         items: [
-            { href: '/forecast',    icon: TrendingUp,    label: 'Forecast' },
-            { href: '/personality', icon: Brain,         label: 'Personality' },
-            { href: '/ai-chat',     icon: MessageSquare, label: 'AI Chat' },
-            { href: '/profile',     icon: Settings,      label: 'Settings' },
+            { href: '/forecast',              icon: TrendingUp,    label: 'Forecast' },
+            { href: '/personality',           icon: Brain,         label: 'Personality' },
+            { href: '/tax-estimate',          icon: Receipt,       label: 'Tax' },
+            { href: '/salary-intelligence',   icon: Banknote,      label: 'Salary AI' },
+            { href: '/ai-chat',               icon: MessageSquare, label: 'AI Chat' },
+            { href: '/profile',               icon: Settings,      label: 'Settings' },
         ],
     },
 ];

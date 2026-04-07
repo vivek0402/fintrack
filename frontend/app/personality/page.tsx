@@ -5,31 +5,64 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
-import { useIsMobile } from '@/hooks/useWindowSize';
-import { Button } from '@/components/ui/Button';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+    Brain, Sparkles, TrendingUp, AlertCircle, Lightbulb, Loader2, AlertTriangle,
+} from 'lucide-react';
 
-const DIMENSION_COLORS: Record<string, string> = {
-    consistency: '#10b981',
-    discipline: '#3b82f6',
-    goal_focus: '#f59e0b',
-    risk_appetite: '#f43f5e',
-    savings_habit: '#8b5cf6',
+const DIMENSION_META: Record<string, { color: string; icon: string }> = {
+    consistency: { color: '#10b981', icon: '📊' },
+    discipline:  { color: '#3b82f6', icon: '🎯' },
+    goal_focus:  { color: '#f59e0b', icon: '🏆' },
+    risk_appetite: { color: '#f43f5e', icon: '⚡' },
+    savings_habit: { color: '#8b5cf6', icon: '💰' },
 };
 
 const DIMENSION_LABELS: Record<string, string> = {
-    consistency: 'Consistency',
-    discipline: 'Discipline',
-    goal_focus: 'Goal Focus',
+    consistency:   'Consistency',
+    discipline:    'Discipline',
+    goal_focus:    'Goal Focus',
     risk_appetite: 'Risk Appetite',
     savings_habit: 'Savings Habit',
+};
+
+function scoreColor(score: number) {
+    if (score >= 70) return 'var(--accent-green)';
+    if (score >= 40) return 'var(--accent-yellow)';
+    return 'var(--accent-red)';
+}
+
+function scoreLabel(score: number) {
+    if (score >= 80) return 'Excellent';
+    if (score >= 60) return 'Good';
+    if (score >= 40) return 'Average';
+    return 'Needs Work';
+}
+
+const card: React.CSSProperties = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--bg-border)',
+    borderRadius: '16px',
+    padding: '20px 24px',
+};
+
+const generateBtn: React.CSSProperties = {
+    background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontFamily: 'DM Sans, sans-serif',
 };
 
 export default function PersonalityPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const isMobile = useIsMobile();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [generated, setGenerated] = useState(false);
@@ -46,8 +79,7 @@ export default function PersonalityPage() {
             setData(res.data);
             setGenerated(true);
         } catch (err: any) {
-            const msg = err?.response?.data?.message || err?.response?.data?.error;
-            setError(msg || 'Failed to generate profile. Please try again.');
+            setError(err?.response?.data?.message || err?.response?.data?.error || 'Failed to generate profile. Please try again.');
             setData(null);
         } finally {
             setLoading(false);
@@ -56,114 +88,320 @@ export default function PersonalityPage() {
 
     if (isLoading || !user) return (
         <AppLayout>
-            <div style={{ marginBottom: '24px' }}>
-                <SkeletonTitle />
-                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={24} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
             </div>
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
 
-    const radarData = data?.dimensions
-        ? Object.entries(data.dimensions).map(([key, val]: [string, any]) => ({
-            dimension: DIMENSION_LABELS[key] || key,
-            score: val.score,
-            fullMark: 100,
-        }))
-        : [];
-
-    const scoreColor = (score: number) => score >= 70 ? '#10b981' : score >= 40 ? '#f59e0b' : '#f43f5e';
+    const dims = data?.dimensions ? Object.entries(data.dimensions) : [];
+    const strengths = dims.filter(([, d]: [string, any]) => d.score >= 65);
+    const watchOuts = dims.filter(([, d]: [string, any]) => d.score < 50);
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Financial Personality</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>AI analysis of your last 90 days</p>
-                </div>
-                <Button onClick={generate} isLoading={loading} size="md">
-                    {generated ? '🔄 Regenerate' : '✨ Analyse My Personality'}
-                </Button>
-            </div>
-            {error && (
-                <div style={{ backgroundColor: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', padding: '10px 14px', fontSize: '0.85rem', color: '#f87171', marginBottom: '16px' }}>
-                    {error}
-                </div>
-            )}
-
-            {!generated && !loading && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '60px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🧠</div>
-                    <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 10px 0' }}>Discover Your Financial DNA</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '0 0 24px 0', lineHeight: 1.6, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-                        AI will analyse your last 90 days of transactions, budgets, and goals to score you across 5 dimensions and assign your financial personality type.
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                {/* Header */}
+                <div style={{ marginBottom: '28px' }}>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        Financial Personality
+                    </h1>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
+                        AI analysis of your spending behaviour across 5 financial dimensions.
                     </p>
-                    <Button onClick={generate} isLoading={loading} size="lg">✨ Generate My Profile</Button>
                 </div>
-            )}
 
-            {data && (
-                <div>
-                    {/* Personality type badge */}
-                    <div style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.08))', border: '1px solid rgba(139,92,246,0.25)', borderRadius: '20px', padding: '24px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                        <div style={{ width: '72px', height: '72px', borderRadius: '20px', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', flexShrink: 0 }}>
-                            {data.personality_emoji || '🧠'}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                                <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{data.personality_type}</h2>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '20px', background: `${scoreColor(data.overall_score)}18`, border: `1px solid ${scoreColor(data.overall_score)}40` }}>
-                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 700, color: scoreColor(data.overall_score) }}>{data.overall_score}</span>
-                                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>/100</span>
-                                </div>
+                {/* State 1 — Initial */}
+                {!generated && !loading && !error && (
+                    <div style={{ ...card, textAlign: 'center', padding: '60px 40px' }}>
+                        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
+                            <div style={{
+                                position: 'absolute', inset: 0,
+                                borderRadius: '60px',
+                                background: 'radial-gradient(circle, rgba(168,85,247,0.3), rgba(59,130,246,0.1))',
+                            }} />
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Brain size={48} color="var(--accent-purple)" />
                             </div>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{data.summary}</p>
                         </div>
+                        <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>
+                            Your Financial Personality
+                        </h2>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.7, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
+                            Discover how you relate to money based on 90 days of real spending data.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <button type="button" onClick={generate} style={generateBtn}>
+                                <Brain size={17} /> Analyse My Personality
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '14px' }}>
+                            Uses Groq AI · Results refresh every 24 hours
+                        </p>
                     </div>
+                )}
 
-                    {/* Radar chart + dimension cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '340px 1fr', gap: '16px', marginBottom: '16px' }}>
-                        {/* Radar chart */}
-                        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
-                            <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Score Overview</h3>
-                            <ResponsiveContainer width="100%" height={260}>
-                                <RadarChart data={radarData}>
-                                    <PolarGrid stroke="var(--bg-border)" />
-                                    <PolarAngleAxis dataKey="dimension" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
-                                    <Radar name="Score" dataKey="score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.25} strokeWidth={2} />
-                                    <Tooltip
-                                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.8rem' }}
-                                        formatter={(v: any) => [`${v}/100`, 'Score']}
-                                    />
-                                </RadarChart>
-                            </ResponsiveContainer>
-                        </div>
+                {/* State 2 — Loading */}
+                {loading && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '16px' }}>
+                        <Loader2 size={28} color="var(--accent-purple)" style={{ animation: 'spin 1s linear infinite' }} />
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
+                            Building your financial profile…
+                        </p>
+                    </div>
+                )}
 
-                        {/* Dimension breakdown */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {data.dimensions && Object.entries(data.dimensions).map(([key, dim]: [string, any]) => (
-                                <div key={key} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '16px 20px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: DIMENSION_COLORS[key] || '#6b7280' }} />
-                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{DIMENSION_LABELS[key] || key}</span>
-                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', padding: '2px 8px', borderRadius: '6px' }}>{dim.label}</span>
+                {/* State 3 — Error */}
+                {error && !loading && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
+                        <AlertTriangle size={28} color="var(--accent-red)" />
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>{error}</p>
+                        <button type="button" onClick={generate} style={{
+                            background: 'none', border: '1px solid var(--bg-border)',
+                            borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)',
+                            fontSize: '14px', cursor: 'pointer',
+                        }}>
+                            Try again
+                        </button>
+                    </div>
+                )}
+
+                {/* State 4 — Result */}
+                {generated && data && !loading && (
+                    <>
+                        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                            {/* LEFT: Hero card */}
+                            <div style={{ flex: '1.2 1 300px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{
+                                    background: 'linear-gradient(135deg, rgba(168,85,247,0.15), rgba(59,130,246,0.08))',
+                                    border: '1px solid rgba(168,85,247,0.3)',
+                                    borderRadius: '16px',
+                                    padding: '28px 24px',
+                                }}>
+                                    {/* Badge */}
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                        <div style={{
+                                            background: 'rgba(168,85,247,0.2)',
+                                            color: 'var(--accent-purple)',
+                                            borderRadius: '20px',
+                                            padding: '4px 16px',
+                                            fontFamily: 'Sora, sans-serif',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                        }}>
+                                            ✦ FINANCIAL PROFILE
                                         </div>
-                                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 700, color: scoreColor(dim.score) }}>{dim.score}</span>
+                                        {data.from_cache && (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '2px 8px' }}>
+                                                Cached
+                                            </span>
+                                        )}
                                     </div>
-                                    <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '8px' }}>
-                                        <div style={{ height: '100%', width: `${dim.score}%`, background: DIMENSION_COLORS[key] || '#6b7280', borderRadius: '2px', transition: 'width 0.6s ease' }} />
-                                    </div>
-                                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{dim.description}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
+                                    {/* Emoji + Score row */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '16px' }}>
+                                        <div style={{ fontSize: '40px', lineHeight: 1 }}>{data.personality_emoji || '🧠'}</div>
+                                        <div>
+                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.1 }}>
+                                                {data.personality_type}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Score */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
+                                        <div style={{
+                                            background: `${scoreColor(data.overall_score)}18`,
+                                            border: `1px solid ${scoreColor(data.overall_score)}40`,
+                                            borderRadius: '20px', padding: '5px 14px',
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                        }}>
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: scoreColor(data.overall_score) }}>
+                                                {data.overall_score}
+                                            </span>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>/100</span>
+                                        </div>
+                                        <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                                            {scoreLabel(data.overall_score)}
+                                        </span>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div style={{ height: '1px', background: 'var(--bg-border)', margin: '20px 0' }} />
+
+                                    {/* Summary */}
+                                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+                                        {data.summary}
+                                    </p>
+                                </div>
+
+                                {/* Score overview card */}
+                                <div style={card}>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 14px', fontWeight: 600 }}>
+                                        Dimension scores
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {dims.map(([key, dim]: [string, any]) => {
+                                            const meta = DIMENSION_META[key] || { color: '#6b7280', icon: '•' };
+                                            return (
+                                                <div key={key}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <span style={{ fontSize: '13px' }}>{meta.icon}</span>
+                                                            <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>
+                                                                {DIMENSION_LABELS[key] || key}
+                                                            </span>
+                                                            <span style={{
+                                                                fontSize: '11px', color: meta.color,
+                                                                background: `${meta.color}18`,
+                                                                borderRadius: '4px', padding: '1px 6px',
+                                                            }}>
+                                                                {dim.label}
+                                                            </span>
+                                                        </div>
+                                                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 700, color: scoreColor(dim.score) }}>
+                                                            {dim.score}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ height: '6px', background: 'var(--bg-hover)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{
+                                                            height: '100%',
+                                                            width: `${dim.score}%`,
+                                                            background: meta.color,
+                                                            borderRadius: '3px',
+                                                            transition: 'width 0.8s ease',
+                                                        }} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Regenerate */}
+                                <button type="button" onClick={() => { setGenerated(false); setData(null); }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', padding: '0' }}>
+                                    ↻ Regenerate profile
+                                </button>
+                            </div>
+
+                            {/* RIGHT: Traits / Strengths / Watch outs */}
+                            <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {/* Traits — all dimension descriptions */}
+                                <div style={card}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                        <Sparkles size={16} color="var(--accent-purple)" />
+                                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            Traits
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        {dims.map(([key, dim]: [string, any]) => (
+                                            <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                <div style={{
+                                                    width: '6px', height: '6px', borderRadius: '3px',
+                                                    background: 'var(--accent-purple)',
+                                                    flexShrink: 0, marginTop: '5px',
+                                                }} />
+                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                                    {dim.description}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Strengths */}
+                                {strengths.length > 0 && (
+                                    <div style={card}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                            <TrendingUp size={16} color="var(--accent-green)" />
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Strengths
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {strengths.map(([key, dim]: [string, any]) => (
+                                                <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                    <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--accent-green)', flexShrink: 0, marginTop: '5px' }} />
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                                        Strong {DIMENSION_LABELS[key] || key} ({dim.score}/100) — {dim.label}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Watch outs */}
+                                {watchOuts.length > 0 && (
+                                    <div style={card}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                            <AlertCircle size={16} color="var(--accent-yellow)" />
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Watch Outs
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {watchOuts.map(([key, dim]: [string, any]) => (
+                                                <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                                    <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--accent-yellow)', flexShrink: 0, marginTop: '5px' }} />
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                                                        {DIMENSION_LABELS[key] || key} needs attention ({dim.score}/100) — {dim.label}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Tips — full width */}
+                        <div style={{ ...card, marginTop: '16px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.18)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                <Lightbulb size={16} color="var(--accent-blue)" />
+                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    What to focus on
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {dims.map(([key, dim]: [string, any], i: number) => (
+                                    <div key={key} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                        <div style={{
+                                            width: '24px', height: '24px', flexShrink: 0,
+                                            borderRadius: '12px',
+                                            background: 'rgba(59,130,246,0.15)',
+                                            color: 'var(--accent-blue)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontWeight: 700, fontSize: '13px',
+                                        }}>
+                                            {i + 1}
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px' }}>
+                                                {DIMENSION_LABELS[key] || key}
+                                            </p>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                                                {dim.score >= 70
+                                                    ? `You're doing well here. Maintain your ${dim.label.toLowerCase()} habits.`
+                                                    : dim.score >= 50
+                                                    ? `Good foundation — push to improve ${DIMENSION_LABELS[key]?.toLowerCase()} toward 70+.`
+                                                    : `Focus area: ${dim.description}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '20px' }}>
+                            AI-generated analysis based on your last 90 days of transactions. Results update every 24 hours.
+                        </p>
+                    </>
+                )}
+            </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );

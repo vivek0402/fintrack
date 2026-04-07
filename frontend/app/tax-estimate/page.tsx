@@ -5,9 +5,42 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
-import { Button } from '@/components/ui/Button';
-import { formatCurrency } from '@/lib/utils';
+import {
+    Receipt, Loader2, AlertTriangle, PiggyBank,
+} from 'lucide-react';
+
+const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+
+const card: React.CSSProperties = {
+    background: 'var(--bg-card)',
+    border: '1px solid var(--bg-border)',
+    borderRadius: '16px',
+    padding: '20px 24px',
+};
+
+const generateBtn: React.CSSProperties = {
+    background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '10px',
+    padding: '12px 24px',
+    fontSize: '15px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontFamily: 'DM Sans, sans-serif',
+};
+
+const labelStyle: React.CSSProperties = {
+    fontSize: '10px',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    fontWeight: 600,
+    margin: '0 0 8px',
+};
 
 export default function TaxEstimatePage() {
     const router = useRouter();
@@ -28,8 +61,7 @@ export default function TaxEstimatePage() {
             setData(res.data.data);
             setGenerated(true);
         } catch (err: any) {
-            const msg = err?.response?.data?.error || err?.response?.data?.message;
-            setError(msg || 'Failed to generate tax estimate. Please try again.');
+            setError(err?.response?.data?.error || err?.response?.data?.message || 'Failed to generate tax estimate. Please try again.');
             setData(null);
         } finally {
             setLoading(false);
@@ -38,191 +70,319 @@ export default function TaxEstimatePage() {
 
     if (isLoading || !user) return (
         <AppLayout>
-            <div style={{ marginBottom: '24px' }}>
-                <SkeletonTitle />
-                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            <div style={{ height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={24} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
             </div>
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
 
-    const regimeColor = (r: string) => r === 'new' ? 'var(--accent-blue)' : 'var(--accent-green)';
-    const scoreColor = (n: number) => n === 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    const isNewBetter = data?.recommendedRegime === 'new';
+    const recTax = isNewBetter ? data?.newRegime?.total : data?.oldRegime?.total;
+    const otherTax = isNewBetter ? data?.oldRegime?.total : data?.newRegime?.total;
 
     return (
         <AppLayout>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Tax Estimate</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Indian income tax estimate for current financial year</p>
-                </div>
-                {generated && (
-                    <Button onClick={() => generate(true)} isLoading={loading} size="md">🔄 Recalculate</Button>
-                )}
-            </div>
-
-            {/* Error */}
-            {error && (
-                <div style={{ backgroundColor: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', padding: '10px 14px', fontSize: '0.85rem', color: '#f87171', marginBottom: '16px' }}>
-                    {error}
-                </div>
-            )}
-
-            {/* Prompt screen */}
-            {!generated && !loading && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '60px 40px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🧾</div>
-                    <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 10px 0' }}>Estimate Your Income Tax</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '0 0 24px 0', lineHeight: 1.6, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
-                        AI will analyse your income transactions for the current financial year (April–March) and compare Old Regime vs New Regime tax liability.
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+                {/* Header */}
+                <div style={{ marginBottom: '28px' }}>
+                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        Tax Estimate Helper
+                    </h1>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
+                        AI-powered estimate of your income tax — Old Regime vs New Regime.
                     </p>
-                    <Button onClick={() => generate(false)} isLoading={loading} size="lg">🧾 Calculate My Tax</Button>
                 </div>
-            )}
 
-            {/* Loading */}
-            {loading && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                    <div style={{ width: '24px', height: '24px', border: '2px solid var(--accent-blue)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
-                    Analysing your income data…
-                </div>
-            )}
-
-            {/* Results */}
-            {data && !loading && (
-                <div>
-                    {/* FY period */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '3px 10px' }}>
-                            {data.fyPeriod || `${data.fyStart?.slice(0, 7)} → ${data.fyEnd?.slice(0, 7)}`}
-                        </span>
-                        {data.from_cache && (
-                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '3px 10px' }}>
-                                Cached
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Zero income message */}
-                    {data.grossIncome === 0 && (
-                        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '12px', padding: '16px 20px', marginBottom: '16px', color: 'var(--accent-yellow)', fontSize: '0.875rem' }}>
-                            {data.disclaimer}
+                {/* State 1 — Initial */}
+                {!generated && !loading && !error && (
+                    <div style={{ ...card, textAlign: 'center', padding: '60px 40px' }}>
+                        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
+                            <div style={{
+                                position: 'absolute', inset: 0, borderRadius: '60px',
+                                background: 'radial-gradient(circle, rgba(20,184,166,0.25), rgba(59,130,246,0.08))',
+                            }} />
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Receipt size={44} color="var(--accent-blue)" />
+                            </div>
                         </div>
-                    )}
+                        <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>
+                            Tax Estimate Helper
+                        </h2>
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.7, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
+                            Get an AI-powered estimate of your income tax for FY 2025–26. We analyse your income transactions and compare both regimes.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <button type="button" onClick={() => generate(false)} style={generateBtn}>
+                                <Receipt size={17} /> Calculate My Tax
+                            </button>
+                        </div>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '14px' }}>
+                            India-specific · Old &amp; New regime · Not a substitute for CA advice
+                        </p>
+                    </div>
+                )}
 
-                    {data.grossIncome > 0 && (
-                        <>
-                            {/* Hero: Gross Income */}
-                            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Gross Income (FY)</p>
-                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '2rem', fontWeight: 700, color: 'var(--accent-green)', margin: '0 0 16px 0' }}>
-                                    {formatCurrency(data.grossIncome, user.currency)}
+                {/* State 2 — Loading */}
+                {loading && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '16px' }}>
+                        <Loader2 size={28} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
+                            Calculating your tax estimate…
+                        </p>
+                    </div>
+                )}
+
+                {/* State 3 — Error */}
+                {error && !loading && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
+                        <AlertTriangle size={28} color="var(--accent-red)" />
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>{error}</p>
+                        <button type="button" onClick={() => generate(false)} style={{
+                            background: 'none', border: '1px solid var(--bg-border)',
+                            borderRadius: '8px', padding: '8px 20px',
+                            color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer',
+                        }}>
+                            Try again
+                        </button>
+                    </div>
+                )}
+
+                {/* State 4 — Result */}
+                {generated && data && !loading && (
+                    <>
+                        {/* Zero income message */}
+                        {data.grossIncome === 0 && (
+                            <div style={{
+                                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                                borderRadius: '14px', padding: '20px 24px', marginBottom: '16px',
+                                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                            }}>
+                                <AlertTriangle size={20} color="var(--accent-yellow)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                                    {data.disclaimer || 'No income recorded for this financial year. Add salary/income transactions to see an estimate.'}
                                 </p>
+                            </div>
+                        )}
 
-                                {/* Recommended regime badge */}
-                                {data.recommendedRegime && (
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '10px', background: `${regimeColor(data.recommendedRegime)}18`, border: `1px solid ${regimeColor(data.recommendedRegime)}40` }}>
-                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: regimeColor(data.recommendedRegime) }}>
-                                            ✅ {data.recommendedRegime === 'new' ? 'New Regime' : 'Old Regime'} is better for you
-                                        </span>
-                                        {data.savings > 0 && (
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                saves {formatCurrency(data.savings, user.currency)}
-                                            </span>
+                        {data.grossIncome > 0 && (
+                            <>
+                                {/* Summary row */}
+                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                                    {/* Gross income */}
+                                    <div style={{ ...card, flex: '1 1 220px' }}>
+                                        <p style={labelStyle}>Gross Income {data.fyPeriod || 'FY 2025–26'}</p>
+                                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '28px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                                            {fmt(data.grossIncome)}
+                                        </p>
+                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
+                                            Total income transactions · April – March
+                                        </p>
+                                        {data.from_cache && (
+                                            <span style={{ display: 'inline-block', marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)', background: 'var(--bg-hover)', borderRadius: '6px', padding: '2px 8px' }}>Cached</span>
                                         )}
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Regime Comparison */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                                {[
-                                    { key: 'oldRegime', label: 'Old Regime', regime: data.oldRegime },
-                                    { key: 'newRegime', label: 'New Regime', regime: data.newRegime },
-                                ].map(({ key, label, regime }) => {
-                                    if (!regime) return null;
-                                    const isRecommended = data.recommendedRegime === (key === 'oldRegime' ? 'old' : 'new');
-                                    return (
-                                        <div key={key} style={{
-                                            background: 'var(--bg-secondary)',
-                                            border: `1px solid ${isRecommended ? 'var(--accent-green-border)' : 'var(--bg-border)'}`,
-                                            borderRadius: '16px',
-                                            padding: '20px',
-                                            position: 'relative',
+                                    {/* Recommended regime */}
+                                    <div style={{
+                                        ...card,
+                                        flex: '1 1 220px',
+                                        borderLeft: `4px solid ${isNewBetter ? 'var(--accent-green)' : 'var(--accent-blue)'}`,
+                                    }}>
+                                        <p style={labelStyle}>Recommended Regime</p>
+                                        <p style={{
+                                            fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700,
+                                            color: isNewBetter ? 'var(--accent-green)' : 'var(--accent-blue)',
+                                            margin: '0 0 4px',
                                         }}>
-                                            {isRecommended && (
-                                                <div style={{ position: 'absolute', top: '-10px', right: '16px', background: 'var(--accent-green)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '2px 10px', borderRadius: '10px' }}>
-                                                    RECOMMENDED
-                                                </div>
-                                            )}
-                                            <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>{label}</h3>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {[
-                                                    { label: 'Standard Deduction', value: formatCurrency(regime.standardDeduction || 0, user.currency), color: 'var(--accent-green)' },
-                                                    ...(regime.deduction80C ? [{ label: '80C Deductions', value: formatCurrency(regime.deduction80C, user.currency), color: 'var(--accent-green)' }] : []),
-                                                    { label: 'Taxable Income', value: formatCurrency(regime.taxableIncome || 0, user.currency), color: 'var(--text-primary)' },
-                                                    { label: 'Income Tax', value: formatCurrency(regime.tax || 0, user.currency), color: 'var(--accent-red)' },
-                                                    { label: 'Cess (4%)', value: formatCurrency(regime.cess || 0, user.currency), color: 'var(--accent-yellow)' },
-                                                    { label: 'Total Liability', value: formatCurrency(regime.total || 0, user.currency), color: scoreColor(regime.total || 0) },
-                                                ].map(row => (
-                                                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', borderBottom: '1px solid var(--bg-border)' }}>
-                                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{row.label}</span>
-                                                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: row.color }}>{row.value}</span>
+                                            {isNewBetter ? 'New Regime' : 'Old Regime'}
+                                        </p>
+                                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 4px' }}>
+                                            {fmt(recTax ?? 0)} tax due
+                                        </p>
+                                        {(data.savings ?? 0) > 0 && (
+                                            <p style={{ fontSize: '13px', color: 'var(--accent-green)', margin: 0, fontWeight: 500 }}>
+                                                You save {fmt(data.savings)} vs the other regime
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Regime comparison */}
+                                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                                    {[
+                                        {
+                                            label: 'New Regime',
+                                            regime: data.newRegime,
+                                            isRec: isNewBetter,
+                                            note: 'No deductions, lower slabs',
+                                        },
+                                        {
+                                            label: 'Old Regime',
+                                            regime: data.oldRegime,
+                                            isRec: !isNewBetter,
+                                            note: 'With standard deductions (80C, HRA etc.)',
+                                        },
+                                    ].map(({ label, regime, isRec, note }) => {
+                                        if (!regime) return null;
+                                        return (
+                                            <div key={label} style={{
+                                                ...card,
+                                                flex: '1 1 220px',
+                                                position: 'relative',
+                                                border: `1px solid ${isRec ? 'rgba(16,185,129,0.4)' : 'var(--bg-border)'}`,
+                                            }}>
+                                                {isRec && (
+                                                    <div style={{
+                                                        position: 'absolute', top: '-10px', right: '16px',
+                                                        background: 'var(--accent-green)', color: '#fff',
+                                                        fontSize: '10px', fontWeight: 700,
+                                                        padding: '2px 10px', borderRadius: '10px',
+                                                    }}>
+                                                        ✓ RECOMMENDED
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Slab Breakdown */}
-                            {data.breakdown?.length > 0 && (
-                                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
-                                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px 0' }}>Tax Slab Breakdown</h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {data.breakdown.map((slab: any, i: number) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '8px' }}>
-                                                <div>
-                                                    <p style={{ fontSize: '0.82rem', color: 'var(--text-primary)', margin: '0 0 2px 0', fontWeight: 500 }}>{slab.slab}</p>
-                                                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>{slab.rate}</p>
+                                                )}
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                                        {label}
+                                                    </p>
                                                 </div>
-                                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: slab.tax > 0 ? 'var(--accent-red)' : 'var(--accent-green)', margin: 0 }}>
-                                                    {slab.tax > 0 ? formatCurrency(slab.tax, user.currency) : 'Nil'}
+                                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                                                    {fmt(regime.total ?? 0)}
                                                 </p>
+                                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 4px' }}>
+                                                    Effective rate: {regime.total && data.grossIncome ? ((regime.total / data.grossIncome) * 100).toFixed(1) : '0'}%
+                                                </p>
+                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{note}</p>
+
+                                                <div style={{ height: '1px', background: 'var(--bg-border)', margin: '14px 0' }} />
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                                                    {[
+                                                        { label: 'Standard Deduction', val: fmt(regime.standardDeduction ?? 0), color: 'var(--accent-green)' },
+                                                        ...(regime.deduction80C ? [{ label: '80C Deductions', val: fmt(regime.deduction80C), color: 'var(--accent-green)' }] : []),
+                                                        { label: 'Taxable Income', val: fmt(regime.taxableIncome ?? 0), color: 'var(--text-primary)' },
+                                                        { label: 'Income Tax', val: fmt(regime.tax ?? 0), color: 'var(--accent-red)' },
+                                                        { label: 'Cess (4%)', val: fmt(regime.cess ?? 0), color: 'var(--accent-yellow)' },
+                                                    ].map(row => (
+                                                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--bg-border)' }}>
+                                                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{row.label}</span>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600, color: row.color }}>{row.val}</span>
+                                                        </div>
+                                                    ))}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>Total Liability</span>
+                                                        <span style={{ fontSize: '14px', fontWeight: 700, color: (regime.total ?? 0) === 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                                            {fmt(regime.total ?? 0)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Slab breakdown */}
+                                {data.breakdown?.length > 0 && (
+                                    <div style={{ ...card, marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                                            <Receipt size={15} color="var(--accent-blue)" />
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Tax slab breakdown (New Regime)
+                                            </span>
+                                        </div>
+
+                                        {/* Header row */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '4px' }}>
+                                            {['Slab', 'Taxable Amt', 'Rate', 'Tax'].map(h => (
+                                                <span key={h} style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: h !== 'Slab' ? 'right' : 'left' }}>
+                                                    {h}
+                                                </span>
+                                            ))}
+                                        </div>
+
+                                        {data.breakdown.map((row: any, i: number) => (
+                                            <div key={i} style={{
+                                                display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                                            }}>
+                                                <span style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{row.slab}</span>
+                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'right' }}>—</span>
+                                                <span style={{ fontSize: '13px', color: 'var(--accent-blue)', textAlign: 'right' }}>{row.rate}</span>
+                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right' }}>
+                                                    {row.tax > 0 ? fmt(row.tax) : 'Nil'}
+                                                </span>
                                             </div>
                                         ))}
+
+                                        {/* Total row */}
+                                        <div style={{ borderTop: '1px solid var(--bg-border)', marginTop: '8px', padding: '10px 12px 0', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>Total Tax Due</span>
+                                            <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--accent-red)' }}>
+                                                {fmt(data.newRegime?.tax ?? data.oldRegime?.tax ?? 0)}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Tips */}
-                            {data.tips?.length > 0 && (
-                                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', marginBottom: '16px' }}>
-                                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 12px 0' }}>💡 Tax Saving Tips</h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {data.tips.map((tip: string, i: number) => (
-                                            <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                <span style={{ color: 'var(--accent-blue)', fontSize: '0.9rem', flexShrink: 0, marginTop: '1px' }}>•</span>
-                                                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{tip}</span>
-                                            </div>
-                                        ))}
+                                {/* Tips */}
+                                {data.tips?.length > 0 && (
+                                    <div style={{ ...card, marginBottom: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                                            <PiggyBank size={15} color="var(--accent-green)" />
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                Tax saving tips
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            {data.tips.map((tip: string, i: number) => (
+                                                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                    <div style={{
+                                                        width: '22px', height: '22px', flexShrink: 0,
+                                                        borderRadius: '11px',
+                                                        background: 'rgba(16,185,129,0.15)',
+                                                        color: 'var(--accent-green)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontSize: '12px', fontWeight: 700,
+                                                    }}>
+                                                        {i + 1}
+                                                    </div>
+                                                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{tip}</p>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                                )}
+                            </>
+                        )}
 
-                    {/* Disclaimer */}
-                    <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: '10px', padding: '12px 16px', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                        ⚠️ {data.disclaimer || 'This is an estimate only. Consult a Chartered Accountant for accurate tax filing.'}
-                    </div>
-                </div>
-            )}
+                        {/* Disclaimer */}
+                        <div style={{
+                            background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)',
+                            borderRadius: '12px', padding: '16px 20px',
+                            display: 'flex', gap: '12px', alignItems: 'flex-start', marginBottom: '16px',
+                        }}>
+                            <AlertTriangle size={18} color="var(--accent-yellow)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                            <div>
+                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 4px', lineHeight: 1.6 }}>
+                                    {data.disclaimer || 'This is an estimate only.'}
+                                </p>
+                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                                    Consult a Chartered Accountant for accurate tax filing.
+                                </p>
+                            </div>
+                        </div>
 
+                        {/* Recalculate */}
+                        <button type="button" onClick={() => generate(true)}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '13px', cursor: 'pointer', padding: 0 }}>
+                            ↻ Recalculate
+                        </button>
+                    </>
+                )}
+            </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
