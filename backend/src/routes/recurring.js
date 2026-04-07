@@ -85,7 +85,7 @@ router.put('/:id', async (req, res) => {
         const result = await pool.query(
             `UPDATE recurring_transactions
              SET type=$1, amount=$2, description=$3, frequency=$4,
-                 day_of_month=$5, category_id=$6, updated_at=NOW()
+                 day_of_month=$5, category_id=$6
              WHERE id=$7 AND user_id=$8 RETURNING *`,
             [type, amount, description, frequency, day_of_month || null, category_id || null, req.params.id, req.user.id]
         );
