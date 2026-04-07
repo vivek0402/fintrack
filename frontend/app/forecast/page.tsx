@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { TrendingUp, Loader2, AlertCircle, BarChart2, RefreshCw } from 'lucide-react';
+import { TrendingUp, Loader2, AlertCircle, BarChart2, RefreshCw, Sparkles } from 'lucide-react';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -81,7 +81,8 @@ export default function ForecastPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
 
     const [forecast, setForecast] = useState<ForecastData | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [generated, setGenerated] = useState(false);
     const [error, setError] = useState('');
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [regenerating, setRegenerating] = useState(false);
@@ -91,10 +92,12 @@ export default function ForecastPage() {
 
     const fetchForecast = useCallback(async (force = false) => {
         setError('');
+        setLoading(true);
         try {
             const res = await aiAPI.forecastCalendar(force);
             const data: ForecastData = res.data.data;
             setForecast(data);
+            setGenerated(true);
         } catch (err: any) {
             setError(err?.response?.data?.error || 'Could not generate forecast. Please try again.');
         } finally {
@@ -102,11 +105,6 @@ export default function ForecastPage() {
             setRegenerating(false);
         }
     }, []);
-
-    // Auto-load on mount
-    useEffect(() => {
-        if (!isLoading && user) fetchForecast(false);
-    }, [isLoading, user, fetchForecast]);
 
     const handleRegenerate = async () => {
         setRegenerating(true);
@@ -118,7 +116,7 @@ export default function ForecastPage() {
         await fetchForecast(true);
     };
 
-    if (isLoading || (!forecast && loading && !error)) {
+    if (isLoading || !user) {
         return (
             <AppLayout>
                 <div style={{ maxWidth: '900px', margin: '0 auto' }}>
@@ -130,17 +128,7 @@ export default function ForecastPage() {
                             Predicted expenses for the next 30 days
                         </p>
                     </div>
-                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '14px' }}>
-                        <Loader2 size={28} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
-                        <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                            Analysing 90 days of spending patterns…
-                        </p>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                            This may take a few seconds
-                        </p>
-                    </div>
                 </div>
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </AppLayout>
         );
     }
@@ -192,7 +180,7 @@ export default function ForecastPage() {
                             Predicted expenses for the next 30 days
                         </p>
                     </div>
-                    <button
+                    {generated && <button
                         type="button"
                         onClick={handleRegenerate}
                         disabled={regenerating}
@@ -209,7 +197,7 @@ export default function ForecastPage() {
                             ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
                             : <RefreshCw size={13} />}
                         Regenerate
-                    </button>
+                    </button>}
                 </div>
 
                 {/* Error state */}
@@ -226,6 +214,53 @@ export default function ForecastPage() {
                             color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer',
                         }}>
                             Try again
+                        </button>
+                    </div>
+                )}
+
+                {/* Full-page loading (after button pressed, before data arrives) */}
+                {loading && !generated && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '14px' }}>
+                        <Loader2 size={28} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
+                        <p style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                            Analysing 90 days of spending patterns…
+                        </p>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                            This may take a few seconds
+                        </p>
+                    </div>
+                )}
+
+                {/* Empty state — before first generation */}
+                {!generated && !loading && !error && (
+                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px', gap: '16px', textAlign: 'center' }}>
+                        <Sparkles size={40} color="var(--accent-blue)" />
+                        <div>
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>
+                                Generate Your Spending Forecast
+                            </p>
+                            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, maxWidth: '360px', lineHeight: 1.6 }}>
+                                AI predicts your expenses for the next 30 days based on your transaction history
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => fetchForecast(false)}
+                            disabled={loading}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '12px 28px',
+                                background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+                                color: '#fff', border: 'none', borderRadius: '12px',
+                                fontSize: '15px', fontWeight: 600,
+                                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+                                marginTop: '8px',
+                            }}
+                        >
+                            {loading
+                                ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                : '✨'}
+                            {loading ? 'Generating…' : 'Generate Forecast'}
                         </button>
                     </div>
                 )}
