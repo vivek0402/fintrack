@@ -73,7 +73,7 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: 'Name and target amount are required.' });
 
         const result = await pool.query(
-            `UPDATE goals
+            `UPDATE savings_goals
              SET name=$1, target_amount=$2, deadline=$3, color=$4, updated_at=NOW()
              WHERE id=$5 AND user_id=$6 RETURNING *`,
             [name, target_amount, deadline || null, color || '#10b981', req.params.id, req.user.id]
