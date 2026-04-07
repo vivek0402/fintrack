@@ -849,7 +849,10 @@ Rules:
         ])).trim();
 
         // 5. Strip fences and parse
-        const clean = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+        const clean = raw
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/gi, '')
+            .trim();
         const parsed = JSON.parse(clean);
 
         // Normalise and validate predictions

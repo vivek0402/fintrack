@@ -17,6 +17,7 @@ if (!process.env.DATABASE_URL) {
 
 const pool = require('./db/pool');
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 console.log('=== AI Provider Status ===');
