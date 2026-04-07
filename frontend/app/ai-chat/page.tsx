@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, Sparkles } from 'lucide-react';
-import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { aiAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
@@ -59,12 +59,7 @@ export default function AiChatPage() {
         setInput('');
         setLoading(true);
         try {
-            const token = localStorage.getItem('fintrack_token');
-            const res = await axios.post(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/ai/chat`,
-                { message: trimmed, history: messages },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await aiAPI.chat(trimmed, messages);
             const reply = res.data.reply;
             if (!reply) throw new Error('No reply');
             setMessages([...newMessages, { role: 'assistant', content: reply }]);
