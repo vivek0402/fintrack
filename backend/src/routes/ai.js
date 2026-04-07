@@ -576,15 +576,16 @@ ${topCategories.map(c => `${c.category}: ₹${c.amount.toLocaleString('en-IN')} 
 Return ONLY valid JSON with NO markdown, NO backticks:
 {
   "personality_type": "<2-3 word type e.g. The Mindful Spender>",
-  "tagline": "<one sentence description>",
-  "traits": [
-    { "trait": "<trait name>", "description": "<1 sentence>", "score": <1-10> }
-  ],
-  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
-  "areas_to_improve": ["<area 1>", "<area 2>"],
-  "spending_style": "<2-3 sentences using real numbers>",
-  "saving_style": "<1-2 sentences about saving behaviour>",
-  "tip": "<one highly specific actionable tip based on their top spending category>"
+  "personality_emoji": "<single emoji that represents this type>",
+  "overall_score": <number 0-100 representing overall financial health>,
+  "summary": "<2 sentences summarising their financial personality using real numbers>",
+  "dimensions": {
+    "consistency": { "score": <0-100>, "label": "<2-word label e.g. Steady Eddie>", "description": "<1 sentence based on their data>" },
+    "discipline": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
+    "goal_focus": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
+    "risk_appetite": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
+    "savings_habit": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" }
+  }
 }`;
 
         console.log('Sending to Groq...');

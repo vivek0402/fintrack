@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
@@ -16,14 +16,21 @@ export default function ForecastPage() {
     const [predictions, setPredictions] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [started, setStarted] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => { loadFromStorage(); }, []);
+    useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     const handleGenerate = async () => {
         setStarted(true);
         setLoading(true);
+        setError('');
         try {
             const res = await aiAPI.forecastCalendar();
             setPredictions(res.data.predictions || []);
-        } catch {
+        } catch (err: any) {
+            const msg = err?.response?.data?.error || err?.response?.data?.message;
+            setError(msg || 'Failed to generate forecast. Please try again.');
             setPredictions([]);
         } finally {
             setLoading(false);
@@ -72,6 +79,13 @@ export default function ForecastPage() {
                     </button>
                 )}
             </div>
+
+            {/* Error banner */}
+            {error && (
+                <div style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px', color: '#f43f5e', fontSize: '0.875rem' }}>
+                    {error}
+                </div>
+            )}
 
             {/* Prompt screen — before first generate */}
             {!started && (
