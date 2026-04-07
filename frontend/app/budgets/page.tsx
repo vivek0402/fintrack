@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, CheckCircle, Pencil } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -31,6 +31,10 @@ export default function BudgetsPage() {
     const [formAmount, setFormAmount] = useState('');
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editAmount, setEditAmount] = useState('');
+    const [editLoading, setEditLoading] = useState(false);
+    const [editError, setEditError] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -67,6 +71,21 @@ export default function BudgetsPage() {
         try { await budgetsAPI.delete(id); fetchBudgets(); }
         catch { alert('Failed to delete.'); }
         finally { setDeletingId(null); setConfirmDeleteId(null); }
+    };
+
+    const handleEditSave = async (budget: any) => {
+        if (!editAmount) { setEditError('Enter an amount.'); return; }
+        setEditLoading(true); setEditError('');
+        try {
+            await budgetsAPI.create({
+                category_id: budget.category_id,
+                amount: parseFloat(editAmount),
+                month: currentMonth,
+                year: currentYear,
+            });
+            setEditingId(null); fetchBudgets();
+        } catch (err: any) { setEditError(err.response?.data?.error || 'Failed to update.'); }
+        finally { setEditLoading(false); }
     };
 
     const totalBudgeted = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
@@ -188,18 +207,46 @@ export default function BudgetsPage() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId}
-                                                style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === budget.id ? 0.5 : 1, transition: 'all var(--transition-fast)' }}
-                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
-                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                                <Trash2 size={14} />
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button onClick={() => { setEditingId(budget.id); setEditAmount(String(parseFloat(budget.amount))); setEditError(''); }}
+                                                    style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg, rgba(59,130,246,0.1))'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                    <Pencil size={14} />
+                                                </button>
+                                                <button onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId}
+                                                    style={{ width: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: deletingId === budget.id ? 0.5 : 1, transition: 'all var(--transition-fast)' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
                                 <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
                                     <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width var(--transition-slow)', boxShadow: `0 0 8px ${barColor}60` }} />
                                 </div>
+                                {editingId === budget.id && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={editAmount}
+                                            onChange={e => setEditAmount(e.target.value)}
+                                            style={{ width: '100px', padding: '4px 8px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.875rem' }}
+                                            autoFocus
+                                        />
+                                        <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save</Button>
+                                        <button
+                                            onClick={() => { setEditingId(null); setEditError(''); }}
+                                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}
+                                        >
+                                            Cancel
+                                        </button>
+                                        {editError && <span style={{ fontSize: '0.75rem', color: 'var(--accent-red)' }}>{editError}</span>}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
