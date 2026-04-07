@@ -122,7 +122,8 @@ export const aiAPI = {
     salaryAllocation: (force?: boolean) => api.post(`/api/ai/salary-allocation${force ? '?force=true' : ''}`),
     lifeEvent: (data: { event_type: string; target_amount: number; target_date: string }) =>
         api.post('/api/ai/life-event', data),
-    forecastCalendar: () => api.get('/api/ai/forecast-calendar'),
+    forecastCalendar: (force?: boolean) => api.get(`/api/ai/forecast-calendar${force ? '?force=true' : ''}`),
+    clearCache: (key: string) => api.delete(`/api/ai/cache/${key}`),
     healthReport: (data?: { month?: number; year?: number }) => api.post('/api/ai/health-report', data || {}),
     taxEstimate: (force?: boolean) => api.get(`/api/ai/tax-estimate${force ? '?force=true' : ''}`),
     quickAdd: (text: string) => api.post('/api/ai/quick-add', { text }),

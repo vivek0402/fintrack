@@ -748,97 +748,128 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const [recurringRes, historyRes] = await Promise.all([
-            pool.query(
-                `SELECT r.*, c.name as category_name, c.color as category_color
-                 FROM recurring_transactions r
-                 LEFT JOIN categories c ON r.category_id = c.id
-                 WHERE r.user_id = $1 AND r.is_active = true`,
-                [userId]
-            ),
-            pool.query(
-                `SELECT t.*, c.name as category_name, c.color as category_color
-                 FROM transactions t
-                 LEFT JOIN categories c ON t.category_id = c.id
-                 WHERE t.user_id = $1 AND t.type = 'expense'
-                   AND t.date >= NOW() - INTERVAL '3 months'
-                 ORDER BY t.date DESC`,
-                [userId]
-            ),
-        ]);
-
-        const now = new Date();
-        const predictions = [];
-
-        for (const r of recurringRes.rows) {
-            if (r.frequency === 'monthly' && r.day_of_month) {
-                const nextDate = new Date(now.getFullYear(), now.getMonth(), r.day_of_month);
-                if (nextDate <= now) nextDate.setMonth(nextDate.getMonth() + 1);
-                if ((nextDate - now) / (1000 * 60 * 60 * 24) <= 30) {
-                    predictions.push({
-                        date: nextDate.toISOString().split('T')[0],
-                        predicted_amount: parseFloat(r.amount),
-                        source: 'recurring',
-                        description: r.description,
-                        category: r.category_name || 'Recurring',
-                        category_color: r.category_color || '#6b7280',
-                        confidence: 'high',
-                    });
-                }
-            } else if (r.frequency === 'weekly') {
-                for (let d = 1; d <= 30; d += 7) {
-                    const nextDate = new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
-                    predictions.push({
-                        date: nextDate.toISOString().split('T')[0],
-                        predicted_amount: parseFloat(r.amount),
-                        source: 'recurring',
-                        description: r.description,
-                        category: r.category_name || 'Recurring',
-                        category_color: r.category_color || '#6b7280',
-                        confidence: 'high',
-                    });
-                }
-            }
+        // Serve from cache unless ?force=true
+        if (!req.query.force) {
+            const cached = await getCached(pool, userId, 'forecast');
+            if (cached) return res.json({ success: true, data: cached, from_cache: true });
         }
 
-        if (historyRes.rows.length > 0) {
-            const context = JSON.stringify({
-                history: historyRes.rows.slice(0, 60).map(t => ({
-                    date: t.date, amount: parseFloat(t.amount), category: t.category_name,
-                })),
-                existing_predictions: predictions.map(p => p.date),
-                today: now.toISOString().split('T')[0],
-            });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
 
-            try {
-                const text = (await aiComplete('forecast-calendar', [{
-                    role: 'user',
-                    content: `Based on this spending history, predict likely expenses for the next 30 days.
-Look for weekly patterns, day-of-week patterns, and monthly patterns.
-Return ONLY valid JSON array (no markdown, max 10 predictions):
-[{ "date": "YYYY-MM-DD", "predicted_amount": number, "description": string, "category": string, "confidence": "medium" | "low" }]
-Only predict dates within the next 30 days from today. Data: ${context}`,
-                }])).trim();
-                const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-                const aiPredictions = JSON.parse(jsonStr);
-                if (Array.isArray(aiPredictions)) {
-                    aiPredictions.forEach(p => {
-                        predictions.push({
-                            ...p,
-                            source: 'ai',
-                            category_color: '#8b5cf6',
-                        });
-                    });
-                }
-            } catch (aiErr) {
-                console.error('Forecast AI error:', aiErr?.message || aiErr);
-            }
-        }
+        // 1. Last 90 days of expenses
+        const { rows: expenses } = await pool.query(
+            `SELECT t.id, t.amount, t.type, t.date, t.description,
+                    COALESCE(c.name, 'Uncategorized') AS category
+             FROM transactions t
+             LEFT JOIN categories c ON t.category_id = c.id
+             WHERE t.user_id = $1
+               AND t.type = 'expense'
+               AND t.date >= NOW() - INTERVAL '90 days'
+             ORDER BY t.date DESC`,
+            [userId]
+        );
 
-        res.json({ predictions: predictions.sort((a, b) => a.date.localeCompare(b.date)) });
-    } catch (err) {
-        console.error('AI forecast-calendar error:', err.message);
-        res.json({ predictions: [] });
+        // 2. Active recurring transactions (bonus signal)
+        const { rows: recurring } = await pool.query(
+            `SELECT r.*, COALESCE(c.name, 'Recurring') AS category_name
+             FROM recurring_transactions r
+             LEFT JOIN categories c ON r.category_id = c.id
+             WHERE r.user_id = $1 AND r.is_active = true`,
+            [userId]
+        );
+
+        // 3. Build category summary
+        const catMap: Record<string, { total: number; count: number; dates: string[] }> = {};
+        expenses.forEach(t => {
+            const cat = t.category;
+            if (!catMap[cat]) catMap[cat] = { total: 0, count: 0, dates: [] };
+            catMap[cat].total += parseFloat(t.amount);
+            catMap[cat].count += 1;
+            catMap[cat].dates.push(t.date instanceof Date ? t.date.toISOString().split('T')[0] : String(t.date).split('T')[0]);
+        });
+
+        const summary = Object.entries(catMap).map(([category, v]) => ({
+            category,
+            totalLast90Days: Math.round(v.total),
+            avgMonthly: Math.round(v.total / 3),
+            transactionCount: v.count,
+            sampleDays: v.dates.slice(0, 6),
+        })).sort((a, b) => b.totalLast90Days - a.totalLast90Days).slice(0, 12);
+
+        const recurringItems = recurring.map(r => ({
+            description: r.description,
+            category: r.category_name,
+            amount: parseFloat(r.amount),
+            frequency: r.frequency,
+            dayOfMonth: r.day_of_month,
+        }));
+
+        // 4. Call Groq
+        const raw = (await aiComplete('forecast-calendar', [
+            {
+                role: 'system',
+                content: 'You are a financial forecasting engine. Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation.',
+            },
+            {
+                role: 'user',
+                content: `Based on this user's last 90 days of expenses and recurring patterns, predict their spending for the next 30 days starting from ${todayStr}.
+
+Expense history summary: ${JSON.stringify(summary)}
+Confirmed recurring items: ${JSON.stringify(recurringItems)}
+Today's date: ${todayStr}
+
+Return a JSON object with this exact shape:
+{
+  "totalForecast": number,
+  "highConfidenceCount": number,
+  "predictions": [
+    {
+      "date": "YYYY-MM-DD",
+      "category": string,
+      "description": string,
+      "amount": number,
+      "confidence": "high" | "medium" | "low",
+      "reason": string
+    }
+  ]
+}
+
+Rules:
+- Only include expenses likely to recur (subscriptions, rent, bills, regular groceries, utilities)
+- Do NOT predict one-off or irregular purchases
+- confidence="high" means it happens every month on a predictable date (±2 days)
+- confidence="medium" means it usually happens but timing varies
+- confidence="low" means it is a pattern but not certain
+- All dates must be within the next 30 days from ${todayStr}
+- totalForecast = sum of all prediction amounts
+- highConfidenceCount = count of predictions with confidence="high"`,
+            },
+        ])).trim();
+
+        // 5. Strip fences and parse
+        const clean = raw.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(clean);
+
+        // Normalise and validate predictions
+        const predictions = (parsed.predictions || [])
+            .filter((p: any) => p.date && p.date >= todayStr)
+            .sort((a: any, b: any) => a.date.localeCompare(b.date));
+
+        const result = {
+            totalForecast: Math.round(parsed.totalForecast || predictions.reduce((s: number, p: any) => s + (p.amount || 0), 0)),
+            highConfidenceCount: parsed.highConfidenceCount ?? predictions.filter((p: any) => p.confidence === 'high').length,
+            predictions,
+        };
+
+        // 6. Cache for 6 hours
+        await setCached(pool, userId, 'forecast', result);
+
+        res.json({ success: true, data: result, from_cache: false });
+    } catch (err: any) {
+        console.error('[AI Forecast]', err?.message || err);
+        res.status(500).json({ success: false, error: 'Forecast generation failed. Try again.' });
     }
 });
 
@@ -1281,6 +1312,27 @@ Make all amounts realistic and add up to exactly the salary amount. Use their ac
     } catch (err) {
         console.error('salary-allocation error:', err);
         res.status(500).json({ error: 'Failed to generate salary allocation plan.' });
+    }
+});
+
+// ─── Cache-bust endpoint ─────────────────────────────────────────────
+const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence']);
+
+router.delete('/cache/:key', authMiddleware, async (req, res) => {
+    try {
+        const { key } = req.params;
+        if (!ALLOWED_CACHE_KEYS.has(key)) {
+            return res.status(400).json({ error: 'Invalid cache key.' });
+        }
+        // PostgreSQL JSONB key deletion: ai_cache - 'key'
+        await pool.query(
+            `UPDATE users SET ai_cache = ai_cache - $1 WHERE id = $2`,
+            [key, req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('[Cache delete]', err);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
