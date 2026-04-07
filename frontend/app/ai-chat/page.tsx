@@ -62,7 +62,7 @@ export default function AiChatPage() {
             const token = localStorage.getItem('fintrack_token');
             const res = await axios.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/api/ai/chat`,
-                { message: trimmed, history: [] },
+                { message: trimmed, history: messages },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             const reply = res.data.reply;
