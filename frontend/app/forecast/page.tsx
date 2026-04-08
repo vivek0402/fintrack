@@ -49,12 +49,11 @@ interface ForecastCategory {
 
 interface ForecastData {
     totalForecast: number;
-    avgMonthly: number;
     avgDaily: number;
     currentMonthSpent: number;
     daysElapsed: number;
     daysInMonth: number;
-    avgIncome: number;
+    daysRemaining: number;
     categories: ForecastCategory[];
     calendarDays: CalendarDay[];
     insight: string;

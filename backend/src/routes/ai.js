@@ -776,78 +776,6 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // Step 1 — Fetch real data from DB
-        const { rows: historyRows } = await pool.query(
-            `SELECT
-               c.name AS category,
-               c.icon,
-               c.color,
-               DATE_TRUNC('month', t.date) AS month,
-               SUM(t.amount) AS total
-             FROM transactions t
-             JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id = $1
-               AND t.type = 'expense'
-               AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
-               AND t.date < DATE_TRUNC('month', NOW())
-             GROUP BY c.name, c.icon, c.color, DATE_TRUNC('month', t.date)
-             ORDER BY c.name, month`,
-            [userId]
-        );
-
-        const { rows: currentRows } = await pool.query(
-            `SELECT
-               c.name AS category,
-               SUM(t.amount) AS spent_so_far
-             FROM transactions t
-             JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id = $1
-               AND t.type = 'expense'
-               AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
-             GROUP BY c.name`,
-            [userId]
-        );
-
-        const { rows: incomeRows } = await pool.query(
-            `SELECT COALESCE(AVG(monthly_income), 0) AS avg_income
-             FROM (
-               SELECT DATE_TRUNC('month', date) AS month, SUM(amount) AS monthly_income
-               FROM transactions
-               WHERE user_id = $1 AND type = 'income'
-                 AND date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
-               GROUP BY DATE_TRUNC('month', date)
-             ) sub`,
-            [userId]
-        );
-
-        const [dailySpendingResult, avgDailyResult] = await Promise.all([
-            pool.query(
-                `SELECT EXTRACT(DAY FROM date)::int AS day, SUM(amount) AS daily_total
-                 FROM transactions
-                 WHERE user_id = $1
-                   AND type = 'expense'
-                   AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
-                 GROUP BY EXTRACT(DAY FROM date)
-                 ORDER BY day`,
-                [userId]
-            ),
-            pool.query(
-                `SELECT COALESCE(SUM(amount), 0) / 90 AS avg_daily
-                 FROM transactions
-                 WHERE user_id = $1
-                   AND type = 'expense'
-                   AND date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
-                   AND date < DATE_TRUNC('month', NOW())`,
-                [userId]
-            ),
-        ]);
-
-        // Check for minimum data (need at least some history)
-        const today = new Date();
-        const daysElapsed = today.getDate();
-        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-        const avgIncome = Math.round(parseFloat(incomeRows[0]?.avg_income || 0));
-
         // Require at least 7 days of data (check oldest transaction)
         const { rows: oldestRows } = await pool.query(
             `SELECT MIN(date) AS oldest FROM transactions WHERE user_id = $1`,
@@ -862,90 +790,126 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             });
         }
 
-        // Step 2 — Calculate forecast in JS
-        // Build per-category 3-month history
-        const historyByCat = {};
-        for (const row of historyRows) {
-            const cat = row.category;
-            if (!historyByCat[cat]) {
-                historyByCat[cat] = { icon: row.icon, color: row.color, months: [] };
-            }
-            historyByCat[cat].months.push(parseFloat(row.total));
+        // 1. Current month total — identical query to dashboard
+        const currentMonthResult = await pool.query(
+            `SELECT COALESCE(SUM(amount), 0) AS total
+             FROM transactions
+             WHERE user_id = $1
+               AND type = 'expense'
+               AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())`,
+            [userId]
+        );
+        const currentMonthSpent = parseFloat(currentMonthResult.rows[0].total);
+
+        // 2. Date math
+        const today = new Date();
+        const daysElapsed = today.getDate();
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const daysRemaining = daysInMonth - daysElapsed;
+
+        // 3. Daily average = current spend / days elapsed (not 3-month / 90)
+        const avgDaily = daysElapsed > 0 ? Math.round(currentMonthSpent / daysElapsed) : 0;
+
+        // 4. Forecasted total = current pace projected to end of month
+        const totalForecast = daysElapsed > 0
+            ? Math.round((currentMonthSpent / daysElapsed) * daysInMonth)
+            : 0;
+
+        // 5. Category breakdown — last 3 months average (display only)
+        const [categoryResult, currentCategoryResult, dailyResult] = await Promise.all([
+            pool.query(
+                `SELECT
+                   c.name AS category,
+                   c.icon,
+                   c.color,
+                   ROUND(SUM(t.amount) / 3) AS avg_monthly
+                 FROM transactions t
+                 JOIN categories c ON t.category_id = c.id
+                 WHERE t.user_id = $1
+                   AND t.type = 'expense'
+                   AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
+                   AND t.date < DATE_TRUNC('month', NOW())
+                 GROUP BY c.name, c.icon, c.color
+                 HAVING SUM(t.amount) > 0
+                 ORDER BY avg_monthly DESC`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT
+                   c.name AS category,
+                   COALESCE(SUM(t.amount), 0) AS spent_so_far
+                 FROM transactions t
+                 JOIN categories c ON t.category_id = c.id
+                 WHERE t.user_id = $1
+                   AND t.type = 'expense'
+                   AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
+                 GROUP BY c.name`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT
+                   EXTRACT(DAY FROM date)::int AS day,
+                   SUM(amount) AS daily_total
+                 FROM transactions
+                 WHERE user_id = $1
+                   AND type = 'expense'
+                   AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
+                 GROUP BY EXTRACT(DAY FROM date)
+                 ORDER BY day`,
+                [userId]
+            ),
+        ]);
+
+        // 6. Build categories
+        const spentByCategory = {};
+        for (const row of currentCategoryResult.rows) {
+            spentByCategory[row.category] = parseFloat(row.spent_so_far);
         }
 
-        // Build current-month spending map
-        const currentMap = {};
-        for (const row of currentRows) {
-            currentMap[row.category] = parseFloat(row.spent_so_far);
-        }
+        const categories = categoryResult.rows.map(row => ({
+            name: row.category,
+            icon: row.icon || '',
+            color: row.color || null,
+            avgMonthly: Math.round(parseFloat(row.avg_monthly)),
+            spentSoFar: Math.round(spentByCategory[row.category] || 0),
+            percentOfTotal: totalForecast > 0
+                ? Math.round((parseFloat(row.avg_monthly) / totalForecast) * 100)
+                : 0,
+        }));
 
-        const categories = [];
-        for (const [name, data] of Object.entries(historyByCat)) {
-            const avgMonthly = Math.round(data.months.reduce((s, v) => s + v, 0) / 3);
-            if (avgMonthly <= 0) continue;
-
-            const spentSoFar = Math.round(currentMap[name] || 0);
-            let projected;
-            if (daysElapsed > 0) {
-                const extrapolated = Math.round(spentSoFar * (daysInMonth / daysElapsed));
-                projected = Math.max(avgMonthly, extrapolated);
-            } else {
-                projected = avgMonthly;
-            }
-
-            categories.push({
-                name,
-                icon: data.icon || '',
-                color: data.color || null,
-                avgMonthly,
-                projected,
-                spentSoFar,
-                percentOfTotal: 0, // filled in below
-            });
-        }
-
-        categories.sort((a, b) => b.projected - a.projected);
-        const totalForecast = categories.reduce((s, c) => s + c.projected, 0);
-        const avgMonthly = categories.reduce((s, c) => s + c.avgMonthly, 0);
-        const currentMonthSpent = categories.reduce((s, c) => s + c.spentSoFar, 0);
-
-        for (const cat of categories) {
-            cat.percentOfTotal = totalForecast > 0 ? Math.round((cat.projected / totalForecast) * 100) : 0;
-        }
-
-        // Build calendar days
-        const avgDaily = parseFloat(avgDailyResult.rows[0]?.avg_daily || 0);
+        // 7. Calendar days
         const actualByDay = {};
-        for (const row of dailySpendingResult.rows) {
-            actualByDay[row.day] = parseFloat(row.daily_total);
+        for (const row of dailyResult.rows) {
+            actualByDay[parseInt(row.day)] = Math.round(parseFloat(row.daily_total));
         }
+
         const calendarDays = [];
         for (let d = 1; d <= daysInMonth; d++) {
-            if (d <= daysElapsed) {
-                calendarDays.push({ day: d, actual: Math.round(actualByDay[d] || 0), isFuture: false });
+            if (d < daysElapsed) {
+                calendarDays.push({ day: d, actual: actualByDay[d] || 0, isFuture: false });
+            } else if (d === daysElapsed) {
+                calendarDays.push({ day: d, actual: actualByDay[d] || 0, isFuture: false, isToday: true });
             } else {
-                calendarDays.push({ day: d, projected: Math.round(avgDaily), isFuture: true });
+                calendarDays.push({ day: d, projected: avgDaily, isFuture: true });
             }
         }
 
-        // Step 3 — AI insight paragraph only
-        const insightPrompt = `You are a sharp personal finance advisor for an Indian user.
-Their spending data for this month:
+        // 8. AI insight using corrected numbers
+        const insightPrompt = `You are a personal finance advisor for an Indian user.
 
-Days elapsed: ${daysElapsed} of ${daysInMonth}
-Spent so far: ₹${currentMonthSpent.toLocaleString('en-IN')}
-Forecasted total: ₹${totalForecast.toLocaleString('en-IN')}
-Top category: ${categories[0]?.name || 'N/A'} at ₹${(categories[0]?.projected || 0).toLocaleString('en-IN')}
-
-3-month average monthly spend: ₹${avgMonthly.toLocaleString('en-IN')}
-Average daily spend: ₹${Math.round(avgDaily).toLocaleString('en-IN')}
+Their ${today.toLocaleString('en-IN', { month: 'long', year: 'numeric' })} data:
+- Days elapsed: ${daysElapsed} of ${daysInMonth}
+- Spent so far: ₹${Math.round(currentMonthSpent).toLocaleString('en-IN')}
+- Daily spend rate: ₹${avgDaily.toLocaleString('en-IN')}/day
+- Forecasted month total: ₹${totalForecast.toLocaleString('en-IN')}
+- Top category: ${categories[0]?.name || 'N/A'} (3-month avg: ₹${categories[0]?.avgMonthly?.toLocaleString('en-IN') || 0}/month)
 
 Write exactly 3 sentences:
-1. Compare this month's pace vs their 3-month average (is it higher or lower and by how much)
-2. Call out the top spending category and whether it's concerning
-3. One specific actionable tip to reduce spending this month
+1. Whether spending this month is on track or overpacing (compare daily rate to what would be needed to stay under ₹${totalForecast.toLocaleString('en-IN')})
+2. What the top category says about their habits
+3. One specific tip to save money this month
 
-Use ₹ with Indian formatting. No markdown. Plain text only. Be direct and specific.`;
+Plain text only. No markdown. Use ₹ with Indian formatting.`;
 
         let insight = '';
         try {
@@ -955,17 +919,16 @@ Use ₹ with Indian formatting. No markdown. Plain text only. Be direct and spec
             insight = raw.replace(/```[\s\S]*?```/g, '').replace(/```/g, '').trim();
         } catch (aiErr) {
             console.error('[AI Forecast insight]', aiErr?.message);
-            insight = `Your forecasted spending for this month is ₹${totalForecast.toLocaleString('en-IN')}, based on 3 months of history.`;
+            insight = `Your forecasted spending this month is ₹${totalForecast.toLocaleString('en-IN')} based on a daily rate of ₹${avgDaily.toLocaleString('en-IN')}.`;
         }
 
         const result = {
             totalForecast,
-            avgMonthly,
-            avgDaily: Math.round(avgDaily),
-            currentMonthSpent,
+            currentMonthSpent: Math.round(currentMonthSpent),
+            avgDaily,
             daysElapsed,
             daysInMonth,
-            avgIncome,
+            daysRemaining,
             categories,
             calendarDays,
             insight,
