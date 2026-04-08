@@ -790,6 +790,8 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             });
         }
 
+        const safeNum = (val) => { const n = parseFloat(val); return isNaN(n) ? 0 : Math.round(n); };
+
         // 1. Current month total — identical query to dashboard
         const currentMonthResult = await pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total
@@ -808,12 +810,10 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
         const daysRemaining = daysInMonth - daysElapsed;
 
         // 3. Daily average = current spend / days elapsed (not 3-month / 90)
-        const avgDaily = daysElapsed > 0 ? Math.round(currentMonthSpent / daysElapsed) : 0;
+        const avgDaily = daysElapsed > 0 ? safeNum(currentMonthSpent / daysElapsed) : 0;
 
         // 4. Forecasted total = current pace projected to end of month
-        const totalForecast = daysElapsed > 0
-            ? Math.round((currentMonthSpent / daysElapsed) * daysInMonth)
-            : 0;
+        const totalForecast = daysElapsed > 0 ? safeNum((currentMonthSpent / daysElapsed) * daysInMonth) : 0;
 
         // 5. Category breakdown — last 3 months average (display only)
         const [categoryResult, currentCategoryResult, dailyResult] = await Promise.all([
@@ -822,7 +822,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                    c.name AS category,
                    c.icon,
                    c.color,
-                   ROUND(SUM(t.amount) / 3) AS avg_monthly
+                   ROUND(COALESCE(SUM(t.amount), 0) / 3.0)::float AS avg_monthly
                  FROM transactions t
                  JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1
@@ -870,10 +870,10 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             name: row.category,
             icon: row.icon || '',
             color: row.color || null,
-            avgMonthly: Math.round(parseFloat(row.avg_monthly)),
-            spentSoFar: Math.round(spentByCategory[row.category] || 0),
+            avgMonthly: safeNum(row.avg_monthly),
+            spentSoFar: safeNum(spentByCategory[row.category] || 0),
             percentOfTotal: totalForecast > 0
-                ? Math.round((parseFloat(row.avg_monthly) / totalForecast) * 100)
+                ? Math.round((safeNum(row.avg_monthly) / totalForecast) * 100)
                 : 0,
         }));
 
