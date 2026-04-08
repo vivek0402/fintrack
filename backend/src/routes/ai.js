@@ -820,6 +820,28 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             [userId]
         );
 
+        const [dailySpendingResult, avgDailyResult] = await Promise.all([
+            pool.query(
+                `SELECT EXTRACT(DAY FROM date)::int AS day, SUM(amount) AS daily_total
+                 FROM transactions
+                 WHERE user_id = $1
+                   AND type = 'expense'
+                   AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
+                 GROUP BY EXTRACT(DAY FROM date)
+                 ORDER BY day`,
+                [userId]
+            ),
+            pool.query(
+                `SELECT COALESCE(SUM(amount), 0) / 90 AS avg_daily
+                 FROM transactions
+                 WHERE user_id = $1
+                   AND type = 'expense'
+                   AND date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
+                   AND date < DATE_TRUNC('month', NOW())`,
+                [userId]
+            ),
+        ]);
+
         // Check for minimum data (need at least some history)
         const today = new Date();
         const daysElapsed = today.getDate();
@@ -891,16 +913,39 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
             cat.percentOfTotal = totalForecast > 0 ? Math.round((cat.projected / totalForecast) * 100) : 0;
         }
 
+        // Build calendar days
+        const avgDaily = parseFloat(avgDailyResult.rows[0]?.avg_daily || 0);
+        const actualByDay = {};
+        for (const row of dailySpendingResult.rows) {
+            actualByDay[row.day] = parseFloat(row.daily_total);
+        }
+        const calendarDays = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            if (d <= daysElapsed) {
+                calendarDays.push({ day: d, actual: Math.round(actualByDay[d] || 0), isFuture: false });
+            } else {
+                calendarDays.push({ day: d, projected: Math.round(avgDaily), isFuture: true });
+            }
+        }
+
         // Step 3 — AI insight paragraph only
-        const topCats = categories.slice(0, 5).map(c => `${c.name}: ₹${c.projected.toLocaleString('en-IN')}`).join(', ');
-        const insightPrompt = `You are a personal finance advisor for an Indian user. Based on their spending data:
+        const insightPrompt = `You are a sharp personal finance advisor for an Indian user.
+Their spending data for this month:
 
-Average monthly expenses (last 3 months): ₹${avgMonthly.toLocaleString('en-IN')}
-Forecasted total for this month: ₹${totalForecast.toLocaleString('en-IN')}
-Top categories: ${topCats}
-Monthly income: ₹${avgIncome.toLocaleString('en-IN')}
+Days elapsed: ${daysElapsed} of ${daysInMonth}
+Spent so far: ₹${currentMonthSpent.toLocaleString('en-IN')}
+Forecasted total: ₹${totalForecast.toLocaleString('en-IN')}
+Top category: ${categories[0]?.name || 'N/A'} at ₹${(categories[0]?.projected || 0).toLocaleString('en-IN')}
 
-Write 2-3 sentences of actionable insight. Be specific with rupee amounts. No markdown, no bullet points, plain text only.`;
+3-month average monthly spend: ₹${avgMonthly.toLocaleString('en-IN')}
+Average daily spend: ₹${Math.round(avgDaily).toLocaleString('en-IN')}
+
+Write exactly 3 sentences:
+1. Compare this month's pace vs their 3-month average (is it higher or lower and by how much)
+2. Call out the top spending category and whether it's concerning
+3. One specific actionable tip to reduce spending this month
+
+Use ₹ with Indian formatting. No markdown. Plain text only. Be direct and specific.`;
 
         let insight = '';
         try {
@@ -916,11 +961,13 @@ Write 2-3 sentences of actionable insight. Be specific with rupee amounts. No ma
         const result = {
             totalForecast,
             avgMonthly,
+            avgDaily: Math.round(avgDaily),
             currentMonthSpent,
             daysElapsed,
             daysInMonth,
             avgIncome,
             categories,
+            calendarDays,
             insight,
         };
 

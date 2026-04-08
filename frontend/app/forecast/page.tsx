@@ -5,10 +5,36 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Loader2, AlertCircle, Sparkles } from 'lucide-react';
+import {
+    Loader2, AlertCircle, Sparkles,
+    Utensils, Zap, Car, Plane, ShoppingBag, Laptop, Home, Heart,
+    Gamepad2, BookOpen, Coffee, Music, Dumbbell, Gift, Bus, Wallet,
+    TrendingUp, CreditCard,
+} from 'lucide-react';
+
+const ICON_MAP: Record<string, React.ElementType> = {
+    utensils: Utensils, zap: Zap, car: Car, plane: Plane,
+    'shopping-bag': ShoppingBag, laptop: Laptop, home: Home,
+    heart: Heart, gamepad2: Gamepad2, 'book-open': BookOpen,
+    coffee: Coffee, music: Music, dumbbell: Dumbbell, gift: Gift,
+    bus: Bus, wallet: Wallet, 'trending-up': TrendingUp,
+    'credit-card': CreditCard,
+};
+
+function CategoryIcon({ name, size = 16, color }: { name: string; size?: number; color?: string }) {
+    const Icon = ICON_MAP[name?.toLowerCase()] || Wallet;
+    return <Icon size={size} color={color || 'var(--accent-blue)'} />;
+}
 
 function fmt(n: number) {
     return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+
+interface CalendarDay {
+    day: number;
+    actual?: number;
+    projected?: number;
+    isFuture: boolean;
 }
 
 interface ForecastCategory {
@@ -24,11 +50,13 @@ interface ForecastCategory {
 interface ForecastData {
     totalForecast: number;
     avgMonthly: number;
+    avgDaily: number;
     currentMonthSpent: number;
     daysElapsed: number;
     daysInMonth: number;
     avgIncome: number;
     categories: ForecastCategory[];
+    calendarDays: CalendarDay[];
     insight: string;
     insufficientData?: boolean;
 }
@@ -40,6 +68,10 @@ const card: React.CSSProperties = {
     padding: 24,
     marginBottom: 16,
 };
+
+const DAYS_HEADER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function ForecastPage() {
     const router = useRouter();
@@ -69,15 +101,19 @@ export default function ForecastPage() {
     };
 
     if (isLoading || !user) {
-        return <AppLayout><div style={{ maxWidth: 760, margin: '0 auto' }} /></AppLayout>;
+        return <AppLayout><div style={{ maxWidth: 800, margin: '0 auto' }} /></AppLayout>;
     }
 
-    const remaining = forecast ? forecast.avgIncome - forecast.totalForecast : 0;
-    const hasIncome = forecast && forecast.avgIncome > 0;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const todayDay = now.getDate();
+    const firstDayOfMonth = new Date(year, month, 1).getDay();
+    const monthLabel = `${MONTH_NAMES[month]} ${year}`;
 
     return (
         <AppLayout>
-            <div style={{ maxWidth: 760, margin: '0 auto' }}>
+            <div style={{ maxWidth: 800, margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
                     <div>
@@ -95,7 +131,7 @@ export default function ForecastPage() {
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 7,
                                 padding: '8px 16px',
-                                background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
+                                background: 'var(--bg-hover)', border: '1px solid var(--bg-border)',
                                 borderRadius: 10, color: 'var(--text-secondary)',
                                 fontSize: 13, cursor: 'pointer',
                                 fontFamily: 'DM Sans, sans-serif',
@@ -110,9 +146,7 @@ export default function ForecastPage() {
                 {error && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 40 }}>
                         <AlertCircle size={28} color="var(--accent-red)" />
-                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                            Could not generate forecast
-                        </p>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Could not generate forecast</p>
                         <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>{error}</p>
                         <button type="button" onClick={fetchForecast} style={{
                             background: 'none', border: '1px solid var(--bg-border)',
@@ -129,24 +163,21 @@ export default function ForecastPage() {
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 14 }}>
                         <Loader2 size={28} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
                         <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                            Generating…
-                        </p>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                            Calculating from your last 3 months of transactions
+                            Generating your forecast...
                         </p>
                     </div>
                 )}
 
-                {/* Empty state — before first generation */}
+                {/* Empty state */}
                 {!generated && !loading && !error && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 16, textAlign: 'center' }}>
-                        <Sparkles size={40} color="var(--accent-blue)" />
+                        <Sparkles size={48} color="var(--accent-blue)" />
                         <div>
                             <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>
                                 Generate Your Spending Forecast
                             </p>
-                            <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, maxWidth: 360, lineHeight: 1.6 }}>
-                                Predicts your remaining expenses based on the last 3 months of actual data
+                            <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, maxWidth: 380, lineHeight: 1.6 }}>
+                                Uses your last 3 months of transactions to predict this month's spending — no guesswork
                             </p>
                         </div>
                         <button
@@ -167,7 +198,7 @@ export default function ForecastPage() {
                     </div>
                 )}
 
-                {/* Insufficient data state */}
+                {/* Insufficient data */}
                 {forecast?.insufficientData && !loading && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 50, textAlign: 'center' }}>
                         <Sparkles size={32} color="var(--text-muted)" />
@@ -178,8 +209,7 @@ export default function ForecastPage() {
                         <button type="button" onClick={() => router.push('/transactions')} style={{
                             background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
                             color: '#fff', border: 'none', borderRadius: 10,
-                            padding: '10px 20px', fontSize: 14, fontWeight: 600,
-                            cursor: 'pointer',
+                            padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                         }}>
                             Go to Transactions
                         </button>
@@ -188,105 +218,137 @@ export default function ForecastPage() {
 
                 {forecast && !forecast.insufficientData && !loading && (
                     <>
-                        {/* Card 1 — Summary tiles */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+                        {/* Section 1 — Stat tiles */}
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
                             {[
-                                { label: 'Forecasted Total', value: fmt(forecast.totalForecast), color: 'var(--accent-blue)' },
-                                { label: 'Spent So Far', value: fmt(forecast.currentMonthSpent), color: 'var(--accent-red)' },
-                                hasIncome
-                                    ? {
-                                        label: 'Remaining Budget',
-                                        value: fmt(Math.abs(remaining)),
-                                        color: remaining >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
-                                        prefix: remaining < 0 ? '-' : '',
-                                    }
-                                    : null,
-                            ].filter(Boolean).map((tile: any) => (
-                                <div key={tile.label} style={card}>
-                                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', margin: '0 0 6px', fontWeight: 600 }}>
+                                { label: 'FORECASTED TOTAL', value: fmt(forecast.totalForecast), color: 'var(--accent-blue)' },
+                                { label: 'SPENT SO FAR', value: fmt(forecast.currentMonthSpent), color: 'var(--accent-red)' },
+                                { label: 'DAILY AVERAGE', value: fmt(forecast.avgDaily), color: 'var(--accent-yellow)' },
+                            ].map(tile => (
+                                <div key={tile.label} style={{
+                                    flex: 1, minWidth: 140,
+                                    background: 'var(--bg-card)',
+                                    border: '1px solid var(--bg-border)',
+                                    borderRadius: 12,
+                                    padding: '20px 24px',
+                                }}>
+                                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.8px', margin: '0 0 8px', fontWeight: 600 }}>
                                         {tile.label}
                                     </p>
-                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 24, fontWeight: 700, color: tile.color, margin: 0 }}>
-                                        {tile.prefix || ''}{tile.value}
+                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 700, color: tile.color, margin: 0 }}>
+                                        {tile.value}
                                     </p>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Card 2 — Category Breakdown */}
+                        {/* Section 2 — Monthly Calendar */}
                         <div style={card}>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-                                Category Breakdown
+                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>
+                                {monthLabel}
                             </p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                {forecast.categories.map(cat => (
-                                    <div key={cat.name}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                            <span style={{ fontSize: 14, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                {cat.icon && <span>{cat.icon}</span>}
-                                                {cat.name}
-                                            </span>
-                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                {fmt(cat.projected)}
-                                            </span>
-                                        </div>
-                                        <div style={{ background: 'var(--bg-hover)', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
-                                            <div style={{
-                                                height: '100%',
-                                                width: `${Math.min(cat.percentOfTotal, 100)}%`,
-                                                background: cat.color || 'var(--accent-blue)',
-                                                borderRadius: 3,
-                                            }} />
-                                        </div>
-                                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                                            {fmt(cat.spentSoFar)} spent so far
-                                        </p>
+
+                            {/* Day headers */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
+                                {DAYS_HEADER.map(d => (
+                                    <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', padding: '4px 0' }}>
+                                        {d}
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Calendar grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                                {/* Empty offset cells */}
+                                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                                    <div key={`empty-${i}`} style={{ minHeight: 64 }} />
+                                ))}
+
+                                {/* Day cells */}
+                                {forecast.calendarDays.map(cd => {
+                                    const isToday = cd.day === todayDay;
+                                    const hasActual = !cd.isFuture && (cd.actual || 0) > 0;
+
+                                    return (
+                                        <div key={cd.day} style={{
+                                            minHeight: 64,
+                                            padding: '6px 8px',
+                                            borderRadius: 8,
+                                            background: hasActual ? 'var(--bg-hover)' : 'transparent',
+                                            border: isToday ? '1px solid var(--accent-blue)' : '1px solid transparent',
+                                            position: 'relative',
+                                            opacity: cd.isFuture ? 0.75 : 1,
+                                        }}>
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
+                                                {cd.day}
+                                            </div>
+                                            {hasActual && (
+                                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-red)', lineHeight: 1.2 }}>
+                                                    {fmt(cd.actual!)}
+                                                </div>
+                                            )}
+                                            {cd.isFuture && cd.projected! > 0 && (
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.2 }}>
+                                                    ~{fmt(cd.projected!)}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
-                        {/* Card 3 — AI Insight */}
+                        {/* Section 3 — Category Breakdown */}
+                        <div style={card}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 20 }}>
+                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                                    Category Breakdown
+                                </p>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(last 3 months average)</span>
+                            </div>
+
+                            {forecast.categories.map(cat => (
+                                <div key={cat.name} style={{ marginBottom: 20 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+                                        <CategoryIcon name={cat.icon} size={20} color={cat.color || 'var(--accent-blue)'} />
+                                        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, flex: 1 }}>
+                                            {cat.name}
+                                        </span>
+                                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            {fmt(cat.projected)}
+                                        </span>
+                                    </div>
+                                    <div style={{ background: 'var(--bg-hover)', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                                        <div style={{
+                                            height: '100%',
+                                            width: `${Math.min(cat.percentOfTotal, 100)}%`,
+                                            background: cat.color || 'var(--accent-blue)',
+                                            borderRadius: 3,
+                                        }} />
+                                    </div>
+                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                                        {fmt(cat.spentSoFar)} spent so far this month
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Section 4 — AI Insight */}
                         {forecast.insight && (
                             <div style={card}>
-                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                                     <Sparkles size={16} color="var(--accent-blue)" />
-                                    AI Insight
-                                </p>
-                                <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.7 }}>
-                                    {forecast.insight}
-                                </p>
+                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        AI Insight
+                                    </span>
+                                </div>
+                                <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: 16 }}>
+                                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.8 }}>
+                                        {forecast.insight}
+                                    </p>
+                                </div>
                             </div>
                         )}
-
-                        {/* Card 4 — Forecast vs Average */}
-                        <div style={card}>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-                                Forecast vs Average
-                            </p>
-                            {[
-                                { label: 'This month forecast', value: forecast.totalForecast, color: 'var(--accent-blue)' },
-                                { label: '3-month average', value: forecast.avgMonthly, color: 'var(--accent-green)' },
-                            ].map(row => {
-                                const max = Math.max(forecast.totalForecast, forecast.avgMonthly) || 1;
-                                return (
-                                    <div key={row.label} style={{ marginBottom: 12 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{row.label}</span>
-                                            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(row.value)}</span>
-                                        </div>
-                                        <div style={{ background: 'var(--bg-hover)', height: 8, borderRadius: 4, overflow: 'hidden' }}>
-                                            <div style={{
-                                                height: '100%',
-                                                width: `${Math.round((row.value / max) * 100)}%`,
-                                                background: row.color,
-                                                borderRadius: 4,
-                                            }} />
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
                     </>
                 )}
             </div>
