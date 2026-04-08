@@ -743,132 +743,160 @@ Limit milestones to 6 key checkpoints. Data: ${context}`,
     }
 });
 
-// ─── FEATURE: Spending Forecast Calendar ─────────────────────────────
+// ─── FEATURE: Spending Forecast ──────────────────────────────────────
 router.get('/forecast-calendar', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // Serve from cache unless ?force=true
-        if (!req.query.force) {
-            const cached = await getCached(pool, userId, 'forecast');
-            if (cached) return res.json({ success: true, data: cached, from_cache: true });
-        }
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
-
-        // 1. Last 90 days of expenses
-        const { rows: expenses } = await pool.query(
-            `SELECT t.id, t.amount, t.type, t.date, t.description,
-                    COALESCE(c.name, 'Uncategorized') AS category
+        // Step 1 — Fetch real data from DB
+        const { rows: historyRows } = await pool.query(
+            `SELECT
+               c.name AS category,
+               c.icon,
+               c.color,
+               DATE_TRUNC('month', t.date) AS month,
+               SUM(t.amount) AS total
              FROM transactions t
-             LEFT JOIN categories c ON t.category_id = c.id
+             JOIN categories c ON t.category_id = c.id
              WHERE t.user_id = $1
                AND t.type = 'expense'
-               AND t.date >= NOW() - INTERVAL '90 days'
-             ORDER BY t.date DESC`,
+               AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
+               AND t.date < DATE_TRUNC('month', NOW())
+             GROUP BY c.name, c.icon, c.color, DATE_TRUNC('month', t.date)
+             ORDER BY c.name, month`,
             [userId]
         );
 
-        // 2. Active recurring transactions (bonus signal)
-        const { rows: recurring } = await pool.query(
-            `SELECT r.*, COALESCE(c.name, 'Recurring') AS category_name
-             FROM recurring_transactions r
-             LEFT JOIN categories c ON r.category_id = c.id
-             WHERE r.user_id = $1 AND r.is_active = true`,
+        const { rows: currentRows } = await pool.query(
+            `SELECT
+               c.name AS category,
+               SUM(t.amount) AS spent_so_far
+             FROM transactions t
+             JOIN categories c ON t.category_id = c.id
+             WHERE t.user_id = $1
+               AND t.type = 'expense'
+               AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
+             GROUP BY c.name`,
             [userId]
         );
 
-        // 3. Build category summary
-        const catMap = {};
-        expenses.forEach(t => {
-            const cat = t.category;
-            if (!catMap[cat]) catMap[cat] = { total: 0, count: 0, dates: [] };
-            catMap[cat].total += parseFloat(t.amount);
-            catMap[cat].count += 1;
-            catMap[cat].dates.push(t.date instanceof Date ? t.date.toISOString().split('T')[0] : String(t.date).split('T')[0]);
-        });
+        const { rows: incomeRows } = await pool.query(
+            `SELECT COALESCE(AVG(monthly_income), 0) AS avg_income
+             FROM (
+               SELECT DATE_TRUNC('month', date) AS month, SUM(amount) AS monthly_income
+               FROM transactions
+               WHERE user_id = $1 AND type = 'income'
+                 AND date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
+               GROUP BY DATE_TRUNC('month', date)
+             ) sub`,
+            [userId]
+        );
 
-        const summary = Object.entries(catMap).map(([category, v]) => ({
-            category,
-            totalLast90Days: Math.round(v.total),
-            avgMonthly: Math.round(v.total / 3),
-            transactionCount: v.count,
-            sampleDays: v.dates.slice(0, 6),
-        })).sort((a, b) => b.totalLast90Days - a.totalLast90Days).slice(0, 12);
+        // Check for minimum data (need at least some history)
+        const today = new Date();
+        const daysElapsed = today.getDate();
+        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const avgIncome = Math.round(parseFloat(incomeRows[0]?.avg_income || 0));
 
-        const recurringItems = recurring.map(r => ({
-            description: r.description,
-            category: r.category_name,
-            amount: parseFloat(r.amount),
-            frequency: r.frequency,
-            dayOfMonth: r.day_of_month,
-        }));
+        // Require at least 7 days of data (check oldest transaction)
+        const { rows: oldestRows } = await pool.query(
+            `SELECT MIN(date) AS oldest FROM transactions WHERE user_id = $1`,
+            [userId]
+        );
+        const oldest = oldestRows[0]?.oldest;
+        if (!oldest || (Date.now() - new Date(oldest).getTime()) < 7 * 24 * 60 * 60 * 1000) {
+            return res.json({
+                success: true,
+                data: { insufficientData: true },
+                from_cache: false,
+            });
+        }
 
-        // 4. Call Groq
-        const raw = (await aiComplete('forecast-calendar', [
-            {
-                role: 'system',
-                content: 'You are a financial forecasting engine. Respond ONLY with a valid JSON object. No markdown, no backticks, no explanation.',
-            },
-            {
-                role: 'user',
-                content: `Based on this user's last 90 days of expenses and recurring patterns, predict their spending for the next 30 days starting from ${todayStr}.
+        // Step 2 — Calculate forecast in JS
+        // Build per-category 3-month history
+        const historyByCat = {};
+        for (const row of historyRows) {
+            const cat = row.category;
+            if (!historyByCat[cat]) {
+                historyByCat[cat] = { icon: row.icon, color: row.color, months: [] };
+            }
+            historyByCat[cat].months.push(parseFloat(row.total));
+        }
 
-Expense history summary: ${JSON.stringify(summary)}
-Confirmed recurring items: ${JSON.stringify(recurringItems)}
-Today's date: ${todayStr}
+        // Build current-month spending map
+        const currentMap = {};
+        for (const row of currentRows) {
+            currentMap[row.category] = parseFloat(row.spent_so_far);
+        }
 
-Return a JSON object with this exact shape:
-{
-  "totalForecast": number,
-  "highConfidenceCount": number,
-  "predictions": [
-    {
-      "date": "YYYY-MM-DD",
-      "category": string,
-      "description": string,
-      "amount": number,
-      "confidence": "high" | "medium" | "low",
-      "reason": string
-    }
-  ]
-}
+        const categories = [];
+        for (const [name, data] of Object.entries(historyByCat)) {
+            const avgMonthly = Math.round(data.months.reduce((s, v) => s + v, 0) / 3);
+            if (avgMonthly <= 0) continue;
 
-Rules:
-- Only include expenses likely to recur (subscriptions, rent, bills, regular groceries, utilities)
-- Do NOT predict one-off or irregular purchases
-- confidence="high" means it happens every month on a predictable date (±2 days)
-- confidence="medium" means it usually happens but timing varies
-- confidence="low" means it is a pattern but not certain
-- All dates must be within the next 30 days from ${todayStr}
-- totalForecast = sum of all prediction amounts
-- highConfidenceCount = count of predictions with confidence="high"`,
-            },
-        ])).trim();
+            const spentSoFar = Math.round(currentMap[name] || 0);
+            let projected;
+            if (daysElapsed > 0) {
+                const extrapolated = Math.round(spentSoFar * (daysInMonth / daysElapsed));
+                projected = Math.max(avgMonthly, extrapolated);
+            } else {
+                projected = avgMonthly;
+            }
 
-        // 5. Strip fences and parse
-        const clean = raw
-            .replace(/```json\s*/gi, '')
-            .replace(/```\s*/gi, '')
-            .trim();
-        const parsed = JSON.parse(clean);
+            categories.push({
+                name,
+                icon: data.icon || '',
+                color: data.color || null,
+                avgMonthly,
+                projected,
+                spentSoFar,
+                percentOfTotal: 0, // filled in below
+            });
+        }
 
-        // Normalise and validate predictions
-        const predictions = (parsed.predictions || [])
-            .filter((p) => p.date && p.date >= todayStr)
-            .sort((a, b) => a.date.localeCompare(b.date));
+        categories.sort((a, b) => b.projected - a.projected);
+        const totalForecast = categories.reduce((s, c) => s + c.projected, 0);
+        const avgMonthly = categories.reduce((s, c) => s + c.avgMonthly, 0);
+        const currentMonthSpent = categories.reduce((s, c) => s + c.spentSoFar, 0);
+
+        for (const cat of categories) {
+            cat.percentOfTotal = totalForecast > 0 ? Math.round((cat.projected / totalForecast) * 100) : 0;
+        }
+
+        // Step 3 — AI insight paragraph only
+        const topCats = categories.slice(0, 5).map(c => `${c.name}: ₹${c.projected.toLocaleString('en-IN')}`).join(', ');
+        const insightPrompt = `You are a personal finance advisor for an Indian user. Based on their spending data:
+
+Average monthly expenses (last 3 months): ₹${avgMonthly.toLocaleString('en-IN')}
+Forecasted total for this month: ₹${totalForecast.toLocaleString('en-IN')}
+Top categories: ${topCats}
+Monthly income: ₹${avgIncome.toLocaleString('en-IN')}
+
+Write 2-3 sentences of actionable insight. Be specific with rupee amounts. No markdown, no bullet points, plain text only.`;
+
+        let insight = '';
+        try {
+            const raw = (await aiComplete('forecast-insight', [
+                { role: 'user', content: insightPrompt },
+            ])).trim();
+            insight = raw.replace(/```[\s\S]*?```/g, '').replace(/```/g, '').trim();
+        } catch (aiErr) {
+            console.error('[AI Forecast insight]', aiErr?.message);
+            insight = `Your forecasted spending for this month is ₹${totalForecast.toLocaleString('en-IN')}, based on 3 months of history.`;
+        }
 
         const result = {
-            totalForecast: Math.round(parsed.totalForecast || predictions.reduce((s, p) => s + (p.amount || 0), 0)),
-            highConfidenceCount: parsed.highConfidenceCount ?? predictions.filter((p) => p.confidence === 'high').length,
-            predictions,
+            totalForecast,
+            avgMonthly,
+            currentMonthSpent,
+            daysElapsed,
+            daysInMonth,
+            avgIncome,
+            categories,
+            insight,
         };
 
-        // 6. Cache for 6 hours
         await setCached(pool, userId, 'forecast', result);
-
         res.json({ success: true, data: result, from_cache: false });
     } catch (err) {
         console.error('[AI Forecast]', err?.message || err);
