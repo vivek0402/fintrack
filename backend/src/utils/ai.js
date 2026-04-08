@@ -21,7 +21,8 @@ const MODELS = {
 // ── Route config ──
 // provider: 'groq1' | 'groq2' | 'gemini'
 const ROUTES = {
-    'chat':               { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 600,  temp: 0.3 },
+    'chat':               { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 1000, temp: 0.3 },
+    'forecast-insight':   { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 300,  temp: 0.3 },
     'salary-allocation':  { provider: 'gemini',                        maxTokens: 1200, temp: 0.4 },
     'personality':        { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 1000, temp: 0.5 },
     'report':             { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.5 },

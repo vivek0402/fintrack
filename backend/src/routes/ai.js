@@ -194,19 +194,40 @@ router.post('/chat', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
 
-        // Fetch real financial context in parallel
-        const [txResult, budgetResult, goalResult, categoryResult] = await Promise.all([
+        // Fetch financial context in parallel
+        const [monthlySummary, recentTransactions, budgetResult, goalResult] = await Promise.all([
             pool.query(`
-                SELECT t.amount, t.type, t.date, t.description,
-                    COALESCE(c.name, 'Uncategorized') as category
+                SELECT
+                  TO_CHAR(DATE_TRUNC('month', t.date), 'Month YYYY') AS month_label,
+                  DATE_TRUNC('month', t.date) AS month,
+                  t.type,
+                  c.name AS category,
+                  SUM(t.amount) AS total,
+                  COUNT(*) AS count
                 FROM transactions t
-                LEFT JOIN categories c ON c.id = t.category_id
-                WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '60 days'
-                ORDER BY t.date DESC LIMIT 100
+                JOIN categories c ON t.category_id = c.id
+                WHERE t.user_id = $1
+                  AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '6 months'
+                GROUP BY DATE_TRUNC('month', t.date), t.type, c.name
+                ORDER BY month DESC, t.type, total DESC
             `, [userId]),
             pool.query(`
-                SELECT c.name as category, b.amount as budget_limit,
-                    COALESCE(SUM(t.amount), 0) as spent
+                SELECT
+                  t.date,
+                  t.amount,
+                  t.type,
+                  t.description,
+                  c.name AS category
+                FROM transactions t
+                JOIN categories c ON t.category_id = c.id
+                WHERE t.user_id = $1
+                  AND t.date >= NOW() - INTERVAL '90 days'
+                ORDER BY t.date DESC
+                LIMIT 200
+            `, [userId]),
+            pool.query(`
+                SELECT c.name AS category, b.amount AS budget_limit,
+                    COALESCE(SUM(t.amount), 0) AS spent
                 FROM budgets b
                 JOIN categories c ON c.id = b.category_id
                 LEFT JOIN transactions t ON t.category_id = b.category_id
@@ -221,63 +242,70 @@ router.post('/chat', authMiddleware, async (req, res) => {
                 `SELECT name, target_amount, saved_amount, deadline FROM savings_goals WHERE user_id = $1`,
                 [userId]
             ),
-            pool.query(`
-                SELECT COALESCE(c.name, 'Uncategorized') as category,
-                    SUM(t.amount) as total, COUNT(*) as count
-                FROM transactions t
-                LEFT JOIN categories c ON c.id = t.category_id
-                WHERE t.user_id = $1 AND t.type = 'expense'
-                    AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
-                GROUP BY COALESCE(c.name, 'Uncategorized')
-                ORDER BY total DESC LIMIT 8
-            `, [userId]),
         ]);
 
-        const txns = txResult.rows;
-        const now = new Date();
-        const thisMonth = txns.filter(t => {
-            const d = new Date(t.date);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        });
-        const monthIncome = thisMonth.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0);
-        const monthExpenses = thisMonth.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-        const monthNet = monthIncome - monthExpenses;
-        const savingsRate = monthIncome > 0 ? ((monthNet / monthIncome) * 100).toFixed(1) : 0;
+        // Build monthly summary text
+        const monthlyMap = {};
+        for (const row of monthlySummary.rows) {
+            const label = row.month_label.trim();
+            if (!monthlyMap[label]) monthlyMap[label] = { income: [], expenses: [] };
+            if (row.type === 'income') monthlyMap[label].income.push(`${row.category}: ₹${Math.round(row.total)}`);
+            if (row.type === 'expense') monthlyMap[label].expenses.push(`${row.category}: ₹${Math.round(row.total)}`);
+        }
+
+        let monthlySummaryText = '';
+        for (const [month, data] of Object.entries(monthlyMap)) {
+            const totalIncome = monthlySummary.rows
+                .filter(r => r.month_label.trim() === month && r.type === 'income')
+                .reduce((s, r) => s + parseFloat(r.total), 0);
+            const totalExpense = monthlySummary.rows
+                .filter(r => r.month_label.trim() === month && r.type === 'expense')
+                .reduce((s, r) => s + parseFloat(r.total), 0);
+
+            monthlySummaryText += `\n### ${month}\n`;
+            monthlySummaryText += `Total Income: ₹${Math.round(totalIncome)}\n`;
+            monthlySummaryText += `Total Expenses: ₹${Math.round(totalExpense)}\n`;
+            if (data.income.length) monthlySummaryText += `Income breakdown: ${data.income.join(', ')}\n`;
+            if (data.expenses.length) monthlySummaryText += `Expense breakdown: ${data.expenses.join(', ')}\n`;
+        }
+
+        const recentTxText = recentTransactions.rows
+            .map(t => `${t.date.toISOString().split('T')[0]} | ${t.type} | ${t.category} | ₹${Math.round(t.amount)} | ${t.description || ''}`)
+            .join('\n');
 
         const budgets = budgetResult.rows;
         const overBudget = budgets.filter(b => Number(b.spent) > Number(b.budget_limit));
         const goals = goalResult.rows;
-        const categories = categoryResult.rows;
+        const user = req.user;
 
-        const systemPrompt = `You are a personal AI financial advisor for an Indian user.
-You have FULL ACCESS to their real financial data. Always use specific numbers from this data. Never give generic advice.
+        const systemPrompt = `You are an expert personal finance advisor for an Indian user named ${user.full_name || user.name || 'the user'}.
 
-=== THIS MONTH (${now.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}) ===
-Income:       ₹${Math.round(monthIncome).toLocaleString('en-IN')}
-Expenses:     ₹${Math.round(monthExpenses).toLocaleString('en-IN')}
-Net:          ₹${Math.round(monthNet).toLocaleString('en-IN')}
-Savings Rate: ${savingsRate}%
+You have access to their COMPLETE financial data for the last 6 months. Always use this data to answer questions accurately. Never say you don't have data for a month if it appears below.
 
-=== TOP SPENDING CATEGORIES THIS MONTH ===
-${categories.map(c => `${c.category}: ₹${Math.round(Number(c.total)).toLocaleString('en-IN')} (${c.count} transactions)`).join('\n') || 'No expenses this month'}
+TODAY'S DATE: ${new Date().toISOString().split('T')[0]}
+CURRENCY: Indian Rupees (₹)
 
-=== BUDGET STATUS ===
-${budgets.length > 0 ? budgets.map(b => `${b.category}: ₹${Math.round(Number(b.spent)).toLocaleString('en-IN')} of ₹${Math.round(Number(b.budget_limit)).toLocaleString('en-IN')}${Number(b.spent) > Number(b.budget_limit) ? ' ⚠️ OVER BUDGET' : ''}`).join('\n') : 'No budgets set'}
+## MONTHLY SUMMARY (last 6 months)
+${monthlySummaryText}
 
-=== OVER BUDGET ===
-${overBudget.length > 0 ? overBudget.map(b => `${b.category}: ₹${Math.round(Number(b.spent) - Number(b.budget_limit)).toLocaleString('en-IN')} over`).join('\n') : 'All within budget'}
+## RECENT INDIVIDUAL TRANSACTIONS (last 90 days)
+Date | Type | Category | Amount | Description
+${recentTxText}
 
-=== FINANCIAL GOALS ===
-${goals.length > 0 ? goals.map(g => `${g.name}: ₹${Math.round(Number(g.saved_amount)).toLocaleString('en-IN')} saved of ₹${Math.round(Number(g.target_amount)).toLocaleString('en-IN')}${g.deadline ? ` (deadline: ${g.deadline})` : ''}`).join('\n') : 'No goals set'}
+## BUDGET STATUS (this month)
+${budgets.length > 0 ? budgets.map(b => `${b.category}: ₹${Math.round(Number(b.spent))} of ₹${Math.round(Number(b.budget_limit))}${Number(b.spent) > Number(b.budget_limit) ? ' ⚠️ OVER BUDGET' : ''}`).join('\n') : 'No budgets set'}
+${overBudget.length > 0 ? `Over budget: ${overBudget.map(b => `${b.category} by ₹${Math.round(Number(b.spent) - Number(b.budget_limit))}`).join(', ')}` : ''}
 
-=== RECENT TRANSACTIONS (last 60 days, ${txns.length} total) ===
-${txns.slice(0, 30).map(t => `${String(t.date).slice(0, 10)} | ${t.type === 'income' ? '+' : '-'}₹${Math.round(Number(t.amount)).toLocaleString('en-IN')} | ${t.category} | ${t.description || ''}`).join('\n')}
+## FINANCIAL GOALS
+${goals.length > 0 ? goals.map(g => `${g.name}: ₹${Math.round(Number(g.saved_amount))} saved of ₹${Math.round(Number(g.target_amount))}${g.deadline ? ` (deadline: ${g.deadline})` : ''}`).join('\n') : 'No goals set'}
 
-=== INSTRUCTIONS ===
-- Reference specific numbers from the data above — never guess or make up figures
-- Keep responses to 3-5 sentences unless detail is asked for
-- Use ₹ and Indian number format
-- Today: ${now.toLocaleDateString('en-IN')}`;
+RULES:
+- Always answer based on the data above
+- If asked about a specific month, look it up in the Monthly Summary section
+- Use ₹ symbol and Indian number formatting (e.g. ₹1,538 not ₹1538.00)
+- Be concise and specific — give exact numbers from the data
+- Never say "I don't have data" if the month appears in the Monthly Summary above
+- Keep responses under 150 words unless a detailed breakdown is requested`;
 
         const reply = await aiComplete('chat', [
             { role: 'system', content: systemPrompt },
