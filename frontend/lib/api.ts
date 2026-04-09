@@ -143,9 +143,9 @@ export const splitsAPI = {
 
 export const accountsAPI = {
     getAll: () => api.get('/api/accounts'),
-    create: (data: { name: string; icon?: string; color?: string; starting_balance?: number; is_default?: boolean }) =>
+    create: (data: { name: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean }) =>
         api.post('/api/accounts', data),
-    update: (id: number, data: { name?: string; icon?: string; color?: string; starting_balance?: number; is_default?: boolean }) =>
+    update: (id: number, data: { name?: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean }) =>
         api.patch(`/api/accounts/${id}`, data),
     setDefault: (id: number) => api.patch(`/api/accounts/${id}/set-default`),
     delete: (id: number) => api.delete(`/api/accounts/${id}`),

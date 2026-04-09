@@ -16,6 +16,7 @@ const STATS_QUERY = `
             AS current_balance
     FROM bank_accounts a
     LEFT JOIN transactions t ON t.account_id = a.id AND t.user_id = $1
+        AND (a.balance_as_of IS NULL OR t.date >= a.balance_as_of)
     WHERE a.user_id = $1
     GROUP BY a.id
     ORDER BY a.created_at ASC
@@ -32,6 +33,7 @@ const STATS_SINGLE_QUERY = `
             AS current_balance
     FROM bank_accounts a
     LEFT JOIN transactions t ON t.account_id = a.id AND t.user_id = $1
+        AND (a.balance_as_of IS NULL OR t.date >= a.balance_as_of)
     WHERE a.user_id = $1 AND a.id = $2
     GROUP BY a.id
 `;
@@ -50,7 +52,7 @@ router.get('/', async (req, res) => {
 // POST /api/accounts
 router.post('/', async (req, res) => {
     try {
-        const { name, icon = '🏦', color = '#3b82f6', starting_balance = 0, is_default = false } = req.body;
+        const { name, icon = '🏦', color = '#3b82f6', starting_balance = 0, is_default = false, balance_as_of = null } = req.body;
         if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
 
         const client = await pool.connect();
@@ -63,9 +65,9 @@ router.post('/', async (req, res) => {
                 );
             }
             const { rows } = await client.query(
-                `INSERT INTO bank_accounts (user_id, name, icon, color, starting_balance, is_default)
-                 VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-                [req.user.id, name.trim(), icon, color, starting_balance, is_default]
+                `INSERT INTO bank_accounts (user_id, name, icon, color, starting_balance, is_default, balance_as_of)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+                [req.user.id, name.trim(), icon, color, starting_balance, is_default, balance_as_of || null]
             );
             let linkedCount = 0;
             if (is_default) {
@@ -92,7 +94,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/accounts/:id
 router.patch('/:id', async (req, res) => {
     try {
-        const { name, icon, color, starting_balance, is_default } = req.body;
+        const { name, icon, color, starting_balance, is_default, balance_as_of } = req.body;
         const { rows: existing } = await pool.query(
             `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
@@ -115,9 +117,10 @@ router.patch('/:id', async (req, res) => {
                     color            = COALESCE($3, color),
                     starting_balance = COALESCE($4, starting_balance),
                     is_default       = COALESCE($5, is_default),
+                    balance_as_of    = COALESCE($6, balance_as_of),
                     updated_at       = NOW()
-                 WHERE id = $6 AND user_id = $7`,
-                [name, icon, color, starting_balance, is_default, req.params.id, req.user.id]
+                 WHERE id = $7 AND user_id = $8`,
+                [name, icon, color, starting_balance, is_default, balance_as_of || null, req.params.id, req.user.id]
             );
             let linkedCount = 0;
             if (is_default === true) {

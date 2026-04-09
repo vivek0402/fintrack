@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { accountsAPI } from '@/lib/api';
 
 interface BankAccount {
@@ -19,7 +20,7 @@ interface BankAccount {
 const ICONS = ['🏦', '💳', '💰', '🏧', '💵', '🪙', '📱', '🏢'];
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#f43f5e', '#ec4899'];
 
-const DEFAULT_FORM = { name: '', icon: '🏦', color: '#3b82f6', starting_balance: '', is_default: false };
+const DEFAULT_FORM = { name: '', icon: '🏦', color: '#3b82f6', starting_balance: '', balance_as_of: new Date().toISOString().split('T')[0], is_default: false };
 
 function fmt(n: number) {
     return '₹' + Math.round(n).toLocaleString('en-IN');
@@ -34,7 +35,10 @@ export function BankAccountsSection() {
     const [saving, setSaving] = useState(false);
     const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
     const [successMsg, setSuccessMsg] = useState('');
+    const [mounted, setMounted] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => { setMounted(true); }, []);
 
     useEffect(() => {
         if (!successMsg) return;
@@ -75,6 +79,7 @@ export function BankAccountsSection() {
             icon: a.icon,
             color: a.color,
             starting_balance: String(a.starting_balance),
+            balance_as_of: (a as any).balance_as_of ? String((a as any).balance_as_of).split('T')[0] : new Date().toISOString().split('T')[0],
             is_default: a.is_default,
         });
         setMenuOpenId(null);
@@ -90,6 +95,7 @@ export function BankAccountsSection() {
                 icon: form.icon,
                 color: form.color,
                 starting_balance: parseFloat(String(form.starting_balance)) || 0,
+                balance_as_of: (form as any).balance_as_of || null,
                 is_default: form.is_default,
             };
             if (editAccount) {
@@ -417,11 +423,11 @@ export function BankAccountsSection() {
             )}
 
             {/* Add / Edit Modal */}
-            {showModal && (
+            {showModal && mounted && createPortal(
                 <div style={{
                     position: 'fixed',
                     inset: 0,
-                    zIndex: 1000,
+                    zIndex: 9999,
                     backgroundColor: 'rgba(0,0,0,0.7)',
                     display: 'flex',
                     alignItems: 'center',
@@ -522,7 +528,21 @@ export function BankAccountsSection() {
                                     />
                                 </div>
                                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                                    Enter the current balance in this account right now
+                                    Your real balance on the date below
+                                </p>
+                            </div>
+
+                            {/* Balance as of date */}
+                            <div>
+                                <label style={labelStyle}>Balance as of <span style={{ color: 'var(--accent-red)' }}>*</span></label>
+                                <input
+                                    type="date"
+                                    value={(form as any).balance_as_of || ''}
+                                    onChange={e => setForm(f => ({ ...f, balance_as_of: e.target.value } as any))}
+                                    style={inputStyle}
+                                />
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                                    Only transactions on or after this date affect your balance
                                 </p>
                             </div>
 
@@ -617,7 +637,8 @@ export function BankAccountsSection() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <style>{`
