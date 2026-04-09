@@ -184,6 +184,14 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       );
     }
 
+    // Delete all linked transactions for this expense's items
+    await client.query(`
+      DELETE FROM transactions WHERE id IN (
+        SELECT transaction_id FROM one_time_expense_items
+        WHERE expense_id = $1 AND transaction_id IS NOT NULL
+      )
+    `, [req.params.id]);
+
     await client.query(
       'DELETE FROM one_time_expenses WHERE id = $1 AND user_id = $2',
       [req.params.id, req.user.id]
@@ -220,16 +228,39 @@ router.post('/:id/items', authMiddleware, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Expense not found' });
     }
+    const p = parent.rows[0];
+
+    // Find category_id for this category name
+    const catRes = await client.query(
+      `SELECT id FROM categories WHERE user_id = $1 AND name = $2 LIMIT 1`,
+      [req.user.id, category || 'Other']
+    );
+    const categoryId = catRes.rows[0]?.id || null;
+
+    // Insert a real transaction so bank balance is computed correctly
+    const txRes = await client.query(`
+      INSERT INTO transactions
+        (user_id, category_id, type, amount, description, notes, date, account_id, payment_method)
+      VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      req.user.id, categoryId, parseFloat(amount),
+      `[${p.title}] ${description}`,
+      notes || null, date,
+      p.bank_account_id || null,
+      payment_method || 'Cash',
+    ]);
+    const tx = txRes.rows[0];
 
     const item = await client.query(`
       INSERT INTO one_time_expense_items
-        (expense_id, user_id, description, amount, category, date, payment_method, notes)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        (expense_id, user_id, description, amount, category, date, payment_method, notes, transaction_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       req.params.id, req.user.id, description,
       parseFloat(amount), category || 'Other',
-      date, payment_method || 'Cash', notes || null,
+      date, payment_method || 'Cash', notes || null, tx.id,
     ]);
 
     await client.query(`
@@ -238,13 +269,6 @@ router.post('/:id/items', authMiddleware, async (req, res) => {
           updated_at = NOW()
       WHERE id = $1
     `, [req.params.id]);
-
-    if (parent.rows[0].bank_account_id) {
-      await client.query(
-        'UPDATE bank_accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-        [parseFloat(amount), parent.rows[0].bank_account_id, req.user.id]
-      );
-    }
 
     await client.query('COMMIT');
     res.status(201).json({ item: item.rows[0] });
@@ -278,30 +302,61 @@ router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
       'SELECT * FROM one_time_expenses WHERE id = $1 AND user_id = $2',
       [req.params.id, req.user.id]
     );
+    const p = parent.rows[0];
 
-    const newAmount = parseFloat(amount || old.amount);
-    const diff = newAmount - parseFloat(old.amount);
+    const newDescription = description || old.description;
+    const newAmount      = parseFloat(amount || old.amount);
+    const newCategory    = category || old.category;
+    const newDate        = date || old.date;
+    const newMethod      = payment_method || old.payment_method;
+    const newNotes       = notes !== undefined ? notes : old.notes;
+
+    // Find category_id
+    const catRes = await client.query(
+      `SELECT id FROM categories WHERE user_id = $1 AND name = $2 LIMIT 1`,
+      [req.user.id, newCategory]
+    );
+    const categoryId = catRes.rows[0]?.id || null;
+
+    // Update linked transaction if it exists, otherwise insert one
+    if (old.transaction_id) {
+      await client.query(`
+        UPDATE transactions SET
+          amount = $1, description = $2, date = $3,
+          payment_method = $4, notes = $5, category_id = $6,
+          account_id = $7, updated_at = NOW()
+        WHERE id = $8 AND user_id = $9
+      `, [
+        newAmount, `[${p.title}] ${newDescription}`, newDate,
+        newMethod, newNotes, categoryId,
+        p.bank_account_id || null,
+        old.transaction_id, req.user.id,
+      ]);
+    } else {
+      const txRes = await client.query(`
+        INSERT INTO transactions
+          (user_id, category_id, type, amount, description, notes, date, account_id, payment_method)
+        VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8)
+        RETURNING id
+      `, [
+        req.user.id, categoryId, newAmount,
+        `[${p.title}] ${newDescription}`,
+        newNotes, newDate, p.bank_account_id || null, newMethod,
+      ]);
+      await client.query(
+        'UPDATE one_time_expense_items SET transaction_id = $1 WHERE id = $2',
+        [txRes.rows[0].id, req.params.itemId]
+      );
+    }
 
     const updated = await client.query(`
       UPDATE one_time_expense_items SET
-        description    = $1,
-        amount         = $2,
-        category       = $3,
-        date           = $4,
-        payment_method = $5,
-        notes          = $6
+        description    = $1, amount = $2, category = $3,
+        date           = $4, payment_method = $5, notes = $6
       WHERE id = $7 AND user_id = $8
       RETURNING *
-    `, [
-      description    || old.description,
-      newAmount,
-      category       || old.category,
-      date           || old.date,
-      payment_method || old.payment_method,
-      notes !== undefined ? notes : old.notes,
-      req.params.itemId,
-      req.user.id,
-    ]);
+    `, [newDescription, newAmount, newCategory, newDate, newMethod, newNotes,
+        req.params.itemId, req.user.id]);
 
     await client.query(`
       UPDATE one_time_expenses
@@ -309,13 +364,6 @@ router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
           updated_at = NOW()
       WHERE id = $1
     `, [req.params.id]);
-
-    if (parent.rows[0]?.bank_account_id && diff !== 0) {
-      await client.query(
-        'UPDATE bank_accounts SET balance = balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-        [diff, parent.rows[0].bank_account_id, req.user.id]
-      );
-    }
 
     await client.query('COMMIT');
     res.json({ item: updated.rows[0] });
@@ -342,11 +390,15 @@ router.delete('/:id/items/:itemId', authMiddleware, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Item not found' });
     }
+    const it = item.rows[0];
 
-    const parent = await client.query(
-      'SELECT * FROM one_time_expenses WHERE id = $1 AND user_id = $2',
-      [req.params.id, req.user.id]
-    );
+    // Delete linked transaction (bank balance recomputes automatically)
+    if (it.transaction_id) {
+      await client.query(
+        'DELETE FROM transactions WHERE id = $1 AND user_id = $2',
+        [it.transaction_id, req.user.id]
+      );
+    }
 
     await client.query('DELETE FROM one_time_expense_items WHERE id = $1', [req.params.itemId]);
 
@@ -356,13 +408,6 @@ router.delete('/:id/items/:itemId', authMiddleware, async (req, res) => {
           updated_at = NOW()
       WHERE id = $1
     `, [req.params.id]);
-
-    if (parent.rows[0]?.bank_account_id) {
-      await client.query(
-        'UPDATE bank_accounts SET balance = balance + $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-        [parseFloat(item.rows[0].amount), parent.rows[0].bank_account_id, req.user.id]
-      );
-    }
 
     await client.query('COMMIT');
     res.json({ success: true });
