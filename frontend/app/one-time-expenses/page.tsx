@@ -498,7 +498,7 @@ export default function OneTimeExpensesPage() {
                             <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 32px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
                               {/* Date */}
                               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                                {new Date(item.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                {new Date((item.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                               </span>
                               {/* Description + category pill */}
                               <span style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
