@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { useAuthStore } from '@/store/authStore';
 
 const CATEGORIES = ['Travel', 'Event', 'Electronics', 'Medical', 'Education',
   'Home', 'Vehicle', 'Gift', 'Investment', 'Other'];
@@ -23,7 +24,6 @@ function fmt(n: number) {
   return '₹' + Math.round(n).toLocaleString('en-IN');
 }
 
-const today = new Date().toISOString().split('T')[0];
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 interface Expense {
@@ -33,53 +33,47 @@ interface Expense {
   category: string;
   date: string;
   notes?: string;
-  bank_account_id?: string;
+  bank_account_id?: number;
   bank_account_name?: string;
   bank_name?: string;
-  tags?: string[];
-  icon?: string;
-  color?: string;
 }
 
 interface Account {
-  id: string;
+  id: number;
   name: string;
   bank_name?: string;
 }
 
-const emptyForm = {
-  title: '',
-  amount: '',
-  category: 'Other',
-  date: today,
-  bank_account_id: '',
-  notes: '',
-};
-
 export default function OneTimeExpensesPage() {
   const router = useRouter();
+  const { user, isLoading, loadFromStorage } = useAuthStore();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [form, setForm] = useState({ ...emptyForm });
+  const [form, setForm] = useState({
+    title: '', amount: '', category: 'Other',
+    date: new Date().toISOString().split('T')[0],
+    bank_account_id: '', notes: '',
+  });
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
   const [isMobile, setIsMobile] = useState(false);
 
+  useEffect(() => { loadFromStorage(); }, []);
+  useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { router.push('/login'); return; }
     setIsMobile(window.innerWidth < 768);
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [router]);
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const getHeaders = useCallback(() => {
-    const token = localStorage.getItem('token');
+    const token = useAuthStore.getState().token;
     return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   }, []);
 
@@ -104,10 +98,9 @@ export default function OneTimeExpensesPage() {
   }, [getHeaders]);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return;
     Promise.all([fetchExpenses(), fetchAccounts()]).finally(() => setLoading(false));
-  }, [fetchExpenses, fetchAccounts]);
+  }, [user, fetchExpenses, fetchAccounts]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -116,7 +109,11 @@ export default function OneTimeExpensesPage() {
 
   const openAdd = () => {
     setEditingExpense(null);
-    setForm({ ...emptyForm });
+    setForm({
+      title: '', amount: '', category: 'Other',
+      date: new Date().toISOString().split('T')[0],
+      bank_account_id: '', notes: '',
+    });
     setShowModal(true);
   };
 
@@ -127,7 +124,7 @@ export default function OneTimeExpensesPage() {
       amount: String(e.amount),
       category: e.category,
       date: e.date.split('T')[0],
-      bank_account_id: e.bank_account_id || '',
+      bank_account_id: e.bank_account_id ? String(e.bank_account_id) : '',
       notes: e.notes || '',
     });
     setShowModal(true);
@@ -148,21 +145,17 @@ export default function OneTimeExpensesPage() {
         amount: parseFloat(form.amount),
         category: form.category,
         date: form.date,
-        bank_account_id: form.bank_account_id || null,
+        bank_account_id: form.bank_account_id ? parseInt(form.bank_account_id, 10) : null,
         notes: form.notes || null,
       };
       if (editingExpense) {
         await fetch(`${API}/api/one-time-expenses/${editingExpense.id}`, {
-          method: 'PUT',
-          headers: getHeaders(),
-          body: JSON.stringify(body),
+          method: 'PUT', headers: getHeaders(), body: JSON.stringify(body),
         });
         showToast('Expense updated');
       } else {
         await fetch(`${API}/api/one-time-expenses`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify(body),
+          method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
         });
         showToast('Expense added — bank balance updated');
       }
@@ -178,8 +171,7 @@ export default function OneTimeExpensesPage() {
   const handleDelete = async (id: string) => {
     try {
       await fetch(`${API}/api/one-time-expenses/${id}`, {
-        method: 'DELETE',
-        headers: getHeaders(),
+        method: 'DELETE', headers: getHeaders(),
       });
       setDeleteConfirmId(null);
       await fetchExpenses();
@@ -189,13 +181,12 @@ export default function OneTimeExpensesPage() {
     }
   };
 
-  // Summaries
   const currentYear = new Date().getFullYear();
   const totalSpent = expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const thisYear = expenses.filter(e => new Date(e.date).getFullYear() === currentYear)
+  const thisYear = expenses
+    .filter(e => new Date(e.date).getFullYear() === currentYear)
     .reduce((s, e) => s + Number(e.amount), 0);
 
-  // Group by year
   const grouped: Record<string, Expense[]> = {};
   for (const e of expenses) {
     const yr = String(new Date(e.date).getFullYear());
@@ -204,30 +195,21 @@ export default function OneTimeExpensesPage() {
   }
   const years = Object.keys(grouped).sort((a, b) => Number(b) - Number(a));
 
-  const deleteTarget = expenses.find(e => e.id === deleteConfirmId);
-
   const modalStyle: React.CSSProperties = isMobile ? {
-    position: 'fixed',
-    bottom: 0, left: 0, right: 0,
+    position: 'fixed', bottom: 0, left: 0, right: 0,
     background: 'var(--bg-card)',
     borderRadius: '20px 20px 0 0',
     borderTop: '1px solid var(--bg-border)',
     padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
-    zIndex: 1000,
-    maxHeight: '92vh',
-    overflowY: 'auto',
+    zIndex: 1000, maxHeight: '92vh', overflowY: 'auto',
   } : {
-    position: 'fixed',
-    top: '50%', left: '50%',
+    position: 'fixed', top: '50%', left: '50%',
     transform: 'translate(-50%, -50%)',
     background: 'var(--bg-card)',
     borderRadius: '16px',
     border: '1px solid var(--bg-border)',
-    padding: '28px',
-    zIndex: 1000,
-    width: '480px',
-    maxHeight: '90vh',
-    overflowY: 'auto',
+    padding: '28px', zIndex: 1000,
+    width: '480px', maxHeight: '90vh', overflowY: 'auto',
   };
 
   const inputStyle: React.CSSProperties = {
@@ -243,14 +225,14 @@ export default function OneTimeExpensesPage() {
   };
 
   const labelStyle: React.CSSProperties = {
-    fontSize: '12px',
-    fontWeight: 600,
+    fontSize: '12px', fontWeight: 600,
     color: 'var(--text-secondary)',
     letterSpacing: '0.5px',
     textTransform: 'uppercase',
-    marginBottom: '6px',
-    display: 'block',
+    marginBottom: '6px', display: 'block',
   };
+
+  if (isLoading) return null;
 
   return (
     <AppLayout>
@@ -301,8 +283,7 @@ export default function OneTimeExpensesPage() {
             <div key={tile.label} style={{
               background: 'var(--bg-card)',
               border: '1px solid var(--bg-border)',
-              borderRadius: 12,
-              padding: '14px 16px',
+              borderRadius: 12, padding: '14px 16px',
             }}>
               <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', margin: '0 0 6px', fontWeight: 600 }}>
                 {tile.label}
@@ -357,11 +338,9 @@ export default function OneTimeExpensesPage() {
                   <div key={exp.id} style={{
                     background: 'var(--bg-card)',
                     border: '1px solid var(--bg-border)',
-                    borderRadius: 12, padding: '16px 20px',
-                    marginBottom: 10,
+                    borderRadius: 12, padding: '16px 20px', marginBottom: 10,
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      {/* Icon */}
                       <div style={{
                         width: 40, height: 40, borderRadius: 10, flexShrink: 0,
                         background: catColor + '22',
@@ -371,7 +350,6 @@ export default function OneTimeExpensesPage() {
                         {CATEGORY_ICONS[exp.category] || '🧾'}
                       </div>
 
-                      {/* Middle */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                           <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -405,27 +383,18 @@ export default function OneTimeExpensesPage() {
                           </p>
                         )}
 
-                        {/* Actions */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                           {!isConfirmDelete ? (
                             <>
                               <button
                                 onClick={() => openEdit(exp)}
-                                style={{
-                                  background: 'none', border: 'none',
-                                  color: 'var(--text-secondary)', fontSize: '12px',
-                                  cursor: 'pointer', padding: '4px 8px', borderRadius: 6,
-                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => setDeleteConfirmId(exp.id)}
-                                style={{
-                                  background: 'none', border: 'none',
-                                  color: 'var(--accent-red)', fontSize: '12px',
-                                  cursor: 'pointer', padding: '4px 8px', borderRadius: 6,
-                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px', borderRadius: 6 }}
                               >
                                 Delete
                               </button>
@@ -437,22 +406,13 @@ export default function OneTimeExpensesPage() {
                               </span>
                               <button
                                 onClick={() => handleDelete(exp.id)}
-                                style={{
-                                  background: 'var(--accent-red)', color: '#fff',
-                                  border: 'none', borderRadius: 6,
-                                  padding: '4px 12px', fontSize: '12px',
-                                  fontWeight: 600, cursor: 'pointer',
-                                }}
+                                style={{ background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                               >
                                 Yes, Delete
                               </button>
                               <button
                                 onClick={() => setDeleteConfirmId(null)}
-                                style={{
-                                  background: 'none', border: 'none',
-                                  color: 'var(--text-muted)', fontSize: '12px',
-                                  cursor: 'pointer', padding: '4px 8px',
-                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', padding: '4px 8px' }}
                               >
                                 Cancel
                               </button>
@@ -473,11 +433,7 @@ export default function OneTimeExpensesPage() {
       {showModal && (
         <div
           onClick={closeModal}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 999,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(2px)',
-          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
         />
       )}
 
@@ -494,7 +450,6 @@ export default function OneTimeExpensesPage() {
           <form onSubmit={handleSubmit}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-              {/* Title */}
               <div>
                 <label style={labelStyle}>Title *</label>
                 <input
@@ -506,20 +461,13 @@ export default function OneTimeExpensesPage() {
                 />
               </div>
 
-              {/* Amount */}
               <div>
                 <label style={labelStyle}>Amount *</label>
                 <div style={{ position: 'relative' }}>
-                  <span style={{
-                    position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)', fontSize: '14px',
-                  }}>₹</span>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '14px' }}>₹</span>
                   <input
                     style={{ ...inputStyle, paddingLeft: 28 }}
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="0"
+                    type="number" min="0" step="1" placeholder="0"
                     value={form.amount}
                     onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
                     required
@@ -527,48 +475,35 @@ export default function OneTimeExpensesPage() {
                 </div>
               </div>
 
-              {/* Category */}
               <div>
                 <label style={labelStyle}>Category</label>
-                <select
-                  style={inputStyle}
-                  value={form.category}
-                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                >
+                <select style={inputStyle} value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                   {CATEGORIES.map(c => (
                     <option key={c} value={c}>{CATEGORY_ICONS[c]} {c}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Date */}
               <div>
                 <label style={labelStyle}>Date *</label>
                 <input
-                  style={inputStyle}
-                  type="date"
+                  style={inputStyle} type="date"
                   value={form.date}
                   onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
                   required
                 />
               </div>
 
-              {/* Bank Account */}
               <div>
                 <label style={labelStyle}>Bank Account</label>
-                <select
-                  style={inputStyle}
-                  value={form.bank_account_id}
-                  onChange={e => setForm(f => ({ ...f, bank_account_id: e.target.value }))}
-                >
+                <select style={inputStyle} value={form.bank_account_id} onChange={e => setForm(f => ({ ...f, bank_account_id: e.target.value }))}>
                   <option value="">No account (cash)</option>
                   {accounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.name}{a.bank_name ? ` — ${a.bank_name}` : ''}</option>
+                    <option key={a.id} value={String(a.id)}>{a.name}{a.bank_name ? ` — ${a.bank_name}` : ''}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Notes */}
               <div>
                 <label style={labelStyle}>Notes</label>
                 <textarea
@@ -579,29 +514,16 @@ export default function OneTimeExpensesPage() {
                 />
               </div>
 
-              {/* Actions */}
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                 <button
-                  type="button"
-                  onClick={closeModal}
-                  style={{
-                    flex: 1, background: 'var(--bg-secondary)',
-                    border: '1px solid var(--bg-border)', borderRadius: 10,
-                    padding: '12px', fontSize: '14px', fontWeight: 600,
-                    color: 'var(--text-secondary)', cursor: 'pointer',
-                  }}
+                  type="button" onClick={closeModal}
+                  style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{
-                    flex: 2, background: submitting ? 'var(--bg-border)' : 'var(--accent-blue)',
-                    border: 'none', borderRadius: 10,
-                    padding: '12px', fontSize: '14px', fontWeight: 600,
-                    color: '#fff', cursor: submitting ? 'not-allowed' : 'pointer',
-                  }}
+                  type="submit" disabled={submitting}
+                  style={{ flex: 2, background: submitting ? 'var(--bg-border)' : 'var(--accent-blue)', border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: submitting ? 'not-allowed' : 'pointer' }}
                 >
                   {submitting ? 'Saving…' : editingExpense ? 'Save Changes' : 'Add Expense'}
                 </button>
