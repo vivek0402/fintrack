@@ -30,9 +30,10 @@ const moreSections = [
     {
         label: 'GROUPS & SPLITS',
         items: [
-            { href: '/recurring', icon: RefreshCw,  label: 'Recurring' },
-            { href: '/groups',    icon: FolderOpen, label: 'Groups' },
-            { href: '/splits',    icon: Users,      label: 'Splits' },
+            { href: '/recurring',          icon: RefreshCw,  label: 'Recurring' },
+            { href: '/one-time-expenses', icon: Receipt,    label: 'One-Time' },
+            { href: '/groups',            icon: FolderOpen, label: 'Groups' },
+            { href: '/splits',            icon: Users,      label: 'Splits' },
         ],
     },
     {

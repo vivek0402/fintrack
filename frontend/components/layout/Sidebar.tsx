@@ -28,6 +28,7 @@ const navItems = [
     { href: '/salary-intelligence', icon: Banknote,      label: 'Salary AI' },
     { href: '/ai-chat',             icon: MessageSquare, label: 'AI Chat' },
     { href: '/recurring', icon: RefreshCw, label: 'Recurring' },
+    { href: '/one-time-expenses', icon: Receipt, label: 'One-Time' },
     { href: '/splits', icon: Users, label: 'Splits' },
     { href: '/groups', icon: FolderOpen, label: 'Groups' },
     { href: '/profile', icon: Settings, label: 'Settings' },

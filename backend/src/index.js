@@ -3,6 +3,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const cron = require('node-cron');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // ─── Startup assertions ──────────────────────────────────────────────────────
@@ -17,6 +19,22 @@ if (!process.env.DATABASE_URL) {
 
 const pool = require('./db/pool');
 const app = express();
+
+// ─── Run pending migrations on startup ───────────────────────────────────────
+async function runMigrations() {
+    const migrationsDir = path.join(__dirname, 'db', 'migrations');
+    const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+    for (const file of files) {
+        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+        try {
+            await pool.query(sql);
+            console.log(`✅ Migration applied: ${file}`);
+        } catch (err) {
+            console.error(`❌ Migration failed: ${file} — ${err.message}`);
+        }
+    }
+}
+runMigrations().catch(err => console.error('[Migrations] Fatal:', err.message));
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
@@ -154,7 +172,8 @@ app.use('/api/goals',        require('./routes/goals'));
 app.use('/api/ai',           aiLimiter, require('./routes/ai'));
 app.use('/api/splits',       require('./routes/splits'));
 app.use('/api/groups',       require('./routes/groups'));
-app.use('/api/accounts',     require('./routes/accounts'));
+app.use('/api/accounts',          require('./routes/accounts'));
+app.use('/api/one-time-expenses', require('./routes/oneTimeExpenses'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
