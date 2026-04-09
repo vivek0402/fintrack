@@ -117,18 +117,21 @@ export default function OneTimeExpensesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [eRes, aRes, catRes] = await Promise.all([
+      const [eRes, aRes] = await Promise.all([
         fetch(`${API}/api/one-time-expenses`, { headers: getHeaders() }),
         fetch(`${API}/api/accounts`,          { headers: getHeaders() }),
-        categoriesAPI.getAll(),
       ]);
       const [eData, aData] = await Promise.all([eRes.json(), aRes.json()]);
       setExpenses(eData.expenses || []);
       setAccounts(aData.accounts  || []);
-      setTxCategories(catRes.data.categories || []);
     } catch (err) {
       console.error(err);
     }
+    // Categories fetched separately so a failure here never clears expenses
+    try {
+      const catRes = await categoriesAPI.getAll();
+      setTxCategories(catRes.data.categories || []);
+    } catch (_) { /* silent — falls back to hardcoded list */ }
   }, [getHeaders]);
 
   useEffect(() => {
