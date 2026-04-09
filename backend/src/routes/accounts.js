@@ -101,6 +101,7 @@ router.patch('/:id', async (req, res) => {
         );
         if (!existing.length) return res.status(404).json({ error: 'Account not found' });
 
+        let linkedCount = 0;
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
@@ -110,6 +111,8 @@ router.patch('/:id', async (req, res) => {
                     [req.user.id]
                 );
             }
+            // balance_as_of: if explicitly sent in request body (including null), use it; otherwise keep existing
+            const newBalanceAsOf = 'balance_as_of' in req.body ? (balance_as_of || null) : undefined;
             await client.query(
                 `UPDATE bank_accounts SET
                     name             = COALESCE($1, name),
@@ -117,12 +120,13 @@ router.patch('/:id', async (req, res) => {
                     color            = COALESCE($3, color),
                     starting_balance = COALESCE($4, starting_balance),
                     is_default       = COALESCE($5, is_default),
-                    balance_as_of    = COALESCE($6, balance_as_of),
+                    balance_as_of    = CASE WHEN $6::boolean THEN $7::date ELSE balance_as_of END,
                     updated_at       = NOW()
-                 WHERE id = $7 AND user_id = $8`,
-                [name, icon, color, starting_balance, is_default, balance_as_of || null, req.params.id, req.user.id]
+                 WHERE id = $8 AND user_id = $9`,
+                [name, icon, color, starting_balance, is_default,
+                 newBalanceAsOf !== undefined, newBalanceAsOf,
+                 req.params.id, req.user.id]
             );
-            let linkedCount = 0;
             if (is_default === true) {
                 const linked = await client.query(
                     `UPDATE transactions SET account_id = $1 WHERE user_id = $2 AND account_id IS NULL`,

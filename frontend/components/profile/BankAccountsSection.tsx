@@ -20,7 +20,7 @@ interface BankAccount {
 const ICONS = ['🏦', '💳', '💰', '🏧', '💵', '🪙', '📱', '🏢'];
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#f43f5e', '#ec4899'];
 
-const DEFAULT_FORM = { name: '', icon: '🏦', color: '#3b82f6', starting_balance: '', balance_as_of: new Date().toISOString().split('T')[0], is_default: false };
+const DEFAULT_FORM = { name: '', icon: '🏦', color: '#3b82f6', starting_balance: '', current_balance_override: '', is_default: false };
 
 function fmt(n: number) {
     return '₹' + Math.round(n).toLocaleString('en-IN');
@@ -79,7 +79,7 @@ export function BankAccountsSection() {
             icon: a.icon,
             color: a.color,
             starting_balance: String(a.starting_balance),
-            balance_as_of: (a as any).balance_as_of ? String((a as any).balance_as_of).split('T')[0] : new Date().toISOString().split('T')[0],
+            current_balance_override: String(Math.round(Number(a.current_balance))),
             is_default: a.is_default,
         });
         setMenuOpenId(null);
@@ -90,12 +90,23 @@ export function BankAccountsSection() {
         if (!form.name.trim()) return;
         setSaving(true);
         try {
+            let startingBalance = parseFloat(String(form.starting_balance)) || 0;
+
+            // When editing, if user entered a "current balance" override, back-calculate starting_balance
+            // so all historical transactions still count: starting_balance = desired_current - total_income + total_expenses
+            if (editAccount && (form as any).current_balance_override !== '') {
+                const desired = parseFloat(String((form as any).current_balance_override));
+                if (!isNaN(desired)) {
+                    startingBalance = desired - Number(editAccount.total_income) + Number(editAccount.total_expenses);
+                }
+            }
+
             const payload = {
                 name: form.name.trim(),
                 icon: form.icon,
                 color: form.color,
-                starting_balance: parseFloat(String(form.starting_balance)) || 0,
-                balance_as_of: (form as any).balance_as_of || null,
+                starting_balance: startingBalance,
+                balance_as_of: null, // always clear — we compute balance via starting_balance instead
                 is_default: form.is_default,
             };
             if (editAccount) {
@@ -506,45 +517,58 @@ export function BankAccountsSection() {
                                 />
                             </div>
 
-                            {/* Starting balance */}
-                            <div>
-                                <label style={labelStyle}>Starting Balance <span style={{ color: 'var(--accent-red)' }}>*</span></label>
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{
-                                        position: 'absolute',
-                                        left: '12px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        color: 'var(--text-muted)',
-                                        fontSize: '14px',
-                                        pointerEvents: 'none',
-                                    }}>₹</span>
-                                    <input
-                                        type="number"
-                                        value={form.starting_balance}
-                                        onChange={e => setForm(f => ({ ...f, starting_balance: e.target.value as any }))}
-                                        placeholder="0"
-                                        style={{ ...inputStyle, paddingLeft: '26px' }}
-                                    />
+                            {/* Balance field — different UX for add vs edit */}
+                            {editAccount ? (
+                                <div>
+                                    <label style={labelStyle}>Current Real Balance</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{
+                                            position: 'absolute',
+                                            left: '12px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-muted)',
+                                            fontSize: '14px',
+                                            pointerEvents: 'none',
+                                        }}>₹</span>
+                                        <input
+                                            type="number"
+                                            value={(form as any).current_balance_override}
+                                            onChange={e => setForm(f => ({ ...f, current_balance_override: e.target.value } as any))}
+                                            placeholder="Enter your real balance right now"
+                                            style={{ ...inputStyle, paddingLeft: '26px' }}
+                                        />
+                                    </div>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                                        Check your bank app and enter the actual balance. All your recorded transactions will still count.
+                                    </p>
                                 </div>
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                                    Your real balance on the date below
-                                </p>
-                            </div>
-
-                            {/* Balance as of date */}
-                            <div>
-                                <label style={labelStyle}>Balance as of <span style={{ color: 'var(--accent-red)' }}>*</span></label>
-                                <input
-                                    type="date"
-                                    value={(form as any).balance_as_of || ''}
-                                    onChange={e => setForm(f => ({ ...f, balance_as_of: e.target.value } as any))}
-                                    style={inputStyle}
-                                />
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-                                    Only transactions on or after this date affect your balance
-                                </p>
-                            </div>
+                            ) : (
+                                <div>
+                                    <label style={labelStyle}>Opening Balance</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{
+                                            position: 'absolute',
+                                            left: '12px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            color: 'var(--text-muted)',
+                                            fontSize: '14px',
+                                            pointerEvents: 'none',
+                                        }}>₹</span>
+                                        <input
+                                            type="number"
+                                            value={form.starting_balance}
+                                            onChange={e => setForm(f => ({ ...f, starting_balance: e.target.value as any }))}
+                                            placeholder="0"
+                                            style={{ ...inputStyle, paddingLeft: '26px' }}
+                                        />
+                                    </div>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
+                                        Your balance before you started recording transactions (can be 0)
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Color picker */}
                             <div>
