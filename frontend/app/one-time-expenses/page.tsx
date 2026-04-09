@@ -92,6 +92,7 @@ export default function OneTimeExpensesPage() {
   const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
   const [itemForm, setItemForm]           = useState(emptyItemForm());
   const [addingItem, setAddingItem]       = useState(false);
+  const [editingItem, setEditingItem]     = useState<{ expenseId: string; item: ExpenseItem } | null>(null);
   const [showModal, setShowModal]         = useState(false);
   const [editingExp, setEditingExp]       = useState<OneTimeExpense | null>(null);
   const [expForm, setExpForm]             = useState(emptyExpenseForm());
@@ -247,6 +248,49 @@ export default function OneTimeExpensesPage() {
         const newItems = [...ex.items, data.item];
         return { ...ex, items: newItems, total_amount: newItems.reduce((s, i) => s + Number(i.amount), 0), item_count: newItems.length };
       }));
+      setItemForm(emptyItemForm());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAddingItem(false);
+    }
+  };
+
+  const openEditItem = (expenseId: string, item: ExpenseItem) => {
+    setEditingItem({ expenseId, item });
+    setItemForm({
+      description:    item.description,
+      amount:         String(item.amount),
+      date:           (item.date || '').split('T')[0],
+      payment_method: item.payment_method || 'Cash',
+      category:       item.category || 'Other',
+    });
+    setAddingItemFor(expenseId);
+  };
+
+  const handleUpdateItem = async (expenseId: string, itemId: string) => {
+    if (!itemForm.description || !itemForm.amount || !itemForm.date) return;
+    setAddingItem(true);
+    try {
+      const res = await fetch(`${API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
+        method: 'PUT',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          description:    itemForm.description,
+          amount:         parseFloat(itemForm.amount),
+          date:           itemForm.date,
+          payment_method: itemForm.payment_method,
+          category:       itemForm.category,
+        }),
+      });
+      const data = await res.json();
+      setExpenses(prev => prev.map(ex => {
+        if (ex.id !== expenseId) return ex;
+        const newItems = ex.items.map(i => i.id === itemId ? data.item : i);
+        return { ...ex, items: newItems, total_amount: newItems.reduce((s, i) => s + Number(i.amount), 0) };
+      }));
+      setEditingItem(null);
+      setAddingItemFor(null);
       setItemForm(emptyItemForm());
     } catch (err) {
       console.error(err);
@@ -492,7 +536,7 @@ export default function OneTimeExpensesPage() {
                       {exp.items.length > 0 && (
                         <div style={{ overflowX: 'auto' }}>
                           {/* Table header */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 32px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
                             <span>Date</span>
                             <span>What</span>
                             <span>How Paid</span>
@@ -502,7 +546,7 @@ export default function OneTimeExpensesPage() {
 
                           {/* Item rows */}
                           {exp.items.map(item => (
-                            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 32px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
+                            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
                               {/* Date */}
                               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                                 {new Date((item.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -527,15 +571,25 @@ export default function OneTimeExpensesPage() {
                               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-red)', textAlign: 'right' }}>
                                 {fmt(Number(item.amount))}
                               </span>
-                              {/* Delete */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteItem(exp.id, item.id)}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
-                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
-                                title="Remove"
-                              >×</button>
+                              {/* Edit + Delete */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditItem(exp.id, item)}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: '2px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, borderRadius: 4 }}
+                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'}
+                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
+                                  title="Edit"
+                                >✎</button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(exp.id, item.id)}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: '2px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, borderRadius: 4 }}
+                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
+                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
+                                  title="Remove"
+                                >×</button>
+                              </div>
                             </div>
                           ))}
 
@@ -550,12 +604,13 @@ export default function OneTimeExpensesPage() {
                       {/* Add item toggle */}
                       <div
                         onClick={() => {
-                          if (isAddingItem) { setAddingItemFor(null); } else { setAddingItemFor(exp.id); setItemForm(emptyItemForm()); }
+                          if (isAddingItem) { setAddingItemFor(null); setEditingItem(null); setItemForm(emptyItemForm()); }
+                          else { setAddingItemFor(exp.id); setEditingItem(null); setItemForm(emptyItemForm()); }
                         }}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', fontSize: 13, color: 'var(--accent-purple)', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}
                       >
                         <span style={{ fontSize: 16, lineHeight: 1 }}>{isAddingItem ? '−' : '+'}</span>
-                        {isAddingItem ? 'Cancel' : 'Add item'}
+                        {isAddingItem ? (editingItem ? 'Cancel edit' : 'Cancel') : 'Add item'}
                       </div>
 
                       {/* Expanded add item form */}
@@ -640,18 +695,18 @@ export default function OneTimeExpensesPage() {
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                             <button
                               type="button"
-                              onClick={() => setAddingItemFor(null)}
+                              onClick={() => { setAddingItemFor(null); setEditingItem(null); setItemForm(emptyItemForm()); }}
                               style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--bg-border)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
                             >
                               Cancel
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleAddItem(exp.id)}
+                              onClick={() => editingItem ? handleUpdateItem(exp.id, editingItem.item.id) : handleAddItem(exp.id)}
                               disabled={addingItem || !itemForm.description || !itemForm.amount}
                               style={{ height: 34, padding: '0 20px', borderRadius: 8, border: 'none', background: addingItem ? 'var(--bg-border)' : 'var(--accent-purple)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addingItem ? 'not-allowed' : 'pointer' }}
                             >
-                              {addingItem ? '…' : '+ Add item'}
+                              {addingItem ? '…' : editingItem ? 'Update item' : '+ Add item'}
                             </button>
                           </div>
                         </div>
