@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     X, FileText, Mic, Camera, ChevronDown,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
@@ -482,8 +483,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             }
         >
             {/* SMS overlay */}
-            {showSmsOverlay && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            {showSmsOverlay && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'rgba(0,0,0,0.6)' }} onClick={e => { if (e.target === e.currentTarget) setShowSmsOverlay(false); }}>
                     <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '420px', boxShadow: 'var(--shadow-modal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>📱 Paste Bank SMS</span>
@@ -500,7 +501,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                             <Button type="button" variant="secondary" size="sm" onClick={() => setShowSmsOverlay(false)}>Cancel</Button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* AI Input helpers */}

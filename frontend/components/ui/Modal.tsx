@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from './BottomSheet';
@@ -15,8 +17,27 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px' }: ModalProps) {
     const isMobile = useIsMobile();
+    const [mounted, setMounted] = useState(false);
 
-    if (!isOpen) return null;
+    useEffect(() => { setMounted(true); }, []);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isOpen, onClose]);
+
+    useEffect(() => {
+        if (isOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+        return () => { document.body.style.overflow = ''; };
+    }, [isOpen]);
+
+    if (!isOpen || !mounted) return null;
 
     if (isMobile) {
         return (
@@ -26,34 +47,37 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
         );
     }
 
-    return (
+    return createPortal(
         <div
-            onClick={e => e.stopPropagation()}
+            onClick={onClose}
             style={{
                 position: 'fixed',
-                inset: 0,
+                top: 0,
+                left: 0,
                 width: '100vw',
                 height: '100vh',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                backdropFilter: 'blur(6px)',
-                zIndex: 1000,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                pointerEvents: 'all',
+                overflowY: 'auto',
             }}
         >
             <div
+                onClick={e => e.stopPropagation()}
                 style={{
+                    position: 'relative',
                     width: '90%',
                     maxWidth,
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
                     backgroundColor: '#000000',
-                    border: '1px solid #1e2d4a',
+                    border: '1px solid var(--bg-border)',
                     borderRadius: '16px',
                     overflow: 'hidden',
+                    zIndex: 10000,
                 }}
             >
                 {/* Header */}
@@ -61,7 +85,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '20px 24px',
-                        borderBottom: '1px solid #1e2d4a',
+                        borderBottom: '1px solid var(--bg-border)',
                         flexShrink: 0,
                     }}>
                         <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
@@ -84,12 +108,13 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     <div style={{
                         flexShrink: 0,
                         padding: '16px 24px',
-                        borderTop: '1px solid #1e2d4a',
+                        borderTop: '1px solid var(--bg-border)',
                     }}>
                         {footer}
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

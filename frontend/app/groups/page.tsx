@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -32,6 +33,9 @@ export default function GroupsPage() {
     // List state
     const [groups, setGroups] = useState<Group[]>([]);
     const [loadingList, setLoadingList] = useState(true);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
 
     // Detail state
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -521,8 +525,8 @@ export default function GroupsPage() {
             )}
 
             {/* Add Split Modal */}
-            {showSplitModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+            {showSplitModal && mounted && createPortal(
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false); }}>
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -598,12 +602,13 @@ export default function GroupsPage() {
                             {savingSplit ? (editingSplit ? 'Saving…' : 'Adding…') : (editingSplit ? 'Save Changes' : 'Add Split')}
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Link Transaction Modal */}
-            {showTxModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+            {showTxModal && mounted && createPortal(
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) { setShowTxModal(false); setTxSearch(''); setTxResults([]); } }}>
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -632,7 +637,8 @@ export default function GroupsPage() {
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
         </AppLayout>
@@ -649,6 +655,9 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
     formMembers: Member[]; setFormMembers: (v: Member[]) => void;
     saving: boolean; onSave: () => void; onClose: () => void;
 }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
+
     const addMember = () => setFormMembers([...formMembers, { name: '' }]);
     const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
     const updateMember = (i: number, field: keyof Member, val: string) => {
@@ -657,8 +666,10 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
         setFormMembers(updated);
     };
 
-    return (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+    if (!mounted) return null;
+
+    return createPortal(
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -724,6 +735,7 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
                     {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Group'}
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

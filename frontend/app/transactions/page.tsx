@@ -450,8 +450,8 @@ function TransactionsPageInner() {
             )}
 
             {/* Quick Add Modal */}
-            {quickAddOpen && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={e => { if (e.target === e.currentTarget) { setQuickAddOpen(false); } }}>
+            {quickAddOpen && createPortal(
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={e => { if (e.target === e.currentTarget) { setQuickAddOpen(false); } }}>
                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -488,7 +488,8 @@ function TransactionsPageInner() {
                         </div>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '12px 0 0 0', textAlign: 'center' }}>AI will parse your text and pre-fill the transaction form</p>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

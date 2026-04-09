@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { transactionsAPI } from '@/lib/api';
@@ -12,6 +13,9 @@ export function GlobalSearch() {
     const [results, setResults] = useState<any[]>([]);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
     const inputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
     const { user } = useAuthStore();
@@ -52,10 +56,10 @@ export function GlobalSearch() {
                 Search... (Ctrl+K)
             </button>
 
-            {open && (
+            {open && mounted && createPortal(
                 <>
-                    <div onClick={() => { setOpen(false); setQuery(''); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 200 }} />
-                    <div style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '560px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', zIndex: 201, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+                    <div onClick={() => { setOpen(false); setQuery(''); }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', zIndex: 9999 }} />
+                    <div style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '560px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', zIndex: 10000, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid var(--bg-border)' }}>
                             <Search size={16} color="var(--text-muted)" />
                             <input
@@ -97,7 +101,8 @@ export function GlobalSearch() {
                             })}
                         </div>
                     </div>
-                </>
+                </>,
+                document.body
             )}
         </>
     );

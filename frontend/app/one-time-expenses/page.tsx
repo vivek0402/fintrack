@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuthStore } from '@/store/authStore';
@@ -100,7 +101,9 @@ export default function OneTimeExpensesPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<OneTimeExpense | null>(null);
   const [toast, setToast]                 = useState('');
   const [isMobile, setIsMobile]           = useState(false);
+  const [mounted, setMounted]             = useState(false);
 
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => { loadFromStorage(); }, []);
   useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
@@ -341,14 +344,14 @@ export default function OneTimeExpensesPage() {
     borderRadius: '20px 20px 0 0',
     borderTop: '1px solid var(--bg-border)',
     padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
-    zIndex: 1000, maxHeight: '92vh', overflowY: 'auto',
+    zIndex: 10000, maxHeight: '92vh', overflowY: 'auto',
   } : {
     position: 'fixed', top: '50%', left: '50%',
     transform: 'translate(-50%, -50%)',
     background: 'var(--bg-card)',
     borderRadius: '16px',
     border: '1px solid var(--bg-border)',
-    padding: '28px', zIndex: 1000,
+    padding: '28px', zIndex: 10000,
     width: '480px', maxHeight: '90vh', overflowY: 'auto',
   };
 
@@ -722,10 +725,10 @@ export default function OneTimeExpensesPage() {
       </div>
 
       {/* Delete confirm */}
-      {deleteConfirm && (
+      {deleteConfirm && mounted && createPortal(
         <>
-          <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--bg-border)', padding: '28px', zIndex: 1000, width: 360, maxWidth: '90vw' }}>
+          <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--bg-border)', padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
             <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'Sora, sans-serif' }}>
               Delete {deleteConfirm.title}?
             </p>
@@ -739,17 +742,13 @@ export default function OneTimeExpensesPage() {
               <button onClick={() => handleDeleteExpense(deleteConfirm)} style={{ flex: 1, background: 'var(--accent-red)', border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>Delete</button>
             </div>
           </div>
-        </>
-      )}
-
-      {/* Add/Edit modal backdrop */}
-      {showModal && (
-        <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
+        </>,
+        document.body
       )}
 
       {/* Add/Edit modal */}
-      {showModal && (
-        <div style={modalStyle}>
+      {showModal && mounted && createPortal(
+        <div onClick={e => e.stopPropagation()} style={modalStyle}>
           {isMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--bg-border)', margin: '0 auto 16px' }} />}
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 20px', fontFamily: 'Sora, sans-serif' }}>
             {editingExp ? 'Edit Expense' : 'New One-Time Expense'}
@@ -802,7 +801,8 @@ export default function OneTimeExpensesPage() {
               </div>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
     </AppLayout>
   );
