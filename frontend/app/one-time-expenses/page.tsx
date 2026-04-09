@@ -76,6 +76,7 @@ const emptyItemForm = () => ({
   amount: '',
   date: new Date().toISOString().split('T')[0],
   payment_method: 'Cash',
+  category: 'Other',
 });
 
 export default function OneTimeExpensesPage() {
@@ -230,7 +231,7 @@ export default function OneTimeExpensesPage() {
           amount:         parseFloat(itemForm.amount),
           date:           itemForm.date,
           payment_method: itemForm.payment_method,
-          category:       'Other',
+          category:       itemForm.category,
         }),
       });
       const data = await res.json();
@@ -467,8 +468,15 @@ export default function OneTimeExpensesPage() {
                             <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                               {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                             </span>
-                            <span style={{ fontSize: '14px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {item.description}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 0, overflow: 'hidden' }}>
+                              <span style={{ fontSize: '14px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {item.description}
+                              </span>
+                              {item.category && item.category !== 'Other' && (
+                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-hover)', color: 'var(--text-secondary)', marginLeft: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                  {item.category}
+                                </span>
+                              )}
                             </span>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.payment_method}</span>
                             <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent-red)', textAlign: 'right' }}>{fmt(Number(item.amount))}</span>
@@ -499,7 +507,7 @@ export default function OneTimeExpensesPage() {
                     ) : (
                       <div style={{ marginTop: 12 }}>
                         <div style={{ overflowX: 'auto' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 120px 140px 80px', gap: 8, padding: '12px 0', borderTop: '1px solid var(--bg-border)', minWidth: 560 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 120px 140px 140px 80px', gap: 8, padding: '12px 0', borderTop: '1px solid var(--bg-border)', minWidth: 660 }}>
                             <input
                               style={itemInputStyle}
                               placeholder="What did you spend on?"
@@ -528,6 +536,13 @@ export default function OneTimeExpensesPage() {
                               onChange={e => setItemForm(f => ({ ...f, payment_method: e.target.value }))}
                             >
                               {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                            <select
+                              style={itemInputStyle}
+                              value={itemForm.category}
+                              onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))}
+                            >
+                              {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
                             </select>
                             <button
                               onClick={() => handleAddItem(exp.id)}
