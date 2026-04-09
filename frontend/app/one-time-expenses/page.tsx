@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuthStore } from '@/store/authStore';
+import { categoriesAPI } from '@/lib/api';
 
 const CATEGORIES = ['Travel', 'Event', 'Electronics', 'Medical', 'Education',
   'Home', 'Vehicle', 'Gift', 'Investment', 'Other'];
@@ -85,6 +86,7 @@ export default function OneTimeExpensesPage() {
 
   const [expenses, setExpenses]           = useState<OneTimeExpense[]>([]);
   const [accounts, setAccounts]           = useState<Account[]>([]);
+  const [txCategories, setTxCategories]   = useState<any[]>([]);
   const [loading, setLoading]             = useState(true);
   const [expandedId, setExpandedId]       = useState<string | null>(null);
   const [addingItemFor, setAddingItemFor] = useState<string | null>(null);
@@ -115,13 +117,15 @@ export default function OneTimeExpensesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [eRes, aRes] = await Promise.all([
+      const [eRes, aRes, catRes] = await Promise.all([
         fetch(`${API}/api/one-time-expenses`, { headers: getHeaders() }),
         fetch(`${API}/api/accounts`,          { headers: getHeaders() }),
+        categoriesAPI.getAll(),
       ]);
       const [eData, aData] = await Promise.all([eRes.json(), aRes.json()]);
       setExpenses(eData.expenses || []);
       setAccounts(aData.accounts  || []);
+      setTxCategories(catRes.data.categories || []);
     } catch (err) {
       console.error(err);
     }
@@ -598,7 +602,10 @@ export default function OneTimeExpensesPage() {
                                 value={itemForm.category}
                                 onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))}
                               >
-                                {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
+                                {txCategories.length > 0
+                                  ? txCategories.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)
+                                  : CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)
+                                }
                               </select>
                             </div>
                           </div>
