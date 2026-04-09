@@ -394,174 +394,261 @@ export default function OneTimeExpensesPage() {
             const isAddingItem = addingItemFor === exp.id;
             const dateRange    = formatDateRange(exp);
 
+            const PAY_COLORS: Record<string, string> = {
+              'UPI': 'var(--accent-purple)',
+              'Credit Card': 'var(--accent-blue)',
+              'Debit Card': 'var(--accent-blue)',
+              'Net Banking': 'var(--accent-blue)',
+              'Cash': 'var(--accent-green)',
+              'Other': 'var(--text-muted)',
+            };
+
+            const fieldLabel: React.CSSProperties = {
+              fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4,
+              letterSpacing: '0.4px', textTransform: 'uppercase', display: 'block',
+            };
+            const fieldInput: React.CSSProperties = {
+              width: '100%', height: 36, borderRadius: 8,
+              border: '1px solid var(--bg-border)', background: 'var(--bg-card)',
+              color: 'var(--text-primary)', fontSize: 13, padding: '0 10px',
+              outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+            };
+
             return (
               <div
                 key={exp.id}
                 style={{
                   background: 'var(--bg-card)',
-                  border: `1px solid ${isExpanded ? 'var(--accent-blue)' : 'var(--bg-border)'}`,
+                  border: `1px solid ${isExpanded ? 'rgba(168,85,247,0.4)' : 'var(--bg-border)'}`,
                   borderRadius: 14, marginBottom: 12, overflow: 'hidden',
                   transition: 'border-color 0.15s',
                 }}
               >
-                {/* Card header — click to expand */}
+                {/* ── Card header ── */}
                 <div
                   onClick={() => setExpandedId(isExpanded ? null : exp.id)}
                   style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
                 >
-                  {/* Icon */}
-                  <div style={{ width: 44, height: 44, borderRadius: 12, flexShrink: 0, background: catColor + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                  {/* Emoji badge */}
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(168,85,247,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                     {CATEGORY_EMOJI[exp.category] || '🧾'}
                   </div>
 
                   {/* Title + meta */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {exp.title}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: catColor + '22', color: catColor }}>{exp.category}</span>
-                      {dateRange && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{dateRange}</span>}
-                      {exp.bank_account_name && <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>via {exp.bank_account_name}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'rgba(168,85,247,0.12)', color: 'var(--accent-purple)', fontWeight: 500 }}>
+                        {exp.category}
+                      </span>
+                      {dateRange && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateRange}</span>}
+                      {exp.bank_account_name && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>🏦 {exp.bank_account_name}</span>}
                     </div>
                   </div>
 
-                  {/* Total + actions */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                    <span style={{ fontSize: '17px', fontWeight: 700, color: 'var(--accent-purple)', fontFamily: 'Sora, sans-serif' }}>
+                  {/* Total + count + action buttons */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
+                    <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--accent-purple)', fontFamily: 'Sora, sans-serif' }}>
                       {fmt(Number(exp.total_amount))}
                     </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {isExpanded ? '▲' : '▼'} {exp.item_count} item{exp.item_count !== 1 ? 's' : ''}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        {exp.item_count} item{exp.item_count !== 1 ? 's' : ''}
                       </span>
                       <button
+                        type="button"
                         onClick={e => openEditExpense(exp, e)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '2px 6px', fontSize: '13px', lineHeight: 1 }}
                         title="Edit"
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bg-border)', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
                       >✏️</button>
                       <button
+                        type="button"
                         onClick={e => { e.stopPropagation(); setDeleteConfirm(exp); }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', padding: '2px 4px', fontSize: '13px', lineHeight: 1 }}
                         title="Delete"
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent-red)', fontSize: 13 }}
                       >🗑️</button>
                     </div>
                   </div>
                 </div>
 
-                {/* Expanded body */}
+                {/* ── Expanded body ── */}
                 {isExpanded && (
-                  <div style={{ padding: '0 20px 16px', borderTop: '1px solid var(--bg-border)' }}>
+                  <>
+                    {/* Divider */}
+                    <div style={{ height: 1, background: 'var(--bg-border)' }} />
 
-                    {/* Item table */}
-                    {exp.items.length > 0 && (
-                      <div style={{ overflowX: 'auto', marginTop: 12 }}>
-                        {/* Header */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px 32px', gap: 12, fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.6px', paddingBottom: 8, borderBottom: '1px solid var(--bg-border)', minWidth: 480 }}>
-                          <span>Date</span><span>What</span><span>How Paid</span>
-                          <span style={{ textAlign: 'right' }}>Amount</span><span />
-                        </div>
+                    <div style={{ padding: '0 20px 4px' }}>
 
-                        {/* Rows */}
-                        {exp.items.map(item => (
-                          <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 120px 100px 32px', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--bg-border)', gap: 12, minWidth: 480 }}>
-                            <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                              {new Date(item.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 0, overflow: 'hidden' }}>
-                              <span style={{ fontSize: '14px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {item.description}
-                              </span>
-                              {item.category && item.category !== 'Other' && (
-                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-hover)', color: 'var(--text-secondary)', marginLeft: 6, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                  {item.category}
-                                </span>
-                              )}
-                            </span>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.payment_method}</span>
-                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent-red)', textAlign: 'right' }}>{fmt(Number(item.amount))}</span>
-                            <button
-                              onClick={() => handleDeleteItem(exp.id, item.id)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '16px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              title="Remove"
-                            >✕</button>
-                          </div>
-                        ))}
-
-                        {/* Total row */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 12, fontWeight: 700, color: 'var(--accent-purple)' }}>
-                          <span style={{ fontSize: '13px' }}>Total</span>
-                          <span style={{ fontSize: '16px', fontFamily: 'Sora, sans-serif' }}>{fmt(Number(exp.total_amount))}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Add item button or inline form */}
-                    {!isAddingItem ? (
-                      <button
-                        onClick={() => { setAddingItemFor(exp.id); setItemForm(emptyItemForm()); }}
-                        style={{ marginTop: exp.items.length > 0 ? 12 : 16, display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-hover)', border: '1px dashed var(--bg-border)', borderRadius: 8, padding: '8px 14px', fontSize: '13px', fontWeight: 500, color: 'var(--accent-blue)', cursor: 'pointer' }}
-                      >
-                        + Add Item
-                      </button>
-                    ) : (
-                      <div style={{ marginTop: 12 }}>
+                      {/* Item table */}
+                      {exp.items.length > 0 && (
                         <div style={{ overflowX: 'auto' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 120px 140px 140px 80px', gap: 8, padding: '12px 0', borderTop: '1px solid var(--bg-border)', minWidth: 660 }}>
+                          {/* Table header */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 32px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
+                            <span>Date</span>
+                            <span>What</span>
+                            <span>How Paid</span>
+                            <span style={{ textAlign: 'right' }}>Amount</span>
+                            <span />
+                          </div>
+
+                          {/* Item rows */}
+                          {exp.items.map(item => (
+                            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 32px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--bg-border)', minWidth: 460 }}>
+                              {/* Date */}
+                              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                                {new Date(item.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              </span>
+                              {/* Description + category pill */}
+                              <span style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {item.description}
+                                </span>
+                                {item.category && item.category !== 'Other' && (
+                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--bg-border)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                    {item.category}
+                                  </span>
+                                )}
+                              </span>
+                              {/* Payment method with dot */}
+                              <span style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ width: 7, height: 7, borderRadius: '50%', background: PAY_COLORS[item.payment_method] || 'var(--text-muted)', marginRight: 6, flexShrink: 0, display: 'inline-block' }} />
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.payment_method}</span>
+                              </span>
+                              {/* Amount */}
+                              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent-red)', textAlign: 'right' }}>
+                                {fmt(Number(item.amount))}
+                              </span>
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(exp.id, item.id)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
+                                title="Remove"
+                              >×</button>
+                            </div>
+                          ))}
+
+                          {/* Total row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--bg-border)' }}>
+                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Total spent</span>
+                            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-purple)', fontFamily: 'Sora, sans-serif' }}>{fmt(Number(exp.total_amount))}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Add item toggle */}
+                      <div
+                        onClick={() => {
+                          if (isAddingItem) { setAddingItemFor(null); } else { setAddingItemFor(exp.id); setItemForm(emptyItemForm()); }
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', fontSize: 13, color: 'var(--accent-purple)', cursor: 'pointer', fontWeight: 500, userSelect: 'none' }}
+                      >
+                        <span style={{ fontSize: 16, lineHeight: 1 }}>{isAddingItem ? '−' : '+'}</span>
+                        {isAddingItem ? 'Cancel' : 'Add item'}
+                      </div>
+
+                      {/* Expanded add item form */}
+                      {isAddingItem && (
+                        <div style={{ background: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
+
+                          {/* Row 1: description */}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={fieldLabel}>What did you spend on?</label>
                             <input
-                              style={itemInputStyle}
-                              placeholder="What did you spend on?"
+                              style={fieldInput}
+                              placeholder="e.g. Dinner, Auto ride, Entry ticket..."
                               value={itemForm.description}
                               onChange={e => setItemForm(f => ({ ...f, description: e.target.value }))}
                               autoFocus
                             />
-                            <input
-                              style={itemInputStyle}
-                              type="date"
-                              value={itemForm.date}
-                              onChange={e => setItemForm(f => ({ ...f, date: e.target.value }))}
-                            />
-                            <div style={{ position: 'relative' }}>
-                              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }}>₹</span>
+                          </div>
+
+                          {/* Row 2: date / amount / category */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+                            <div>
+                              <label style={fieldLabel}>Date</label>
                               <input
-                                style={{ ...itemInputStyle, paddingLeft: 24 }}
-                                type="number" min="0" step="1" placeholder="Amount"
-                                value={itemForm.amount}
-                                onChange={e => setItemForm(f => ({ ...f, amount: e.target.value }))}
+                                type="date"
+                                style={fieldInput}
+                                value={itemForm.date}
+                                onChange={e => setItemForm(f => ({ ...f, date: e.target.value }))}
                               />
                             </div>
-                            <select
-                              style={itemInputStyle}
-                              value={itemForm.payment_method}
-                              onChange={e => setItemForm(f => ({ ...f, payment_method: e.target.value }))}
-                            >
-                              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                            <select
-                              style={itemInputStyle}
-                              value={itemForm.category}
-                              onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))}
-                            >
-                              {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
-                            </select>
+                            <div>
+                              <label style={fieldLabel}>Amount</label>
+                              <div style={{ position: 'relative' }}>
+                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>₹</span>
+                                <input
+                                  type="number" min="0" step="1"
+                                  style={{ ...fieldInput, paddingLeft: 22 }}
+                                  placeholder="0"
+                                  value={itemForm.amount}
+                                  onChange={e => setItemForm(f => ({ ...f, amount: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label style={fieldLabel}>Category</label>
+                              <select
+                                style={fieldInput}
+                                value={itemForm.category}
+                                onChange={e => setItemForm(f => ({ ...f, category: e.target.value }))}
+                              >
+                                {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJI[c]} {c}</option>)}
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Row 3: payment method / notes */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                            <div>
+                              <label style={fieldLabel}>How paid</label>
+                              <select
+                                style={fieldInput}
+                                value={itemForm.payment_method}
+                                onChange={e => setItemForm(f => ({ ...f, payment_method: e.target.value }))}
+                              >
+                                {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={fieldLabel}>Notes (optional)</label>
+                              <input
+                                style={fieldInput}
+                                placeholder="Any extra details..."
+                                value={(itemForm as any).notes || ''}
+                                onChange={e => setItemForm(f => ({ ...f, notes: e.target.value } as any))}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Footer buttons */}
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                             <button
+                              type="button"
+                              onClick={() => setAddingItemFor(null)}
+                              style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--bg-border)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleAddItem(exp.id)}
                               disabled={addingItem || !itemForm.description || !itemForm.amount}
-                              style={{ background: addingItem ? 'var(--bg-border)' : 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px', fontSize: '13px', fontWeight: 600, cursor: addingItem ? 'not-allowed' : 'pointer' }}
+                              style={{ height: 34, padding: '0 20px', borderRadius: 8, border: 'none', background: addingItem ? 'var(--bg-border)' : 'var(--accent-purple)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addingItem ? 'not-allowed' : 'pointer' }}
                             >
-                              {addingItem ? '…' : '✓ Add'}
+                              {addingItem ? '…' : '+ Add item'}
                             </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => setAddingItemFor(null)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', marginTop: 4, padding: '2px 0' }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+
+                    </div>
+                  </>
                 )}
               </div>
             );
