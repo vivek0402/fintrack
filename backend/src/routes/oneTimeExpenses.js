@@ -12,14 +12,13 @@ router.get('/', authMiddleware, async (req, res) => {
       SELECT
         o.*,
         ba.name  AS bank_account_name,
-        ba.bank_name,
         COALESCE(SUM(i.amount), 0)::float AS total_amount,
         COUNT(i.id)::int                  AS item_count
       FROM one_time_expenses o
       LEFT JOIN bank_accounts ba          ON ba.id = o.bank_account_id
       LEFT JOIN one_time_expense_items i  ON i.expense_id = o.id
       WHERE o.user_id = $1
-      GROUP BY o.id, ba.name, ba.bank_name
+      GROUP BY o.id, ba.name
       ORDER BY o.created_at DESC
     `, [req.user.id]);
 
