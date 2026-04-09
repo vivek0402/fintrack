@@ -140,6 +140,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         amount: '', description: '', notes: '',
         date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         category_id: '', tags: [] as string[],
+        payment_method: 'Cash',
     });
     const [tagInput, setTagInput] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
@@ -232,6 +233,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
                 category_id: transaction.category_id || '',
                 tags: Array.isArray(transaction.tags) ? transaction.tags : [],
+                payment_method: transaction.payment_method || 'Cash',
             });
         } else if (prefill) {
             setForm({
@@ -242,10 +244,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
                 category_id: '',
                 tags: [],
+                payment_method: 'Cash',
             });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [] });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash' });
             setTagInput('');
         }
         setError('');
@@ -399,6 +402,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 description: form.description, notes: form.notes || undefined,
                 date: form.date, category_id: form.category_id || undefined,
                 tags: form.tags.length > 0 ? form.tags : undefined,
+                payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined,
             };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
@@ -608,6 +612,29 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                             style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--bg-secondary)', color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', border: `1px solid ${isIncome ? 'var(--accent-green-border)' : 'var(--accent-red-border)'}`, borderRadius: '12px', fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 700, outline: 'none', boxSizing: 'border-box', transition: 'border-color var(--transition-fast)' }} />
                     </div>
                 </div>
+
+                {/* Payment Method — expense only */}
+                {!isIncome && (
+                    <div>
+                        <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>How did you pay?</label>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
+                                <button
+                                    key={m}
+                                    type="button"
+                                    onClick={() => setForm({ ...form, payment_method: m })}
+                                    style={{
+                                        padding: '7px 14px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600,
+                                        cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s',
+                                        border: form.payment_method === m ? '1px solid var(--accent-blue)' : '1px solid var(--bg-border)',
+                                        background: form.payment_method === m ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)',
+                                        color: form.payment_method === m ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                                    }}
+                                >{m}</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <Input label="Description" type="text" placeholder="e.g. Swiggy order, Monthly salary" icon={<FileText size={15} />} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required />
 

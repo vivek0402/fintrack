@@ -75,6 +75,8 @@ export const analyticsAPI = {
         api.get('/api/analytics/forecast', { params }),
     report: (from: string, to: string) =>
         api.get('/api/analytics/report', { params: { from, to } }),
+    paymentMethods: (params?: { month?: number; year?: number }) =>
+        api.get('/api/analytics/payment-methods', { params }),
 };
 
 export const profileAPI = {

@@ -64,14 +64,14 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id, account_id } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, account_id, payment_method } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
 
         const result = await pool.query(
-            `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-            [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null]
+            `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+            [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash']
         );
         const tx = result.rows[0];
 
@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, payment_method } = req.body;
         const existing = await pool.query(
             'SELECT id FROM transactions WHERE id = $1 AND user_id = $2',
             [req.params.id, req.user.id]
@@ -111,9 +111,10 @@ router.put('/:id', async (req, res) => {
          type = COALESCE($1,type), amount = COALESCE($2,amount),
          description = COALESCE($3,description), notes = COALESCE($4,notes),
          tags = COALESCE($5,tags), date = COALESCE($6,date),
-         category_id = COALESCE($7,category_id), updated_at = NOW()
-       WHERE id = $8 AND user_id = $9 RETURNING *`,
-            [type, amount, description, notes, tags, date, category_id, req.params.id, req.user.id]
+         category_id = COALESCE($7,category_id),
+         payment_method = COALESCE($8,payment_method), updated_at = NOW()
+       WHERE id = $9 AND user_id = $10 RETURNING *`,
+            [type, amount, description, notes, tags, date, category_id, payment_method, req.params.id, req.user.id]
         );
         res.json({ transaction: result.rows[0] });
     } catch (err) {

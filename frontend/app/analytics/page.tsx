@@ -28,6 +28,8 @@ export default function AnalyticsPage() {
     const [trends, setTrends] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [yearlyData, setYearlyData] = useState<any>(null);
+    const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+    const [paymentTotal, setPaymentTotal] = useState(0);
     const [regretData, setRegretData] = useState<any>(null);
     const [regretLoading, setRegretLoading] = useState(false);
     const [accounts, setAccounts] = useState<any[]>([]);
@@ -44,17 +46,20 @@ export default function AnalyticsPage() {
         if (!user) return;
         const fetchData = async () => {
             try {
-                const [summaryRes, trendsRes, allTxRes, yearlyRes] = await Promise.all([
+                const [summaryRes, trendsRes, allTxRes, yearlyRes, pmRes] = await Promise.all([
                     analyticsAPI.summary({ month: currentMonth, year: currentYear }),
                     analyticsAPI.trends(),
                     transactionsAPI.getAll(),
                     analyticsAPI.yearly(currentYear),
+                    analyticsAPI.paymentMethods({ month: currentMonth, year: currentYear }),
                 ]);
                 setSummary(summaryRes.data.summary);
                 setCategories(summaryRes.data.category_breakdown);
                 setTrends(trendsRes.data.trends);
                 setAllTransactions(allTxRes.data.transactions);
                 setYearlyData(yearlyRes.data);
+                setPaymentMethods(pmRes.data.breakdown || []);
+                setPaymentTotal(pmRes.data.total || 0);
             } catch (err) { console.error(err); }
         };
         fetchData();
@@ -429,6 +434,48 @@ export default function AnalyticsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Payment Methods */}
+            {paymentMethods.length > 0 && (
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
+                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {paymentMethods.map(pm => {
+                            const METHOD_COLORS: Record<string, string> = {
+                                'UPI': '#10b981',
+                                'Credit Card': '#f43f5e',
+                                'Debit Card': '#3b82f6',
+                                'Net Banking': '#8b5cf6',
+                                'Wallet': '#f59e0b',
+                                'Cash': '#6b7280',
+                            };
+                            const color = METHOD_COLORS[pm.method] || '#6b7280';
+                            return (
+                                <div key={pm.method}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color }} />
+                                            <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{pm.method}</span>
+                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pm.percent}%</span>
+                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>₹{Math.round(pm.total).toLocaleString('en-IN')}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ height: '6px', background: 'var(--bg-border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${pm.percent}%`, background: color, borderRadius: '3px', transition: 'width 0.5s ease' }} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
+                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>₹{Math.round(paymentTotal).toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Year over Year */}
             {yearlyData && (

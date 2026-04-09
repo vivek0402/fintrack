@@ -172,4 +172,37 @@ router.get('/report', async (req, res) => {
     }
 });
 
+router.get('/payment-methods', async (req, res) => {
+    try {
+        const { month, year } = req.query;
+        const m = month || new Date().getMonth() + 1;
+        const y = year || new Date().getFullYear();
+
+        const result = await pool.query(
+            `SELECT COALESCE(payment_method, 'Cash') AS method,
+                    COUNT(*)::int AS count,
+                    COALESCE(SUM(amount), 0)::float AS total
+             FROM transactions
+             WHERE user_id = $1 AND type = 'expense'
+               AND EXTRACT(MONTH FROM date) = $2
+               AND EXTRACT(YEAR FROM date) = $3
+             GROUP BY method
+             ORDER BY total DESC`,
+            [req.user.id, m, y]
+        );
+
+        const grandTotal = result.rows.reduce((s, r) => s + r.total, 0);
+        const breakdown = result.rows.map(r => ({
+            method: r.method,
+            count: r.count,
+            total: r.total,
+            percent: grandTotal > 0 ? parseFloat(((r.total / grandTotal) * 100).toFixed(1)) : 0,
+        }));
+
+        res.json({ breakdown, total: grandTotal, month: m, year: y });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 module.exports = router;
