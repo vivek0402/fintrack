@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS one_time_expenses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  bank_account_id UUID REFERENCES bank_accounts(id) ON DELETE SET NULL,
+  bank_account_id INTEGER REFERENCES bank_accounts(id) ON DELETE SET NULL,
   title VARCHAR(255) NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   category VARCHAR(100) NOT NULL DEFAULT 'Other',

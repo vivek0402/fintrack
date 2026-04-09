@@ -40,7 +40,7 @@ router.post('/', authMiddleware, async (req, res) => {
       RETURNING *
     `, [
       req.user.id,
-      bank_account_id || null,
+      bank_account_id ? parseInt(bank_account_id, 10) : null,
       title,
       parseFloat(amount),
       category || 'Other',
@@ -96,7 +96,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Apply new bank deduction
-    const newBankId = bank_account_id !== undefined ? bank_account_id : old.bank_account_id;
+    const newBankId = bank_account_id !== undefined
+      ? (bank_account_id ? parseInt(bank_account_id, 10) : null)
+      : old.bank_account_id;
     if (newBankId) {
       await client.query(`
         UPDATE bank_accounts SET balance = balance - $1, updated_at = NOW()
