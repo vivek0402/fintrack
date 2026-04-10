@@ -8,7 +8,7 @@ import {
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, aiAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, aiAPI, accountsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -142,9 +142,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         category_id: '', tags: [] as string[],
         payment_method: 'Cash',
+        account_id: null as number | null,
     });
     const [tagInput, setTagInput] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
+    const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -198,6 +200,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             .catch(() => setCategories([]));
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+        accountsAPI.getAll()
+            .then(res => setAccounts(res.data.accounts || []))
+            .catch(() => setAccounts([]));
+    }, [isOpen]);
+
     // Close category dropdown on outside click
     useEffect(() => {
         if (!catDropdownOpen) return;
@@ -224,6 +233,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
 
     // Populate form when modal opens or transaction/prefill changes
     useEffect(() => {
+        const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
             setForm({
@@ -235,6 +245,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 category_id: transaction.category_id || '',
                 tags: Array.isArray(transaction.tags) ? transaction.tags : [],
                 payment_method: transaction.payment_method || 'Cash',
+                account_id: transaction.account_id ?? defaultAccountId,
             });
         } else if (prefill) {
             setForm({
@@ -246,10 +257,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 category_id: '',
                 tags: [],
                 payment_method: 'Cash',
+                account_id: defaultAccountId,
             });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash' });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: defaultAccountId });
             setTagInput('');
         }
         setError('');
@@ -258,7 +270,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         setShowAddCat(false);
         setShowNewCategoryPrompt(false);
         setPendingNewCategory('');
-    }, [transaction, isOpen, defaultDate, prefill]);
+    }, [transaction, isOpen, defaultDate, prefill, accounts]);
 
     const findCategory = (cats: any[], aiCat: string) => {
         if (!aiCat || !cats.length) return null;
@@ -404,6 +416,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 date: form.date, category_id: form.category_id || undefined,
                 tags: form.tags.length > 0 ? form.tags : undefined,
                 payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined,
+                account_id: form.account_id ?? undefined,
             };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
