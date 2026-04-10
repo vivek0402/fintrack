@@ -73,11 +73,12 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    backgroundColor: '#000000',
+                    background: 'var(--surface-1)',
                     border: '1px solid var(--bg-border)',
-                    borderRadius: '16px',
+                    borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
                     zIndex: 10000,
+                    animation: 'scaleIn 200ms ease forwards',
                 }}
             >
                 {/* Header */}
@@ -88,7 +89,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                         borderBottom: '1px solid var(--bg-border)',
                         flexShrink: 0,
                     }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
+                        <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{title}</span>
                         <button
                             onClick={onClose}
                             style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '6px', borderRadius: '8px' }}

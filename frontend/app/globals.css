@@ -23,6 +23,12 @@
   --accent-yellow:  #f59e0b;
   --shadow:         rgba(0, 0, 0, 0.3);
 
+  /* Surfaces */
+  --surface-0: #080c18;
+  --surface-1: #111a30;
+  --surface-2: #192140;
+  --surface-3: #1e2d4a;
+
   /* Accent alpha backgrounds */
   --accent-green-bg:     rgba(16, 185, 129, 0.1);
   --accent-green-border: rgba(16, 185, 129, 0.2);
@@ -64,9 +70,9 @@
   --hero-glow: 0 0 60px rgba(59, 130, 246, 0.08), 0 0 120px rgba(59, 130, 246, 0.04);
 
   /* Animation durations */
-  --transition-fast: 150ms;
-  --transition-base: 250ms;
-  --transition-slow: 400ms;
+  --transition-fast: 150ms cubic-bezier(0.4,0,0.2,1);
+  --transition-base: 250ms cubic-bezier(0.4,0,0.2,1);
+  --transition-slow: 400ms cubic-bezier(0.4,0,0.2,1);
 }
 
 [data-theme="pitch"] {
@@ -83,6 +89,12 @@
   --accent-blue:    #3b82f6;
   --accent-yellow:  #f59e0b;
   --shadow:         rgba(0, 0, 0, 0.6);
+
+  /* Surfaces */
+  --surface-0: #000000;
+  --surface-1: #111111;
+  --surface-2: #1a1a1a;
+  --surface-3: #222222;
 
   --accent-green-bg:     rgba(16, 185, 129, 0.1);
   --accent-green-border: rgba(16, 185, 129, 0.22);
@@ -120,9 +132,9 @@
   /* Hero card glow */
   --hero-glow: 0 0 60px rgba(59, 130, 246, 0.08), 0 0 120px rgba(59, 130, 246, 0.04);
 
-  --transition-fast: 150ms;
-  --transition-base: 250ms;
-  --transition-slow: 400ms;
+  --transition-fast: 150ms cubic-bezier(0.4,0,0.2,1);
+  --transition-base: 250ms cubic-bezier(0.4,0,0.2,1);
+  --transition-slow: 400ms cubic-bezier(0.4,0,0.2,1);
 }
 
 [data-theme="light"] {
@@ -139,6 +151,12 @@
   --accent-blue:    #2563eb;
   --accent-yellow:  #d97706;
   --shadow:         rgba(0, 0, 0, 0.08);
+
+  /* Surfaces */
+  --surface-0: #f0f4f8;
+  --surface-1: #f8fafc;
+  --surface-2: #ffffff;
+  --surface-3: #e8f0fe;
 
   --accent-green-bg:     rgba(5, 150, 105, 0.1);
   --accent-green-border: rgba(5, 150, 105, 0.2);
@@ -176,9 +194,61 @@
   /* Hero card glow */
   --hero-glow: 0 0 40px rgba(59, 130, 246, 0.06);
 
-  --transition-fast: 150ms;
-  --transition-base: 250ms;
-  --transition-slow: 400ms;
+  --transition-fast: 150ms cubic-bezier(0.4,0,0.2,1);
+  --transition-base: 250ms cubic-bezier(0.4,0,0.2,1);
+  --transition-slow: 400ms cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Semantic color aliases (dark theme defaults) ─────────────────────────── */
+:root,
+[data-theme="dark"],
+[data-theme="pitch"] {
+  --accent-mint:      var(--accent-green);
+  --accent-mint-bg:   var(--accent-green-bg);
+  --accent-rose:      var(--accent-red);
+  --accent-rose-bg:   var(--accent-red-bg);
+  --accent-indigo:    var(--accent-blue);
+  --accent-amber:     var(--accent-yellow);
+  --accent-amber-bg:  var(--accent-yellow-bg);
+}
+
+[data-theme="light"] {
+  --accent-mint:      var(--accent-green);
+  --accent-mint-bg:   var(--accent-green-bg);
+  --accent-rose:      var(--accent-red);
+  --accent-rose-bg:   var(--accent-red-bg);
+  --accent-indigo:    var(--accent-blue);
+  --accent-amber:     var(--accent-yellow);
+  --accent-amber-bg:  var(--accent-yellow-bg);
+}
+
+/* ── Global design tokens (theme-independent) ─────────────────────────────── */
+:root {
+  /* Typography scale */
+  --text-hero:    2.5rem;
+  --text-title:   1.25rem;
+  --text-body:    0.9rem;
+  --text-caption: 0.75rem;
+  --text-mono:    'DM Mono', monospace;
+
+  /* Spacing */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-12: 48px;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadows */
+  --shadow-card:     0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-elevated: 0 4px 24px rgba(0,0,0,0.4);
 }
 
 *,
@@ -200,7 +270,7 @@ body {
   background-attachment: fixed;
   min-height: 100vh;
   color: var(--text-primary);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Satoshi', 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.3s ease, color 0.3s ease;
   padding-top: env(safe-area-inset-top, 0px);
@@ -213,7 +283,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Sora', sans-serif;
+  font-family: 'Cabinet Grotesk', 'Sora', sans-serif;
 }
 
 ::-webkit-scrollbar {
@@ -231,6 +301,33 @@ h6 {
 
 .fab-btn { transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
 .fab-btn:active { transform: scale(0.93); }
+
+/* ── Micro-interaction utilities ──────────────────────────────────────────── */
+
+/* Card hover lift */
+.card-interactive {
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Button press */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+  opacity: 0.85;
+}
+
+/* Modal open animation */
+.modal-enter {
+  animation: scaleIn 200ms ease forwards;
+}
+
+/* Fade-up for page containers */
+.page-enter {
+  animation: fadeUp 200ms ease forwards;
+}
 
 .page-glow::before {
   content: '';
@@ -274,6 +371,16 @@ h6 {
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.97); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 
 @keyframes typingDot {
