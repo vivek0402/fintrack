@@ -10,13 +10,15 @@ const STATS_QUERY = `
         COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0) AS total_income,
         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS total_expenses,
         COUNT(t.id) AS transaction_count,
-        a.starting_balance
+        COALESCE(a.starting_balance, 0)
             + COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0)
             - COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0)
             AS current_balance
     FROM bank_accounts a
-    LEFT JOIN transactions t ON t.account_id = a.id AND t.user_id = $1
-        AND (a.balance_as_of IS NULL OR t.date >= a.balance_as_of)
+    LEFT JOIN transactions t
+        ON t.account_id = a.id
+        AND t.user_id = a.user_id
+        AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')
     WHERE a.user_id = $1
     GROUP BY a.id
     ORDER BY a.created_at ASC
@@ -27,13 +29,15 @@ const STATS_SINGLE_QUERY = `
         COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0) AS total_income,
         COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS total_expenses,
         COUNT(t.id) AS transaction_count,
-        a.starting_balance
+        COALESCE(a.starting_balance, 0)
             + COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0)
             - COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0)
             AS current_balance
     FROM bank_accounts a
-    LEFT JOIN transactions t ON t.account_id = a.id AND t.user_id = $1
-        AND (a.balance_as_of IS NULL OR t.date >= a.balance_as_of)
+    LEFT JOIN transactions t
+        ON t.account_id = a.id
+        AND t.user_id = a.user_id
+        AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')
     WHERE a.user_id = $1 AND a.id = $2
     GROUP BY a.id
 `;
