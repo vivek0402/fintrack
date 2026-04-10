@@ -143,9 +143,9 @@ export const splitsAPI = {
 
 export const accountsAPI = {
     getAll: () => api.get('/api/accounts'),
-    create: (data: { name: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean }) =>
+    create: (data: { name: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean; account_type?: string; last_four?: string | null }) =>
         api.post('/api/accounts', data),
-    update: (id: number, data: { name?: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean }) =>
+    update: (id: number, data: { name?: string; icon?: string; color?: string; starting_balance?: number; balance_as_of?: string | null; is_default?: boolean; account_type?: string; last_four?: string | null }) =>
         api.patch(`/api/accounts/${id}`, data),
     setDefault: (id: number) => api.patch(`/api/accounts/${id}/set-default`),
     delete: (id: number) => api.delete(`/api/accounts/${id}`),
@@ -167,6 +167,32 @@ export const groupsAPI = {
     settleShare: (id: string, splitId: string, shareId: string) =>
         api.patch(`/api/groups/${id}/splits/${splitId}/shares/${shareId}/settle`),
     settlements: (id: string) => api.get(`/api/groups/${id}/settlements`),
+};
+
+export const creditCardsAPI = {
+    getAll: () => api.get('/api/credit-cards'),
+    create: (data: {
+        bank_name: string; card_name: string; last_four?: string | null;
+        credit_limit?: number; outstanding_balance?: number;
+        billing_date?: number | null; due_days?: number;
+        network?: string; color?: string;
+    }) => api.post('/api/credit-cards', data),
+    update: (id: number, data: {
+        bank_name?: string; card_name?: string; last_four?: string | null;
+        credit_limit?: number; outstanding_balance?: number;
+        billing_date?: number | null; due_days?: number;
+        network?: string; color?: string;
+    }) => api.put(`/api/credit-cards/${id}`, data),
+    delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
+};
+
+export const walletsAPI = {
+    getAll: () => api.get('/api/wallets'),
+    create: (data: { name: string; emoji?: string; balance?: number }) =>
+        api.post('/api/wallets', data),
+    update: (id: number, data: { name?: string; emoji?: string; balance?: number }) =>
+        api.put(`/api/wallets/${id}`, data),
+    delete: (id: number) => api.delete(`/api/wallets/${id}`),
 };
 
 export default api;

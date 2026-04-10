@@ -8,6 +8,7 @@ import {
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Sparkles, Users, Brain, CalendarClock,
     ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
+    Wallet,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -15,8 +16,9 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
 
 const navItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+    { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
+    { href: '/accounts',     icon: Wallet,          label: 'Accounts' },
     { href: '/calendar', icon: CalendarDays, label: 'Calendar' },
     { href: '/analytics', icon: PieChart, label: 'Analytics' },
     { href: '/budgets', icon: Target, label: 'Budgets' },

@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
 // POST /api/accounts
 router.post('/', async (req, res) => {
     try {
-        const { name, icon = '🏦', color = '#3b82f6', starting_balance = 0, is_default = false, balance_as_of = null } = req.body;
+        const { name, icon = '🏦', color = '#3b82f6', starting_balance = 0, is_default = false, balance_as_of = null, account_type = 'Savings', last_four = null } = req.body;
         if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
 
         const client = await pool.connect();
@@ -65,9 +65,9 @@ router.post('/', async (req, res) => {
                 );
             }
             const { rows } = await client.query(
-                `INSERT INTO bank_accounts (user_id, name, icon, color, starting_balance, is_default, balance_as_of)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-                [req.user.id, name.trim(), icon, color, starting_balance, is_default, balance_as_of || null]
+                `INSERT INTO bank_accounts (user_id, name, icon, color, starting_balance, is_default, balance_as_of, account_type, last_four)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+                [req.user.id, name.trim(), icon, color, starting_balance, is_default, balance_as_of || null, account_type, last_four || null]
             );
             let linkedCount = 0;
             if (is_default) {
@@ -94,7 +94,7 @@ router.post('/', async (req, res) => {
 // PATCH /api/accounts/:id
 router.patch('/:id', async (req, res) => {
     try {
-        const { name, icon, color, starting_balance, is_default, balance_as_of } = req.body;
+        const { name, icon, color, starting_balance, is_default, balance_as_of, account_type, last_four } = req.body;
         const { rows: existing } = await pool.query(
             `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
@@ -121,11 +121,14 @@ router.patch('/:id', async (req, res) => {
                     starting_balance = COALESCE($4, starting_balance),
                     is_default       = COALESCE($5, is_default),
                     balance_as_of    = CASE WHEN $6::boolean THEN $7::date ELSE balance_as_of END,
+                    account_type     = COALESCE($10, account_type),
+                    last_four        = COALESCE($11, last_four),
                     updated_at       = NOW()
                  WHERE id = $8 AND user_id = $9`,
                 [name, icon, color, starting_balance, is_default,
                  newBalanceAsOf !== undefined, newBalanceAsOf,
-                 req.params.id, req.user.id]
+                 req.params.id, req.user.id,
+                 account_type || null, last_four || null]
             );
             if (is_default === true) {
                 const linked = await client.query(

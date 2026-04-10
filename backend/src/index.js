@@ -174,6 +174,8 @@ app.use('/api/splits',       require('./routes/splits'));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/accounts',          require('./routes/accounts'));
 app.use('/api/one-time-expenses', require('./routes/oneTimeExpenses'));
+app.use('/api/credit-cards',      require('./routes/creditCards'));
+app.use('/api/wallets',           require('./routes/wallets'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
