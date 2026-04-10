@@ -231,6 +231,7 @@ function TransactionsPageInner() {
 
     return (
         <AppLayout>
+            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
             {/* Header */}
             {isMobile ? (
                 <div style={{ marginBottom: '16px' }}>
@@ -290,7 +291,7 @@ function TransactionsPageInner() {
                         { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
                         { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
                     ].map(card => (
-                        <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '10px 12px', textAlign: 'center' }}>
+                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: '10px 12px', textAlign: 'center' }}>
                             <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', margin: '0 0 3px 0' }}>{card.label}</p>
                             <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
                         </div>
@@ -303,7 +304,7 @@ function TransactionsPageInner() {
                         { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
                         { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
                     ].map(card => (
-                        <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '14px', padding: '14px 16px' }}>
+                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
                             <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>{card.label}</p>
                             <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
                         </div>
@@ -330,7 +331,7 @@ function TransactionsPageInner() {
                             <ChevronDown size={11} />
                         </button>
                         <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-                            style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
+                            style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
                     </div>
                 </div>
             ) : (
@@ -352,20 +353,37 @@ function TransactionsPageInner() {
                         <ChevronDown size={13} />
                     </button>
                     <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-                        style={{ padding: '8px 12px', background: tagFilter ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)', color: tagFilter ? '#8b5cf6' : 'var(--text-primary)', border: tagFilter ? '1px solid rgba(139,92,246,0.3)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
+                        style={{ padding: '8px 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
                 </div>
             )}
 
             {/* List */}
-            <div className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', transition: `box-shadow var(--transition-fast)` }}>
                 {loading ? (
-                    <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
+                    <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        {[...Array(3)].map((_, g) => (
+                            <div key={g} style={{ marginBottom: 'var(--space-2)' }}>
+                                <Skeleton width="120px" height={12} borderRadius={4} style={{ marginBottom: '10px' }} />
+                                {[...Array(3)].map((_, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
+                                        <SkeletonCircle size={32} />
+                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <SkeletonText />
+                                            <Skeleton width="50%" height={10} borderRadius={4} />
+                                        </div>
+                                        <Skeleton width={72} height={16} borderRadius={4} />
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
                 ) : (
                     <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
                 )}
             </div>
 
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
+            </div>
 
             {/* Month + Year filter popover — portal, anchored below the filter button */}
             {showMonthSheet && typeof document !== 'undefined' && createPortal(
@@ -492,7 +510,6 @@ function TransactionsPageInner() {
                 document.body
             )}
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
 }

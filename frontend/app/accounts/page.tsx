@@ -321,8 +321,9 @@ export default function AccountsPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
     };
     const modalBox: React.CSSProperties = {
-        background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 16,
+        background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)',
         width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex',
+        animation: 'scaleIn 200ms ease forwards',
         flexDirection: 'column', zIndex: 10000,
     };
     const modalHeader: React.CSSProperties = {
@@ -346,7 +347,7 @@ export default function AccountsPage() {
 
     return (
         <AppLayout>
-            <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px 120px' }}>
+            <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-6) var(--space-4) 120px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Toast */}
                 {toast && mounted && createPortal(
@@ -362,24 +363,41 @@ export default function AccountsPage() {
                     document.body
                 )}
 
-                {/* ── Header ── */}
-                <div style={{ marginBottom: 32 }}>
-                    <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'Cabinet Grotesk, Sora, sans-serif' }}>
-                        Accounts
-                    </h1>
-                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>
-                        All your money in one place
-                    </p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'Satoshi, DM Sans, sans-serif', letterSpacing: '0.5px', textTransform: 'uppercase', fontWeight: 600 }}>
+                {/* ── Header — Net Worth Hero ── */}
+                <div style={{
+                    background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))',
+                    borderRadius: 'var(--radius-xl)',
+                    border: '1px solid var(--bg-border)',
+                    padding: 'var(--space-8) var(--space-6)',
+                    marginBottom: 'var(--space-8)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                }}>
+                    <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'radial-gradient(circle,rgba(59,130,246,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+                    <h1 style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 var(--space-1)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                         Net Worth
-                    </p>
-                    <span style={{
-                        fontSize: 40, fontFamily: 'DM Mono, monospace', fontWeight: 500,
-                        color: netWorth >= 0 ? 'var(--accent-mint)' : 'var(--accent-rose)',
-                        letterSpacing: '-1px',
+                    </h1>
+                    <div style={{
+                        fontSize: 'var(--text-hero)', fontFamily: "'DM Mono', monospace", fontWeight: 700,
+                        color: netWorth >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                        letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 'var(--space-3)',
                     }}>
                         {netWorth < 0 ? '-' : ''}{fmt(netWorth)}
-                    </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
+                        <div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Banks</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>{fmt(totalBanks)}</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Credit Debt</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-red)' }}>{fmt(totalCards)}</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Wallets</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>{fmt(totalWallets)}</div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Bank Accounts ── */}
@@ -394,8 +412,8 @@ export default function AccountsPage() {
                         {banks.map(b => (
                             <div key={b.id} style={{
                                 display: 'flex', alignItems: 'center',
-                                background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
-                                borderRadius: 12, overflow: 'hidden',
+                                background: 'var(--surface-1)', border: '1px solid var(--bg-border)',
+                                borderRadius: 'var(--radius-md)', overflow: 'hidden',
                                 borderLeft: `4px solid ${b.color || 'var(--accent-indigo)'}`,
                             }}>
                                 <div style={{ flex: 1, padding: '14px 16px' }}>
@@ -570,8 +588,8 @@ export default function AccountsPage() {
                         {wallets.map(w => (
                             <div key={w.id} style={{
                                 display: 'flex', alignItems: 'center',
-                                background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
-                                borderRadius: 12, padding: '14px',
+                                background: 'var(--surface-1)', border: '1px solid var(--bg-border)',
+                                borderRadius: 'var(--radius-md)', padding: 'var(--space-4)',
                             }}>
                                 <span style={{ fontSize: 22, marginRight: 12 }}>{w.emoji}</span>
                                 <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>

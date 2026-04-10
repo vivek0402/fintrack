@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -113,7 +113,7 @@ export default function AnalyticsPage() {
                 {[1,2,3].map(i => <Skeleton key={i} height={72} borderRadius={12} />)}
             </div>
             <SkeletonCard height={240} style={{ marginBottom: '16px' }} />
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
+            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
                 <Skeleton width="40%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
                 {[1,2,3,4,5,6].map(i => (
                     <div key={i} style={{ marginBottom: '14px' }}>
@@ -155,7 +155,8 @@ export default function AnalyticsPage() {
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
                 <div>
                     <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
                     <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Deep insights into your spending</p>
@@ -173,7 +174,7 @@ export default function AnalyticsPage() {
 
             {/* Bank Balances card */}
             {(accountsLoading || accounts.length > 0) && (
-                <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px 24px', marginBottom: '24px' }}>
+                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
                         <div>
@@ -238,7 +239,7 @@ export default function AnalyticsPage() {
             )}
 
             {/* Salary Allocation Plan */}
-            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', marginBottom: '24px', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-6)', overflow: 'hidden' }}>
                 {/* Prompt screen */}
                 {!planGenerated && !allocationLoading && (
                     <div style={{ padding: '32px 24px', textAlign: 'center' }}>
@@ -365,34 +366,31 @@ export default function AnalyticsPage() {
                 ].map(card => {
                     const Icon = card.icon;
                     return (
-                        <div key={card.label} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
+                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                 <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{card.label}</span>
                                 <div style={{ width: '32px', height: '32px', background: card.bg, border: `1px solid ${card.border}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Icon size={15} color={card.color} />
                                 </div>
                             </div>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: card.color, margin: 0 }}>{card.value}</p>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: 700, color: card.color, margin: 0 }}>{card.value}</p>
                         </div>
                     );
                 })}
             </div>
 
             {/* Bar Chart */}
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
+            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
                 <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Monthly Income vs Expenses</h3>
                 {barData.length === 0 ? (
                     <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No data yet</div>
                 ) : (
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={barData} barGap={4}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" vertical={false} />
-                            <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                            <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
+                            <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: 'var(--bg-border)' }} tickLine={false} />
                             <Tooltip content={<CustomTooltip />} />
-                            <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '16px' }} />
-                            <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
-                            <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                            <Bar dataKey="income" name="Income" fill="var(--accent-green)" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
+                            <Bar dataKey="expenses" name="Expenses" fill="var(--accent-red)" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
                         </BarChart>
                     </ResponsiveContainer>
                 )}
@@ -400,8 +398,8 @@ export default function AnalyticsPage() {
 
             {/* Category Breakdown */}
             <div style={{ marginBottom: '16px' }}>
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
-                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
+                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
                     {categories.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No expense data this month</div>
                     ) : (
@@ -420,8 +418,8 @@ export default function AnalyticsPage() {
                                                 <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
                                             </div>
                                         </div>
-                                        <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: `${pct}%`, background: cat.color, borderRadius: '2px', transition: 'width 0.5s ease' }} />
+                                        <div style={{ height: '6px', background: 'var(--accent-blue-bg)', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent-blue)', borderRadius: '3px', transition: 'width 0.5s ease' }} />
                                         </div>
                                     </div>
                                 );
@@ -437,8 +435,8 @@ export default function AnalyticsPage() {
 
             {/* Payment Methods */}
             {paymentMethods.length > 0 && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginBottom: '16px' }}>
-                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
+                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {paymentMethods.map(pm => {
                             const METHOD_COLORS: Record<string, string> = {
@@ -479,8 +477,8 @@ export default function AnalyticsPage() {
 
             {/* Year over Year */}
             {yearlyData && (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px' }}>
-                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
                         Year-over-Year — {yearlyData.years.current} vs {yearlyData.years.last}
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
@@ -494,7 +492,7 @@ export default function AnalyticsPage() {
                             return (
                                 <div key={card.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '16px' }}>
                                     <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>{card.label}</p>
-                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 8px 0' }}>{formatCurrency(card.curr, user.currency)}</p>
+                                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 8px 0' }}>{formatCurrency(card.curr, user.currency)}</p>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{yearlyData.years.last}: {formatCurrency(card.last, user.currency)}</span>
                                         {change && <span style={{ fontSize: '0.72rem', color: isUp ? 'var(--accent-green)' : 'var(--accent-red)', background: isUp ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', padding: '2px 6px', borderRadius: '4px' }}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</span>}
@@ -507,7 +505,7 @@ export default function AnalyticsPage() {
             )}
 
             {/* Regret Score Section */}
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '24px', marginTop: '16px' }}>
+            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginTop: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                         <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>🤦 Regret Score</h3>
@@ -576,7 +574,7 @@ export default function AnalyticsPage() {
                 )}
             </div>
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100% { opacity:0.5 } 50% { opacity:0.3 } }`}</style>
+            </div>
         </AppLayout>
     );
 }

@@ -61,8 +61,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
         <div>
             {Object.entries(groups).map(([date, txs]) => (
                 <div key={date}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px 6px', background: 'var(--bg-card)' }}>
-                        <span style={{ fontSize: '0.73rem', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'Sora, sans-serif', whiteSpace: 'nowrap' }}>{getDateLabel(date)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-6) 6px', background: 'var(--surface-1)' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{getDateLabel(date)}</span>
                         <div style={{ flex: 1, height: '1px', background: 'var(--bg-border)' }} />
                     </div>
                     {txs.map(tx => {

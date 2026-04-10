@@ -151,7 +151,7 @@ export default function DashboardPage() {
     // ── HERO CARD ──
     const HeroCard = () => isMobile ? (
         /* ── MOBILE HERO CARD ── */
-        <div style={{ background: 'var(--bg-primary)', borderRadius: 20, border: '1px solid var(--bg-border)', padding: '20px', position: 'relative', overflow: 'hidden', marginBottom: 12 }}>
+        <div style={{ background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))', borderRadius: 'var(--radius-xl)', border: '1px solid var(--bg-border)', padding: 'var(--space-6)', position: 'relative', overflow: 'hidden', marginBottom: 12 }}>
 
             {/* Ambient glows */}
             <div style={{ position: 'absolute', bottom: -40, left: -20, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
@@ -365,17 +365,17 @@ export default function DashboardPage() {
     ) : (
         /* ── DESKTOP HERO CARD (3-column) ── */
         <div style={{
-            background: 'var(--bg-primary)',
-            borderRadius: 16,
+            background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))',
+            borderRadius: 'var(--radius-xl)',
             border: '1px solid var(--bg-border)',
-            padding: '20px 24px',
+            padding: 'var(--space-6)',
             display: 'flex',
             flexDirection: 'row',
             alignItems: 'stretch',
             gap: 0,
             position: 'relative',
             overflow: 'hidden',
-            marginBottom: 12,
+            marginBottom: 'var(--space-3)',
         }}>
 
             {/* Decorative glow */}
@@ -581,13 +581,15 @@ export default function DashboardPage() {
     return (
 
         <AppLayout>
+            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
+
             {/* Salary Banner */}
             {salaryData && !salaryBannerDismissed && salaryData.plan && (
                 <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '16px', position: 'relative' }}>
                     <button onClick={dismissSalaryBanner} style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                         <span style={{ fontSize: '1.1rem' }}>💰</span>
-                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>Salary Detected — AI Allocation Plan</span>
+                        <span style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>Salary Detected — AI Allocation Plan</span>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{salaryData.description} · ₹{salaryData.salary?.toLocaleString('en-IN')}</span>
                     </div>
                     {salaryData.insight && <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>{salaryData.insight}</p>}
@@ -604,10 +606,12 @@ export default function DashboardPage() {
             )}
 
             {/* Page header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
                 <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Dashboard</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
+                    <h1 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.full_name?.split(' ')[0] ?? 'there'} 👋
+                    </h1>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
                 </div>
                 <PageHelp title="Dashboard" sections={[
                     { icon: '📊', heading: 'What is this page?', body: 'Your financial command centre. See your income, expenses, net balance, and savings rate for the current month at a glance.' },
@@ -624,7 +628,7 @@ export default function DashboardPage() {
                     {/* Row 1 — Stat tiles */}
                     {dataLoading ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '14px', height: '90px' }} />)}
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '90px' }} />)}
                         </div>
                     ) : summary && (
                         <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
@@ -634,7 +638,7 @@ export default function DashboardPage() {
                     <HeroCard />
 
                     {/* Row 3 — Budget tile */}
-                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
                         {budgets.length > 0
                             ? <BudgetAlerts budgets={budgets} currency={user.currency} />
@@ -654,7 +658,7 @@ export default function DashboardPage() {
                     {/* Stats 2x2 */}
                     {dataLoading ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '14px', height: '80px' }} />)}
+                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '80px' }} />)}
                         </div>
                     ) : summary && (
                         <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
@@ -665,7 +669,7 @@ export default function DashboardPage() {
 
 
                     {/* Budgets */}
-                    <div style={{ background: 'var(--bg-card)', border: '0.5px solid var(--bg-border)', borderRadius: '12px', padding: '20px', overflow: 'hidden' }}>
+                    <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
                         {budgets.length > 0
                             ? <BudgetAlerts budgets={budgets} currency={user.currency} />
@@ -681,7 +685,7 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
         </AppLayout>
     );
 }
