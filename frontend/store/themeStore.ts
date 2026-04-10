@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Theme = 'dark' | 'pitch' | 'light';
+export type Theme = 'dark' | 'light';
 
 interface ThemeStore {
     theme: Theme;
@@ -18,8 +18,13 @@ export const useThemeStore = create<ThemeStore>((set) => ({
     },
 
     loadTheme: () => {
-        const saved = (localStorage.getItem('fintrack-theme') as Theme) || 'dark';
-        document.documentElement.setAttribute('data-theme', saved);
-        set({ theme: saved });
+        const raw = localStorage.getItem('fintrack-theme');
+        // Migrate old 3-theme values: 'pitch', 'navy', or unrecognised → 'dark'
+        const theme: Theme = raw === 'light' ? 'light' : 'dark';
+        if (raw !== theme) {
+            localStorage.setItem('fintrack-theme', theme);
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        set({ theme });
     },
 }));

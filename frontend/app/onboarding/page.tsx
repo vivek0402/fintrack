@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe, Target, CheckCircle, ArrowRight, Moon, Sun, Eclipse, User, DollarSign, PieChart } from 'lucide-react';
+import { Globe, Target, CheckCircle, ArrowRight, Moon, Sun, User, DollarSign, PieChart } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, budgetsAPI, categoriesAPI } from '@/lib/api';
@@ -61,7 +61,7 @@ export default function OnboardingPage() {
         finally { setSaving(false); }
     };
 
-    const handleThemeNext = (selectedTheme: 'dark' | 'pitch' | 'light') => {
+    const handleThemeNext = (selectedTheme: 'dark' | 'light') => {
         setTheme(selectedTheme);
         setStep(3);
     };
@@ -234,27 +234,18 @@ export default function OnboardingPage() {
                                 {
                                     value: 'dark' as const,
                                     label: 'Dark',
-                                    desc: 'Deep navy — easy on the eyes',
+                                    desc: 'AMOLED black',
                                     icon: <Moon size={22} color="#8b5cf6" />,
-                                    bg: '#0a0f1e',
-                                    accent: '#0f1629',
-                                    recommended: true,
-                                },
-                                {
-                                    value: 'pitch' as const,
-                                    label: 'Pitch Dark',
-                                    desc: 'Pure black — great for AMOLED screens',
-                                    icon: <Eclipse size={22} color="#6366f1" />,
                                     bg: '#000000',
                                     accent: '#111111',
-                                    recommended: false,
+                                    recommended: true,
                                 },
                                 {
                                     value: 'light' as const,
                                     label: 'Light',
-                                    desc: 'Clean white — bright and minimal',
+                                    desc: 'Clean & bright',
                                     icon: <Sun size={22} color="#f59e0b" />,
-                                    bg: '#f0f4f8',
+                                    bg: '#f9fafb',
                                     accent: '#ffffff',
                                     recommended: false,
                                 },
