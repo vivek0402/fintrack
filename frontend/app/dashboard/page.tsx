@@ -6,10 +6,12 @@ import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import PageHelp from '@/components/ui/PageHelp';
+import { Button } from '@/components/ui/Button';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
 import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
@@ -89,6 +91,9 @@ export default function DashboardPage() {
     };
 
 
+    const hour = new Date().getHours();
+    const greeting = `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.full_name?.split(' ')[0] ?? 'there'} 👋`;
+
     // Build sparkline data (last 6 months) from raw trends
     const sparklineData = (() => {
         const map: Record<string, { month: number; year: number; income: number; expenses: number }> = {};
@@ -165,7 +170,7 @@ export default function DashboardPage() {
                     <div style={{ fontSize: 38, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                         {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                     </div>
-                    <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>
+                    <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
                         {'+₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN') + ' this month'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
@@ -175,11 +180,11 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Income</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>{'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)' }}>{'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Expenses</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#f43f5e' }}>{'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>{'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
                     </div>
                 </div>
             </div>
@@ -329,7 +334,7 @@ export default function DashboardPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                                     <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{top.name}</span>
-                                    <span style={{ fontSize: 13, color: '#f43f5e', fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{'₹' + Math.round(topAmt).toLocaleString('en-IN')}</span>
+                                    <span style={{ fontSize: 13, color: 'var(--accent-red)', fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{'₹' + Math.round(topAmt).toLocaleString('en-IN')}</span>
                                 </div>
                                 <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
                                     <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
@@ -353,12 +358,7 @@ export default function DashboardPage() {
                 <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 12, padding: '10px 12px', background: 'rgba(167,139,250,0.06)', borderRadius: 10, borderLeft: '2px solid rgba(167,139,250,0.3)' }}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
-                <button
-                    onClick={handleGenerateReport}
-                    style={{ width: '100%', background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 10, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                >
-                    <span style={{ fontSize: 14 }}>✦</span> Generate Report
-                </button>
+                <Button onClick={handleGenerateReport} variant="primary" size="sm" style={{ width: '100%' }}>Generate Report</Button>
             </div>
 
         </div>
@@ -387,7 +387,7 @@ export default function DashboardPage() {
                 <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
                     {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
                 </div>
-                <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#10b981', fontSize: 12, fontWeight: 600 }}>
+                <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
                     +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
                 </div>
                 <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
@@ -547,7 +547,7 @@ export default function DashboardPage() {
                                         <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
                                     </div>
                                 </div>
-                                <div style={{ fontSize: 12, color: '#f43f5e', fontWeight: 600, flexShrink: 0 }}>
+                                <div style={{ fontSize: 12, color: 'var(--accent-red)', fontWeight: 600, flexShrink: 0 }}>
                                     {'₹' + Math.round(amt).toLocaleString('en-IN')}
                                 </div>
                             </div>
@@ -567,12 +567,7 @@ export default function DashboardPage() {
                 <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 12 }}>
                     {aiReport || 'Tap generate to get your monthly AI summary.'}
                 </div>
-                <button
-                    onClick={handleGenerateReport}
-                    style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', width: '100%' }}
-                >
-                    Generate Report
-                </button>
+                <Button onClick={handleGenerateReport} variant="primary" size="sm">Generate Report</Button>
             </div>
 
         </div>
@@ -605,22 +600,17 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Page header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-                <div>
-                    <h1 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                        Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {user?.full_name?.split(' ')[0] ?? 'there'} 👋
-                    </h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-body)', margin: '4px 0 0 0' }}>{MONTH_NAMES[month]} {year} — Overview</p>
-                </div>
-                <PageHelp title="Dashboard" sections={[
+            <PageShell
+                title={greeting}
+                subtitle={`${MONTH_NAMES[month]} ${year} — Overview`}
+                headerRight={<PageHelp title="Dashboard" sections={[
                     { icon: '📊', heading: 'What is this page?', body: 'Your financial command centre. See your income, expenses, net balance, and savings rate for the current month at a glance.' },
                     { icon: '💡', heading: 'Stat Cards', body: "The 4 coloured cards show this month's totals. The savings rate pill turns green when you save more than 20% of your income." },
                     { icon: '📈', heading: '6-Month Trend Chart', body: 'The neon line chart shows your income vs expenses trend over the last 6 months. Green = income, red = expenses.' },
                     { icon: '🏆', heading: 'Top Spending', body: "Shows which category you've spent the most in this month. Tap 'See all' to go to Analytics for a full breakdown." },
                     { icon: '🤖', heading: 'AI Insight', body: "Tap 'Generate Insight' to get a personalised AI comment about your spending patterns this month." },
-                ]} />
-            </div>
+                ]} />}
+            >
 
             {/* ── DESKTOP BENTO GRID ── */}
             {!isMobile ? (
@@ -639,7 +629,7 @@ export default function DashboardPage() {
 
                     {/* Row 3 — Budget tile */}
                     <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                        <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-4) 0' }}>Budgets</p>
                         {budgets.length > 0
                             ? <BudgetAlerts budgets={budgets} currency={user.currency} />
                             : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
@@ -670,7 +660,7 @@ export default function DashboardPage() {
 
                     {/* Budgets */}
                     <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 14px 0', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budgets</p>
+                        <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-4) 0' }}>Budgets</p>
                         {budgets.length > 0
                             ? <BudgetAlerts budgets={budgets} currency={user.currency} />
                             : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
@@ -685,6 +675,7 @@ export default function DashboardPage() {
                 </div>
             )}
 
+            </PageShell>
             </div>
         </AppLayout>
     );

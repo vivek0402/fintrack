@@ -8,6 +8,7 @@ import { Plus, Search, Download, Sparkles, X, CalendarDays, ChevronDown } from '
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
 import { Skeleton, SkeletonTitle, SkeletonCircle, SkeletonText, SkeletonButton } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -232,43 +233,16 @@ function TransactionsPageInner() {
     return (
         <AppLayout>
             <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
-            {/* Header */}
-            {isMobile ? (
-                <div style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                        <div>
-                            <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.3rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '2px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
-                                <Sparkles size={15} />AI
-                            </Button>
-                            <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
-                                <Plus size={15} />Add
-                            </Button>
-                            <PageHelp title="Transactions" sections={[
-                                { icon: '💸', heading: 'What is this page?', body: 'View, add, edit and delete all your transactions. Filter by month/year or search by description.' },
-                                { icon: '➕', heading: 'Adding Transactions', body: "Tap the blue + button to add a transaction manually. Or use Quick Add — type naturally like '₹500 food at Zomato' and AI fills in the details." },
-                                { icon: '🎤', heading: 'Voice & Receipt', body: 'Use the microphone button for voice input, or the camera button to scan a receipt. Both auto-fill the transaction form.' },
-                                { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
-                                { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period. Tap the search icon to search across all months.' },
-                            ]} />
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions</h1>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <PageShell
+                title="Transactions"
+                subtitle={`${filtered.length} transaction${filtered.length !== 1 ? 's' : ''}`}
+                headerRight={
+                    <>
                         <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
                             <Download size={16} />Export CSV
                         </Button>
                         <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
-                            <Sparkles size={16} />Quick Add ✨
+                            <Sparkles size={16} />Quick Add
                         </Button>
                         <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
                             <Plus size={16} />Add Transaction
@@ -280,107 +254,99 @@ function TransactionsPageInner() {
                             { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
                             { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period. Tap the search icon to search across all months.' },
                         ]} />
-                    </div>
-                </div>
-            )}
-
-            {/* Summary */}
-            {isMobile ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                    {[
-                        { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
-                        { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
-                    ].map(card => (
-                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: '10px 12px', textAlign: 'center' }}>
-                            <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', margin: '0 0 3px 0' }}>{card.label}</p>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
+                    </>
+                }
+            >
+                {/* Summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3,1fr)', gap: isMobile ? '8px' : '12px' }}>
+                    {(isMobile
+                        ? [
+                            { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
+                            { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
+                        ]
+                        : [
+                            { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
+                            { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
+                            { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
+                        ]
+                    ).map(card => (
+                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: isMobile ? '10px 12px' : 'var(--space-4)', textAlign: isMobile ? 'center' : undefined }}>
+                            <p style={{ fontSize: isMobile ? '0.68rem' : '0.72rem', color: 'var(--text-secondary)', margin: isMobile ? '0 0 3px 0' : '0 0 4px 0' }}>{card.label}</p>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
                         </div>
                     ))}
                 </div>
-            ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '12px', marginBottom: '20px' }}>
-                    {[
-                        { label: 'Income', value: totalIncome, color: 'var(--accent-green)' },
-                        { label: 'Expenses', value: totalExpense, color: 'var(--accent-red)' },
-                        { label: 'Net', value: totalIncome - totalExpense, color: totalIncome - totalExpense >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' },
-                    ].map(card => (
-                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
-                            <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>{card.label}</p>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 600, color: card.color, margin: 0 }}>₹{Math.abs(card.value).toLocaleString('en-IN')}</p>
+
+                {/* Filters */}
+                {isMobile ? (
+                    <div>
+                        <div style={{ marginBottom: '10px' }}>
+                            <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
                         </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Filters */}
-            {isMobile ? (
-                <div style={{ marginBottom: '16px' }}>
-                    <div style={{ marginBottom: '10px' }}>
-                        <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
-                        {['all', 'income', 'expense'].map(t => (
-                            <button key={t} onClick={() => setTypeFilter(t)}
-                                style={{ height: '32px', padding: '0 12px', borderRadius: '999px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
-                                {t === 'all' ? 'All' : t}
+                        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', paddingBottom: '2px' }}>
+                            {['all', 'income', 'expense'].map(t => (
+                                <button key={t} onClick={() => setTypeFilter(t)}
+                                    style={{ height: '32px', padding: '0 12px', borderRadius: '999px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
+                                    {t === 'all' ? 'All' : t}
+                                </button>
+                            ))}
+                            <button ref={filterBtnRef} onClick={openMonthSheet} style={monthChipStyle(!!selectedMonth)}>
+                                <CalendarDays size={12} />
+                                {filterLabel}
+                                <ChevronDown size={11} />
                             </button>
-                        ))}
-                        <button ref={filterBtnRef} onClick={openMonthSheet} style={monthChipStyle(!!selectedMonth)}>
-                            <CalendarDays size={12} />
-                            {filterLabel}
-                            <ChevronDown size={11} />
-                        </button>
-                        <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-                            style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <div style={{ flex: 1, minWidth: '150px' }}>
-                        <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                        {['all', 'income', 'expense'].map(t => (
-                            <button key={t} onClick={() => setTypeFilter(t)}
-                                style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
-                                {t === 'all' ? 'All' : t}
-                            </button>
-                        ))}
-                    </div>
-                    <button ref={filterBtnRef} onClick={openMonthSheet} style={{ padding: '8px 12px', borderRadius: '10px', border: selectedMonth ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)', background: selectedMonth ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: selectedMonth ? 'var(--accent-blue)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif', transition: 'all var(--transition-fast)' }}>
-                        <CalendarDays size={14} />
-                        {filterLabel}
-                        <ChevronDown size={13} />
-                    </button>
-                    <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
-                        style={{ padding: '8px 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
-                </div>
-            )}
-
-            {/* List */}
-            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', transition: `box-shadow var(--transition-fast)` }}>
-                {loading ? (
-                    <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                        {[...Array(3)].map((_, g) => (
-                            <div key={g} style={{ marginBottom: 'var(--space-2)' }}>
-                                <Skeleton width="120px" height={12} borderRadius={4} style={{ marginBottom: '10px' }} />
-                                {[...Array(3)].map((_, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
-                                        <SkeletonCircle size={32} />
-                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <SkeletonText />
-                                            <Skeleton width="50%" height={10} borderRadius={4} />
-                                        </div>
-                                        <Skeleton width={72} height={16} borderRadius={4} />
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
+                            <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                                style={{ height: '32px', padding: '0 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '999px', fontSize: '0.75rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '72px', flexShrink: 0, transition: 'all 0.2s' }} />
+                        </div>
                     </div>
                 ) : (
-                    <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                            <Input type="text" placeholder="Search transactions..." icon={<Search size={15} />} value={search} onChange={e => setSearch(e.target.value)} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            {['all', 'income', 'expense'].map(t => (
+                                <button key={t} onClick={() => setTypeFilter(t)}
+                                    style={{ padding: '8px 10px', borderRadius: '10px', border: typeFilter === t ? '1px solid var(--accent-green-border)' : '1px solid var(--bg-border)', background: typeFilter === t ? 'var(--accent-green-bg)' : 'var(--bg-secondary)', color: typeFilter === t ? 'var(--accent-green)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', transition: 'all var(--transition-fast)' }}>
+                                    {t === 'all' ? 'All' : t}
+                                </button>
+                            ))}
+                        </div>
+                        <button ref={filterBtnRef} onClick={openMonthSheet} style={{ padding: '8px 12px', borderRadius: '10px', border: selectedMonth ? '1px solid var(--accent-blue-border, var(--bg-border))' : '1px solid var(--bg-border)', background: selectedMonth ? 'var(--accent-blue-bg)' : 'var(--bg-secondary)', color: selectedMonth ? 'var(--accent-blue)' : 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'DM Sans, sans-serif', transition: 'all var(--transition-fast)' }}>
+                            <CalendarDays size={14} />
+                            {filterLabel}
+                            <ChevronDown size={13} />
+                        </button>
+                        <input type="text" placeholder="#tag" value={tagFilter} onChange={e => setTagFilter(e.target.value)}
+                            style={{ padding: '8px 12px', background: tagFilter ? 'var(--accent-purple-bg)' : 'var(--bg-secondary)', color: tagFilter ? 'var(--accent-purple)' : 'var(--text-primary)', border: tagFilter ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.78rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', width: '80px', transition: 'all 0.2s' }} />
+                    </div>
                 )}
-            </div>
+
+                {/* List */}
+                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', transition: `box-shadow var(--transition-fast)` }}>
+                    {loading ? (
+                        <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                            {[...Array(3)].map((_, g) => (
+                                <div key={g} style={{ marginBottom: 'var(--space-2)' }}>
+                                    <Skeleton width="120px" height={12} borderRadius={4} style={{ marginBottom: '10px' }} />
+                                    {[...Array(3)].map((_, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
+                                            <SkeletonCircle size={32} />
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <SkeletonText />
+                                                <Skeleton width="50%" height={10} borderRadius={4} />
+                                            </div>
+                                            <Skeleton width={72} height={16} borderRadius={4} />
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
+                    )}
+                </div>
+            </PageShell>
 
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
             </div>

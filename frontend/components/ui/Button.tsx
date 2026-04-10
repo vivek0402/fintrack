@@ -1,7 +1,9 @@
 'use client';
 
+import React from 'react';
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: 'primary' | 'secondary' | 'danger';
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'icon';
     size?: 'sm' | 'md' | 'lg';
     isLoading?: boolean;
     children: React.ReactNode;
@@ -16,89 +18,108 @@ export function Button({
     style,
     onMouseEnter,
     onMouseLeave,
+    onMouseDown,
+    onMouseUp,
     ...props
 }: ButtonProps) {
+    const [hovered, setHovered] = React.useState(false);
+    const [pressed, setPressed] = React.useState(false);
+
     const base: React.CSSProperties = {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '8px',
-        fontFamily: 'DM Sans, sans-serif',
+        gap: '6px',
+        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
         fontWeight: 600,
-        borderRadius: '10px',
+        fontSize: '14px',
+        borderRadius: 'var(--radius-md)',
         border: 'none',
         cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
-        opacity: disabled || isLoading ? 0.6 : 1,
-        transition: 'all var(--transition-fast)',
-        whiteSpace: 'nowrap',
+        opacity: disabled || isLoading ? 0.4 : 1,
+        transition: `all var(--transition-fast)`,
+        whiteSpace: 'nowrap' as const,
+        outline: 'none',
+        flexShrink: 0,
     };
 
     const sizes: Record<string, React.CSSProperties> = {
-        sm: { padding: '6px 14px', fontSize: '0.78rem' },
-        md: { padding: '9px 18px', fontSize: '0.875rem' },
-        lg: { padding: '11px 22px', fontSize: '0.9rem' },
+        sm: { padding: '6px 12px', fontSize: '12px' },
+        md: { padding: '10px 20px', fontSize: '14px' },
+        lg: { padding: '12px 24px', fontSize: '15px' },
     };
 
     const variants: Record<string, React.CSSProperties> = {
         primary: {
-            background: 'linear-gradient(135deg, var(--accent-blue) 0%, #1d4ed8 100%)',
+            background: hovered && !disabled ? 'var(--accent-blue)' : 'var(--accent-blue)',
             color: '#fff',
-            boxShadow: '0 2px 10px var(--accent-blue-border)',
+            border: 'none',
+            opacity: hovered && !disabled ? 0.85 : disabled || isLoading ? 0.4 : 1,
         },
         secondary: {
-            background: 'var(--bg-card)',
-            color: 'var(--text-secondary)',
+            background: hovered && !disabled ? 'var(--surface-3)' : 'var(--surface-2)',
+            color: 'var(--text-primary)',
             border: '1px solid var(--bg-border)',
         },
+        ghost: {
+            background: hovered && !disabled ? 'var(--surface-1)' : 'transparent',
+            color: 'var(--accent-blue)',
+            border: 'none',
+            padding: '8px 12px',
+        },
         danger: {
-            background: 'linear-gradient(135deg, var(--accent-red) 0%, #be123c 100%)',
-            color: '#fff',
-            boxShadow: '0 2px 10px var(--accent-red-border)',
+            background: 'rgba(244,63,94,0.12)',
+            color: 'var(--accent-red)',
+            border: '1px solid rgba(244,63,94,0.2)',
+        },
+        icon: {
+            width: '36px',
+            height: '36px',
+            padding: '0',
+            background: hovered && !disabled ? 'var(--surface-3)' : 'var(--surface-2)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--bg-border)',
+            borderRadius: 'var(--radius-sm)',
         },
     };
 
-    const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-        if (!disabled && !isLoading) {
-            const el = e.currentTarget as HTMLElement;
-            if (variant === 'primary') {
-                el.style.boxShadow = 'var(--shadow-glow-blue)';
-                el.style.transform = 'translateY(-1px)';
-            } else if (variant === 'secondary') {
-                el.style.background = 'var(--bg-hover)';
-                el.style.borderColor = 'var(--accent-blue-border)';
-                el.style.transform = 'translateY(-1px)';
-            } else if (variant === 'danger') {
-                el.style.boxShadow = 'var(--shadow-glow-red)';
-                el.style.transform = 'translateY(-1px)';
-            }
-        }
-        onMouseEnter?.(e);
-    };
+    const transform = pressed && !disabled && !isLoading ? 'scale(0.97)' : 'scale(1)';
 
-    const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-        const el = e.currentTarget as HTMLElement;
-        el.style.boxShadow = variant === 'primary' ? '0 2px 10px var(--accent-blue-border)' : variant === 'danger' ? '0 2px 10px var(--accent-red-border)' : '';
-        el.style.transform = '';
-        el.style.background = variant === 'secondary' ? 'var(--bg-card)' : '';
-        el.style.borderColor = '';
-        onMouseLeave?.(e);
-    };
+    const variantStyle = variants[variant] || variants.primary;
+    // For primary, override the opacity from base since we handle it in variant
+    const finalOpacity = variant === 'primary'
+        ? (disabled || isLoading ? 0.4 : hovered && !disabled ? 0.85 : 1)
+        : (disabled || isLoading ? 0.4 : 1);
 
     return (
         <button
             disabled={disabled || isLoading}
-            style={{ ...base, ...sizes[size], ...variants[variant], ...style }}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            style={{
+                ...base,
+                ...(variant !== 'icon' ? sizes[size] : {}),
+                ...variantStyle,
+                transform,
+                opacity: finalOpacity,
+                ...style,
+            }}
+            onMouseEnter={e => { setHovered(true); onMouseEnter?.(e); }}
+            onMouseLeave={e => { setHovered(false); setPressed(false); onMouseLeave?.(e); }}
+            onMouseDown={e => { setPressed(true); onMouseDown?.(e); }}
+            onMouseUp={e => { setPressed(false); onMouseUp?.(e); }}
             {...props}
         >
             {isLoading ? (
                 <>
-                    <div style={{ width: '14px', height: '14px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    <div style={{
+                        width: '14px', height: '14px',
+                        border: '2px solid currentColor',
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 0.7s linear infinite',
+                    }} />
                     Loading...
                 </>
             ) : children}
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </button>
     );
 }

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet } from 'lucide-react';
 import { formatCurrency, exportToCSV } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
+import { PageShell } from '@/components/layout/PageShell';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -156,21 +157,21 @@ export default function AnalyticsPage() {
     return (
         <AppLayout>
             <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Analytics</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Deep insights into your spending</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {!isMobile && <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>}
-                    <PageHelp title="Analytics" sections={[
-                        { icon: '🥧', heading: 'What is this page?', body: 'A detailed breakdown of where your money went. Switch between chart views to see spending by category.' },
-                        { icon: '📉', heading: 'Category Breakdown', body: 'Each category shows a progress bar and percentage of total spending. The longest bar is your biggest expense area.' },
-                        { icon: '🏦', heading: 'Bank Accounts', body: 'Track your account balances here. Add accounts with starting balances to get an accurate net worth picture.' },
-                        { icon: '💼', heading: 'Salary Allocation', body: "Tap 'Generate Plan' to get an AI-recommended 50/30/20 budget split based on your actual income and spending history." },
-                    ]} />
-                </div>
-            </div>
+            <PageShell
+                title="Analytics"
+                subtitle="Deep insights into your spending"
+                headerRight={
+                    <>
+                        <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>
+                        <PageHelp title="Analytics" sections={[
+                            { icon: '🥧', heading: 'What is this page?', body: 'A detailed breakdown of where your money went. Switch between chart views to see spending by category.' },
+                            { icon: '📉', heading: 'Category Breakdown', body: 'Each category shows a progress bar and percentage of total spending. The longest bar is your biggest expense area.' },
+                            { icon: '🏦', heading: 'Bank Accounts', body: 'Track your account balances here. Add accounts with starting balances to get an accurate net worth picture.' },
+                            { icon: '💼', heading: 'Salary Allocation', body: "Tap 'Generate Plan' to get an AI-recommended 50/30/20 budget split based on your actual income and spending history." },
+                        ]} />
+                    </>
+                }
+            >
 
             {/* Bank Balances card */}
             {(accountsLoading || accounts.length > 0) && (
@@ -256,10 +257,9 @@ export default function AnalyticsPage() {
                         {allocationError && (
                             <p style={{ color: 'var(--accent-red)', fontSize: '13px', marginBottom: '12px' }}>{allocationError}</p>
                         )}
-                        <button onClick={() => handleGeneratePlan()} style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', borderRadius: '10px', padding: '12px 28px', fontSize: '15px', fontWeight: 600, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                            <Sparkles size={16} />
-                            Generate My Plan
-                        </button>
+                        <Button onClick={() => handleGeneratePlan()} variant="primary" size="md">
+                            <Sparkles size={16} />Generate My Plan
+                        </Button>
                     </div>
                 )}
 
@@ -291,9 +291,9 @@ export default function AnalyticsPage() {
                             <div style={{ textAlign: 'right' }}>
                                 <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--accent-green)' }}>₹{Math.round(allocationPlan.salary).toLocaleString('en-IN')}</p>
                                 <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>monthly salary</p>
-                                <button onClick={() => handleGeneratePlan(true)} style={{ marginTop: '8px', backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                                <Button onClick={() => handleGeneratePlan(true)} variant="secondary" size="sm" style={{ marginTop: '8px', marginLeft: 'auto' }}>
                                     <RefreshCw size={12} />Regenerate
-                                </button>
+                                </Button>
                             </div>
                         </div>
 
@@ -381,7 +381,7 @@ export default function AnalyticsPage() {
 
             {/* Bar Chart */}
             <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Monthly Income vs Expenses</h3>
+                <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Monthly Income vs Expenses</h3>
                 {barData.length === 0 ? (
                     <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No data yet</div>
                 ) : (
@@ -399,7 +399,7 @@ export default function AnalyticsPage() {
             {/* Category Breakdown */}
             <div style={{ marginBottom: '16px' }}>
                 <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
                     {categories.length === 0 ? (
                         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No expense data this month</div>
                     ) : (
@@ -415,7 +415,7 @@ export default function AnalyticsPage() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pct.toFixed(1)}%</span>
-                                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
+                                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
                                             </div>
                                         </div>
                                         <div style={{ height: '6px', background: 'var(--accent-blue-bg)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -426,7 +426,7 @@ export default function AnalyticsPage() {
                             })}
                             <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
                                 <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
-                                <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>{formatCurrency(totalExpenses, user.currency)}</span>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>{formatCurrency(totalExpenses, user.currency)}</span>
                             </div>
                         </div>
                     )}
@@ -436,18 +436,18 @@ export default function AnalyticsPage() {
             {/* Payment Methods */}
             {paymentMethods.length > 0 && (
                 <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {paymentMethods.map(pm => {
                             const METHOD_COLORS: Record<string, string> = {
-                                'UPI': '#10b981',
-                                'Credit Card': '#f43f5e',
-                                'Debit Card': '#3b82f6',
-                                'Net Banking': '#8b5cf6',
-                                'Wallet': '#f59e0b',
-                                'Cash': '#6b7280',
+                                'UPI': 'var(--accent-green)',
+                                'Credit Card': 'var(--accent-red)',
+                                'Debit Card': 'var(--accent-blue)',
+                                'Net Banking': 'var(--accent-purple)',
+                                'Wallet': 'var(--accent-yellow)',
+                                'Cash': 'var(--text-muted)',
                             };
-                            const color = METHOD_COLORS[pm.method] || '#6b7280';
+                            const color = METHOD_COLORS[pm.method] || 'var(--text-muted)';
                             return (
                                 <div key={pm.method}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
@@ -458,7 +458,7 @@ export default function AnalyticsPage() {
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pm.percent}%</span>
-                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>₹{Math.round(pm.total).toLocaleString('en-IN')}</span>
+                                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>₹{Math.round(pm.total).toLocaleString('en-IN')}</span>
                                         </div>
                                     </div>
                                     <div style={{ height: '6px', background: 'var(--bg-border)', borderRadius: '3px', overflow: 'hidden' }}>
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
                         })}
                         <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
-                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>₹{Math.round(paymentTotal).toLocaleString('en-IN')}</span>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>₹{Math.round(paymentTotal).toLocaleString('en-IN')}</span>
                         </div>
                     </div>
                 </div>
@@ -478,7 +478,7 @@ export default function AnalyticsPage() {
             {/* Year over Year */}
             {yearlyData && (
                 <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
                         Year-over-Year — {yearlyData.years.current} vs {yearlyData.years.last}
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
@@ -508,7 +508,7 @@ export default function AnalyticsPage() {
             <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginTop: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
-                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>🤦 Regret Score</h3>
+                        <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>🤦 Regret Score</h3>
                         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Mark transactions as regretted using the 🤦 button in your transaction list</p>
                     </div>
                     <button
@@ -534,12 +534,12 @@ export default function AnalyticsPage() {
                                 <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
                                     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
                                         <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Regretted</p>
-                                        <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: '#f43f5e', margin: 0 }}>{regretData.count} transactions</p>
+                                        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-red)', margin: 0 }}>{regretData.count} transactions</p>
                                     </div>
                                     {regretData.total > 0 && (
                                         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
                                             <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Total Regret Value</p>
-                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: '#f43f5e', margin: 0 }}>₹{regretData.total?.toLocaleString('en-IN')}</p>
+                                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-red)', margin: 0 }}>₹{regretData.total?.toLocaleString('en-IN')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -556,7 +556,7 @@ export default function AnalyticsPage() {
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
                                                         <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.pattern}</span>
-                                                        <span style={{ fontSize: '0.7rem', color: '#f43f5e', background: 'rgba(244,63,94,0.08)', padding: '1px 7px', borderRadius: '6px' }}>{p.count}× · ₹{p.total_amount?.toLocaleString('en-IN')}</span>
+                                                        <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)', background: 'rgba(244,63,94,0.08)', padding: '1px 7px', borderRadius: '6px' }}>{p.count}× · ₹{p.total_amount?.toLocaleString('en-IN')}</span>
                                                     </div>
                                                     <p style={{ fontSize: '0.78rem', color: 'var(--accent-green)', margin: 0 }}>💡 {p.tip}</p>
                                                 </div>
@@ -574,6 +574,7 @@ export default function AnalyticsPage() {
                 )}
             </div>
 
+            </PageShell>
             </div>
         </AppLayout>
     );

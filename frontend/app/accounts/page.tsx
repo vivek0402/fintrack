@@ -5,8 +5,11 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
+import { useIsMobile } from '@/hooks/useWindowSize';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -80,6 +83,7 @@ const emptyWalletForm = () => ({ name: '', emoji: '👛', balance: '' });
 export default function AccountsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const isMobile = useIsMobile();
 
     const [banks,   setBanks]   = useState<BankAccount[]>([]);
     const [cards,   setCards]   = useState<CreditCard[]>([]);
@@ -297,24 +301,20 @@ export default function AccountsPage() {
     const inputStyle: React.CSSProperties = {
         width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)',
         borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14,
-        outline: 'none', boxSizing: 'border-box', fontFamily: 'Satoshi, DM Sans, sans-serif',
+        outline: 'none', boxSizing: 'border-box', fontFamily: "'Satoshi', 'DM Sans', sans-serif",
     };
     const labelStyle: React.CSSProperties = {
         fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px',
         textTransform: 'uppercase', marginBottom: 6, display: 'block',
     };
-    const ghostBtn: React.CSSProperties = {
-        width: '100%', padding: 12, border: '1px dashed var(--bg-border-strong)',
-        borderRadius: 10, background: 'transparent', color: 'var(--text-muted)', fontSize: 13,
-        fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    };
     const sectionHead: React.CSSProperties = {
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10,
     };
     const sectionTitle: React.CSSProperties = {
-        fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.5px',
-        textTransform: 'uppercase', fontFamily: 'Satoshi, DM Sans, sans-serif',
+        fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
+        fontSize: '14px',
+        fontWeight: 600,
+        color: 'var(--text-primary)',
     };
     const modalOverlay: React.CSSProperties = {
         position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)',
@@ -336,7 +336,7 @@ export default function AccountsPage() {
     const cancelBtn: React.CSSProperties = {
         flex: 1, padding: 10, background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)',
         borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14,
-        fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: 'pointer', fontWeight: 600,
+        fontFamily: "'Satoshi', 'DM Sans', sans-serif", cursor: 'pointer', fontWeight: 600,
     };
     const iconBtn: React.CSSProperties = {
         background: 'none', border: 'none', cursor: 'pointer',
@@ -347,7 +347,7 @@ export default function AccountsPage() {
 
     return (
         <AppLayout>
-            <div style={{ maxWidth: 640, margin: '0 auto', padding: 'var(--space-6) var(--space-4) 120px', animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Toast */}
                 {toast && mounted && createPortal(
@@ -355,13 +355,15 @@ export default function AccountsPage() {
                         position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
                         background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
                         color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 10,
-                        fontSize: 13, fontFamily: 'Satoshi, DM Sans, sans-serif',
+                        fontSize: 13, fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                         zIndex: 20000, whiteSpace: 'nowrap',
                     }}>
                         {toast}
                     </div>,
                     document.body
                 )}
+
+                <PageShell title="Accounts" subtitle="Banks · Cards · Wallets">
 
                 {/* ── Header — Net Worth Hero ── */}
                 <div style={{
@@ -378,7 +380,7 @@ export default function AccountsPage() {
                         Net Worth
                     </h1>
                     <div style={{
-                        fontSize: 'var(--text-hero)', fontFamily: "'DM Mono', monospace", fontWeight: 700,
+                        fontSize: isMobile ? '32px' : '2.5rem', fontFamily: "'DM Mono', monospace", fontWeight: 700,
                         color: netWorth >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
                         letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 'var(--space-3)',
                     }}>
@@ -404,7 +406,7 @@ export default function AccountsPage() {
                 <div style={{ marginBottom: 36 }}>
                     <div style={sectionHead}>
                         <span style={sectionTitle}>Bank Accounts</span>
-                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-mint)' }}>
+                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-green)' }}>
                             {fmt(totalBanks)}
                         </span>
                     </div>
@@ -414,18 +416,18 @@ export default function AccountsPage() {
                                 display: 'flex', alignItems: 'center',
                                 background: 'var(--surface-1)', border: '1px solid var(--bg-border)',
                                 borderRadius: 'var(--radius-md)', overflow: 'hidden',
-                                borderLeft: `4px solid ${b.color || 'var(--accent-indigo)'}`,
+                                borderLeft: `4px solid ${b.color || 'var(--accent-blue)'}`,
                             }}>
                                 <div style={{ flex: 1, padding: '14px 16px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                             {b.name}
                                         </span>
                                         <span style={{
                                             fontSize: 10, padding: '2px 7px',
                                             background: 'var(--bg-hover)', borderRadius: 4,
                                             color: 'var(--text-secondary)',
-                                            fontFamily: 'Satoshi, DM Sans, sans-serif', fontWeight: 500,
+                                            fontFamily: "'Satoshi', 'DM Sans', sans-serif", fontWeight: 500,
                                         }}>
                                             {b.account_type || 'Savings'}
                                         </span>
@@ -447,7 +449,9 @@ export default function AccountsPage() {
                         ))}
                     </div>
                     <div style={{ marginTop: 8 }}>
-                        <button style={ghostBtn} onClick={openAddBank}><Plus size={14} />Add Bank Account</button>
+                        <Button variant="ghost" onClick={openAddBank} style={{ width: '100%', justifyContent: 'center', border: '1px dashed var(--bg-border-strong)' }}>
+                            <Plus size={14} />Add Bank Account
+                        </Button>
                     </div>
                 </div>
 
@@ -455,7 +459,7 @@ export default function AccountsPage() {
                 <div style={{ marginBottom: 36 }}>
                     <div style={sectionHead}>
                         <span style={sectionTitle}>Credit Cards</span>
-                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-rose)' }}>
+                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-red)' }}>
                             {fmt(totalCards)}
                         </span>
                     </div>
@@ -468,9 +472,9 @@ export default function AccountsPage() {
                             const isExpanded = expandedCardId === c.id;
 
                             const pillColor = dueDays === null ? 'var(--text-muted)'
-                                : dueDays > 7  ? 'var(--accent-mint)'
-                                : dueDays >= 3 ? 'var(--accent-amber)'
-                                :                'var(--accent-rose)';
+                                : dueDays > 7  ? 'var(--accent-green)'
+                                : dueDays >= 3 ? 'var(--accent-yellow)'
+                                :                'var(--accent-red)';
                             const pillBg = dueDays === null ? 'var(--bg-hover)'
                                 : dueDays > 7  ? 'var(--accent-mint-bg)'
                                 : dueDays >= 3 ? 'var(--accent-amber-bg)'
@@ -488,7 +492,7 @@ export default function AccountsPage() {
                                     >
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>
+                                                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                                     {c.bank_name} {c.card_name}
                                                 </span>
                                                 {c.last_four && (
@@ -498,14 +502,14 @@ export default function AccountsPage() {
                                                 )}
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <span style={{ fontSize: 15, fontFamily: 'DM Mono, monospace', fontWeight: 500, color: 'var(--accent-rose)' }}>
+                                                <span style={{ fontSize: 15, fontFamily: 'DM Mono, monospace', fontWeight: 500, color: 'var(--accent-red)' }}>
                                                     {fmt(c.outstanding_balance)}
                                                 </span>
                                                 {dueDays !== null && (
                                                     <span style={{
                                                         fontSize: 10, padding: '2px 7px', borderRadius: 999,
                                                         background: pillBg, color: pillColor,
-                                                        fontFamily: 'Satoshi, DM Sans, sans-serif', fontWeight: 600,
+                                                        fontFamily: "'Satoshi', 'DM Sans', sans-serif", fontWeight: 600,
                                                     }}>
                                                         {dueDays < 0 ? 'Overdue' : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`}
                                                     </span>
@@ -536,7 +540,7 @@ export default function AccountsPage() {
                                     <div style={{ height: 3, background: 'var(--bg-hover)', margin: '0 14px 10px' }}>
                                         <div style={{
                                             height: '100%', width: `${utilPct}%`,
-                                            background: 'var(--accent-rose)', borderRadius: 2,
+                                            background: 'var(--accent-red)', borderRadius: 2,
                                             transition: 'width 0.3s ease',
                                         }} />
                                     </div>
@@ -545,26 +549,22 @@ export default function AccountsPage() {
                                     {isExpanded && (
                                         <div style={{ padding: '8px 14px 14px', borderTop: '1px solid var(--bg-border)' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>Credit Limit</span>
+                                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>Credit Limit</span>
                                                 <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--text-secondary)' }}>{fmt(c.credit_limit)}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14 }}>
-                                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>Utilization</span>
-                                                <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: utilPct > 70 ? 'var(--accent-rose)' : 'var(--text-secondary)' }}>
+                                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>Utilization</span>
+                                                <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: utilPct > 70 ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
                                                     {utilPct.toFixed(0)}%
                                                 </span>
                                             </div>
-                                            <button
+                                            <Button
+                                                variant="secondary"
                                                 onClick={() => openEditCard(c)}
-                                                style={{
-                                                    width: '100%', padding: 9,
-                                                    background: 'var(--bg-hover)', border: '1px solid var(--bg-border)',
-                                                    borderRadius: 8, color: 'var(--text-primary)', fontSize: 13,
-                                                    fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: 'pointer', fontWeight: 500,
-                                                }}
+                                                style={{ width: '100%' }}
                                             >
                                                 Update Outstanding
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -572,7 +572,9 @@ export default function AccountsPage() {
                         })}
                     </div>
                     <div style={{ marginTop: 8 }}>
-                        <button style={ghostBtn} onClick={openAddCard}><Plus size={14} />Add Credit Card</button>
+                        <Button variant="ghost" onClick={openAddCard} style={{ width: '100%', justifyContent: 'center', border: '1px dashed var(--bg-border-strong)' }}>
+                            <Plus size={14} />Add Credit Card
+                        </Button>
                     </div>
                 </div>
 
@@ -580,7 +582,7 @@ export default function AccountsPage() {
                 <div style={{ marginBottom: 36 }}>
                     <div style={sectionHead}>
                         <span style={sectionTitle}>Wallets & UPI</span>
-                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-mint)' }}>
+                        <span style={{ fontSize: 13, fontFamily: 'DM Mono, monospace', color: 'var(--accent-green)' }}>
                             {fmt(totalWallets)}
                         </span>
                     </div>
@@ -592,7 +594,7 @@ export default function AccountsPage() {
                                 borderRadius: 'var(--radius-md)', padding: 'var(--space-4)',
                             }}>
                                 <span style={{ fontSize: 22, marginRight: 12 }}>{w.emoji}</span>
-                                <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>
+                                <span style={{ flex: 1, fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                     {w.name}
                                 </span>
                                 {editingWalletBalanceId === w.id ? (
@@ -609,7 +611,7 @@ export default function AccountsPage() {
                                         style={{
                                             width: 100, textAlign: 'right',
                                             background: 'var(--bg-secondary)',
-                                            border: '1px solid var(--accent-indigo)',
+                                            border: '1px solid var(--accent-blue)',
                                             borderRadius: 6, padding: '4px 8px',
                                             color: 'var(--text-primary)', fontSize: 14,
                                             fontFamily: 'DM Mono, monospace', outline: 'none',
@@ -634,9 +636,13 @@ export default function AccountsPage() {
                         ))}
                     </div>
                     <div style={{ marginTop: 8 }}>
-                        <button style={ghostBtn} onClick={openAddWallet}><Plus size={14} />Add Wallet</button>
+                        <Button variant="ghost" onClick={openAddWallet} style={{ width: '100%', justifyContent: 'center', border: '1px dashed var(--bg-border-strong)' }}>
+                            <Plus size={14} />Add Wallet
+                        </Button>
                     </div>
                 </div>
+
+                </PageShell>
 
                 {/* ═══════════════════ MODALS ═══════════════════ */}
 
@@ -682,7 +688,7 @@ export default function AccountsPage() {
                                 <button
                                     onClick={saveBank}
                                     disabled={saving || !bankForm.name.trim()}
-                                    style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--bg-border)' : 'var(--accent-indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                                    style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--bg-border)' : 'var(--accent-blue)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: "'Satoshi', 'DM Sans', sans-serif", cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
                                 >
                                     {saving ? 'Saving…' : editingBank ? 'Save Changes' : 'Add Account'}
                                 </button>
@@ -766,7 +772,7 @@ export default function AccountsPage() {
                                 <button
                                     onClick={saveCard}
                                     disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()}
-                                    style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--bg-border)' : 'var(--accent-indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                                    style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--bg-border)' : 'var(--accent-blue)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: "'Satoshi', 'DM Sans', sans-serif", cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
                                 >
                                     {saving ? 'Saving…' : editingCard ? 'Save Changes' : 'Add Card'}
                                 </button>
@@ -796,7 +802,7 @@ export default function AccountsPage() {
                                             <button
                                                 key={em}
                                                 onClick={() => setWalletForm(f => ({ ...f, emoji: em }))}
-                                                style={{ fontSize: 22, background: walletForm.emoji === em ? 'var(--bg-hover)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--accent-indigo)' : 'transparent'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer' }}
+                                                style={{ fontSize: 22, background: walletForm.emoji === em ? 'var(--bg-hover)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--accent-blue)' : 'transparent'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer' }}
                                             >
                                                 {em}
                                             </button>
@@ -817,7 +823,7 @@ export default function AccountsPage() {
                                 <button
                                     onClick={saveWallet}
                                     disabled={saving || !walletForm.name.trim()}
-                                    style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--bg-border)' : 'var(--accent-indigo)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: 'Satoshi, DM Sans, sans-serif', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                                    style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--bg-border)' : 'var(--accent-blue)', border: 'none', borderRadius: 10, color: '#fff', fontSize: 14, fontFamily: "'Satoshi', 'DM Sans', sans-serif", cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
                                 >
                                     {saving ? 'Saving…' : editingWallet ? 'Save Changes' : 'Add Wallet'}
                                 </button>
@@ -835,12 +841,12 @@ export default function AccountsPage() {
                             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'Cabinet Grotesk, Sora, sans-serif' }}>
                                 Delete {deleteConfirm.name}?
                             </p>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>
+                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                 This action cannot be undone.
                             </p>
                             <div style={{ display: 'flex', gap: 10 }}>
-                                <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>Cancel</button>
-                                <button onClick={executeDelete} style={{ flex: 1, background: 'var(--accent-rose)', border: 'none', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: 'Satoshi, DM Sans, sans-serif' }}>Delete</button>
+                                <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>Cancel</button>
+                                <button onClick={executeDelete} style={{ flex: 1, background: 'var(--accent-red)', border: 'none', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: '#fff', cursor: 'pointer', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>Delete</button>
                             </div>
                         </div>
                     </>,
