@@ -140,12 +140,12 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 │                        API LAYER                                │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐    │
-│  │              Express.js Server (Node 18)                 │    │
+│  │              Express.js Server (Node 18)                │    │
 │  │                                                         │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │    │
-│  │  │   Auth   │  │   Txns  │  │ Analytics│  │   AI   │  │    │
-│  │  │  Routes  │  │  Routes  │  │  Routes  │  │ Routes │  │    │
-│  │  └──────────┘  └──────────┘  └──────────┘  └────────┘  │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐   │    │
+│  │  │   Auth   │  │   Txns   │  │ Analytics│  │   AI   │   │    │
+│  │  │  Routes  │  │  Routes  │  │  Routes  │  │ Routes │   │    │
+│  │  └──────────┘  └──────────┘  └──────────┘  └────────┘   │    │
 │  │                                                         │    │
 │  │  ┌─────────────────────────────────────────────────┐    │    │
 │  │  │              authMiddleware (JWT)               │    │    │
@@ -159,9 +159,9 @@ FinTrack is a full-stack personal finance tracker built for users who take their
          ┌──────────────────┼──────────────────┐
          │                  │                  │
 ┌────────▼────┐    ┌────────▼────┐    ┌────────▼────────┐
-│  PostgreSQL  │    │   Groq API  │    │  Gemini API     │
-│  (Supabase   │    │  (Primary   │    │  (Vision +      │
-│   Pooler)    │    │   LLM)      │    │   Fallback LLM) │
+│  PostgreSQL │    │   Groq API  │    │  Gemini API     │
+│  (Supabase  │    │  (Primary   │    │  (Vision +      │
+│   Pooler)   │    │    LLM)     │    │   Fallback LLM) │
 └─────────────┘    └─────────────┘    └─────────────────┘
 ```
 
@@ -335,8 +335,8 @@ Fallback chain:  Groq Key 1  →  Groq Key 2  →  Gemini Flash
 │                      │ account_type (bank/wallet), is_default      │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ credit_cards         │ id, user_id, bank_name, card_name,          │
-│                      │ last_four, credit_limit, outstanding_balance │
-│                      │ billing_date, due_days, network, color       │
+│                      │ last_four, credit_limit, outstanding_balance│
+│                      │ billing_date, due_days, network, color      │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ wallets              │ id, user_id, name, icon, color, balance     │
 └──────────────────────┴─────────────────────────────────────────────┘
