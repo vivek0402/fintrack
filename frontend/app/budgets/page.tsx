@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, AlertTriangle, CheckCircle, Pencil } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, CheckCircle, Pencil, Target } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -106,12 +108,11 @@ export default function BudgetsPage() {
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Budgets</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTH_NAMES[currentMonth]} {currentYear}</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <PageShell
+            title="Budgets"
+            subtitle={`${MONTH_NAMES[currentMonth]} ${currentYear} · ${budgets.length} ${budgets.length === 1 ? 'category' : 'categories'}`}
+            headerRight={
+                <>
                     <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />{isMobile ? 'Add' : 'Set Budget'}</Button>
                     <PageHelp title="Budgets" sections={[
                         { icon: '🎯', heading: 'What is this page?', body: 'Set monthly spending limits for each category. FinTrack warns you as you approach or exceed your limits.' },
@@ -119,8 +120,9 @@ export default function BudgetsPage() {
                         { icon: '➕', heading: 'Setting a budget', body: "Tap '+ Add Budget' to set a monthly limit for any category. You can edit or delete budgets anytime." },
                         { icon: '📅', heading: 'Monthly reset', body: 'Budgets reset automatically at the start of each month. Your limits stay the same — only the spending counter resets.' },
                     ]} />
-                </div>
-            </div>
+                </>
+            }
+        >
 
             {showForm && (
                 <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--accent-green-border)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
@@ -164,10 +166,12 @@ export default function BudgetsPage() {
             {loading ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
             ) : budgets.length === 0 ? (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 16px 0' }}>No budgets for {MONTH_NAMES[currentMonth]} yet</p>
-                    <Button onClick={() => setShowForm(true)} size="sm">Set your first budget</Button>
-                </div>
+                <EmptyState
+                    icon={Target}
+                    title="No budgets set"
+                    subtitle="Set monthly limits to stay on track"
+                    action={<Button onClick={() => setShowForm(true)} size="sm">Set your first budget</Button>}
+                />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {budgets.map(budget => {
@@ -253,6 +257,7 @@ export default function BudgetsPage() {
                 </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </PageShell>
         </AppLayout>
     );
 }

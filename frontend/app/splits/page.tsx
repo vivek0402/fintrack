@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Users, Sparkles, X, Check, Pencil } from 'lucide-react';
+import { Plus, Trash2, Receipt, Sparkles, X, Check, Pencil } from 'lucide-react';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthStore } from '@/store/authStore';
 import { splitsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -141,11 +143,10 @@ export default function SplitsPage() {
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Split Expenses</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track shared expenses and who owes you</p>
-                </div>
+        <PageShell
+            title="Split Expenses"
+            subtitle={splits.length > 0 ? `${splits.length} split${splits.length !== 1 ? 's' : ''}` : 'Track shared expenses and who owes you'}
+            headerRight={
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button onClick={() => setShowModal(true)} size="md"><Plus size={16} />Add Split</Button>
                     <PageHelp title="Splits" sections={[
@@ -154,7 +155,8 @@ export default function SplitsPage() {
                         { icon: '⚡', heading: 'Settlement', body: 'FinTrack uses a minimum-transactions algorithm — it tells you the fewest payments needed to settle the group completely.' },
                     ]} />
                 </div>
-            </div>
+            }
+        >
 
             {/* Modal */}
             <Modal isOpen={showModal} onClose={closeModal} title={editingSplit ? 'Edit Split' : 'New Split'} maxWidth="500px">
@@ -236,11 +238,12 @@ export default function SplitsPage() {
             {loading ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</div>
             ) : splits.length === 0 ? (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
-                    <Users size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 16px 0' }}>No splits yet — add one to track shared expenses</p>
-                    <Button onClick={() => setShowModal(true)} size="sm">Add first split</Button>
-                </div>
+                <EmptyState
+                    icon={Receipt}
+                    title="No splits yet"
+                    subtitle="Add a split to track shared expenses and who owes you"
+                    action={<Button onClick={() => setShowModal(true)} size="sm">Add first split</Button>}
+                />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {splits.map(split => {
@@ -303,6 +306,7 @@ export default function SplitsPage() {
                 </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </PageShell>
         </AppLayout>
     );
 }

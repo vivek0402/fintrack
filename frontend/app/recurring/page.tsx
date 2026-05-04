@@ -6,6 +6,8 @@ import { Plus, Trash2, RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkle
 import { useAuthStore } from '@/store/authStore';
 import { recurringAPI, categoriesAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -161,13 +163,14 @@ export default function RecurringPage() {
         </AppLayout>
     );
 
+    const activeCount = recurring.filter(r => r.is_active).length;
+
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recurring Transactions</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Automate your regular income and expenses</p>
-                </div>
+        <PageShell
+            title="Recurring"
+            subtitle={recurring.length > 0 ? `${activeCount} active schedule${activeCount !== 1 ? 's' : ''}` : 'Automate your regular income and expenses'}
+            headerRight={
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />Add Recurring</Button>
                     <PageHelp title="Recurring" sections={[
@@ -176,7 +179,8 @@ export default function RecurringPage() {
                         { icon: '➕', heading: 'Adding recurring items', body: "Tap '+ Add Recurring' to manually set up a recurring transaction with amount, category, frequency, and next due date." },
                     ]} />
                 </div>
-            </div>
+            }
+        >
 
             {/* AI Detected Patterns Banner */}
             {(patternsLoading || visiblePatterns.length > 0) && (
@@ -283,11 +287,12 @@ export default function RecurringPage() {
             {loading ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
             ) : recurring.length === 0 ? (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
-                    <RefreshCw size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 16px 0' }}>No recurring transactions yet</p>
-                    <Button onClick={() => setShowForm(true)} size="sm">Add your first one</Button>
-                </div>
+                <EmptyState
+                    icon={RefreshCw}
+                    title="No recurring transactions"
+                    subtitle="Schedule bills, subscriptions, and EMIs to track them automatically"
+                    action={<Button onClick={() => setShowForm(true)} size="sm">Add your first one</Button>}
+                />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {recurring.map(r => {
@@ -390,6 +395,7 @@ export default function RecurringPage() {
                 </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </PageShell>
         </AppLayout>
     );
 }

@@ -142,7 +142,9 @@ const aiLimiter = rateLimit({
 
 app.use('/api', apiLimiter);
 
-// ─── Health check ─────────────────────────────────────────────────────────────
+// ─── Root + Health check ──────────────────────────────────────────────────────
+app.get('/', (req, res) => res.redirect('/health'));
+
 app.get('/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');

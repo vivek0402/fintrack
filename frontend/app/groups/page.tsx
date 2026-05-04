@@ -7,10 +7,13 @@ import { useAuthStore } from '@/store/authStore';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { formatCurrency } from '@/lib/utils';
 import {
-    Plus, FolderOpen, Users, X, Check, ChevronRight,
+    Plus, Users, X, Check, ChevronRight,
     ArrowLeft, Trash2, PlusCircle, SplitSquareHorizontal,
     Wallet, TrendingDown,
 } from 'lucide-react';
+import { PageShell } from '@/components/layout/PageShell';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Member { id?: number; name: string; email?: string }
@@ -272,30 +275,25 @@ export default function GroupsPage() {
     if (!selectedGroup) {
         return (
             <AppLayout>
-            <div style={{ maxWidth: '760px', margin: '0 auto', padding: '24px 16px' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Expense Groups</h1>
-                        <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>Track shared expenses with friends &amp; family</p>
-                    </div>
-                    <button onClick={openCreate} style={{
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        background: 'var(--accent-blue)', color: '#fff',
-                        border: 'none', borderRadius: '10px', padding: '9px 16px',
-                        fontSize: '0.84rem', fontWeight: 600, cursor: 'pointer',
-                    }}>
-                        <Plus size={15} /> New Group
-                    </button>
-                </div>
+            <PageShell
+                title="Expense Groups"
+                subtitle={groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Track shared expenses with friends & family'}
+                headerRight={
+                    <Button onClick={openCreate} size="md">
+                        <Plus size={16} /> New Group
+                    </Button>
+                }
+            >
 
                 {loadingList ? (
                     <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>Loading…</div>
                 ) : groups.length === 0 ? (
-                    <div style={{ ...card, textAlign: 'center', padding: '60px 20px' }}>
-                        <FolderOpen size={40} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>No groups yet. Create one to start splitting expenses.</p>
-                    </div>
+                    <EmptyState
+                        icon={Users}
+                        title="No groups yet"
+                        subtitle="Create a group to split expenses with friends or family"
+                        action={<Button onClick={openCreate} size="md"><Plus size={16} /> New Group</Button>}
+                    />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {groups.map(g => {
@@ -356,7 +354,7 @@ export default function GroupsPage() {
                         saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)}
                     />
                 )}
-            </div>
+            </PageShell>
             </AppLayout>
         );
     }

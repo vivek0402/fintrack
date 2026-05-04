@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import {
     Brain, Sparkles, TrendingUp, AlertCircle, Lightbulb, Loader2, AlertTriangle,
 } from 'lucide-react';
@@ -101,45 +104,29 @@ export default function PersonalityPage() {
 
     return (
         <AppLayout>
+            <PageShell
+                title="Personality"
+                subtitle="AI spending profile"
+                headerRight={
+                    generated && !loading ? (
+                        <Button variant="secondary" size="md" onClick={generate}>Refresh</Button>
+                    ) : undefined
+                }
+            >
             <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ marginBottom: '28px' }}>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        Financial Personality
-                    </h1>
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
-                        AI analysis of your spending behaviour across 5 financial dimensions.
-                    </p>
-                </div>
 
-                {/* State 1 — Initial */}
+                {/* State 1 — Initial / Empty */}
                 {!generated && !loading && !error && (
-                    <div style={{ ...card, textAlign: 'center', padding: '60px 40px' }}>
-                        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
-                            <div style={{
-                                position: 'absolute', inset: 0,
-                                borderRadius: '60px',
-                                background: 'radial-gradient(circle, rgba(168,85,247,0.3), rgba(59,130,246,0.1))',
-                            }} />
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Brain size={48} color="var(--accent-purple)" />
-                            </div>
-                        </div>
-                        <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>
-                            Your Financial Personality
-                        </h2>
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.7, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-                            Discover how you relate to money based on 90 days of real spending data.
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <button type="button" onClick={generate} style={generateBtn}>
-                                <Brain size={17} /> Analyse My Personality
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '14px' }}>
-                            Uses Groq AI · Results refresh every 24 hours
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={Brain}
+                        title="No analysis yet"
+                        subtitle="Add some transactions first, then generate your personality report"
+                        action={
+                            <Button variant="primary" size="md" onClick={generate}>
+                                <Brain size={15} /> Analyse My Personality
+                            </Button>
+                        }
+                    />
                 )}
 
                 {/* State 2 — Loading */}
@@ -403,6 +390,7 @@ export default function PersonalityPage() {
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </PageShell>
         </AppLayout>
     );
 }

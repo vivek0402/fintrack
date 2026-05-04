@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, X, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { formatCurrency } from '@/lib/utils';
@@ -78,34 +80,31 @@ export default function CalendarPage() {
 
     return (
         <AppLayout>
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Calendar</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>{MONTHS[currentMonth]} {currentYear}</p>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    {[
-                        { label: 'Income', value: monthIncome, color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
-                        { label: 'Expenses', value: monthExpenses, color: '#f43f5e', bg: 'rgba(244,63,94,0.08)', border: 'rgba(244,63,94,0.15)' },
-                    ].map(card => (
-                        <div key={card.label} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: '10px', padding: '8px 14px', textAlign: 'center' }}>
-                            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0 0 2px 0' }}>{card.label}</p>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 600, color: card.color, margin: 0 }}>{formatCurrency(card.value, user.currency)}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            <PageShell
+                title="Calendar"
+                subtitle="Transaction timeline"
+                headerRight={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        {/* Month summary chips */}
+                        {[
+                            { label: 'Income', value: monthIncome, color: 'var(--accent-green)', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                            { label: 'Expenses', value: monthExpenses, color: 'var(--accent-red)', bg: 'rgba(244,63,94,0.08)', border: 'rgba(244,63,94,0.15)' },
+                        ].map(chip => (
+                            <div key={chip.label} style={{ background: chip.bg, border: `1px solid ${chip.border}`, borderRadius: '10px', padding: '6px 12px', textAlign: 'center' }}>
+                                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0 0 2px 0', fontFamily: "'Satoshi','DM Sans',sans-serif" }}>{chip.label}</p>
+                                <p style={{ fontFamily: "'DM Mono','Fira Mono',monospace", fontSize: '0.85rem', fontWeight: 600, color: chip.color, margin: 0 }}>{formatCurrency(chip.value, user.currency)}</p>
+                            </div>
+                        ))}
+                        {/* Month nav */}
+                        <button onClick={prevMonth} style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={16} /></button>
+                        <span style={{ fontFamily: "'Cabinet Grotesk','Sora',sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', minWidth: '120px', textAlign: 'center' }}>{MONTHS[currentMonth]} {currentYear}</span>
+                        <button onClick={nextMonth} style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={16} /></button>
+                    </div>
+                }
+            >
 
             {/* Calendar */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', overflow: 'hidden' }}>
-                {/* Nav */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--bg-border)' }}>
-                    <button onClick={prevMonth} style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={16} /></button>
-                    <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{MONTHS[currentMonth]} {currentYear}</h2>
-                    <button onClick={nextMonth} style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={16} /></button>
-                </div>
-
                 {/* Day headers */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--bg-border)' }}>
                     {DAYS.map(d => <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>{d}</div>)}
@@ -207,8 +206,26 @@ export default function CalendarPage() {
                 </div>
             )}
 
+            {!loading && transactions.length === 0 && !selectedDate && (
+                <EmptyState
+                    icon={CalendarDays}
+                    title="No transactions this month"
+                    subtitle="Add transactions to see them plotted on the calendar"
+                    action={
+                        <button
+                            type="button"
+                            onClick={() => { setDefaultDate(todayStr); setEditingTx(null); setModalOpen(true); }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '10px 20px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Satoshi','DM Sans',sans-serif" }}
+                        >
+                            <Plus size={14} /> Add Transaction
+                        </button>
+                    }
+                />
+            )}
+
             <TransactionModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditingTx(null); }} onSuccess={fetchTransactions} transaction={editingTx} defaultDate={defaultDate} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </PageShell>
         </AppLayout>
     );
 }

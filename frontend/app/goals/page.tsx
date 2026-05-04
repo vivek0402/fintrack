@@ -6,6 +6,8 @@ import { Plus, Trash2, Target, CheckCircle, Sparkles, X as XIcon, Pencil } from 
 import { useAuthStore } from '@/store/authStore';
 import { goalsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -141,12 +143,11 @@ export default function GoalsPage() {
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Savings Goals</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Track your financial targets</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <PageShell
+            title="Goals"
+            subtitle={`${goals.length} ${goals.length === 1 ? 'goal' : 'goals'} · ${completed} completed`}
+            headerRight={
+                <>
                     <Button variant="secondary" onClick={() => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); }} size="md"><Sparkles size={16} />Plan Life Event</Button>
                     <Button onClick={() => setShowForm(!showForm)} size="md"><Plus size={16} />New Goal</Button>
                     <PageHelp title="Goals" sections={[
@@ -154,8 +155,9 @@ export default function GoalsPage() {
                         { icon: '💰', heading: 'Creating a goal', body: "Tap '+ New Goal' and enter a name, target amount, and target date. FinTrack calculates how much you need to save each month." },
                         { icon: '📊', heading: 'Progress tracking', body: 'Each goal shows a progress bar and the amount remaining. Update your saved amount anytime by tapping the goal.' },
                     ]} />
-                </div>
-            </div>
+                </>
+            }
+        >
 
             {/* Life Event Modal */}
             <Modal isOpen={showLifeEvent} onClose={() => setShowLifeEvent(false)} title="Plan a Life Event" maxWidth="500px">
@@ -310,11 +312,12 @@ export default function GoalsPage() {
             {loading ? (
                 <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading...</div>
             ) : goals.length === 0 ? (
-                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
-                    <Target size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 16px 0' }}>No savings goals yet</p>
-                    <Button onClick={() => setShowForm(true)} size="sm">Create your first goal</Button>
-                </div>
+                <EmptyState
+                    icon={Target}
+                    title="No goals yet"
+                    subtitle="Set a savings target and track your progress"
+                    action={<Button onClick={() => setShowForm(true)} size="sm">Create your first goal</Button>}
+                />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {goals.map(goal => {
@@ -441,6 +444,7 @@ export default function GoalsPage() {
                 </div>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </PageShell>
         </AppLayout>
     );
 }

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import {
     Banknote, Loader2, AlertTriangle, Lightbulb,
     PiggyBank, Home, ShoppingBag, Car, TrendingUp, Sparkles,
@@ -83,41 +86,29 @@ export default function SalaryIntelligencePage() {
 
     return (
         <AppLayout>
+            <PageShell
+                title="Salary Intelligence"
+                subtitle="Income benchmarking"
+                headerRight={
+                    generated && !loading ? (
+                        <Button variant="secondary" size="md" onClick={() => analyse()}>Refresh</Button>
+                    ) : undefined
+                }
+            >
             <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ marginBottom: '28px' }}>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        Salary Intelligence
-                    </h1>
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
-                        AI-powered salary allocation plan based on your income and spending patterns.
-                    </p>
-                </div>
 
-                {/* State 1 — Initial */}
+                {/* State 1 — Initial / Empty */}
                 {!generated && !loading && !error && (
-                    <div style={{ ...card, textAlign: 'center', padding: '60px 40px' }}>
-                        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
-                            <div style={{
-                                position: 'absolute', inset: 0, borderRadius: '60px',
-                                background: 'radial-gradient(circle, rgba(16,185,129,0.2), rgba(59,130,246,0.1))',
-                            }} />
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Banknote size={44} color="var(--accent-green)" />
-                            </div>
-                        </div>
-                        <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>
-                            Salary Day Intelligence
-                        </h2>
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.7, maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
-                            We detect your salary from income transactions and generate a personalised allocation plan — how to split your pay for savings, bills, investments and lifestyle.
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <button type="button" onClick={() => analyse()} style={generateBtn}>
-                                <Banknote size={17} /> Analyse Salary Pattern
-                            </button>
-                        </div>
-                    </div>
+                    <EmptyState
+                        icon={TrendingUp}
+                        title="No data yet"
+                        subtitle="Add income transactions so we can detect your salary and generate a personalised allocation plan"
+                        action={
+                            <Button variant="primary" size="md" onClick={() => analyse()}>
+                                <Banknote size={15} /> Analyse Salary Pattern
+                            </Button>
+                        }
+                    />
                 )}
 
                 {/* State 2 — Loading */}
@@ -352,15 +343,11 @@ export default function SalaryIntelligencePage() {
                             </div>
                         </div>
 
-                        {/* Re-analyse */}
-                        <button type="button" onClick={() => { setGenerated(false); setData(null); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '13px', cursor: 'pointer', padding: 0 }}>
-                            ↻ Re-analyse
-                        </button>
                     </>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </PageShell>
         </AppLayout>
     );
 }

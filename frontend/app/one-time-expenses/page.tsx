@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { useAuthStore } from '@/store/authStore';
 import { categoriesAPI } from '@/lib/api';
+import { PageShell } from '@/components/layout/PageShell';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Calendar } from 'lucide-react';
 
 const CATEGORIES = ['Travel', 'Event', 'Electronics', 'Medical', 'Education',
   'Home', 'Vehicle', 'Gift', 'Investment', 'Other'];
@@ -378,7 +382,15 @@ export default function OneTimeExpensesPage() {
 
   return (
     <AppLayout>
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px 120px' }}>
+    <PageShell
+      title="One-Time Expenses"
+      subtitle={expenses.length > 0 ? `${expenses.length} entr${expenses.length !== 1 ? 'ies' : 'y'}` : 'Trips, events, big purchases — tracked separately'}
+      headerRight={
+        <Button onClick={openAddExpense} size="md">
+          <Calendar size={16} /> New Expense
+        </Button>
+      }
+    >
 
         {/* Toast */}
         {toast && (
@@ -392,23 +404,6 @@ export default function OneTimeExpensesPage() {
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div>
-            <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'Sora, sans-serif' }}>
-              One-Time Expenses
-            </h1>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-              Trips, events, big purchases — tracked separately
-            </p>
-          </div>
-          <button
-            onClick={openAddExpense}
-            style={{ background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 18px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            + New Expense
-          </button>
-        </div>
 
         {/* Summary tiles */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
@@ -428,19 +423,12 @@ export default function OneTimeExpensesPage() {
         {loading ? (
           <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>Loading…</div>
         ) : expenses.length === 0 ? (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 16, padding: '56px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 56, marginBottom: 16 }}>✈️</div>
-            <p style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'Sora, sans-serif' }}>No one-time expenses yet</p>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 auto 24px', maxWidth: 340 }}>
-              Log trips, events, or big purchases separately. Add items day by day and watch the total build up.
-            </p>
-            <button
-              onClick={openAddExpense}
-              style={{ background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 24px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
-            >
-              + Create Your First Expense
-            </button>
-          </div>
+          <EmptyState
+            icon={Calendar}
+            title="No one-time expenses yet"
+            subtitle="Log trips, events, or big purchases separately. Add items day by day and watch the total build up."
+            action={<Button onClick={openAddExpense} size="md"><Calendar size={16} /> Create Your First Expense</Button>}
+          />
         ) : (
           expenses.map(exp => {
             const catColor     = CATEGORY_COLORS[exp.category] || '#a855f7';
@@ -722,7 +710,7 @@ export default function OneTimeExpensesPage() {
             );
           })
         )}
-      </div>
+      </PageShell>
 
       {/* Delete confirm */}
       {deleteConfirm && mounted && createPortal(

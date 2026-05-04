@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
 import PageHelp from '@/components/ui/PageHelp';
@@ -98,6 +99,10 @@ export default function AiChatPage() {
 
     return (
         <AppLayout>
+            <PageShell
+                title="AI Chat"
+                subtitle="Ask anything about your finances"
+            >
             {/* Fixed Header */}
             <div style={{
                 position: 'fixed',
@@ -326,6 +331,7 @@ export default function AiChatPage() {
                     <Send size={16} />
                 </button>
             </div>
+            </PageShell>
         </AppLayout>
     );
 }

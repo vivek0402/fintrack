@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import {
-    Loader2, AlertCircle, Sparkles,
+    Loader2, AlertCircle, Sparkles, BarChart2,
     Utensils, Zap, Car, Plane, ShoppingBag, Laptop, Home, Heart,
     Gamepad2, BookOpen, Coffee, Music, Dumbbell, Gift, Bus, Wallet,
     TrendingUp, CreditCard,
@@ -112,34 +115,16 @@ export default function ForecastPage() {
 
     return (
         <AppLayout>
+            <PageShell
+                title="Forecast"
+                subtitle="AI spending prediction"
+                headerRight={
+                    generated && !loading ? (
+                        <Button variant="secondary" size="md" onClick={fetchForecast}>Regenerate</Button>
+                    ) : undefined
+                }
+            >
             <div style={{ maxWidth: 800, margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                            Spending Forecast
-                        </h1>
-                        <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0 }}>
-                            AI-powered prediction for this month
-                        </p>
-                    </div>
-                    {generated && !loading && (
-                        <button
-                            type="button"
-                            onClick={fetchForecast}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 7,
-                                padding: '8px 16px',
-                                background: 'var(--bg-hover)', border: '1px solid var(--bg-border)',
-                                borderRadius: 10, color: 'var(--text-secondary)',
-                                fontSize: 13, cursor: 'pointer',
-                                fontFamily: 'DM Sans, sans-serif',
-                            }}
-                        >
-                            Regenerate
-                        </button>
-                    )}
-                </div>
 
                 {/* Error state */}
                 {error && (
@@ -169,32 +154,16 @@ export default function ForecastPage() {
 
                 {/* Empty state */}
                 {!generated && !loading && !error && (
-                    <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 16, textAlign: 'center' }}>
-                        <Sparkles size={48} color="var(--accent-blue)" />
-                        <div>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-                                Generate Your Spending Forecast
-                            </p>
-                            <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, maxWidth: 380, lineHeight: 1.6 }}>
-                                Uses your last 3 months of transactions to predict this month's spending — no guesswork
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={fetchForecast}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '12px 28px',
-                                background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-                                color: '#fff', border: 'none', borderRadius: 12,
-                                fontSize: 15, fontWeight: 600,
-                                cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                                marginTop: 8,
-                            }}
-                        >
-                            ✨ Generate Forecast
-                        </button>
-                    </div>
+                    <EmptyState
+                        icon={BarChart2}
+                        title="No forecast yet"
+                        subtitle="Uses your last 3 months of transactions to predict this month's spending — no guesswork"
+                        action={
+                            <Button variant="primary" size="md" onClick={fetchForecast}>
+                                Generate Forecast
+                            </Button>
+                        }
+                    />
                 )}
 
                 {/* Insufficient data */}
@@ -352,6 +321,7 @@ export default function ForecastPage() {
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </PageShell>
         </AppLayout>
     );
 }

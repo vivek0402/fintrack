@@ -109,7 +109,7 @@ export default function OnboardingPage() {
     const TOTAL_STEPS = 4;
 
     const btnStyle: React.CSSProperties = {
-        background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+        background: 'var(--accent-blue)',
         color: 'white',
         border: 'none',
         borderRadius: 10,
@@ -160,9 +160,9 @@ export default function OnboardingPage() {
                         <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(59,130,246,0.12)' }}>
                             <User size={24} color="#3b82f6" />
                         </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Welcome to FinTrack!</div>
-                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>
-                            Hey <strong style={{ color: '#3b82f6' }}>{user.full_name.split(' ')[0]}</strong>! Let&apos;s get you set up in 2 minutes.
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", textAlign: 'center', marginBottom: 6 }}>Welcome to FinTrack!</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>
+                            Hey <strong style={{ color: 'var(--accent-blue)' }}>{user.full_name.split(' ')[0]}</strong>! Let&apos;s get you set up in 2 minutes.
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
                             {[
@@ -171,16 +171,16 @@ export default function OnboardingPage() {
                                 { icon: '🎯', text: 'Set budgets and savings goals' },
                                 { icon: '📅', text: 'Calendar view of all transactions' },
                             ].map(item => (
-                                <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: '#141d35', border: '1px solid #1e2d4a', borderRadius: '12px' }}>
+                                <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: '12px' }}>
                                     <span style={{ fontSize: '1.1rem' }}>{item.icon}</span>
-                                    <span style={{ fontSize: '13px', color: '#8892aa' }}>{item.text}</span>
+                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{item.text}</span>
                                 </div>
                             ))}
                         </div>
                         <button onClick={() => setStep(1)} style={btnStyle}>
                             Let&apos;s Get Started <ArrowRight size={16} />
                         </button>
-                        <button onClick={skip} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>
+                        <button onClick={skip} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>
                             Skip → go to dashboard
                         </button>
                     </div>
@@ -193,16 +193,16 @@ export default function OnboardingPage() {
                         <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(16,185,129,0.12)' }}>
                             <DollarSign size={24} color="#10b981" />
                         </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Choose Your Currency</div>
-                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>All amounts will be shown in this currency</p>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", textAlign: 'center', marginBottom: 6 }}>Choose Your Currency</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>All amounts will be shown in this currency</p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
                             {CURRENCIES.map(c => (
                                 <button key={c.code} onClick={() => setCurrency(c.code)}
-                                    style={{ padding: '14px 16px', borderRadius: '12px', border: currency === c.code ? '1px solid #3b82f6' : '1px solid #1e2d4a', background: currency === c.code ? 'rgba(59,130,246,0.08)' : '#141d35', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                                    style={{ padding: '14px 16px', borderRadius: '12px', border: currency === c.code ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', background: currency === c.code ? 'var(--accent-blue-bg)' : 'var(--surface-1)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <div>
-                                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.1rem', fontWeight: 700, color: currency === c.code ? '#3b82f6' : '#f0f4ff', margin: '0 0 2px 0' }}>{c.symbol}</p>
-                                            <p style={{ fontSize: '0.75rem', color: '#8892aa', margin: 0 }}>{c.code} · {c.label}</p>
+                                            <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1.1rem', fontWeight: 700, color: currency === c.code ? '#3b82f6' : '#f0f4ff', margin: '0 0 2px 0' }}>{c.symbol}</p>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>{c.code} · {c.label}</p>
                                         </div>
                                         {currency === c.code && <CheckCircle size={16} color="#3b82f6" />}
                                     </div>
@@ -215,7 +215,7 @@ export default function OnboardingPage() {
                                 : <><span>Continue</span> <ArrowRight size={16} /></>
                             }
                         </button>
-                        <button onClick={() => setStep(0)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>← Back</button>
+                        <button onClick={() => setStep(0)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>← Back</button>
                     </div>
                 )}
 
@@ -226,8 +226,8 @@ export default function OnboardingPage() {
                         <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(167,139,250,0.12)' }}>
                             <Moon size={24} color="#a78bfa" />
                         </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Choose Your Theme</div>
-                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Pick how FinTrack looks. You can change this anytime in Settings.</p>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", textAlign: 'center', marginBottom: 6 }}>Choose Your Theme</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Pick how FinTrack looks. You can change this anytime in Settings.</p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
                             {[
@@ -253,13 +253,13 @@ export default function OnboardingPage() {
                                 <button
                                     key={t.value}
                                     onClick={() => handleThemeNext(t.value)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '14px', textAlign: 'left', border: '1px solid #1e2d4a', background: '#141d35', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '14px', textAlign: 'left', border: '1px solid var(--bg-border)', background: 'var(--surface-1)', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
                                     onMouseEnter={e => {
                                         (e.currentTarget as HTMLElement).style.borderColor = '#3b82f6';
                                         (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.05)';
                                     }}
                                     onMouseLeave={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = '#1e2d4a';
+                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)';
                                         (e.currentTarget as HTMLElement).style.background = '#141d35';
                                     }}
                                 >
@@ -270,19 +270,19 @@ export default function OnboardingPage() {
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: '#f0f4ff' }}>{t.label}</span>
+                                            <span style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{t.label}</span>
                                             {t.recommended && (
-                                                <span style={{ fontSize: '0.65rem', color: '#3b82f6', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: '2px 7px', borderRadius: '6px', fontWeight: 600 }}>Default</span>
+                                                <span style={{ fontSize: '0.65rem', color: 'var(--accent-blue)', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', padding: '2px 7px', borderRadius: '6px', fontWeight: 600 }}>Default</span>
                                             )}
                                         </div>
-                                        <p style={{ fontSize: '0.78rem', color: '#8892aa', margin: '3px 0 0 0' }}>{t.desc}</p>
+                                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '3px 0 0 0' }}>{t.desc}</p>
                                     </div>
                                     <ArrowRight size={16} color="#4a5568" />
                                 </button>
                             ))}
                         </div>
 
-                        <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
+                        <button onClick={() => setStep(3)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center' }}>
                             Skip — keep Dark theme
                         </button>
                     </div>
@@ -295,8 +295,8 @@ export default function OnboardingPage() {
                         <div style={{ width: 52, height: 52, borderRadius: 15, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(245,158,11,0.12)' }}>
                             <PieChart size={24} color="#f59e0b" />
                         </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', textAlign: 'center', marginBottom: 6 }}>Set Monthly Budgets</div>
-                        <p style={{ fontSize: 13, color: '#4a5568', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Select categories to set budgets for. You can change these anytime.</p>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", textAlign: 'center', marginBottom: 6 }}>Set Monthly Budgets</div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 20, lineHeight: 1.6, margin: '0 0 20px 0' }}>Select categories to set budgets for. You can change these anytime.</p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                             {POPULAR_BUDGETS.map(budget => {
@@ -306,16 +306,16 @@ export default function OnboardingPage() {
                                 if (!cat) return null;
                                 return (
                                     <div key={budget.name}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '12px', border: selected ? '1px solid #3b82f6' : '1px solid #1e2d4a', background: selected ? 'rgba(59,130,246,0.08)' : '#141d35', transition: 'all 0.15s' }}>
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '12px', border: selected ? '1px solid var(--accent-blue-border)' : '1px solid var(--bg-border)', background: selected ? 'var(--accent-blue-bg)' : 'var(--surface-1)', transition: 'all 0.15s' }}>
                                         <div onClick={() => toggleBudget(budget.name)}
                                             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                                             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: budget.color, flexShrink: 0 }} />
-                                            <span style={{ fontSize: '13px', fontWeight: 500, color: '#c8d4f0' }}>{budget.name}</span>
+                                            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>{budget.name}</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             {isEditing ? (
                                                 <div style={{ position: 'relative' }}>
-                                                    <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: '#4a5568', fontSize: 14, pointerEvents: 'none' }}>₹</span>
+                                                    <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }}>₹</span>
                                                     <input
                                                         autoFocus
                                                         type="number"
@@ -324,19 +324,19 @@ export default function OnboardingPage() {
                                                         onChange={e => setEditingValue(e.target.value)}
                                                         onBlur={() => commitEdit(budget.name)}
                                                         onKeyDown={e => { if (e.key === 'Enter') commitEdit(budget.name); if (e.key === 'Escape') setEditingBudget(null); }}
-                                                        style={{ width: '90px', padding: '4px 6px 4px 22px', fontSize: '12px', color: '#f0f4ff', background: '#0a0f1e', border: '1px solid #3b82f6', borderRadius: '6px', outline: 'none', textAlign: 'right' }}
+                                                        style={{ width: '90px', padding: '4px 6px 4px 22px', fontSize: '12px', color: 'var(--text-primary)', background: 'var(--surface-0)', border: '1px solid var(--accent-blue)', borderRadius: '6px', outline: 'none', textAlign: 'right' }}
                                                     />
                                                 </div>
                                             ) : (
                                                 <span
                                                     onClick={() => startEditing(budget.name)}
                                                     title="Click to edit"
-                                                    style={{ fontSize: '11px', color: '#4a5568', cursor: 'text', borderBottom: '1px dashed #1e2d4a', paddingBottom: '1px' }}>
+                                                    style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'text', borderBottom: '1px dashed #1e2d4a', paddingBottom: '1px' }}>
                                                     ₹{amounts[budget.name].toLocaleString('en-IN')}/mo
                                                 </span>
                                             )}
                                             <div onClick={() => toggleBudget(budget.name)}
-                                                style={{ width: 10, height: 10, borderRadius: '50%', background: selected ? '#3b82f6' : '#1e2d4a', boxShadow: selected ? '0 0 8px rgba(59,130,246,0.5)' : 'none', cursor: 'pointer', flexShrink: 0 }} />
+                                                style={{ width: 10, height: 10, borderRadius: '50%', background: selected ? 'var(--accent-blue)' : 'var(--bg-border)', boxShadow: selected ? '0 0 8px var(--accent-blue-bg)' : 'none', cursor: 'pointer', flexShrink: 0 }} />
                                         </div>
                                     </div>
                                 );
@@ -349,7 +349,7 @@ export default function OnboardingPage() {
                                 : <><span>{budgets.length > 0 ? `Set ${budgets.length} Budget${budgets.length > 1 ? 's' : ''} & Finish` : 'Skip & Go to Dashboard'}</span> <ArrowRight size={16} /></>
                             }
                         </button>
-                        <button onClick={skip} style={{ background: 'none', border: 'none', color: '#4a5568', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>Skip for now</button>
+                        <button onClick={skip} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', display: 'block', width: '100%', textAlign: 'center', marginTop: 10 }}>Skip for now</button>
                     </div>
                 )}
             </div>

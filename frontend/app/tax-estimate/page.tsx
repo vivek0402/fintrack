@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
 import {
-    Receipt, Loader2, AlertTriangle, PiggyBank,
+    Receipt, Loader2, AlertTriangle, PiggyBank, Calculator,
 } from 'lucide-react';
 
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -83,44 +86,29 @@ export default function TaxEstimatePage() {
 
     return (
         <AppLayout>
+            <PageShell
+                title="Tax Estimate"
+                subtitle="FY income tax calculator"
+                headerRight={
+                    generated && !loading ? (
+                        <Button variant="secondary" size="md" onClick={() => generate(true)}>Recalculate</Button>
+                    ) : undefined
+                }
+            >
             <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                {/* Header */}
-                <div style={{ marginBottom: '28px' }}>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        Tax Estimate Helper
-                    </h1>
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0 }}>
-                        AI-powered estimate of your income tax — Old Regime vs New Regime.
-                    </p>
-                </div>
 
-                {/* State 1 — Initial */}
+                {/* State 1 — Initial / Empty */}
                 {!generated && !loading && !error && (
-                    <div style={{ ...card, textAlign: 'center', padding: '60px 40px' }}>
-                        <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 24px' }}>
-                            <div style={{
-                                position: 'absolute', inset: 0, borderRadius: '60px',
-                                background: 'radial-gradient(circle, rgba(20,184,166,0.25), rgba(59,130,246,0.08))',
-                            }} />
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Receipt size={44} color="var(--accent-blue)" />
-                            </div>
-                        </div>
-                        <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>
-                            Tax Estimate Helper
-                        </h2>
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 28px', lineHeight: 1.7, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
-                            Get an AI-powered estimate of your income tax for FY 2025–26. We analyse your income transactions and compare both regimes.
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <button type="button" onClick={() => generate(false)} style={generateBtn}>
-                                <Receipt size={17} /> Calculate My Tax
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '14px' }}>
-                            India-specific · Old &amp; New regime · Not a substitute for CA advice
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon={Calculator}
+                        title="No estimate yet"
+                        subtitle="Add income transactions first, then calculate your tax estimate for the financial year"
+                        action={
+                            <Button variant="primary" size="md" onClick={() => generate(false)}>
+                                <Receipt size={15} /> Calculate My Tax
+                            </Button>
+                        }
+                    />
                 )}
 
                 {/* State 2 — Loading */}
@@ -375,15 +363,11 @@ export default function TaxEstimatePage() {
                             </div>
                         </div>
 
-                        {/* Recalculate */}
-                        <button type="button" onClick={() => generate(true)}
-                            style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '13px', cursor: 'pointer', padding: 0 }}>
-                            ↻ Recalculate
-                        </button>
                     </>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </PageShell>
         </AppLayout>
     );
 }

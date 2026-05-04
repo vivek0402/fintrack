@@ -479,7 +479,7 @@ function TransactionsPageInner() {
                                     <Sparkles size={18} color="#10b981" />
                                 </div>
                                 <div>
-                                    <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Quick Add</h3>
+                                    <h3 style={{ fontFamily: "'Cabinet Grotesk', sans-serif", fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Quick Add</h3>
                                     <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: 0 }}>Describe the transaction in plain language</p>
                                 </div>
                             </div>

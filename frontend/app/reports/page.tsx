@@ -6,6 +6,8 @@ import { FileText, Download, TrendingUp, TrendingDown, Search, Sparkles } from '
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { PageShell } from '@/components/layout/PageShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
@@ -77,21 +79,21 @@ export default function ReportsPage() {
 
     return (
         <AppLayout>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Reports</h1>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>Custom analysis & health report card</p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <PageShell
+            title="Reports"
+            subtitle="Custom date range analytics"
+            headerRight={
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {activeTab === 'range' && data && <Button variant="secondary" size="md" onClick={() => exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}><Download size={16} />Export CSV</Button>}
+                    {activeTab === 'health' && healthReport && <Button variant="secondary" size="md" onClick={() => window.print()}><Download size={16} />Print / Save PDF</Button>}
                     <PageHelp title="Reports" sections={[
                         { icon: '📋', heading: 'What is this page?', body: 'Generate detailed monthly financial reports using AI. Each report analyses your income, expenses, savings, and spending patterns.' },
                         { icon: '📤', heading: 'Generating a report', body: "Select a month and tap 'Generate Report'. The AI writes a personalised summary with insights and recommendations." },
                         { icon: '💾', heading: 'Saving reports', body: 'Generated reports are saved so you can reference them later. Use them to track your financial progress month over month.' },
                     ]} />
                 </div>
-                {activeTab === 'health' && healthReport && <Button variant="secondary" size="md" onClick={() => window.print()}><Download size={16} />Print / Save PDF</Button>}
-            </div>
+            }
+        >
 
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '4px', width: 'fit-content' }}>
@@ -187,7 +189,11 @@ export default function ReportsPage() {
                                     <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{from} → {to}</span>
                                 </div>
                                 {data.transactions.length === 0 ? (
-                                    <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No transactions in this range</div>
+                                    <EmptyState
+                                        icon={FileText}
+                                        title="No transactions in this range"
+                                        subtitle="Try a different date range"
+                                    />
                                 ) : (
                                     <div>
                                         {data.transactions.map((tx: any) => {
@@ -363,6 +369,7 @@ export default function ReportsPage() {
                     #health-report-printable { position: fixed; top: 0; left: 0; width: 100%; background: white; color: black; padding: 20px; }
                 }
             `}</style>
+        </PageShell>
         </AppLayout>
     );
 }
