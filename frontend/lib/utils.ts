@@ -102,19 +102,20 @@ export function exportToCSV(transactions: any[], filename: string) {
     const headers = ['Date', 'Description', 'Type', 'Amount', 'Category', 'Notes', 'Tags'];
     const rows = transactions.map(tx => [
         formatDate(tx.date),
-        `"${tx.description}"`,
+        `"${(tx.description || '').replace(/"/g, '""')}"`,
         tx.type,
         tx.amount,
         tx.category_name || '',
-        `"${tx.notes || ''}"`,
+        `"${(tx.notes || '').replace(/"/g, '""')}"`,
         (tx.tags || []).join(';'),
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+    // data URI works in both browser and Capacitor WebView (blob URLs fail in WebView)
+    const dataUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
     const link = document.createElement('a');
-    link.href = url;
+    link.href = dataUri;
     link.download = filename;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(link);
 }

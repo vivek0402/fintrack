@@ -237,24 +237,40 @@ function TransactionsPageInner() {
                 title="Transactions"
                 subtitle={`${filtered.length} transaction${filtered.length !== 1 ? 's' : ''}`}
                 headerRight={
-                    <>
-                        <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
-                            <Download size={16} />Export CSV
-                        </Button>
-                        <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
-                            <Sparkles size={16} />Quick Add
-                        </Button>
-                        <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
-                            <Plus size={16} />Add Transaction
-                        </Button>
-                        <PageHelp title="Transactions" sections={[
-                            { icon: '💸', heading: 'What is this page?', body: 'View, add, edit and delete all your transactions. Filter by month/year or search by description.' },
-                            { icon: '➕', heading: 'Adding Transactions', body: "Tap the blue + button to add a transaction manually. Or use Quick Add — type naturally like '₹500 food at Zomato' and AI fills in the details." },
-                            { icon: '🎤', heading: 'Voice & Receipt', body: 'Use the microphone button for voice input, or the camera button to scan a receipt. Both auto-fill the transaction form.' },
-                            { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
-                            { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period. Tap the search icon to search across all months.' },
-                        ]} />
-                    </>
+                    isMobile ? (
+                        // Mobile: just the + icon in the corner
+                        <button
+                            type="button"
+                            onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
+                            style={{
+                                width: 36, height: 36, borderRadius: 'var(--radius-md)',
+                                background: 'var(--accent-blue)', border: 'none',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', flexShrink: 0,
+                            }}
+                        >
+                            <Plus size={18} color="#fff" />
+                        </button>
+                    ) : (
+                        // Desktop: full action row
+                        <>
+                            <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
+                                <Download size={16} />Export CSV
+                            </Button>
+                            <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
+                                <Sparkles size={16} />Quick Add
+                            </Button>
+                            <Button onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }} size="md">
+                                <Plus size={16} />Add Transaction
+                            </Button>
+                            <PageHelp title="Transactions" sections={[
+                                { icon: '💸', heading: 'What is this page?', body: 'View, add, edit and delete all your transactions. Filter by month/year or search by description.' },
+                                { icon: '➕', heading: 'Adding Transactions', body: "Tap the blue + button to add a transaction manually. Or use Quick Add — type naturally like '₹500 food at Zomato' and AI fills in the details." },
+                                { icon: '✏️', heading: 'Editing', body: 'Tap any transaction row to edit it. Swipe left to reveal the delete button.' },
+                                { icon: '🔍', heading: 'Filtering', body: 'Use the month/year pills at the top to filter transactions by time period.' },
+                            ]} />
+                        </>
+                    )
                 }
             >
                 {/* Summary */}
@@ -276,6 +292,26 @@ function TransactionsPageInner() {
                         </div>
                     ))}
                 </div>
+
+                {/* Mobile-only: Quick Add + Export row */}
+                {isMobile && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                            type="button"
+                            onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
+                            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}
+                        >
+                            <Sparkles size={14} color="var(--accent-green)" />Quick Add
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}
+                            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}
+                        >
+                            <Download size={14} />Export CSV
+                        </button>
+                    </div>
+                )}
 
                 {/* Filters */}
                 {isMobile ? (
