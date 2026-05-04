@@ -24,6 +24,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     useEffect(() => { loadTheme(); }, []);
 
+    // Warm up the backend + Supabase on first app load (free-tier cold-start mitigation)
+    useEffect(() => {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`).catch(() => {});
+    }, []);
+
     useEffect(() => {
         const u = user;
         if (!u?.id) return;

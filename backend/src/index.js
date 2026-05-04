@@ -193,6 +193,19 @@ app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
+// ─── Cron: keep Supabase DB alive (free tier pauses after 1 week idle) ───────
+// Runs every 9 minutes — lightweight SELECT 1, no user data touched.
+// Note: this only runs while the server is awake. To keep the SERVER awake on
+// Render/Railway free tier, register https://<your-backend>/health on UptimeRobot
+// (free) with a 5-minute check interval.
+cron.schedule('*/9 * * * *', async () => {
+    try {
+        await pool.query('SELECT 1');
+    } catch (err) {
+        console.error('[KeepAlive] DB ping failed:', err.message);
+    }
+});
+
 // ─── Cron: process recurring transactions daily at midnight ──────────────────
 // Runs server-side so transactions are generated even if the app isn't opened
 cron.schedule('0 0 * * *', async () => {
