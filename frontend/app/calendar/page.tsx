@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, X, CalendarDays } from 'lucide-react';
@@ -11,6 +13,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { formatCurrency } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useWindowSize';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -18,6 +21,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 export default function CalendarPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const isMobile = useIsMobile();
     const today = new Date();
 
     const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -84,9 +88,9 @@ export default function CalendarPage() {
                 title="Calendar"
                 subtitle="Transaction timeline"
                 headerRight={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {/* Month summary chips */}
-                        {[
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Summary chips — desktop only */}
+                        {!isMobile && [
                             { label: 'Income', value: monthIncome, color: 'var(--accent-green)', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
                             { label: 'Expenses', value: monthExpenses, color: 'var(--accent-red)', bg: 'rgba(244,63,94,0.08)', border: 'rgba(244,63,94,0.15)' },
                         ].map(chip => (
@@ -97,11 +101,26 @@ export default function CalendarPage() {
                         ))}
                         {/* Month nav */}
                         <button onClick={prevMonth} style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronLeft size={16} /></button>
-                        <span style={{ fontFamily: "'Cabinet Grotesk','Sora',sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', minWidth: '120px', textAlign: 'center' }}>{MONTHS[currentMonth]} {currentYear}</span>
+                        <span style={{ fontFamily: "'Cabinet Grotesk','Sora',sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', minWidth: isMobile ? '90px' : '120px', textAlign: 'center' }}>{isMobile ? MONTHS[currentMonth].slice(0, 3) : MONTHS[currentMonth]} {currentYear}</span>
                         <button onClick={nextMonth} style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ChevronRight size={16} /></button>
                     </div>
                 }
             >
+
+            {/* Mobile-only: income/expense summary chips */}
+            {isMobile && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    {[
+                        { label: 'Income', value: monthIncome, color: 'var(--accent-green)', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)' },
+                        { label: 'Expenses', value: monthExpenses, color: 'var(--accent-red)', bg: 'rgba(244,63,94,0.08)', border: 'rgba(244,63,94,0.15)' },
+                    ].map(chip => (
+                        <div key={chip.label} style={{ flex: 1, background: chip.bg, border: `1px solid ${chip.border}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', textAlign: 'center' }}>
+                            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '0 0 2px 0', fontFamily: "'Satoshi','DM Sans',sans-serif" }}>{chip.label}</p>
+                            <p style={{ fontFamily: "'DM Mono',monospace", fontSize: '0.85rem', fontWeight: 600, color: chip.color, margin: 0 }}>{formatCurrency(chip.value, user.currency)}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Calendar */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '20px', overflow: 'hidden' }}>
@@ -112,7 +131,7 @@ export default function CalendarPage() {
 
                 {/* Grid */}
                 {loading ? (
-                    <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading...</div>
+                    <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem', fontFamily: "'Satoshi','DM Sans',sans-serif" }}>Loading transactions…</div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
                         {cells.map((day, idx) => {
