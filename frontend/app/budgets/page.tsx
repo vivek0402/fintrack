@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { toast } from '@/store/toastStore';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -71,8 +72,8 @@ export default function BudgetsPage() {
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
-        try { await budgetsAPI.delete(id); fetchBudgets(); }
-        catch { alert('Failed to delete.'); }
+        try { await budgetsAPI.delete(id); fetchBudgets(); toast.success('Budget deleted'); }
+        catch { toast.error('Failed to delete budget'); }
         finally { setDeletingId(null); setConfirmDeleteId(null); }
     };
 

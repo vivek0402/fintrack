@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Target, CheckCircle, Sparkles, X as XIcon, Pencil } from 'lucide-react';
+import { Plus, Trash2, Target, Sparkles, X as XIcon, Pencil } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { goalsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -19,6 +19,30 @@ import PageHelp from '@/components/ui/PageHelp';
 import { FadeIn } from '@/components/ui/FadeIn';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
+
+function CircleProgress({ pct, color, size = 56 }: { pct: number; color: string; size?: number }) {
+    const radius = (size - 6) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (Math.min(pct, 100) / 100) * circumference;
+    return (
+        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
+            {/* Track */}
+            <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                fill="none" stroke="var(--bg-border)" strokeWidth={5}
+            />
+            {/* Fill */}
+            <circle
+                cx={size / 2} cy={size / 2} r={radius}
+                fill="none" stroke={color} strokeWidth={5}
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dashoffset 800ms cubic-bezier(0.22,1,0.36,1)' }}
+            />
+        </svg>
+    );
+}
 
 export default function GoalsPage() {
     const router = useRouter();
@@ -337,8 +361,13 @@ export default function GoalsPage() {
                             <div className="fintrack-card" style={{ background: 'var(--bg-secondary)', border: `1px solid ${isComplete ? 'var(--accent-green-border)' : 'var(--bg-border)'}`, borderRadius: '16px', padding: '20px 24px' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1 }}>
-                                        <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: `${goal.color}18`, border: `1px solid ${goal.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            {isComplete ? <CheckCircle size={20} color={goal.color} /> : <Target size={20} color={goal.color} />}
+                                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            <CircleProgress pct={pct} color={isComplete ? 'var(--accent-green)' : (goal.color || 'var(--accent-blue)')} size={56} />
+                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(0deg)' }}>
+                                                <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'DM Mono', monospace" }}>
+                                                    {Math.round(pct)}%
+                                                </span>
+                                            </div>
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -394,12 +423,8 @@ export default function GoalsPage() {
                                     </div>
                                 </div>
                                 <div style={{ marginBottom: '10px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{pct.toFixed(1)}% saved</span>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{formatCurrency(remaining, user.currency)} remaining</span>
-                                    </div>
-                                    <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: `${pct}%`, background: isComplete ? 'var(--accent-green)' : goal.color, borderRadius: '4px', transition: 'width var(--transition-slow)', boxShadow: `0 0 8px ${goal.color}60` }} />
                                     </div>
                                 </div>
                                 {!isComplete && (

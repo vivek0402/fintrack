@@ -48,6 +48,8 @@ function TransactionsPageInner() {
     const [quickAddError, setQuickAddError] = useState('');
     const [placeholderIdx, setPlaceholderIdx] = useState(0);
     const [earliestYear, setEarliestYear] = useState(NOW_YEAR);
+    const PAGE_SIZE = 50;
+    const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
     const [earliestMonth, setEarliestMonth] = useState(1);
     const filterBtnRef = useRef<HTMLButtonElement>(null);
     const filterPopoverRef = useRef<HTMLDivElement>(null);
@@ -121,7 +123,12 @@ function TransactionsPageInner() {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { if (user) fetchTransactions(); }, [user, selectedMonth, selectedYear]);
+    useEffect(() => {
+        if (user) {
+            setDisplayCount(PAGE_SIZE);
+            fetchTransactions();
+        }
+    }, [user, selectedMonth, selectedYear]);
 
     useEffect(() => {
         let result = [...transactions];
@@ -140,10 +147,14 @@ function TransactionsPageInner() {
             result = result.filter(tx => tx.tags && tx.tags.some((t: string) => t.toLowerCase().includes(tag)));
         }
         setFiltered(result);
+        setDisplayCount(PAGE_SIZE);
     }, [transactions, typeFilter, search, tagFilter]);
 
     const totalIncome = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
+
+    const visibleTransactions = filtered.slice(0, displayCount);
+    const hasMore = filtered.length > displayCount;
 
     const handleModalClose = () => {
         setModalOpen(false);
@@ -384,7 +395,31 @@ function TransactionsPageInner() {
                             ))}
                         </div>
                     ) : (
-                        <TransactionList transactions={filtered} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
+                        <TransactionList transactions={visibleTransactions} currency={user.currency} onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }} onRefresh={fetchTransactions} />
+                    )}
+                    {hasMore && !loading && (
+                        <button
+                            type="button"
+                            onClick={() => setDisplayCount(c => c + PAGE_SIZE)}
+                            style={{
+                                width: '100%',
+                                padding: '14px',
+                                background: 'none',
+                                border: 'none',
+                                borderTop: '1px solid var(--bg-border)',
+                                color: 'var(--accent-blue)',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px',
+                            }}
+                        >
+                            Load more ({filtered.length - displayCount} remaining)
+                        </button>
                     )}
                 </div>
             </PageShell>

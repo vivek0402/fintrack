@@ -58,7 +58,28 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!user) return;
+        const CACHE_KEY = `dashboard-cache-${user.id}-${month}-${year}`;
+        const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
         const fetchData = async () => {
+            // Serve from cache instantly if fresh
+            try {
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const { data, ts } = JSON.parse(cached);
+                    if (Date.now() - ts < CACHE_TTL) {
+                        setSummary(data.summary);
+                        setCategories(data.categories);
+                        setTrends(data.trends);
+                        setTransactions(data.transactions);
+                        setBudgets(data.budgets);
+                        setForecast(data.forecast);
+                        setDataLoading(false);
+                        return; // skip network call
+                    }
+                }
+            } catch { /* stale/corrupt cache — ignore */ }
+
             setDataLoading(true);
             try {
                 await recurringAPI.process();
@@ -69,12 +90,22 @@ export default function DashboardPage() {
                     budgetsAPI.getAll({ month, year }),
                     analyticsAPI.forecast({ month, year }),
                 ]);
-                setSummary(summaryRes.data.summary);
-                setCategories(summaryRes.data.category_breakdown);
-                setTrends(trendsRes.data.trends);
-                setTransactions(txRes.data.transactions);
-                setBudgets(budgetsRes.data.budgets);
-                setForecast(forecastRes.data.forecast);
+                const data = {
+                    summary:      summaryRes.data.summary,
+                    categories:   summaryRes.data.category_breakdown,
+                    trends:       trendsRes.data.trends,
+                    transactions: txRes.data.transactions,
+                    budgets:      budgetsRes.data.budgets,
+                    forecast:     forecastRes.data.forecast,
+                };
+                setSummary(data.summary);
+                setCategories(data.categories);
+                setTrends(data.trends);
+                setTransactions(data.transactions);
+                setBudgets(data.budgets);
+                setForecast(data.forecast);
+                // Write to cache
+                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
             } catch (err) { console.error(err); }
             finally { setDataLoading(false); }
         };

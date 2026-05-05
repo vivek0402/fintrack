@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Pencil, Trash2, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
+import { toast } from '@/store/toastStore';
 import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -20,12 +21,34 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
     const [regrettingId, setRegrettingId] = useState<string | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
 
-    const handleDelete = async (id: string) => {
-        setDeletingId(id);
-        try { await transactionsAPI.delete(id); onRefresh(); }
-        catch { alert('Failed to delete.'); }
-        finally { setDeletingId(null); setConfirmId(null); }
+    const handleDelete = (id: string) => {
+        // Optimistically hide the row locally
+        setPendingDelete(prev => new Set([...prev, id]));
+        setConfirmId(null);
+
+        let cancelled = false;
+        toast.undo('Transaction deleted', () => {
+            cancelled = true;
+            setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        // Commit delete after undo window closes
+        setTimeout(async () => {
+            if (cancelled) return;
+            setDeletingId(id);
+            try {
+                await transactionsAPI.delete(id);
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                onRefresh();
+            } catch {
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                toast.error('Failed to delete — transaction restored');
+            } finally {
+                setDeletingId(null);
+            }
+        }, 4200);
     };
 
     const handleRegret = async (id: string) => {
@@ -62,13 +85,16 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
     return (
         <div>
-            {Object.entries(groups).map(([date, txs]) => (
+            {Object.entries(groups).map(([date, txs]) => {
+                const visibleTxs = txs.filter(tx => !pendingDelete.has(tx.id));
+                if (visibleTxs.length === 0) return null;
+                return (
                 <div key={date}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-6) 6px', background: 'var(--surface-1)' }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{getDateLabel(date)}</span>
                         <div style={{ flex: 1, height: '1px', background: 'var(--bg-border)' }} />
                     </div>
-                    {txs.map(tx => {
+                    {visibleTxs.map(tx => {
                         const staggerDelay = Math.min(rowIndex++ * 28, 280);
                         const isIncome = tx.type === 'income';
                         const isConfirm = confirmId === tx.id;
@@ -223,7 +249,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         );
                     })}
                 </div>
-            ))}
+                );
+            })}
         </div>
     );
 }

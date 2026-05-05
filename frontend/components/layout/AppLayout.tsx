@@ -10,6 +10,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { ToastContainer } from '@/components/ui/ToastContainer';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
@@ -173,6 +174,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                 </div>
             )}
+            <ToastContainer />
             <WalkthroughTour
                 isOpen={showTour}
                 onClose={() => {
