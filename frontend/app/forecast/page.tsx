@@ -14,6 +14,7 @@ import {
     Gamepad2, BookOpen, Coffee, Music, Dumbbell, Gift, Bus, Wallet,
     TrendingUp, CreditCard,
 } from 'lucide-react';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const ICON_MAP: Record<string, React.ElementType> = {
     utensils: Utensils, zap: Zap, car: Car, plane: Plane,
@@ -185,6 +186,7 @@ export default function ForecastPage() {
                 )}
 
                 {forecast && !forecast.insufficientData && !loading && (
+                    <FadeIn>
                     <>
                         {/* Section 1 — Stat tiles */}
                         <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -318,6 +320,7 @@ export default function ForecastPage() {
                             </div>
                         )}
                     </>
+                    </FadeIn>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

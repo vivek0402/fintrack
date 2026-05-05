@@ -14,6 +14,7 @@ import {
 import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Member { id?: number; name: string; email?: string }
@@ -295,7 +296,7 @@ export default function GroupsPage() {
                         action={<Button onClick={openCreate} size="md"><Plus size={16} /> New Group</Button>}
                     />
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <FadeIn><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {groups.map(g => {
                             const pct = g.budget ? Math.min(100, (Number(g.total_spent) / Number(g.budget)) * 100) : null;
                             return (
@@ -340,7 +341,7 @@ export default function GroupsPage() {
                                 </div>
                             );
                         })}
-                    </div>
+                    </div></FadeIn>
                 )}
 
                 {showModal && (
@@ -366,7 +367,7 @@ export default function GroupsPage() {
 
     return (
         <AppLayout>
-        <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+        <FadeIn><div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
             {/* Back + header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
                 <button onClick={() => setSelectedGroup(null)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
@@ -638,7 +639,7 @@ export default function GroupsPage() {
                 </div>,
                 document.body
             )}
-        </div>
+        </div></FadeIn>
         </AppLayout>
     );
 }

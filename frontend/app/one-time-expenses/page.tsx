@@ -9,6 +9,7 @@ import { categoriesAPI } from '@/lib/api';
 import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { FadeIn } from '@/components/ui/FadeIn';
 import { Calendar } from 'lucide-react';
 
 const CATEGORIES = ['Travel', 'Event', 'Electronics', 'Medical', 'Education',
@@ -430,7 +431,7 @@ export default function OneTimeExpensesPage() {
             action={<Button onClick={openAddExpense} size="md"><Calendar size={16} /> Create Your First Expense</Button>}
           />
         ) : (
-          expenses.map(exp => {
+          <FadeIn>{expenses.map(exp => {
             const catColor     = CATEGORY_COLORS[exp.category] || '#a855f7';
             const isExpanded   = expandedId === exp.id;
             const isAddingItem = addingItemFor === exp.id;
@@ -708,7 +709,7 @@ export default function OneTimeExpensesPage() {
                 )}
               </div>
             );
-          })
+          })}</FadeIn>
         )}
       </PageShell>
 

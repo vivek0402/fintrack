@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
+import { useCountUp } from '@/hooks/useCountUp';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,11 @@ export default function AccountsPage() {
     const totalCards   = cards.reduce((s, c) => s + Number(c.outstanding_balance), 0);
     const totalWallets = wallets.reduce((s, w) => s + Number(w.balance), 0);
     const netWorth     = totalBanks + totalWallets - totalCards;
+
+    const animatedNetWorth = useCountUp(Math.abs(netWorth), 1000, mounted);
+    const animatedBanks    = useCountUp(totalBanks, 900, mounted);
+    const animatedCards    = useCountUp(totalCards, 900, mounted);
+    const animatedWallets  = useCountUp(totalWallets, 900, mounted);
 
     // ── Bank handlers ───────────────────────────────────────────────────────
 
@@ -384,20 +390,20 @@ export default function AccountsPage() {
                         color: netWorth >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
                         letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 'var(--space-3)',
                     }}>
-                        {netWorth < 0 ? '-' : ''}{fmt(netWorth)}
+                        {netWorth < 0 ? '-' : ''}₹{animatedNetWorth.toLocaleString('en-IN')}
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
                         <div>
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Banks</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>{fmt(totalBanks)}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>₹{animatedBanks.toLocaleString('en-IN')}</div>
                         </div>
                         <div>
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Credit Debt</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-red)' }}>{fmt(totalCards)}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-red)' }}>₹{animatedCards.toLocaleString('en-IN')}</div>
                         </div>
                         <div>
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Wallets</div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>{fmt(totalWallets)}</div>
+                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>₹{animatedWallets.toLocaleString('en-IN')}</div>
                         </div>
                     </div>
                 </div>

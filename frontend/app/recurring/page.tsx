@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 export default function RecurringPage() {
     const router = useRouter();
@@ -294,6 +295,7 @@ export default function RecurringPage() {
                     action={<Button onClick={() => setShowForm(true)} size="sm">Add your first one</Button>}
                 />
             ) : (
+                <FadeIn>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {recurring.map(r => {
                         const isIncome = r.type === 'income';
@@ -393,6 +395,7 @@ export default function RecurringPage() {
                         );
                     })}
                 </div>
+                </FadeIn>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </PageShell>

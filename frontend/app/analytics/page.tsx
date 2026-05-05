@@ -374,7 +374,7 @@ export default function AnalyticsPage() {
                                     <Icon size={15} color={card.color} />
                                 </div>
                             </div>
-                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: 700, color: card.color, margin: 0 }}>{card.value}</p>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: 700, color: card.color, margin: 0, animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{card.value}</p>
                         </div>
                     );
                 })}

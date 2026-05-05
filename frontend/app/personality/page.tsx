@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import {
     Brain, Sparkles, TrendingUp, AlertCircle, Lightbulb, Loader2, AlertTriangle,
 } from 'lucide-react';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const DIMENSION_META: Record<string, { color: string; icon: string }> = {
     consistency: { color: '#10b981', icon: '📊' },
@@ -156,6 +157,7 @@ export default function PersonalityPage() {
 
                 {/* State 4 — Result */}
                 {generated && data && !loading && (
+                    <FadeIn>
                     <>
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                             {/* LEFT: Hero card */}
@@ -387,6 +389,7 @@ export default function PersonalityPage() {
                             AI-generated analysis based on your last 90 days of transactions. Results update every 24 hours.
                         </p>
                     </>
+                    </FadeIn>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

@@ -13,6 +13,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -173,6 +174,7 @@ export default function BudgetsPage() {
                     action={<Button onClick={() => setShowForm(true)} size="sm">Set your first budget</Button>}
                 />
             ) : (
+                <FadeIn>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {budgets.map(budget => {
                         const spent = parseFloat(budget.spent);
@@ -255,6 +257,7 @@ export default function BudgetsPage() {
                         );
                     })}
                 </div>
+                </FadeIn>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </PageShell>

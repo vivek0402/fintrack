@@ -11,6 +11,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageShell } from '@/components/layout/PageShell';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
+import { FadeIn } from '@/components/ui/FadeIn';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -133,7 +134,7 @@ export default function CalendarPage() {
                 {loading ? (
                     <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem', fontFamily: "'Satoshi','DM Sans',sans-serif" }}>Loading transactions…</div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+                    <FadeIn><div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
                         {cells.map((day, idx) => {
                             if (!day) return <div key={`e-${idx}`} style={{ minHeight: '80px', borderRight: (idx + 1) % 7 !== 0 ? '1px solid var(--bg-border)' : 'none', borderBottom: '1px solid var(--bg-border)', background: 'var(--bg-primary)' }} />;
 
@@ -166,7 +167,7 @@ export default function CalendarPage() {
                                 </div>
                             );
                         })}
-                    </div>
+                    </div></FadeIn>
                 )}
             </div>
 

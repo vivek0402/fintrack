@@ -16,6 +16,7 @@ import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
 
@@ -319,6 +320,7 @@ export default function GoalsPage() {
                     action={<Button onClick={() => setShowForm(true)} size="sm">Create your first goal</Button>}
                 />
             ) : (
+                <FadeIn>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {goals.map(goal => {
                         const saved = parseFloat(goal.saved_amount);
@@ -442,6 +444,7 @@ export default function GoalsPage() {
                         );
                     })}
                 </div>
+                </FadeIn>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </PageShell>

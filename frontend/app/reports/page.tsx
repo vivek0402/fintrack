@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCurrency, formatDate, exportToCSV } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const QUICK_RANGES = [
     { label: 'This Month', getDates: () => { const n = new Date(); return { from: `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`, to: new Date().toISOString().split('T')[0] }; } },
@@ -139,6 +140,7 @@ export default function ReportsPage() {
                     </div>
 
                     {searched && data && (
+                        <FadeIn>
                         <>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                                 {[
@@ -225,13 +227,16 @@ export default function ReportsPage() {
                                 )}
                             </div>
                         </>
+                        </FadeIn>
                     )}
 
                     {!searched && (
+                        <FadeIn>
                         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '60px', textAlign: 'center' }}>
                             <FileText size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>Select a date range and click Generate</p>
                         </div>
+                        </FadeIn>
                     )}
                 </>
             )}
@@ -250,6 +255,7 @@ export default function ReportsPage() {
                     )}
 
                     {healthReport && (
+                        <FadeIn>
                         <div id="health-report-printable">
                             {/* Score Hero */}
                             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '28px', marginBottom: '16px', textAlign: 'center' }}>
@@ -357,6 +363,7 @@ export default function ReportsPage() {
                                 </div>
                             )}
                         </div>
+                        </FadeIn>
                     )}
                 </>
             )}

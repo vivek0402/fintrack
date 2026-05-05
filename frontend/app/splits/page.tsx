@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { splitsAPI, aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
+import { FadeIn } from '@/components/ui/FadeIn';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -245,7 +246,7 @@ export default function SplitsPage() {
                     action={<Button onClick={() => setShowModal(true)} size="sm">Add first split</Button>}
                 />
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <FadeIn><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {splits.map(split => {
                         const settled = allSettled(split);
                         return (
@@ -303,7 +304,7 @@ export default function SplitsPage() {
                             </div>
                         );
                     })}
-                </div>
+                </div></FadeIn>
             )}
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </PageShell>

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button';
 import {
     Receipt, Loader2, AlertTriangle, PiggyBank, Calculator,
 } from 'lucide-react';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -138,6 +139,7 @@ export default function TaxEstimatePage() {
 
                 {/* State 4 — Result */}
                 {generated && data && !loading && (
+                    <FadeIn>
                     <>
                         {/* Zero income message */}
                         {data.grossIncome === 0 && (
@@ -364,6 +366,7 @@ export default function TaxEstimatePage() {
                         </div>
 
                     </>
+                    </FadeIn>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

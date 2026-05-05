@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Pencil, Trash2, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
 import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
 
 interface Props {
@@ -36,12 +37,11 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
     if (transactions.length === 0) {
         return (
-            <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📭</div>
-                <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--text-secondary)' }}>
-                    No transactions yet. Tap + to add one.
-                </p>
-            </div>
+            <EmptyState
+                icon={ReceiptText}
+                title="No transactions yet"
+                subtitle="Tap + to add one"
+            />
         );
     }
 
@@ -113,7 +113,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                                 {/* Right: amount + date */}
                                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', fontFamily: 'Sora, sans-serif' }}>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', fontFamily: "'DM Mono', monospace" }}>
                                         {isIncome ? '+' : '-'}₹{parseFloat(tx.amount).toLocaleString('en-IN')}
                                     </div>
                                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -155,7 +155,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
+                                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
                                         {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
                                     </p>
                                     <button

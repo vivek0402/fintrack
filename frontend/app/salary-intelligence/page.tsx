@@ -12,6 +12,7 @@ import {
     Banknote, Loader2, AlertTriangle, Lightbulb,
     PiggyBank, Home, ShoppingBag, Car, TrendingUp, Sparkles,
 } from 'lucide-react';
+import { FadeIn } from '@/components/ui/FadeIn';
 
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -154,6 +155,7 @@ export default function SalaryIntelligencePage() {
 
                 {/* State 4b — Result */}
                 {generated && data && data.detected && !loading && (
+                    <FadeIn>
                     <>
                         {/* Salary hero card */}
                         <div style={{
@@ -344,6 +346,7 @@ export default function SalaryIntelligencePage() {
                         </div>
 
                     </>
+                    </FadeIn>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
