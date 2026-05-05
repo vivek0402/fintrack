@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    X, FileText, Mic, Camera, ChevronDown,
+    X, FileText, ChevronDown,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, aiAPI, accountsAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, accountsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -165,21 +165,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const [showNewCategoryPrompt, setShowNewCategoryPrompt] = useState(false);
     const [approvingCat, setApprovingCat] = useState(false);
 
-    // SMS
-    const [showSmsOverlay, setShowSmsOverlay] = useState(false);
-    const [smsText, setSmsText] = useState('');
-    const [smsLoading, setSmsLoading] = useState(false);
-    const [isParsing, setIsParsing] = useState(false);
-
-    // Image
-    const [imageLoading, setImageLoading] = useState(false);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Voice
-    const [voiceListening, setVoiceListening] = useState(false);
-    const [voiceSupported, setVoiceSupported] = useState(false);
-    const recognitionRef = useRef<any>(null);
 
     // Calendar
     const [calOpen, setCalOpen] = useState(false)
@@ -187,11 +172,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const [calYear, setCalYear] = useState(new Date().getFullYear())
     const dateRef = useRef<HTMLDivElement>(null)
 
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            setVoiceSupported(!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
-        }
-    }, []);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -265,7 +245,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             setTagInput('');
         }
         setError('');
-        setImagePreview(null);
         setCatDropdownOpen(false);
         setShowAddCat(false);
         setShowNewCategoryPrompt(false);
@@ -351,60 +330,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         }
     };
 
-    const handleParseSMS = async () => {
-        if (!smsText.trim()) return;
-        setSmsLoading(true); setIsParsing(true);
-        try {
-            const res = await aiAPI.parseSMS(smsText);
-            applyParsed(res.data.parsed);
-            setShowSmsOverlay(false); setSmsText('');
-        } catch { /* silent */ } finally { setSmsLoading(false); setIsParsing(false); }
-    };
-
-    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setImagePreview(URL.createObjectURL(file));
-        setImageLoading(true);
-        try {
-            const res = await aiAPI.parseImage(file);
-            applyParsed(res.data.parsed);
-        } catch { /* silent */ } finally { setImageLoading(false); }
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
-    const handleVoice = () => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            setError('Voice input is not supported on this device. Please type your transaction.');
-            return;
-        }
-        if (voiceListening) { recognitionRef.current?.stop(); setVoiceListening(false); return; }
-        try {
-            const recognition = new SpeechRecognition();
-            recognitionRef.current = recognition;
-            recognition.lang = 'en-IN';
-            recognition.interimResults = false;
-            recognition.onstart = () => setVoiceListening(true);
-            recognition.onend = () => setVoiceListening(false);
-            recognition.onerror = (e: any) => {
-                setVoiceListening(false);
-                const msg = e?.error;
-                if (msg === 'not-allowed') setError('Microphone permission denied. Please allow microphone access and try again.');
-                else if (msg === 'no-speech') setError('No speech detected. Please try again.');
-                else setError('Voice input failed. Please try again or type your transaction.');
-            };
-            recognition.onresult = async (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                try { const res = await aiAPI.parseSMS(transcript); applyParsed(res.data.parsed); }
-                catch { setError('Could not parse voice input. Please try again or type your transaction.'); }
-            };
-            recognition.start();
-        } catch (e) {
-            setVoiceListening(false);
-            setError('Voice input is not supported on this device. Please type your transaction.');
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -495,48 +420,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 </div>
             }
         >
-            {/* SMS overlay */}
-            {showSmsOverlay && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', background: 'rgba(0,0,0,0.6)' }} onClick={e => { if (e.target === e.currentTarget) setShowSmsOverlay(false); }}>
-                    <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '420px', boxShadow: 'var(--shadow-modal)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>📱 Paste Bank SMS</span>
-                            <button type="button" onClick={() => setShowSmsOverlay(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={16} /></button>
-                        </div>
-                        <textarea autoFocus placeholder="Paste your bank SMS here…" value={smsText} onChange={e => setSmsText(e.target.value)} rows={4}
-                            style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--bg-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', outline: 'none', resize: 'vertical', boxSizing: 'border-box', marginBottom: '12px' }} />
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <button type="button" onClick={handleParseSMS} disabled={isParsing || !smsText.trim()}
-                                style={{ display: 'inline-flex', alignItems: 'center', padding: '8px 16px', background: isParsing ? 'var(--bg-card)' : 'var(--accent-blue)', border: '1px solid var(--accent-blue-border)', borderRadius: '8px', color: isParsing ? 'var(--text-secondary)' : '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: isParsing ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: isParsing ? 0.7 : 1, transition: 'all 0.15s' }}>
-                                {isParsing && <span style={{ display: 'inline-block', width: 14, height: 14, border: '2px solid var(--text-muted)', borderTopColor: 'var(--accent-blue)', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: 6 }} />}
-                                {isParsing ? 'Parsing…' : 'Extract Details'}
-                            </button>
-                            <Button type="button" variant="secondary" size="sm" onClick={() => setShowSmsOverlay(false)}>Cancel</Button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            {/* AI Input helpers */}
-            {!isEditing && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <button type="button" onClick={() => setShowSmsOverlay(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                        📱 Parse SMS
-                    </button>
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={imageLoading}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.75rem', cursor: imageLoading ? 'wait' : 'pointer', fontFamily: 'DM Sans, sans-serif', opacity: imageLoading ? 0.6 : 1 }}>
-                        <Camera size={13} />{imageLoading ? 'Scanning…' : 'Scan Receipt'}
-                    </button>
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} style={{ display: 'none' }} />
-                    <button type="button" onClick={handleVoice}
-                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 12px', background: voiceListening ? 'rgba(244,63,94,0.12)' : 'var(--bg-card)', border: `1px solid ${voiceListening ? 'rgba(244,63,94,0.4)' : 'var(--bg-border)'}`, borderRadius: '8px', color: voiceListening ? '#f43f5e' : 'var(--text-secondary)', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                        <Mic size={13} style={{ animation: voiceListening ? 'pulse 1s ease-in-out infinite' : 'none' }} />
-                        {voiceListening ? 'Listening…' : 'Voice'}
-                    </button>
-                </div>
-            )}
 
             {/* AI new-category prompt banner */}
             {showNewCategoryPrompt && (
@@ -590,13 +473,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 </div>
             )}
 
-            {/* Image preview */}
-            {imagePreview && (
-                <div style={{ marginBottom: '12px', position: 'relative', display: 'inline-block' }}>
-                    <img src={imagePreview} alt="Receipt preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '10px', border: '1px solid var(--bg-border)' }} />
-                    <button type="button" onClick={() => setImagePreview(null)} style={{ position: 'absolute', top: '-6px', right: '-6px', width: '18px', height: '18px', borderRadius: '50%', background: 'var(--accent-red)', border: 'none', color: '#fff', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                </div>
-            )}
 
             <form id="transaction-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {/* Type toggle */}
