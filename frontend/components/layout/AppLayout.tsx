@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
+const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
@@ -20,6 +21,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
     const [aiFabHover, setAiFabHover] = useState(false);
+    const [addFabHover, setAddFabHover] = useState(false);
     const [showTour, setShowTour] = useState(false);
     const { user } = useAuthStore();
 
@@ -89,6 +91,59 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <ErrorBoundary>{children}</ErrorBoundary>
             </main>
             {isMobile && <BottomNav />}
+
+            {/* Mobile Add Transaction FAB */}
+            {isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
+                <button
+                    onClick={() => router.push('/transactions?add=true')}
+                    style={{
+                        position: 'fixed',
+                        bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)',
+                        right: '16px',
+                        zIndex: 996,
+                        width: '52px',
+                        height: '52px',
+                        borderRadius: '50%',
+                        background: 'var(--accent-blue)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 20px rgba(59,130,246,0.45)',
+                        animation: 'springIn 400ms cubic-bezier(0.34,1.56,0.64,1) both',
+                    }}
+                >
+                    <Plus size={24} color="white" strokeWidth={2.5} />
+                </button>
+            )}
+
+            {/* Desktop Add Transaction FAB */}
+            {!isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
+                <div style={{ position: 'fixed', bottom: '32px', right: '96px', zIndex: 500 }}>
+                    {addFabHover && (
+                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                            Add Transaction
+                        </div>
+                    )}
+                    <button
+                        onClick={() => router.push('/transactions?add=true')}
+                        onMouseEnter={() => setAddFabHover(true)}
+                        onMouseLeave={() => setAddFabHover(false)}
+                        style={{
+                            width: '52px', height: '52px', borderRadius: '50%',
+                            background: 'var(--accent-blue)',
+                            border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: addFabHover ? '0 6px 28px rgba(59,130,246,0.6)' : '0 4px 20px rgba(59,130,246,0.4)',
+                            transform: addFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}
+                    >
+                        <Plus size={22} color="white" strokeWidth={2.5} />
+                    </button>
+                </div>
+            )}
 
             {/* Desktop AI Chat FAB */}
             {!isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && (
