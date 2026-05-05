@@ -254,7 +254,7 @@ function TransactionsPageInner() {
                     ) : (
                         // Desktop: full action row
                         <>
-                            <Button variant="secondary" size="md" onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
+                            <Button variant="secondary" size="md" onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}>
                                 <Download size={16} />Export CSV
                             </Button>
                             <Button variant="secondary" size="md" onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}>
@@ -305,7 +305,7 @@ function TransactionsPageInner() {
                         </button>
                         <button
                             type="button"
-                            onClick={() => exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}
+                            onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? new Date().getMonth() + 1).padStart(2, '0')}.csv`)}
                             style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}
                         >
                             <Download size={14} />Export CSV

@@ -162,7 +162,7 @@ export default function AnalyticsPage() {
                 subtitle="Deep insights into your spending"
                 headerRight={
                     <>
-                        <Button variant="secondary" size="md" onClick={() => exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>
+                        <Button variant="secondary" size="md" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>
                         <PageHelp title="Analytics" sections={[
                             { icon: '🥧', heading: 'What is this page?', body: 'A detailed breakdown of where your money went. Switch between chart views to see spending by category.' },
                             { icon: '📉', heading: 'Category Breakdown', body: 'Each category shows a progress bar and percentage of total spending. The longest bar is your biggest expense area.' },

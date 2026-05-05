@@ -84,7 +84,7 @@ export default function ReportsPage() {
             subtitle="Custom date range analytics"
             headerRight={
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {activeTab === 'range' && data && <Button variant="secondary" size="md" onClick={() => exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}><Download size={16} />Export CSV</Button>}
+                    {activeTab === 'range' && data && <Button variant="secondary" size="md" onClick={() => void exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}><Download size={16} />Export CSV</Button>}
                     {activeTab === 'health' && healthReport && <Button variant="secondary" size="md" onClick={() => window.print()}><Download size={16} />Print / Save PDF</Button>}
                     <PageHelp title="Reports" sections={[
                         { icon: '📋', heading: 'What is this page?', body: 'Generate detailed monthly financial reports using AI. Each report analyses your income, expenses, savings, and spending patterns.' },

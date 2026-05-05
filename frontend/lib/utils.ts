@@ -98,7 +98,7 @@ export function getCategoryBg(categoryName?: string | null): string {
     return 'var(--bg-card)';
 }
 
-export function exportToCSV(transactions: any[], filename: string) {
+export async function exportToCSV(transactions: any[], filename: string) {
     const headers = ['Date', 'Description', 'Type', 'Amount', 'Category', 'Notes', 'Tags'];
     const rows = transactions.map(tx => [
         formatDate(tx.date),
@@ -110,7 +110,25 @@ export function exportToCSV(transactions: any[], filename: string) {
         (tx.tags || []).join(';'),
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    // data URI works in both browser and Capacitor WebView (blob URLs fail in WebView)
+
+    // Mobile / Capacitor WebView: use Web Share API with a File object.
+    // This opens the native Android share sheet — user can save to Files, email, etc.
+    // The `download` attribute on <a> tags is ignored in Android WebView.
+    try {
+        const file = new File([csv], filename, { type: 'text/csv' });
+        if (
+            typeof navigator.share === 'function' &&
+            typeof navigator.canShare === 'function' &&
+            navigator.canShare({ files: [file] })
+        ) {
+            await navigator.share({ files: [file], title: filename });
+            return;
+        }
+    } catch {
+        // User cancelled share or API not supported — fall through
+    }
+
+    // Desktop fallback: data URI anchor click
     const dataUri = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
     const link = document.createElement('a');
     link.href = dataUri;
