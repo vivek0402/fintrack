@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
+import { useCountUp } from '@/hooks/useCountUp';
+import { FadeIn } from '@/components/ui/FadeIn';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageShell } from '@/components/layout/PageShell';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
@@ -40,6 +42,11 @@ export default function DashboardPage() {
     const [aiReport, setAiReport] = useState('');
     const [aiReportLoading, setAiReportLoading] = useState(false);
 
+    // Animated hero numbers — count up from 0 when data finishes loading
+    const heroIncome   = useCountUp(summary?.total_income   ?? 0, 1000, !dataLoading);
+    const heroExpenses = useCountUp(summary?.total_expenses ?? 0, 1000, !dataLoading);
+    const heroNet      = useCountUp((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0), 1000, !dataLoading);
+    const fmtHero = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -167,11 +174,11 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
                 <div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Net Balance</div>
-                    <div style={{ fontSize: 38, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                        {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
+                    <div style={{ fontSize: 38, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>
+                        {fmtHero(heroNet)}
                     </div>
                     <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                        {'+₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN') + ' this month'}
+                        {'+' + fmtHero(heroNet) + ' this month'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
                         {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
@@ -180,11 +187,11 @@ export default function DashboardPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Income</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)' }}>{'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)', fontFamily: "'DM Mono', monospace" }}>{fmtHero(heroIncome)}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Expenses</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)' }}>{'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)', fontFamily: "'DM Mono', monospace" }}>{fmtHero(heroExpenses)}</div>
                     </div>
                 </div>
             </div>
@@ -384,14 +391,14 @@ export default function DashboardPage() {
             {/* ── LEFT: This Month ── */}
             <div style={{ width: 200, flexShrink: 0, paddingRight: 24 }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>This month</div>
-                <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                    {'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')}
+                <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>
+                    {fmtHero(heroNet)}
                 </div>
                 <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                    +{'₹' + Math.round((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0)).toLocaleString('en-IN')} this month
+                    +{fmtHero(heroNet)} this month
                 </div>
-                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-                    {'₹' + Math.round(summary?.total_income ?? 0).toLocaleString('en-IN')} in · {'₹' + Math.round(summary?.total_expenses ?? 0).toLocaleString('en-IN')} out
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)', fontFamily: "'DM Mono', monospace" }}>
+                    {fmtHero(heroIncome)} in · {fmtHero(heroExpenses)} out
                 </div>
             </div>
 
@@ -621,7 +628,7 @@ export default function DashboardPage() {
                             {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '90px' }} />)}
                         </div>
                     ) : summary && (
-                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
+                        <FadeIn><StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} /></FadeIn>
                     )}
 
                     {/* Row 2 — Hero card */}
@@ -651,7 +658,7 @@ export default function DashboardPage() {
                             {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '80px' }} />)}
                         </div>
                     ) : summary && (
-                        <StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} />
+                        <FadeIn><StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} /></FadeIn>
                     )}
 
                     {/* Hero */}

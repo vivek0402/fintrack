@@ -18,12 +18,15 @@ export function EmptyState({ icon: Icon, title, subtitle, action }: EmptyStatePr
             alignItems: 'center',
             padding: 'var(--space-12) var(--space-6)',
             textAlign: 'center',
+            animation: 'slideInUp 340ms cubic-bezier(0.22,1,0.36,1) both',
         }}>
-            <Icon
-                size={40}
-                color="var(--text-muted)"
-                style={{ marginBottom: 'var(--space-4)' }}
-            />
+            <div style={{ animation: 'popIn 420ms cubic-bezier(0.34,1.56,0.64,1) 80ms both' }}>
+                <Icon
+                    size={40}
+                    color="var(--text-muted)"
+                    style={{ marginBottom: 'var(--space-4)' }}
+                />
+            </div>
             <p style={{
                 fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
                 fontSize: '16px',

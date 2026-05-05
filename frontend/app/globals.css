@@ -366,6 +366,12 @@ button:active:not(:disabled) {
   50%       { opacity: 0.65; }
 }
 
+/* Budget progress bar fill — scale from left, works with any % width */
+@keyframes budgetFill {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+
 /* Horizontal slide-in from right — used on page transitions */
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(18px); }

@@ -40,7 +40,13 @@ const Alert = ({ budget, type, currency, onDismiss }: AlertProps) => {
                         <span style={{ fontSize: '0.68rem', fontWeight: 700, color: accentColor, background: accentBg, border: `1px solid ${accentBorder}`, padding: '1px 7px', borderRadius: '20px' }}>{pct.toFixed(0)}%</span>
                     </div>
                     <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '5px' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: accentColor, borderRadius: '2px', transition: 'width var(--transition-slow)' }} />
+                        <div style={{
+                            height: '100%',
+                            width: `${pct}%`,
+                            background: accentColor,
+                            borderRadius: '2px',
+                            animation: `budgetFill 700ms cubic-bezier(0.22,1,0.36,1) both`,
+                        }} />
                     </div>
                     <p style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', margin: 0 }}>
                         {isOver

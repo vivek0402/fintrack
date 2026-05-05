@@ -110,6 +110,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             boxShadow: aiFabHover ? '0 6px 28px rgba(99,102,241,0.6)' : '0 4px 20px rgba(99,102,241,0.4)',
                             transform: aiFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                            animation: aiFabHover ? undefined : 'softPulse 3s ease-in-out infinite',
                         }}
                     >
                         <Sparkles size={22} color="white" />

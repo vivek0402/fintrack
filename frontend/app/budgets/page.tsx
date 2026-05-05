@@ -229,7 +229,7 @@ export default function BudgetsPage() {
                                     </div>
                                 </div>
                                 <div style={{ height: '8px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', transition: 'width var(--transition-slow)', boxShadow: `0 0 8px ${barColor}60` }} />
+                                    <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: '4px', boxShadow: `0 0 8px ${barColor}60`, animation: 'budgetFill 700ms cubic-bezier(0.22,1,0.36,1) both' }} />
                                 </div>
                                 {editingId === budget.id && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
