@@ -160,7 +160,7 @@ export function BottomNav() {
                             fontSize: '16px',
                             fontWeight: 600,
                             color: 'var(--text-primary)',
-                            fontFamily: 'Sora, sans-serif',
+                            fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
                         }}>
                             More
                         </span>
@@ -313,9 +313,29 @@ export function BottomNav() {
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '4px 16px' }}>
-                                <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: active ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
-                                <Icon size={22} color={active ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
-                                <span style={{ fontSize: '11px', color: active ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                                {/* Sliding pill indicator */}
+                                <div style={{
+                                    width: active ? '24px' : '4px',
+                                    height: '3px',
+                                    borderRadius: '2px',
+                                    background: active ? 'var(--accent-blue)' : 'transparent',
+                                    marginBottom: '2px',
+                                    transition: 'width 300ms cubic-bezier(0.34,1.56,0.64,1), background 200ms ease',
+                                }} />
+                                {/* Icon with pop animation on active */}
+                                <div key={active ? 'active' : 'inactive'} style={{
+                                    animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
+                                }}>
+                                    <Icon size={22} color={active ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                                </div>
+                                <span style={{
+                                    fontSize: '11px',
+                                    color: active ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                                    fontWeight: active ? 600 : 400,
+                                    transition: 'color 200ms ease',
+                                }}>
+                                    {label}
+                                </span>
                             </div>
                         </Link>
                     );
@@ -326,9 +346,20 @@ export function BottomNav() {
                     onClick={() => setMoreOpen(v => !v)}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '4px 16px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                 >
-                    <div style={{ width: '20px', height: '3px', borderRadius: '2px', background: moreActive || moreOpen ? 'var(--accent-blue)' : 'transparent', marginBottom: '2px' }} />
-                    <MoreHorizontal size={22} color={moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
-                    <span style={{ fontSize: '11px', color: moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: moreActive || moreOpen ? 600 : 400 }}>More</span>
+                    <div style={{
+                        width: moreActive || moreOpen ? '24px' : '4px',
+                        height: '3px',
+                        borderRadius: '2px',
+                        background: moreActive || moreOpen ? 'var(--accent-blue)' : 'transparent',
+                        marginBottom: '2px',
+                        transition: 'width 300ms cubic-bezier(0.34,1.56,0.64,1), background 200ms ease',
+                    }} />
+                    <div key={moreOpen ? 'open' : 'closed'} style={{
+                        animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
+                    }}>
+                        <MoreHorizontal size={22} color={moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)'} />
+                    </div>
+                    <span style={{ fontSize: '11px', color: moreActive || moreOpen ? 'var(--accent-blue)' : 'var(--text-secondary)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease' }}>More</span>
                 </button>
             </nav>
         </>

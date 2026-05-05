@@ -78,7 +78,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
                     zIndex: 10000,
-                    animation: 'scaleIn 200ms ease forwards',
+                    animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both',
                 }}
             >
                 {/* Header */}

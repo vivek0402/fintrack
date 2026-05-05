@@ -37,7 +37,7 @@ export function Button({
         border: 'none',
         cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
         opacity: disabled || isLoading ? 0.4 : 1,
-        transition: `all var(--transition-fast)`,
+        transition: `transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease, background 150ms ease`,
         whiteSpace: 'nowrap' as const,
         outline: 'none',
         flexShrink: 0,
@@ -83,7 +83,7 @@ export function Button({
         },
     };
 
-    const transform = pressed && !disabled && !isLoading ? 'scale(0.97)' : 'scale(1)';
+    const transform = pressed && !disabled && !isLoading ? 'scale(0.93)' : 'scale(1)';
 
     const variantStyle = variants[variant] || variants.primary;
     // For primary, override the opacity from base since we handle it in variant

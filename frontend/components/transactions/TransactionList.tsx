@@ -57,6 +57,9 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const getDateLabel = (d: string) => d === today ? 'Today' : d === yesterday ? 'Yesterday' : formatDate(d);
 
+    // Global row counter for stagger across all groups
+    let rowIndex = 0;
+
     return (
         <div>
             {Object.entries(groups).map(([date, txs]) => (
@@ -66,6 +69,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         <div style={{ flex: 1, height: '1px', background: 'var(--bg-border)' }} />
                     </div>
                     {txs.map(tx => {
+                        const staggerDelay = Math.min(rowIndex++ * 28, 280);
                         const isIncome = tx.type === 'income';
                         const isConfirm = confirmId === tx.id;
                         const categoryColor = tx.category_color || getCategoryColor(tx.category_name);
@@ -193,17 +197,30 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                         if (isMobile) {
                             return (
-                                <SwipeableRow
+                                <div
                                     key={tx.id}
-                                    onSwipeLeft={() => handleDelete(tx.id)}
-                                    onSwipeRight={() => handleRegret(tx.id)}
-                                    isRegretted={tx.is_regretted}
+                                    style={{
+                                        animation: `slideInUp 280ms cubic-bezier(0.22,1,0.36,1) ${staggerDelay}ms both`,
+                                    }}
                                 >
-                                    {mobileRowInner}
-                                </SwipeableRow>
+                                    <SwipeableRow
+                                        onSwipeLeft={() => handleDelete(tx.id)}
+                                        onSwipeRight={() => handleRegret(tx.id)}
+                                        isRegretted={tx.is_regretted}
+                                    >
+                                        {mobileRowInner}
+                                    </SwipeableRow>
+                                </div>
                             );
                         }
-                        return <div key={tx.id}>{desktopRowInner}</div>;
+                        return (
+                            <div
+                                key={tx.id}
+                                style={{ animation: `slideInUp 220ms cubic-bezier(0.22,1,0.36,1) ${staggerDelay}ms both` }}
+                            >
+                                {desktopRowInner}
+                            </div>
+                        );
                     })}
                 </div>
             ))}
