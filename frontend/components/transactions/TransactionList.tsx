@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pencil, Trash2, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
 import { toast } from '@/store/toastStore';
+import { useAuthStore } from '@/store/authStore';
 import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -18,6 +19,7 @@ interface Props {
 
 export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh }: Props) {
     const isMobile = useIsMobile();
+    const { user } = useAuthStore();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
     const [regrettingId, setRegrettingId] = useState<string | null>(null);
@@ -41,6 +43,11 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             try {
                 await transactionsAPI.delete(id);
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                // Bust dashboard cache
+                if (user) {
+                    const now = new Date();
+                    localStorage.removeItem(`dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`);
+                }
                 onRefresh();
             } catch {
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });

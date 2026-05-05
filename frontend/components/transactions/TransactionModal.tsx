@@ -12,6 +12,8 @@ import { transactionsAPI, categoriesAPI, accountsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { toast } from '@/store/toastStore';
+import { useAuthStore } from '@/store/authStore';
 
 // ─── Category icon helpers ────────────────────────────────────────────────────
 
@@ -136,6 +138,7 @@ interface Props {
 
 export function TransactionModal({ isOpen, onClose, onSuccess, transaction, prefill, defaultDate }: Props) {
     const isEditing = !!transaction;
+    const { user } = useAuthStore();
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense',
         amount: '', description: '', notes: '',
@@ -345,6 +348,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
+            // Bust dashboard cache so next visit reflects new data
+            if (user) {
+                const now = new Date();
+                const key = `dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`;
+                localStorage.removeItem(key);
+            }
+            toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
         } catch (err: any) {
             setError(err.response?.data?.error || 'Something went wrong.');

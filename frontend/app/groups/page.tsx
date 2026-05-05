@@ -15,6 +15,7 @@ import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { toast } from '@/store/toastStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Member { id?: number; name: string; email?: string }
@@ -227,9 +228,12 @@ export default function GroupsPage() {
     // Settle share
     const settleShare = async (split: Split, share: Share) => {
         if (!selectedGroup) return;
-        await groupsAPI.settleShare(String(selectedGroup.id), String(split.id), String(share.id));
-        await openGroup(selectedGroup);
-        if (activeTab === 'settle') await loadSettlements();
+        try {
+            await groupsAPI.settleShare(String(selectedGroup.id), String(split.id), String(share.id));
+            await openGroup(selectedGroup);
+            if (activeTab === 'settle') await loadSettlements();
+            toast.success(`${share.member}'s share marked as settled`);
+        } catch { toast.error('Failed to settle share'); }
     };
 
     // Link transaction

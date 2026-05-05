@@ -98,20 +98,30 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
 export function ToastContainer() {
     const { toasts, dismiss } = useToastStore();
     const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        const check = () => setIsMobile(window.innerWidth <= 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
     if (!mounted || toasts.length === 0) return null;
 
     return createPortal(
         <div style={{
             position: 'fixed',
-            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 12px)',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            ...(isMobile
+                ? { bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 12px)', left: '50%', transform: 'translateX(-50%)' }
+                : { bottom: '28px', right: '28px', left: 'auto', transform: 'none' }
+            ),
             zIndex: 9998,
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            alignItems: 'center',
+            alignItems: isMobile ? 'center' : 'flex-end',
             pointerEvents: 'none',
         }}>
             {toasts.map(t => (

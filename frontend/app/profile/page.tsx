@@ -13,6 +13,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import PageHelp from '@/components/ui/PageHelp';
+import { toast } from '@/store/toastStore';
 
 const CURRENCIES = [
     { code: 'INR', label: 'Indian Rupee (₹)' },
@@ -54,20 +55,34 @@ export default function ProfilePage() {
         try {
             const res = await profileAPI.update(profileForm);
             if (token) setAuth(res.data.user, token);
+            toast.success('Profile updated');
             setProfileMsg({ type: 'success', text: 'Profile updated successfully.' });
-        } catch (err: any) { setProfileMsg({ type: 'error', text: err.response?.data?.error || 'Failed to update.' }); }
+        } catch (err: any) {
+            const msg = err.response?.data?.error || 'Failed to update.';
+            toast.error(msg);
+            setProfileMsg({ type: 'error', text: msg });
+        }
         finally { setProfileLoading(false); }
     };
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault(); setPassMsg(null);
-        if (passForm.new_password !== passForm.confirm_password) { setPassMsg({ type: 'error', text: 'Passwords do not match.' }); return; }
+        if (passForm.new_password !== passForm.confirm_password) {
+            toast.error('Passwords do not match');
+            setPassMsg({ type: 'error', text: 'Passwords do not match.' });
+            return;
+        }
         setPassLoading(true);
         try {
             await profileAPI.changePassword({ current_password: passForm.current_password, new_password: passForm.new_password });
             setPassForm({ current_password: '', new_password: '', confirm_password: '' });
+            toast.success('Password changed');
             setPassMsg({ type: 'success', text: 'Password changed successfully.' });
-        } catch (err: any) { setPassMsg({ type: 'error', text: err.response?.data?.error || 'Failed to change password.' }); }
+        } catch (err: any) {
+            const msg = err.response?.data?.error || 'Failed to change password.';
+            toast.error(msg);
+            setPassMsg({ type: 'error', text: msg });
+        }
         finally { setPassLoading(false); }
     };
 

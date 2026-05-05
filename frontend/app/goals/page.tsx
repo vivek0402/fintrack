@@ -17,6 +17,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { formatCurrency } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 import { FadeIn } from '@/components/ui/FadeIn';
+import { toast } from '@/store/toastStore';
 
 const GOAL_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
 
@@ -116,13 +117,15 @@ export default function GoalsPage() {
             const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
             await goalsAPI.addFunds(fundsGoalId, amount);
             setFundsGoalId(null); setFundsAmount(''); fetchGoals();
-        } catch (err) { console.error(err); }
+            toast.success(fundsType === 'add' ? 'Funds added to goal' : 'Funds withdrawn from goal');
+        } catch { toast.error('Failed to update goal funds'); }
         finally { setFundsLoading(false); }
     };
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
-        try { await goalsAPI.delete(id); fetchGoals(); }
+        try { await goalsAPI.delete(id); fetchGoals(); toast.success('Goal deleted'); }
+        catch { toast.error('Failed to delete goal'); }
         finally { setDeletingId(null); setConfirmDeleteId(null); }
     };
 
