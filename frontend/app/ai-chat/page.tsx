@@ -99,10 +99,6 @@ export default function AiChatPage() {
 
     return (
         <AppLayout>
-            <PageShell
-                title="AI Chat"
-                subtitle="Ask anything about your finances"
-            >
             {/* Fixed Header */}
             <div style={{
                 position: 'fixed',
@@ -128,7 +124,7 @@ export default function AiChatPage() {
                         <Sparkles size={18} color="var(--accent-blue)" />
                     </div>
                     <div>
-                        <div style={{ fontFamily: 'Sora, sans-serif', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                        <div style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
                             AI Finance Advisor
                         </div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
@@ -331,7 +327,6 @@ export default function AiChatPage() {
                     <Send size={16} />
                 </button>
             </div>
-            </PageShell>
         </AppLayout>
     );
 }

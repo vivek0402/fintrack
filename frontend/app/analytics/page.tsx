@@ -9,7 +9,8 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
-import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet, BarChart2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { formatCurrency, exportToCSV } from '@/lib/utils';
 import PageHelp from '@/components/ui/PageHelp';
 import { PageShell } from '@/components/layout/PageShell';
@@ -383,7 +384,7 @@ export default function AnalyticsPage() {
             <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
                 <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Monthly Income vs Expenses</h3>
                 {barData.length === 0 ? (
-                    <div style={{ height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No data yet</div>
+                    <EmptyState icon={BarChart2} title="No data yet" subtitle="Add some transactions to see your income vs expense trend" />
                 ) : (
                     <ResponsiveContainer width="100%" height={280}>
                         <BarChart data={barData} barGap={4}>
@@ -401,7 +402,7 @@ export default function AnalyticsPage() {
                 <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
                     <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
                     {categories.length === 0 ? (
-                        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>No expense data this month</div>
+                        <EmptyState icon={BarChart2} title="No expenses this month" subtitle="Add expense transactions to see your category breakdown" />
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {categories.map(cat => {

@@ -128,7 +128,12 @@ function TransactionsPageInner() {
         if (typeFilter !== 'all') result = result.filter(tx => tx.type === typeFilter);
         if (search.trim()) {
             const q = search.toLowerCase();
-            result = result.filter(tx => tx.description.toLowerCase().includes(q) || tx.category_name?.toLowerCase().includes(q));
+            result = result.filter(tx =>
+                tx.description?.toLowerCase().includes(q) ||
+                tx.category_name?.toLowerCase().includes(q) ||
+                tx.notes?.toLowerCase().includes(q) ||
+                tx.tags?.some((t: string) => t.toLowerCase().includes(q))
+            );
         }
         if (tagFilter.trim()) {
             const tag = tagFilter.toLowerCase().replace('#', '');

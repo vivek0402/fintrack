@@ -37,12 +37,12 @@ export default function LoginPage() {
 
     const inputStyle = (field: string): React.CSSProperties => ({
         width: '100%',
-        background: '#141d35',
+        background: 'var(--surface-1)',
         border: focusedField === field ? '1px solid #3b82f6' : '1px solid #1e2d4a',
         borderRadius: 8,
         padding: '10px 12px',
         fontSize: 14,
-        color: '#f0f4ff',
+        color: 'var(--text-primary)',
         outline: 'none',
         boxSizing: 'border-box',
         boxShadow: focusedField === field ? '0 0 0 2px rgba(59,130,246,0.12)' : 'none',
@@ -57,17 +57,17 @@ export default function LoginPage() {
             <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, background: 'rgba(12,18,36,0.95)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '32px 28px' }}>
 
                 {/* Brand wordmark */}
-                <div style={{ fontFamily: 'Sora,sans-serif', fontSize: 26, fontWeight: 800, color: '#f0f4ff', letterSpacing: '-0.02em', marginBottom: 24 }}>
-                    Fin<span style={{ color: '#3b82f6' }}>Track</span>
+                <div style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 24 }}>
+                    Fin<span style={{ color: 'var(--accent-blue)' }}>Track</span>
                 </div>
 
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#f0f4ff', fontFamily: 'Sora,sans-serif', marginBottom: 4 }}>Welcome back</div>
-                <div style={{ fontSize: 13, color: '#4a5568', marginBottom: 24 }}>Sign in to your account</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", marginBottom: 4 }}>Welcome back</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Sign in to your account</div>
 
                 <form onSubmit={handleSubmit} autoComplete="off">
                     {/* Email */}
                     <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>EMAIL</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>EMAIL</div>
                         <input
                             type="email"
                             value={form.email}
@@ -83,7 +83,7 @@ export default function LoginPage() {
 
                     {/* Password */}
                     <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 10, color: '#4a5568', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>PASSWORD</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>PASSWORD</div>
                         <div style={{ position: 'relative' }}>
                             <input
                                 type={showPassword ? 'text' : 'password'}
@@ -99,7 +99,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(v => !v)}
-                                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#4a5568', padding: 0, display: 'flex', alignItems: 'center' }}
+                                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}
                             >
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
@@ -111,20 +111,20 @@ export default function LoginPage() {
                         <button
                             type="button"
                             onClick={() => router.push('/forgot-password')}
-                            style={{ background: 'none', border: 'none', fontSize: 12, color: '#3b82f6', fontWeight: 500, cursor: 'pointer', padding: 0 }}
+                            style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--accent-blue)', fontWeight: 500, cursor: 'pointer', padding: 0 }}
                         >
                             Forgot password?
                         </button>
                     </div>
 
                     {error && (
-                        <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 8, fontSize: 12, color: '#f43f5e' }}>{error}</div>
+                        <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--accent-red)' }}>{error}</div>
                     )}
 
                     <button
                         type="submit"
                         disabled={loading}
-                        style={{ background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', color: 'white', border: 'none', borderRadius: 10, padding: 12, fontSize: 14, fontWeight: 600, width: '100%', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                        style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: 10, padding: 12, fontSize: 14, fontWeight: 600, width: '100%', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                     >
                         {loading
                             ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
@@ -132,9 +132,9 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                <div style={{ textAlign: 'center', fontSize: 12, color: '#4a5568', marginTop: 16 }}>
+                <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 16 }}>
                     New to FinTrack?{' '}
-                    <span style={{ color: '#3b82f6', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>Create account</span>
+                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>Create account</span>
                 </div>
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

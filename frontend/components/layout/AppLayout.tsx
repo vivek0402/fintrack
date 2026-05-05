@@ -9,6 +9,7 @@ import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 
@@ -85,7 +86,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     animation: 'pageEnter 0.2s ease-out forwards',
                 }}
             >
-                {children}
+                <ErrorBoundary>{children}</ErrorBoundary>
             </main>
             {isMobile && <BottomNav />}
 
