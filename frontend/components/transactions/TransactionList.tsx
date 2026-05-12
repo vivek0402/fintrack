@@ -43,10 +43,23 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             try {
                 await transactionsAPI.delete(id);
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
-                // Bust dashboard cache
+                // Bust dashboard and analytics cache for current month and the transaction's own month
                 if (user) {
                     const now = new Date();
-                    localStorage.removeItem(`dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`);
+                    const cm = now.getMonth() + 1;
+                    const cy = now.getFullYear();
+                    localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
+                    localStorage.removeItem(`analytics-cache-${user.id}-${cm}-${cy}`);
+                    const tx = transactions.find(t => t.id === id);
+                    if (tx?.date) {
+                        const [txYear, txMonth] = (tx.date as string).split('T')[0].split('-');
+                        const tm = parseInt(txMonth);
+                        const ty = parseInt(txYear);
+                        if (tm !== cm || ty !== cy) {
+                            localStorage.removeItem(`dashboard-cache-${user.id}-${tm}-${ty}`);
+                            localStorage.removeItem(`analytics-cache-${user.id}-${tm}-${ty}`);
+                        }
+                    }
                 }
                 onRefresh();
             } catch {
@@ -83,8 +96,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
         groups[dateKey].push(tx);
     });
 
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const getDateLabel = (d: string) => d === today ? 'Today' : d === yesterday ? 'Yesterday' : formatDate(d);
 
     // Global row counter for stagger across all groups

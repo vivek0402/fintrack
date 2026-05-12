@@ -175,8 +175,8 @@ router.patch('/:id/set-default', async (req, res) => {
                 [req.user.id]
             );
             await client.query(
-                `UPDATE bank_accounts SET is_default = TRUE, updated_at = NOW() WHERE id = $1`,
-                [req.params.id]
+                `UPDATE bank_accounts SET is_default = TRUE, updated_at = NOW() WHERE id = $1 AND user_id = $2`,
+                [req.params.id, req.user.id]
             );
             const linked = await client.query(
                 `UPDATE transactions SET account_id = $1 WHERE user_id = $2 AND account_id IS NULL`,
@@ -200,21 +200,29 @@ router.patch('/:id/set-default', async (req, res) => {
 
 // DELETE /api/accounts/:id
 router.delete('/:id', async (req, res) => {
+    const client = await pool.connect();
     try {
-        // Unlink transactions before deleting
-        await pool.query(
+        await client.query('BEGIN');
+        await client.query(
             `UPDATE transactions SET account_id = NULL WHERE account_id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
         );
-        const { rowCount } = await pool.query(
+        const { rowCount } = await client.query(
             `DELETE FROM bank_accounts WHERE id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]
         );
-        if (!rowCount) return res.status(404).json({ error: 'Account not found' });
+        if (!rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Account not found' });
+        }
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Failed to delete account' });
+    } finally {
+        client.release();
     }
 });
 

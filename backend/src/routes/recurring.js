@@ -107,21 +107,26 @@ router.post('/process', async (req, res) => {
 
         const created = [];
         for (const r of due.rows) {
-            await pool.query(
-                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
-            );
-
             const current = new Date(r.next_due_date);
             let next = new Date(current);
             if (r.frequency === 'daily') next.setDate(current.getDate() + 1);
             else if (r.frequency === 'weekly') next.setDate(current.getDate() + 7);
             else if (r.frequency === 'monthly') { next.setMonth(current.getMonth() + 1); if (r.day_of_month) next.setDate(r.day_of_month); }
+            const nextStr = next.toISOString().split('T')[0];
+
+            // Atomically advance next_due_date only if it still matches what we read.
+            // This prevents duplicate transactions when two requests race (e.g. two browser tabs).
+            const { rowCount } = await pool.query(
+                `UPDATE recurring_transactions SET next_due_date=$1
+                 WHERE id=$2 AND next_due_date=$3`,
+                [nextStr, r.id, r.next_due_date]
+            );
+            if (rowCount === 0) continue; // another concurrent request already processed this item
 
             await pool.query(
-                'UPDATE recurring_transactions SET next_due_date=$1 WHERE id=$2',
-                [next.toISOString().split('T')[0], r.id]
+                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
             );
             created.push(r.description);
         }

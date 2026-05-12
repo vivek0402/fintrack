@@ -109,12 +109,14 @@ router.put('/:id', async (req, res) => {
         const result = await pool.query(
             `UPDATE transactions SET
          type = COALESCE($1,type), amount = COALESCE($2,amount),
-         description = COALESCE($3,description), notes = COALESCE($4,notes),
+         description = COALESCE($3,description),
+         notes = CASE WHEN $4::text IS NOT NULL THEN $4 WHEN $11::boolean THEN NULL ELSE notes END,
          tags = COALESCE($5,tags), date = COALESCE($6,date),
-         category_id = COALESCE($7,category_id),
+         category_id = $7,
          payment_method = COALESCE($8,payment_method), updated_at = NOW()
        WHERE id = $9 AND user_id = $10 RETURNING *`,
-            [type, amount, description, notes, tags, date, category_id, payment_method, req.params.id, req.user.id]
+            [type, amount, description, notes, tags, date, category_id, payment_method,
+             req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null]
         );
         res.json({ transaction: result.rows[0] });
     } catch (err) {

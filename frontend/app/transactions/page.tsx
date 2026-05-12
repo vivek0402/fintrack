@@ -67,6 +67,18 @@ function TransactionsPageInner() {
         ? `${MONTHS_SHORT[selectedMonth - 1]} ${selectedYear}`
         : 'All time';
 
+    const searchClearedMonthRef = useRef(false);
+    useEffect(() => {
+        if (search.trim() && selectedMonth !== null) {
+            searchClearedMonthRef.current = true;
+            setSelectedMonth(null);
+        } else if (!search.trim() && searchClearedMonthRef.current) {
+            searchClearedMonthRef.current = false;
+            setSelectedMonth(NOW_MONTH);
+            setSelectedYear(NOW_YEAR);
+        }
+    }, [search]);
+
     useEffect(() => {
         if (!quickAddOpen) return;
         const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % QUICK_ADD_PLACEHOLDERS.length), 2500);
@@ -79,8 +91,8 @@ function TransactionsPageInner() {
         setQuickAddLoading(true);
         setQuickAddError('');
         try {
-            const res = await aiAPI.parseSMS(quickAddText.trim());
-            const parsed = res.data.parsed;
+            const res = await aiAPI.quickAdd(quickAddText.trim());
+            const parsed = res.data.data;
             if (!parsed) throw new Error('No parsed result');
             setQuickAddOpen(false);
             setQuickAddText('');

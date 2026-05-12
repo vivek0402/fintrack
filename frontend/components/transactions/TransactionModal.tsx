@@ -257,11 +257,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     }, [transaction, isOpen, defaultDate, prefill]);
 
     // Set default account_id once accounts load without resetting the rest of the form.
+    // Skip when editing an existing transaction — its account_id was set explicitly in the
+    // form-reset effect and should not be overwritten, even if it is null (intentionally unlinked).
     useEffect(() => {
-        if (!isOpen || accounts.length === 0) return;
+        if (!isOpen || accounts.length === 0 || isEditing) return;
         const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
         setForm(prev => prev.account_id === null ? { ...prev, account_id: defaultAccountId } : prev);
-    }, [accounts, isOpen]);
+    }, [accounts, isOpen, isEditing]);
 
     const findCategory = (cats: any[], aiCat: string) => {
         if (!aiCat || !cats.length) return null;
@@ -357,15 +359,21 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
-            // Bust dashboard cache for both the current month and the transaction's month
+            // Bust dashboard and analytics cache for current month and the transaction's month
             if (user) {
                 const now = new Date();
-                const currentKey = `dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`;
-                localStorage.removeItem(currentKey);
+                const cm = now.getMonth() + 1;
+                const cy = now.getFullYear();
+                localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
+                localStorage.removeItem(`analytics-cache-${user.id}-${cm}-${cy}`);
                 if (form.date) {
                     const [txYear, txMonth] = form.date.split('-');
-                    const txKey = `dashboard-cache-${user.id}-${parseInt(txMonth)}-${txYear}`;
-                    if (txKey !== currentKey) localStorage.removeItem(txKey);
+                    const tm = parseInt(txMonth);
+                    const ty = parseInt(txYear);
+                    if (tm !== cm || ty !== cy) {
+                        localStorage.removeItem(`dashboard-cache-${user.id}-${tm}-${ty}`);
+                        localStorage.removeItem(`analytics-cache-${user.id}-${tm}-${ty}`);
+                    }
                 }
             }
             toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
@@ -419,7 +427,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
     const selectedDate = form.date ? new Date(form.date + 'T00:00:00') : null
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 
     const handleDayClick = (day: number, monthType: 'prev' | 'cur' | 'next') => {
         let m = calMonth, y = calYear
