@@ -36,17 +36,17 @@ router.post('/', async (req, res) => {
 router.patch('/:id/funds', async (req, res) => {
     try {
         const { amount } = req.body;
-        const current = await pool.query(
-            'SELECT saved_amount FROM savings_goals WHERE id=$1 AND user_id=$2',
-            [req.params.id, req.user.id]
-        );
-        if (current.rows.length === 0) return res.status(404).json({ error: 'Goal not found.' });
+        const delta = parseFloat(amount);
+        if (!isFinite(delta)) return res.status(400).json({ error: 'amount must be a number.' });
 
-        const newAmount = Math.max(0, parseFloat(current.rows[0].saved_amount) + parseFloat(amount));
+        // Atomic read-modify-write in SQL to prevent lost-update race conditions
         const result = await pool.query(
-            'UPDATE savings_goals SET saved_amount=$1, updated_at=NOW() WHERE id=$2 AND user_id=$3 RETURNING *',
-            [newAmount, req.params.id, req.user.id]
+            `UPDATE savings_goals
+             SET saved_amount = GREATEST(0, saved_amount + $1), updated_at = NOW()
+             WHERE id = $2 AND user_id = $3 RETURNING *`,
+            [delta, req.params.id, req.user.id]
         );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Goal not found.' });
         res.json({ goal: result.rows[0] });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });

@@ -82,7 +82,7 @@ export default function DashboardPage() {
 
             setDataLoading(true);
             try {
-                await recurringAPI.process();
+                recurringAPI.process().catch(err => console.error('[Recurring]', err));
                 const [summaryRes, trendsRes, txRes, budgetsRes, forecastRes] = await Promise.all([
                     analyticsAPI.summary({ month, year }),
                     analyticsAPI.trends(),
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                         {fmtHero(heroNet)}
                     </div>
                     <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                        {'+' + fmtHero(heroNet) + ' this month'}
+                        {(heroNet >= 0 ? '+' : '') + fmtHero(heroNet) + ' this month'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
                         {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                     {fmtHero(heroNet)}
                 </div>
                 <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                    +{fmtHero(heroNet)} this month
+                    {(heroNet >= 0 ? '+' : '') + fmtHero(heroNet)} this month
                 </div>
                 <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)', fontFamily: "'DM Mono', monospace" }}>
                     {fmtHero(heroIncome)} in · {fmtHero(heroExpenses)} out

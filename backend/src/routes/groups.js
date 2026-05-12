@@ -162,7 +162,14 @@ router.delete('/:id', async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // Unlink any transactions that reference this group
+        // Unlink any transactions that reference splits in this group (auto-created by addSplit)
+        await client.query(
+            `UPDATE transactions SET split_id = NULL WHERE split_id IN (
+               SELECT id FROM group_splits WHERE group_id = $1
+             )`,
+            [req.params.id]
+        );
+        // Unlink any transactions that reference this group directly
         await client.query(
             `UPDATE transactions SET group_id = NULL, split_id = NULL WHERE group_id = $1 AND user_id = $2`,
             [req.params.id, req.user.id]

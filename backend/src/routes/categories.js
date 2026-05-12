@@ -44,6 +44,15 @@ router.post('/', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
     try {
+        const cat = await pool.query(
+            `SELECT is_default FROM categories WHERE id = $1 AND user_id = $2`,
+            [req.params.id, req.user.id]
+        );
+        if (cat.rows.length === 0)
+            return res.status(404).json({ error: 'Category not found.' });
+        if (cat.rows[0].is_default)
+            return res.status(403).json({ error: 'Cannot delete a default category.' });
+
         const result = await pool.query(
             `DELETE FROM categories WHERE id = $1 AND user_id = $2 RETURNING id`,
             [req.params.id, req.user.id]

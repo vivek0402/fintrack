@@ -116,7 +116,7 @@ export default function GoalsPage() {
         try {
             const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
             await goalsAPI.addFunds(fundsGoalId, amount);
-            setFundsGoalId(null); setFundsAmount(''); fetchGoals();
+            setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); fetchGoals();
             toast.success(fundsType === 'add' ? 'Funds added to goal' : 'Funds withdrawn from goal');
         } catch { toast.error('Failed to update goal funds'); }
         finally { setFundsLoading(false); }
@@ -321,7 +321,7 @@ export default function GoalsPage() {
             )}
 
             {/* Add Funds Modal */}
-            <Modal isOpen={!!fundsGoalId} onClose={() => { setFundsGoalId(null); setFundsAmount(''); }} title="Update Savings" maxWidth="360px">
+            <Modal isOpen={!!fundsGoalId} onClose={() => { setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); }} title="Update Savings" maxWidth="360px">
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                             {(['add', 'withdraw'] as const).map(t => (
                                 <button key={t} type="button" onClick={() => setFundsType(t)}

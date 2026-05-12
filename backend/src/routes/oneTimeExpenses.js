@@ -98,8 +98,9 @@ router.put('/:id', authMiddleware, async (req, res) => {
     );
     const total = parseFloat(totalResult.rows[0].total);
 
+    const parsedBankId = bank_account_id ? parseInt(bank_account_id, 10) : null;
     const newBankId = bank_account_id !== undefined
-      ? (bank_account_id ? parseInt(bank_account_id, 10) : null)
+      ? (Number.isFinite(parsedBankId) ? parsedBankId : null)
       : old.bank_account_id;
 
     // Rebalance only when bank account actually changes
