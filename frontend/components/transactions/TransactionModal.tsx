@@ -214,9 +214,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         return () => document.removeEventListener('mousedown', handler)
     }, [calOpen])
 
-    // Populate form when modal opens or transaction/prefill changes
+    // Populate form when modal opens or transaction/prefill changes.
+    // accounts is intentionally excluded from deps — account_id defaulting is handled
+    // in the separate effect below to avoid resetting the form when accounts load async.
     useEffect(() => {
-        const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
             setForm({
@@ -228,7 +229,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 category_id: transaction.category_id || '',
                 tags: Array.isArray(transaction.tags) ? transaction.tags : [],
                 payment_method: transaction.payment_method || 'Cash',
-                account_id: transaction.account_id ?? defaultAccountId,
+                account_id: transaction.account_id ?? null,
             });
         } else if (prefill) {
             setForm({
@@ -240,11 +241,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                 category_id: '',
                 tags: [],
                 payment_method: 'Cash',
-                account_id: defaultAccountId,
+                account_id: null,
             });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: defaultAccountId });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null });
             setTagInput('');
         }
         setError('');
@@ -252,7 +253,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
         setShowAddCat(false);
         setShowNewCategoryPrompt(false);
         setPendingNewCategory('');
-    }, [transaction, isOpen, defaultDate, prefill, accounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [transaction, isOpen, defaultDate, prefill]);
+
+    // Set default account_id once accounts load without resetting the rest of the form.
+    useEffect(() => {
+        if (!isOpen || accounts.length === 0) return;
+        const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
+        setForm(prev => prev.account_id === null ? { ...prev, account_id: defaultAccountId } : prev);
+    }, [accounts, isOpen]);
 
     const findCategory = (cats: any[], aiCat: string) => {
         if (!aiCat || !cats.length) return null;
@@ -348,11 +357,16 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
-            // Bust dashboard cache so next visit reflects new data
+            // Bust dashboard cache for both the current month and the transaction's month
             if (user) {
                 const now = new Date();
-                const key = `dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`;
-                localStorage.removeItem(key);
+                const currentKey = `dashboard-cache-${user.id}-${now.getMonth() + 1}-${now.getFullYear()}`;
+                localStorage.removeItem(currentKey);
+                if (form.date) {
+                    const [txYear, txMonth] = form.date.split('-');
+                    const txKey = `dashboard-cache-${user.id}-${parseInt(txMonth)}-${txYear}`;
+                    if (txKey !== currentKey) localStorage.removeItem(txKey);
+                }
             }
             toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
