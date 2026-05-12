@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, ChevronDown, ChevronUp, X, Plus } from 'lucide-react';
+import { Pencil, Trash2, ChevronDown, ChevronUp, X, Plus, Star } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageShell } from '@/components/layout/PageShell';
 import { Button } from '@/components/ui/Button';
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useCountUp } from '@/hooks/useCountUp';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ export default function AccountsPage() {
     const [cards,   setCards]   = useState<CreditCard[]>([]);
     const [wallets, setWallets] = useState<Wallet[]>([]);
     const [mounted, setMounted] = useState(false);
+    const [dataLoading, setDataLoading] = useState(true);
 
     const [showBankModal,   setShowBankModal]   = useState(false);
     const [showCardModal,   setShowCardModal]   = useState(false);
@@ -120,6 +122,7 @@ export default function AccountsPage() {
     };
 
     const fetchAll = useCallback(async () => {
+        setDataLoading(true);
         const [banksRes, cardsRes, walletsRes] = await Promise.allSettled([
             accountsAPI.getAll(),
             creditCardsAPI.getAll(),
@@ -128,6 +131,7 @@ export default function AccountsPage() {
         if (banksRes.status   === 'fulfilled') setBanks(banksRes.value.data.accounts);
         if (cardsRes.status   === 'fulfilled') setCards(cardsRes.value.data.cards);
         if (walletsRes.status === 'fulfilled') setWallets(walletsRes.value.data.wallets);
+        setDataLoading(false);
     }, []);
 
     useEffect(() => { if (user) fetchAll(); }, [user, fetchAll]);
@@ -284,6 +288,16 @@ export default function AccountsPage() {
         setEditingWalletBalanceId(null);
     };
 
+    // ── Set default bank ────────────────────────────────────────────────────
+
+    const handleSetDefault = async (id: number) => {
+        try {
+            await accountsAPI.setDefault(id);
+            await fetchAll();
+            showToast('Default account updated');
+        } catch { showToast('Failed to set default'); }
+    };
+
     // ── Delete ──────────────────────────────────────────────────────────────
 
     const confirmDelete = (type: 'bank' | 'card' | 'wallet', id: number, name: string) => {
@@ -417,7 +431,15 @@ export default function AccountsPage() {
                         </span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {banks.map(b => (
+                        {dataLoading ? [1,2].map(i => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: '14px 16px', borderLeft: '4px solid var(--bg-border)' }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <Skeleton width="45%" height={14} borderRadius={4} />
+                                    <Skeleton width="25%" height={11} borderRadius={4} />
+                                </div>
+                                <Skeleton width={80} height={16} borderRadius={4} />
+                            </div>
+                        )) : banks.map(b => (
                             <div key={b.id} style={{
                                 display: 'flex', alignItems: 'center',
                                 background: 'var(--surface-1)', border: '1px solid var(--bg-border)',
@@ -448,8 +470,16 @@ export default function AccountsPage() {
                                     <span style={{ fontSize: 15, fontFamily: 'DM Mono, monospace', fontWeight: 500, color: 'var(--text-primary)' }}>
                                         {fmt(b.current_balance)}
                                     </span>
-                                    <button style={iconBtn} onClick={() => openEditBank(b)}><Pencil size={14} /></button>
-                                    <button style={iconBtn} onClick={() => confirmDelete('bank', b.id, b.name)}><Trash2 size={14} /></button>
+                                    <button
+                                        type="button"
+                                        style={{ ...iconBtn, color: b.is_default ? 'var(--accent-yellow, #f59e0b)' : 'var(--text-muted)' }}
+                                        onClick={() => !b.is_default && handleSetDefault(b.id)}
+                                        title={b.is_default ? 'Default account' : 'Set as default'}
+                                    >
+                                        <Star size={14} fill={b.is_default ? 'currentColor' : 'none'} />
+                                    </button>
+                                    <button type="button" style={iconBtn} onClick={() => openEditBank(b)}><Pencil size={14} /></button>
+                                    <button type="button" style={iconBtn} onClick={() => confirmDelete('bank', b.id, b.name)}><Trash2 size={14} /></button>
                                 </div>
                             </div>
                         ))}
@@ -470,7 +500,18 @@ export default function AccountsPage() {
                         </span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {cards.map(c => {
+                        {dataLoading ? [1,2].map(i => (
+                            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: 12, padding: '14px 14px 10px', borderLeft: '4px solid var(--bg-border)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <Skeleton width="40%" height={14} borderRadius={4} />
+                                        <Skeleton width="22%" height={14} borderRadius={4} />
+                                    </div>
+                                    <Skeleton width={70} height={16} borderRadius={4} />
+                                </div>
+                                <div style={{ height: 3, background: 'var(--bg-hover)', borderRadius: 2 }} />
+                            </div>
+                        )) : cards.map(c => {
                             const dueDays  = getDueDays(c.billing_date, c.due_days);
                             const utilPct  = c.credit_limit > 0
                                 ? Math.min(100, (Number(c.outstanding_balance) / Number(c.credit_limit)) * 100)
@@ -593,7 +634,13 @@ export default function AccountsPage() {
                         </span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {wallets.map(w => (
+                        {dataLoading ? [1,2].map(i => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)' }}>
+                                <Skeleton width={28} height={28} borderRadius={6} />
+                                <Skeleton width="40%" height={14} borderRadius={4} style={{ flex: 1 }} />
+                                <Skeleton width={70} height={16} borderRadius={4} />
+                            </div>
+                        )) : wallets.map(w => (
                             <div key={w.id} style={{
                                 display: 'flex', alignItems: 'center',
                                 background: 'var(--surface-1)', border: '1px solid var(--bg-border)',

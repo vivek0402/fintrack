@@ -19,8 +19,8 @@ router.get('/', async (req, res) => {
        LEFT JOIN transactions t
          ON t.category_id = b.category_id AND t.user_id = b.user_id
          AND t.type = 'expense'
-         AND EXTRACT(MONTH FROM t.date) = b.month
-         AND EXTRACT(YEAR  FROM t.date) = b.year
+         AND EXTRACT(MONTH FROM t.date) = $2
+         AND EXTRACT(YEAR  FROM t.date) = $3
        WHERE b.user_id = $1 AND b.month = $2 AND b.year = $3
        GROUP BY b.id, c.name, c.icon, c.color
        ORDER BY c.name ASC`,

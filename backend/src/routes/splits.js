@@ -26,7 +26,10 @@ router.post('/', authMiddleware, async (req, res) => {
         }
 
         const splitCount = participants.length + 1; // +1 for the user
-        const yourShare = Math.round((parseFloat(total_amount) / splitCount) * 100) / 100;
+        const total = parseFloat(total_amount);
+        // Give each participant an equal rounded share; absorb any rounding remainder into the user's share
+        const participantShare = Math.round((total / splitCount) * 100) / 100;
+        const yourShare = Math.round((total - participants.length * participantShare) * 100) / 100;
         const splitDate = date || new Date().toISOString().split('T')[0];
 
         // Create a transaction for the user's share
@@ -37,10 +40,10 @@ router.post('/', authMiddleware, async (req, res) => {
         );
         const transactionId = txResult.rows[0].id;
 
-        // Mark all participants as pending
+        // Mark all participants as pending with their equal share
         const participantsWithStatus = participants.map(p => ({
             name: p.name,
-            share: yourShare,
+            share: participantShare,
             settled: false,
         }));
 

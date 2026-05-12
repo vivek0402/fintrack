@@ -439,6 +439,12 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
 
+        // Check cache before running any DB queries
+        if (!req.query.force) {
+            const cached = await getCached(pool, userId, 'salary_intelligence');
+            if (cached) return res.json({ ...cached, from_cache: true });
+        }
+
         const { rows: incomeRows } = await pool.query(
             `SELECT t.*, c.name as category_name
              FROM transactions t
@@ -468,11 +474,6 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
 
         if (currentIncome.length === 0) {
             return res.json({ detected: false, salary: null, plan: null });
-        }
-
-        if (!req.query.force) {
-            const cached = await getCached(pool, userId, 'salary_intelligence');
-            if (cached) return res.json({ ...cached, from_cache: true });
         }
 
         const categorySpending = {};
