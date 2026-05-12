@@ -699,6 +699,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                 {/* Header */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                     <button
+                                        type="button"
                                         onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y-- } setCalMonth(m); setCalYear(y) }}
                                         style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
                                     >‹</button>
@@ -706,6 +707,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                                         {MONTHS[calMonth]} {calYear}
                                     </span>
                                     <button
+                                        type="button"
                                         onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++ } setCalMonth(m); setCalYear(y) }}
                                         style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
                                     >›</button>
