@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 
 interface User {
     id: string;
@@ -30,10 +31,12 @@ export const useAuthStore = create<AuthStore>()(
 
             setAuth: (user, token) => {
                 set({ user, token, isLoading: false });
+                FinTrackNative.saveToken({ token }).catch(() => {});
             },
 
             logout: () => {
                 set({ user: null, token: null, isLoading: false });
+                FinTrackNative.clearToken().catch(() => {});
             },
         }),
         {
