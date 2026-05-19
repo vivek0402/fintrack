@@ -44,6 +44,18 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_quick_add_info" />
         </receiver>
+
+        <receiver
+            android:name=".BudgetWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.fintrack.ai.BUDGET_WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_budget_info" />
+        </receiver>
     </application>
 
     <!-- Permissions -->
