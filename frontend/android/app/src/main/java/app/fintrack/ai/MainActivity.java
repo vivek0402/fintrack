@@ -2,35 +2,28 @@ package app.fintrack.ai;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-
-    private String pendingEvent = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FinTrackNativePlugin.class);
         super.onCreate(savedInstanceState);
-        // Store intent action — do NOT evalOnBridge here, WebView isn't ready
-        pendingEvent = extractEvent(getIntent());
-    }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (pendingEvent != null) {
-            final String event = pendingEvent;
-            pendingEvent = null;
-            // Set a global before the event so CapacitorBridge can pick it up even if
-            // React hasn't registered the listener yet (slow device / hydration lag).
-            // 600ms delay gives the WebView time to finish loading on cold start.
-            getBridge().getWebView().postDelayed(
-                () -> evalOnBridge(
-                    "window.__fintrackPending='" + event + "';" +
-                    "window.dispatchEvent(new CustomEvent('" + event + "'))"),
-                600
-            );
+        // Cold start from a widget: redirect the WebView directly to the
+        // target page BEFORE React loads, so the user never sees the home
+        // dashboard. Works because we're still on the same origin and
+        // Capacitor injects its bridge scripts on any page from that domain.
+        if (savedInstanceState == null) {
+            String targetPath = extractTargetPath(getIntent());
+            if (targetPath != null) {
+                WebView wv = getBridge().getWebView();
+                if (wv != null) {
+                    wv.post(() -> wv.loadUrl(BuildConfig.APP_URL + targetPath));
+                }
+            }
         }
     }
 
@@ -38,11 +31,19 @@ public class MainActivity extends BridgeActivity {
     public void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        // App is already running — WebView is loaded, fire immediately
+        // App already running — WebView and bridge are ready, fire immediately.
         String event = extractEvent(intent);
-        if (event != null) evalOnBridge(
-            "window.__fintrackPending='" + event + "';" +
-            "window.dispatchEvent(new CustomEvent('" + event + "'))");
+        if (event != null) {
+            evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))");
+        }
+    }
+
+    private String extractTargetPath(Intent intent) {
+        if (intent == null) return null;
+        if (intent.getBooleanExtra("OPEN_ADD", false)) return "/transactions?add=true";
+        String screen = intent.getStringExtra("OPEN_SCREEN");
+        if ("budgets".equals(screen)) return "/budgets";
+        return null;
     }
 
     private String extractEvent(Intent intent) {

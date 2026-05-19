@@ -27,8 +27,10 @@ public class FinTrackNativePlugin extends Plugin {
             .putString(KEY_JWT, token)
             .apply();
 
-        // Kick off a one-time background fetch so the widget shows data
-        // immediately rather than waiting up to 30 minutes for the periodic run.
+        // Re-render immediately so the widget drops "Sign in to FinTrack"
+        // right away (shows empty data until the fetch completes).
+        BudgetWidget.triggerUpdate(getContext());
+        // Kick off a background fetch so real data appears shortly after.
         BudgetWidget.triggerImmediateFetch(getContext());
         call.resolve();
     }

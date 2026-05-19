@@ -18,30 +18,15 @@ export default function CapacitorBridge() {
     }
   }, [isLoading, token]);
 
+  // Handle widget→app navigation when the app is already running (onNewIntent).
+  // Cold-start navigation is handled natively: MainActivity.onCreate redirects
+  // the WebView directly to the target URL, so no event is needed there.
   useEffect(() => {
-    const navigateAdd = () => router.push('/transactions?add=true');
-    const navigateBudgets = () => router.push('/budgets');
-
-    const handleOpenAdd = () => {
-      (window as any).__fintrackPending = null;
-      navigateAdd();
-    };
-    const handleOpenBudgets = () => {
-      (window as any).__fintrackPending = null;
-      navigateBudgets();
-    };
+    const handleOpenAdd = () => router.push('/transactions?add=true');
+    const handleOpenBudgets = () => router.push('/budgets');
 
     window.addEventListener('fintrack:openAdd', handleOpenAdd);
     window.addEventListener('fintrack:openBudgets', handleOpenBudgets);
-
-    // Fallback: pick up the pending action if the event fired before this
-    // listener was registered (React hydration slower than the 600ms delay)
-    const pending = (window as any).__fintrackPending as string | undefined;
-    if (pending) {
-      (window as any).__fintrackPending = null;
-      if (pending === 'fintrack:openAdd') navigateAdd();
-      else if (pending === 'fintrack:openBudgets') navigateBudgets();
-    }
 
     return () => {
       window.removeEventListener('fintrack:openAdd', handleOpenAdd);
