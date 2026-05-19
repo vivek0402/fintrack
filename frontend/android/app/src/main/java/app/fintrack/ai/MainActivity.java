@@ -22,9 +22,13 @@ public class MainActivity extends BridgeActivity {
         if (pendingEvent != null) {
             final String event = pendingEvent;
             pendingEvent = null;
-            // 600ms delay gives the WebView time to finish loading on cold start
+            // Set a global before the event so CapacitorBridge can pick it up even if
+        // React hasn't registered the listener yet (slow device / hydration lag).
+        // 600ms delay gives the WebView time to finish loading on cold start.
             getBridge().getWebView().postDelayed(
-                () -> evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))"),
+                () -> evalOnBridge(
+                    "window.__fintrackPending='" + event + "';" +
+                    "window.dispatchEvent(new CustomEvent('" + event + "'))"),
                 600
             );
         }
@@ -36,7 +40,9 @@ public class MainActivity extends BridgeActivity {
         setIntent(intent);
         // App is already running — WebView is loaded, fire immediately
         String event = extractEvent(intent);
-        if (event != null) evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))");
+        if (event != null) evalOnBridge(
+            "window.__fintrackPending='" + event + "';" +
+            "window.dispatchEvent(new CustomEvent('" + event + "'))");
     }
 
     private String extractEvent(Intent intent) {

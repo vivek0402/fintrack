@@ -46,7 +46,7 @@
     </LinearLayout>
 
     <!-- Divider -->
-    <View
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#2A2D4A"
@@ -133,7 +133,7 @@
         </LinearLayout>
 
         <!-- Divider -->
-        <View
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="#2A2D4A"
