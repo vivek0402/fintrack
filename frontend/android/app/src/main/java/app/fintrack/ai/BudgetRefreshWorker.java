@@ -58,26 +58,33 @@ public class BudgetRefreshWorker extends Worker {
     private String fetchJson(String urlStr, String jwt, SharedPreferences prefs) throws Exception {
         URL url = new URL(urlStr);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestProperty("Authorization", "Bearer " + jwt);
-        conn.setRequestProperty("Accept", "application/json");
-        conn.setConnectTimeout(10000);
-        conn.setReadTimeout(10000);
+        try {
+            conn.setRequestProperty("Authorization", "Bearer " + jwt);
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
 
-        int status = conn.getResponseCode();
+            int status = conn.getResponseCode();
 
-        if (status == 401) {
-            prefs.edit().remove("jwt").apply();
-            return null;
+            if (status == 401) {
+                prefs.edit().remove("jwt").apply();
+                BudgetWidget.triggerUpdate(getApplicationContext());
+                return null;
+            }
+
+            if (status != 200) return null;
+
+            StringBuilder sb = new StringBuilder();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            try {
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+            } finally {
+                reader.close();
+            }
+            return sb.toString();
+        } finally {
+            conn.disconnect();
         }
-
-        if (status != 200) return null;
-
-        StringBuilder sb = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) sb.append(line);
-        reader.close();
-        conn.disconnect();
-        return sb.toString();
     }
 }

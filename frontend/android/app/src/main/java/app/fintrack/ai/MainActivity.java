@@ -6,31 +6,45 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
+    private String pendingEvent = null;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FinTrackNativePlugin.class);
         super.onCreate(savedInstanceState);
-        handleIntent(getIntent());
+        // Store intent action — do NOT evalOnBridge here, WebView isn't ready
+        pendingEvent = extractEvent(getIntent());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (pendingEvent != null) {
+            final String event = pendingEvent;
+            pendingEvent = null;
+            // 600ms delay gives the WebView time to finish loading on cold start
+            getBridge().getWebView().postDelayed(
+                () -> evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))"),
+                600
+            );
+        }
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleIntent(intent);
+        // App is already running — WebView is loaded, fire immediately
+        String event = extractEvent(intent);
+        if (event != null) evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))");
     }
 
-    private void handleIntent(Intent intent) {
-        if (intent == null) return;
-
-        if (intent.getBooleanExtra("OPEN_ADD", false)) {
-            evalOnBridge("window.dispatchEvent(new CustomEvent('fintrack:openAdd'))");
-        }
-
+    private String extractEvent(Intent intent) {
+        if (intent == null) return null;
+        if (intent.getBooleanExtra("OPEN_ADD", false)) return "fintrack:openAdd";
         String screen = intent.getStringExtra("OPEN_SCREEN");
-        if ("budgets".equals(screen)) {
-            evalOnBridge("window.dispatchEvent(new CustomEvent('fintrack:openBudgets'))");
-        }
+        if ("budgets".equals(screen)) return "fintrack:openBudgets";
+        return null;
     }
 
     private void evalOnBridge(String js) {

@@ -90,6 +90,7 @@ public class BudgetWidget extends AppWidgetProvider {
 
         Intent refreshIntent = new Intent(context, BudgetWidget.class);
         refreshIntent.setAction(ACTION_REFRESH);
+        refreshIntent.setPackage(context.getPackageName());
         PendingIntent refreshPI = PendingIntent.getBroadcast(
             context, 1, refreshIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
