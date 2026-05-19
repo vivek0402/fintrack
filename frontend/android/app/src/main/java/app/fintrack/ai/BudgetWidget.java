@@ -63,6 +63,16 @@ public class BudgetWidget extends AppWidgetProvider {
         }
     }
 
+    static void triggerImmediateFetch(Context context) {
+        Constraints constraints = new Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build();
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(BudgetRefreshWorker.class)
+            .setConstraints(constraints)
+            .build();
+        WorkManager.getInstance(context).enqueue(request);
+    }
+
     static void triggerUpdate(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, BudgetWidget.class));
