@@ -23,8 +23,8 @@ public class MainActivity extends BridgeActivity {
             final String event = pendingEvent;
             pendingEvent = null;
             // Set a global before the event so CapacitorBridge can pick it up even if
-        // React hasn't registered the listener yet (slow device / hydration lag).
-        // 600ms delay gives the WebView time to finish loading on cold start.
+            // React hasn't registered the listener yet (slow device / hydration lag).
+            // 600ms delay gives the WebView time to finish loading on cold start.
             getBridge().getWebView().postDelayed(
                 () -> evalOnBridge(
                     "window.__fintrackPending='" + event + "';" +
