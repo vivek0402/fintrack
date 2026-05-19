@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
+import CapacitorBridge from '@/components/CapacitorBridge';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -63,7 +64,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body suppressHydrationWarning>{children}<Analytics /></body>
+      <body suppressHydrationWarning><CapacitorBridge />{children}<Analytics /></body>
     </html>
   );
 }
