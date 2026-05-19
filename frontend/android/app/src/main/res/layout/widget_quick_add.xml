@@ -5,28 +5,45 @@
     android:orientation="horizontal"
     android:background="@drawable/widget_background"
     android:gravity="center_vertical"
-    android:padding="12dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
 
-    <TextView
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="FinTrack"
-        android:textColor="#F0F4FF"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="FinTrack"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap to add transaction"
+            android:textColor="#8892B0"
+            android:textSize="11sp"
+            android:layout_marginTop="2dp" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/widget_quick_add_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="+ Add"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:text="+"
         android:textColor="#FFFFFF"
-        android:background="#4F8EF7"
-        android:textSize="13sp"
+        android:background="@drawable/widget_add_button"
+        android:textSize="26sp"
         android:textStyle="bold"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp" />
+        android:gravity="center"
+        android:includeFontPadding="false" />
+
 </LinearLayout>
