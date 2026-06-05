@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, X, CalendarDays } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -63,6 +63,15 @@ export default function CalendarPage() {
     const prevMonth = () => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y-1); } else setCurrentMonth(m => m-1); setSelectedDate(null); };
     const nextMonth = () => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y+1); } else setCurrentMonth(m => m+1); setSelectedDate(null); };
 
+    // Swipe to change month
+    const touchStartX = useRef(0);
+    const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
+    const handleTouchEnd   = (e: React.TouchEvent) => {
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        if (Math.abs(dx) < 40) return; // ignore small swipes
+        if (dx < 0) nextMonth(); else prevMonth();
+    };
+
     if (isLoading || !user) return (
         <AppLayout>
             <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
@@ -115,8 +124,8 @@ export default function CalendarPage() {
                     </div>
                 )}
 
-                {/* Calendar grid */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                {/* Calendar grid — swipe left/right to change month on mobile */}
+                <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                     {/* Day headers */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--border)' }}>
                         {DAYS.map(d => <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{d}</div>)}

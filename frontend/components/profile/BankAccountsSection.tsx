@@ -159,7 +159,7 @@ export function BankAccountsSection() {
     return (
         <div style={{
             backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--bg-border)',
+            border: '1px solid var(--border)',
             borderRadius: '16px',
             padding: '24px',
             marginTop: '24px',
@@ -172,7 +172,7 @@ export function BankAccountsSection() {
                     borderRadius: '8px',
                     padding: '10px 14px',
                     fontSize: '13px',
-                    color: 'var(--accent-green)',
+                    color: 'var(--color-inc)',
                     marginBottom: '12px',
                     display: 'flex',
                     alignItems: 'center',
@@ -185,7 +185,7 @@ export function BankAccountsSection() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
                 <div>
-                    <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>
+                    <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
                         Bank Accounts
                     </p>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
@@ -195,7 +195,7 @@ export function BankAccountsSection() {
                 <button
                     onClick={openAdd}
                     style={{
-                        backgroundColor: 'var(--accent-blue)',
+                        backgroundColor: 'var(--accent)',
                         color: '#fff',
                         borderRadius: '8px',
                         padding: '8px 14px',
@@ -203,7 +203,7 @@ export function BankAccountsSection() {
                         border: 'none',
                         cursor: 'pointer',
                         flexShrink: 0,
-                        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                        fontFamily: 'var(--font-body)',
                     }}
                 >
                     + Add Account
@@ -217,7 +217,7 @@ export function BankAccountsSection() {
                     <span style={{
                         fontSize: '20px',
                         fontWeight: 700,
-                        color: totalBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                        color: totalBalance >= 0 ? 'var(--color-inc)' : 'var(--color-exp)',
                     }}>
                         {fmt(totalBalance)}
                     </span>
@@ -228,7 +228,7 @@ export function BankAccountsSection() {
             {loading && (
                 <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                     {[1, 2].map(i => (
-                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--bg-alt)', border: '1px solid var(--border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
                     ))}
                 </div>
             )}
@@ -243,14 +243,14 @@ export function BankAccountsSection() {
                         onClick={openAdd}
                         style={{
                             marginTop: '8px',
-                            backgroundColor: 'var(--accent-blue)',
+                            backgroundColor: 'var(--accent)',
                             color: '#fff',
                             borderRadius: '8px',
                             padding: '8px 14px',
                             fontSize: '13px',
                             border: 'none',
                             cursor: 'pointer',
-                            fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                            fontFamily: 'var(--font-body)',
                         }}
                     >
                         + Add your first account
@@ -272,8 +272,8 @@ export function BankAccountsSection() {
                             <div
                                 key={account.id}
                                 style={{
-                                    backgroundColor: 'var(--bg-primary)',
-                                    border: '1px solid var(--bg-border)',
+                                    backgroundColor: 'var(--bg-alt)',
+                                    border: '1px solid var(--border)',
                                     borderLeft: `3px solid ${account.color}`,
                                     borderRadius: '12px',
                                     padding: '16px',
@@ -318,7 +318,7 @@ export function BankAccountsSection() {
                                                 top: '100%',
                                                 zIndex: 50,
                                                 backgroundColor: 'var(--bg-card)',
-                                                border: '1px solid var(--bg-border)',
+                                                border: '1px solid var(--border)',
                                                 borderRadius: '8px',
                                                 padding: '4px',
                                                 minWidth: '140px',
@@ -328,7 +328,7 @@ export function BankAccountsSection() {
                                                 {!account.is_default && (
                                                     <button onClick={() => handleSetDefault(account.id)} style={menuItemStyle}>Set as Default</button>
                                                 )}
-                                                <button onClick={() => handleDelete(account.id)} style={{ ...menuItemStyle, color: 'var(--accent-red)' }}>Delete</button>
+                                                <button onClick={() => handleDelete(account.id)} style={{ ...menuItemStyle, color: 'var(--color-exp)' }}>Delete</button>
                                             </div>
                                         )}
                                     </div>
@@ -344,7 +344,7 @@ export function BankAccountsSection() {
                                         borderRadius: '20px',
                                         padding: '1px 8px',
                                         fontSize: '11px',
-                                        color: 'var(--accent-blue)',
+                                        color: 'var(--accent)',
                                         marginTop: '4px',
                                     }}>
                                         Default
@@ -352,13 +352,13 @@ export function BankAccountsSection() {
                                 )}
 
                                 {/* Divider */}
-                                <div style={{ borderTop: '1px solid var(--bg-border)', margin: '12px 0' }} />
+                                <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0' }} />
 
                                 {/* Current balance */}
                                 <p style={{
                                     fontSize: '22px',
                                     fontWeight: 700,
-                                    color: Number(account.current_balance) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                                    color: Number(account.current_balance) >= 0 ? 'var(--color-inc)' : 'var(--color-exp)',
                                     margin: 0,
                                 }}>
                                     {fmt(Number(account.current_balance))}
@@ -372,7 +372,7 @@ export function BankAccountsSection() {
                                 {/* Net change */}
                                 <p style={{
                                     fontSize: '12px',
-                                    color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                                    color: net >= 0 ? 'var(--color-inc)' : 'var(--color-exp)',
                                     margin: '2px 0 0 0',
                                 }}>
                                     {net >= 0 ? '▲ +' : '▼ '}{fmt(Math.abs(net))} net change
@@ -381,11 +381,11 @@ export function BankAccountsSection() {
                                 {/* Income / Expenses stats */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '10px' }}>
                                     <div>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-green)', margin: 0 }}>{fmt(Number(account.total_income))}</p>
+                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-inc)', margin: 0 }}>{fmt(Number(account.total_income))}</p>
                                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0 0' }}>income</p>
                                     </div>
                                     <div>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-red)', margin: 0 }}>{fmt(Number(account.total_expenses))}</p>
+                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', margin: 0 }}>{fmt(Number(account.total_expenses))}</p>
                                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0 0' }}>expenses</p>
                                     </div>
                                 </div>
@@ -403,7 +403,7 @@ export function BankAccountsSection() {
                         onClick={openAdd}
                         style={{
                             backgroundColor: 'transparent',
-                            border: '1px dashed var(--bg-border)',
+                            border: '1px dashed var(--border)',
                             borderRadius: '12px',
                             padding: '16px',
                             display: 'flex',
@@ -418,7 +418,7 @@ export function BankAccountsSection() {
                         <div style={{
                             width: '36px',
                             height: '36px',
-                            border: '1px dashed var(--bg-border)',
+                            border: '1px dashed var(--border)',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
@@ -450,7 +450,7 @@ export function BankAccountsSection() {
                 >
                     <div style={{
                         backgroundColor: 'var(--bg-card)',
-                        border: '1px solid var(--bg-border)',
+                        border: '1px solid var(--border)',
                         borderRadius: '16px',
                         width: '100%',
                         maxWidth: '440px',
@@ -467,10 +467,10 @@ export function BankAccountsSection() {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '20px 24px 16px',
-                            borderBottom: '1px solid var(--bg-border)',
+                            borderBottom: '1px solid var(--border)',
                             flexShrink: 0,
                         }}>
-                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
                                 {editAccount ? 'Edit Account' : 'Add Account'}
                             </h3>
                             <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '0 4px' }}>×</button>
@@ -490,8 +490,8 @@ export function BankAccountsSection() {
                                                 width: '40px',
                                                 height: '40px',
                                                 borderRadius: '8px',
-                                                border: form.icon === ic ? '2px solid var(--accent-blue)' : '1px solid var(--bg-border)',
-                                                backgroundColor: 'var(--bg-primary)',
+                                                border: form.icon === ic ? '2px solid var(--accent)' : '1px solid var(--border)',
+                                                backgroundColor: 'var(--bg-alt)',
                                                 fontSize: '18px',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -507,7 +507,7 @@ export function BankAccountsSection() {
 
                             {/* Account name */}
                             <div>
-                                <label style={labelStyle}>Account Name <span style={{ color: 'var(--accent-red)' }}>*</span></label>
+                                <label style={labelStyle}>Account Name <span style={{ color: 'var(--color-exp)' }}>*</span></label>
                                 <input
                                     type="text"
                                     value={form.name}
@@ -609,7 +609,7 @@ export function BankAccountsSection() {
                                             width: '36px',
                                             height: '20px',
                                             borderRadius: '10px',
-                                            backgroundColor: form.is_default ? 'var(--accent-blue)' : 'var(--bg-hover)',
+                                            backgroundColor: form.is_default ? 'var(--accent)' : 'var(--bg-hover)',
                                             border: 'none',
                                             cursor: 'pointer',
                                             position: 'relative',
@@ -637,7 +637,7 @@ export function BankAccountsSection() {
                             display: 'flex',
                             gap: '10px',
                             padding: '16px 24px 20px',
-                            borderTop: '1px solid var(--bg-border)',
+                            borderTop: '1px solid var(--border)',
                             flexShrink: 0,
                         }}>
                             <button onClick={() => setShowModal(false)} style={cancelBtnStyle}>Cancel</button>
@@ -649,12 +649,12 @@ export function BankAccountsSection() {
                                     padding: '10px',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    backgroundColor: saving || !form.name.trim() ? 'rgba(99,102,241,0.5)' : 'var(--accent-blue)',
+                                    backgroundColor: saving || !form.name.trim() ? 'rgba(99,102,241,0.5)' : 'var(--accent)',
                                     color: '#fff',
                                     fontSize: '14px',
                                     fontWeight: 500,
                                     cursor: saving || !form.name.trim() ? 'not-allowed' : 'pointer',
-                                    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                                    fontFamily: 'var(--font-body)',
                                 }}
                             >
                                 {saving ? 'Saving…' : editAccount ? 'Save Changes' : 'Add Account'}
@@ -688,13 +688,13 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
     width: '100%',
-    backgroundColor: 'var(--bg-primary)',
-    border: '1px solid var(--bg-border)',
+    backgroundColor: 'var(--bg-alt)',
+    border: '1px solid var(--border)',
     borderRadius: '8px',
     padding: '10px 12px',
     color: 'var(--text-primary)',
     fontSize: '14px',
-    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+    fontFamily: 'var(--font-body)',
     outline: 'none',
     boxSizing: 'border-box',
 };
@@ -710,17 +710,17 @@ const menuItemStyle: React.CSSProperties = {
     border: 'none',
     cursor: 'pointer',
     borderRadius: '6px',
-    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+    fontFamily: 'var(--font-body)',
 };
 
 const cancelBtnStyle: React.CSSProperties = {
     flex: 1,
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid var(--bg-border)',
-    backgroundColor: 'var(--bg-primary)',
+    border: '1px solid var(--border)',
+    backgroundColor: 'var(--bg-alt)',
     color: 'var(--text-secondary)',
     fontSize: '14px',
     cursor: 'pointer',
-    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+    fontFamily: 'var(--font-body)',
 };

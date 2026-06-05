@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { RedesignAnnouncement } from '@/components/ui/RedesignAnnouncement';
+import { PageErrorBoundary } from '@/components/ui/PageErrorBoundary';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
@@ -34,7 +35,7 @@ function buildGlowBackground(theme: string): string {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
-    const { loadTheme, theme } = useThemeStore();
+    const { loadTheme, theme, setSidebarWidth } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
@@ -72,6 +73,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         setCollapsed(v => {
             const next = !v;
             localStorage.setItem('sidebar-collapsed', String(next));
+            setSidebarWidth(next ? 64 : 220);
             return next;
         });
     };
@@ -115,7 +117,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     animation: 'pageEnter 0.2s ease-out forwards',
                 }}
             >
-                <ErrorBoundary>{children}</ErrorBoundary>
+                <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
             </main>
             {isMobile && <BottomNav />}
 

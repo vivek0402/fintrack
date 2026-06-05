@@ -13,14 +13,18 @@ function applyAttributes(theme: Theme, palette: PaletteName) {
 interface ThemeStore {
     theme: Theme;
     palette: PaletteName;
+    sidebarWidth: number;
     setTheme: (theme: Theme) => void;
     setPalette: (palette: PaletteName) => void;
+    setSidebarWidth: (w: number) => void;
     loadTheme: () => void;
 }
 
 export const useThemeStore = create<ThemeStore>((set, get) => ({
     theme: 'dark',
     palette: 'ocean',
+    sidebarWidth: 220,
+    setSidebarWidth: (w) => set({ sidebarWidth: w }),
 
     setTheme: (theme) => {
         localStorage.setItem('fintrack-theme', theme);

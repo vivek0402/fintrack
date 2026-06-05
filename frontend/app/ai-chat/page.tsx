@@ -31,7 +31,18 @@ export default function AiChatPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
-    const [messages, setMessages] = useState<Message[]>([]);
+    const SESSION_KEY = 'fintrack-chat-history';
+
+    const [messages, setMessages] = useState<Message[]>(() => {
+        // Restore from sessionStorage on mount (survives tab switches)
+        if (typeof window === 'undefined') return [];
+        try {
+            const saved = sessionStorage.getItem(SESSION_KEY);
+            if (!saved) return [];
+            const parsed = JSON.parse(saved);
+            return parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
+        } catch { return []; }
+    });
     const [input, setInput]     = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -39,6 +50,11 @@ export default function AiChatPage() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
+    // Persist messages to sessionStorage whenever they change
+    useEffect(() => {
+        try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(messages)); } catch { /* storage full */ }
+    }, [messages]);
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, loading]);

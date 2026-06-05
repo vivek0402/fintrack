@@ -252,6 +252,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
                     }
                 }
             }
+            // Invalidate forecast cache since spending data changed
+            try {
+                const now = new Date();
+                const fKey = `forecast-cache-${user?.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
+                localStorage.removeItem(fKey);
+            } catch { /* silent */ }
             toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
         } catch (err: any) {

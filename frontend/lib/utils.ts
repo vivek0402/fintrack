@@ -1,3 +1,8 @@
+/** Shorthand: round + format in the user's currency (or INR if not provided). */
+export function fmt(n: number, currency = 'INR'): string {
+    return formatCurrency(Math.round(n), currency);
+}
+
 export function formatCurrency(amount: number, currency = 'INR'): string {
     const symbols: Record<string, string> = {
         INR: '₹', USD: '$', EUR: '€', GBP: '£',
@@ -37,25 +42,25 @@ export function getCurrentMonthYear() {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-    'food': 'var(--accent-green)',
-    'dining': 'var(--accent-green)',
-    'groceries': 'var(--accent-green)',
-    'transport': 'var(--accent-blue)',
-    'travel': 'var(--accent-blue)',
-    'commute': 'var(--accent-blue)',
-    'shopping': 'var(--accent-purple)',
-    'subscription': 'var(--accent-blue)',
-    'utilities': 'var(--accent-yellow)',
-    'utility': 'var(--accent-yellow)',
-    'bills': 'var(--accent-yellow)',
-    'health': 'var(--accent-pink)',
-    'medical': 'var(--accent-pink)',
-    'investment': 'var(--accent-green)',
-    'salary': 'var(--accent-green)',
-    'freelance': 'var(--accent-green)',
-    'income': 'var(--accent-green)',
-    'rent': 'var(--accent-yellow)',
-    'housing': 'var(--accent-yellow)',
+    'food': 'var(--color-inc)',
+    'dining': 'var(--color-inc)',
+    'groceries': 'var(--color-inc)',
+    'transport': 'var(--accent)',
+    'travel': 'var(--accent)',
+    'commute': 'var(--accent)',
+    'shopping': 'var(--accent-2)',
+    'subscription': 'var(--accent)',
+    'utilities': 'var(--color-warn)',
+    'utility': 'var(--color-warn)',
+    'bills': 'var(--color-warn)',
+    'health': 'var(--color-exp)',
+    'medical': 'var(--color-exp)',
+    'investment': 'var(--color-inc)',
+    'salary': 'var(--color-inc)',
+    'freelance': 'var(--color-inc)',
+    'income': 'var(--color-inc)',
+    'rent': 'var(--color-warn)',
+    'housing': 'var(--color-warn)',
 };
 
 const CATEGORY_BG_COLORS: Record<string, string> = {

@@ -47,6 +47,8 @@ function TransactionsPageInner() {
     const [earliestYear, setEarliestYear]   = useState(NOW_YEAR);
     const [earliestMonth, setEarliestMonth] = useState(1);
     const [displayCount, setDisplayCount]   = useState(50);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const loadMoreRef = useRef<HTMLButtonElement>(null);
     const filterBtnRef    = useRef<HTMLButtonElement>(null);
     const filterPopoverRef = useRef<HTMLDivElement>(null);
     const [filterPos, setFilterPos] = useState({ top: 0, left: 0 });
@@ -63,18 +65,35 @@ function TransactionsPageInner() {
         ? `${MONTHS_SHORT[selectedMonth - 1]} ${selectedYear}`
         : 'All time';
 
+    // ── Debounce search (250ms) ───────────────────────────────────────────────
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedSearch(search), 250);
+        return () => clearTimeout(t);
+    }, [search]);
+
     // ── Search clears month filter ───────────────────────────────────────────
     const searchClearedMonthRef = useRef(false);
     useEffect(() => {
-        if (search.trim() && selectedMonth !== null) {
+        if (debouncedSearch.trim() && selectedMonth !== null) {
             searchClearedMonthRef.current = true;
             setSelectedMonth(null);
-        } else if (!search.trim() && searchClearedMonthRef.current) {
+        } else if (!debouncedSearch.trim() && searchClearedMonthRef.current) {
             searchClearedMonthRef.current = false;
             setSelectedMonth(NOW_MONTH);
             setSelectedYear(NOW_YEAR);
         }
-    }, [search]);
+    }, [debouncedSearch]);
+
+    // ── Infinite scroll via IntersectionObserver ──────────────────────────────
+    useEffect(() => {
+        if (!loadMoreRef.current) return;
+        const observer = new IntersectionObserver(
+            entries => { if (entries[0].isIntersecting) setDisplayCount(c => c + 50); },
+            { threshold: 0.1 }
+        );
+        observer.observe(loadMoreRef.current);
+        return () => observer.disconnect();
+    }, [loadMoreRef.current, filtered.length]);
 
     // ── Quick add placeholder rotation ──────────────────────────────────────
     useEffect(() => {
@@ -141,8 +160,8 @@ function TransactionsPageInner() {
     useEffect(() => {
         let result = [...transactions];
         if (typeFilter !== 'all') result = result.filter(tx => tx.type === typeFilter);
-        if (search.trim()) {
-            const q = search.toLowerCase();
+        if (debouncedSearch.trim()) {
+            const q = debouncedSearch.toLowerCase();
             result = result.filter(tx =>
                 tx.description?.toLowerCase().includes(q) ||
                 tx.category_name?.toLowerCase().includes(q) ||
@@ -343,10 +362,11 @@ function TransactionsPageInner() {
                             onRefresh={fetchTransactions}
                         />
                     )}
+                    {/* Invisible sentinel — IntersectionObserver triggers load-more automatically */}
                     {hasMore && !loading && (
-                        <button type="button" onClick={() => setDisplayCount(c => c + 50)}
-                            style={{ width: '100%', padding: '14px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                            Load more ({filtered.length - displayCount} remaining)
+                        <button ref={loadMoreRef} type="button" onClick={() => setDisplayCount(c => c + 50)}
+                            style={{ width: '100%', padding: '10px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', opacity: 0.6 }}>
+                            ↓ {filtered.length - displayCount} more
                         </button>
                     )}
                 </div>
