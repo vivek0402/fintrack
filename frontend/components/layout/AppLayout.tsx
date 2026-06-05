@@ -11,7 +11,6 @@ import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/ToastContainer';
-import { ThemePicker } from '@/components/ui/ThemePicker';
 import { RedesignAnnouncement } from '@/components/ui/RedesignAnnouncement';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
@@ -213,7 +212,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                 </div>
             )}
-            <ThemePicker />
             <RedesignAnnouncement />
             <ToastContainer />
             <WalkthroughTour
