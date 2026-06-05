@@ -351,7 +351,7 @@ export default function DashboardPage() {
                         <Button
                             onClick={async () => {
                                 setAiReportLoading(true);
-                                try { const res = await aiAPI.report(true); setAiInsight(res.data?.report ?? ''); }
+                                try { const res = await aiAPI.report(); setAiInsight(res.data?.report ?? ''); }
                                 catch { }
                                 finally { setAiReportLoading(false); }
                             }}
