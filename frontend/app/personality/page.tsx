@@ -74,7 +74,6 @@ export default function PersonalityPage() {
         <AppLayout>
             <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
             <SkeletonCard height={300} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
 
@@ -271,7 +270,6 @@ export default function PersonalityPage() {
                     </>
                 )}
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </AppLayout>
     );
 }

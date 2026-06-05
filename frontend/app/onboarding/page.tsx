@@ -137,7 +137,6 @@ export default function OnboardingPage() {
     if (isLoading || !user) return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ width: '24px', height: '24px', border: `2px solid ${accentColor}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 
@@ -352,7 +351,6 @@ export default function OnboardingPage() {
                 )}
             </div>
             <style>{`
-                @keyframes spin   { to { transform: rotate(360deg); } }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             `}</style>
         </div>

@@ -340,7 +340,6 @@ export default function ReportsPage() {
                 )}
             </div>
             <style>{`
-                @keyframes spin { to { transform: rotate(360deg); } }
                 @media print {
                     body > * { display: none !important; }
                     #health-report-printable, #health-report-printable * { display: revert !important; }
