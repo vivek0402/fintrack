@@ -267,10 +267,10 @@ export default function DashboardPage() {
                 </div>
 
                 {/* ── HERO CARD — 3 column ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
+                <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
 
                     {/* Left: This Month balance */}
-                    <div style={{ padding: '20px 24px', borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', flexShrink: 0, width: isMobile ? 'auto' : '200px', minWidth: isMobile ? 'auto' : '200px' }}>
+                    <div style={{ padding: '20px 24px', borderRight: isMobile ? 'none' : '1px solid var(--accent-border)', borderBottom: isMobile ? '1px solid var(--accent-border)' : 'none', flexShrink: 0, width: isMobile ? 'auto' : '200px', minWidth: isMobile ? 'auto' : '200px' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
                             This month
                         </p>
@@ -281,8 +281,8 @@ export default function DashboardPage() {
                                 {fmt(heroNet)}
                             </p>
                         )}
-                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '8px' }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', marginBottom: '8px' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
                                 {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
                             </span>
                         </div>
@@ -292,7 +292,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Middle: 6-month trend */}
-                    <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0, borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0, borderRight: isMobile ? 'none' : '1px solid var(--accent-border)', borderBottom: isMobile ? '1px solid var(--accent-border)' : 'none' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
                             6-month trend
                         </p>
@@ -312,7 +312,7 @@ export default function DashboardPage() {
 
                         {/* Top spending */}
                         {!dataLoading && (
-                            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--accent-border)' }}>
                                 <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
                                     Top spending
                                 </p>
