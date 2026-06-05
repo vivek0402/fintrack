@@ -175,7 +175,7 @@ function TransactionsPageInner() {
         }
         setFiltered(result);
         setDisplayCount(50);
-    }, [transactions, typeFilter, search, tagFilter]);
+    }, [transactions, typeFilter, debouncedSearch, tagFilter]);
 
     const totalIncome  = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
