@@ -49,11 +49,36 @@ export default function ForecastPage() {
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
+    // Load from cache on mount — avoids re-fetching on every page visit
+    useEffect(() => {
+        if (!user) return;
+        const now = new Date();
+        const key = `forecast-cache-${user.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
+        try {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+                const { data, ts } = JSON.parse(cached);
+                // 1-hour TTL
+                if (Date.now() - ts < 60 * 60 * 1000) {
+                    setForecast(data);
+                    setGenerated(true);
+                }
+            }
+        } catch { /* stale / corrupt — ignore */ }
+    }, [user]);
+
     const fetchForecast = async () => {
         setError(''); setLoading(true);
         try {
             const res = await aiAPI.forecastCalendar(true);
-            setForecast(res.data.data); setGenerated(true);
+            const data: ForecastData = res.data.data;
+            setForecast(data); setGenerated(true);
+            // Persist to cache
+            if (user) {
+                const now = new Date();
+                const key = `forecast-cache-${user.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
+                try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
+            }
         } catch (err: any) {
             setError(err?.response?.data?.error || 'Could not generate forecast. Please try again.');
         } finally { setLoading(false); }

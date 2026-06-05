@@ -30,93 +30,78 @@ export function Button({
         alignItems: 'center',
         justifyContent: 'center',
         gap: '6px',
-        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+        fontFamily: 'var(--font-body)',
         fontWeight: 600,
         fontSize: '14px',
         borderRadius: 'var(--radius-md)',
         border: 'none',
         cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
         opacity: disabled || isLoading ? 0.4 : 1,
-        transition: `transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease, background 150ms ease`,
+        transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease, background 150ms ease',
         whiteSpace: 'nowrap' as const,
         outline: 'none',
         flexShrink: 0,
     };
 
     const sizes: Record<string, React.CSSProperties> = {
-        sm: { padding: '6px 12px', fontSize: '12px' },
+        sm: { padding: '6px 12px',  fontSize: '12px' },
         md: { padding: '10px 20px', fontSize: '14px' },
         lg: { padding: '12px 24px', fontSize: '15px' },
     };
 
     const variants: Record<string, React.CSSProperties> = {
         primary: {
-            background: hovered && !disabled ? 'var(--accent-blue)' : 'var(--accent-blue)',
+            background: 'var(--accent)',
             color: '#fff',
             border: 'none',
-            opacity: hovered && !disabled ? 0.85 : disabled || isLoading ? 0.4 : 1,
+            opacity: hovered && !disabled ? 0.88 : disabled || isLoading ? 0.4 : 1,
         },
         secondary: {
-            background: hovered && !disabled ? 'var(--surface-3)' : 'var(--surface-2)',
+            background: hovered && !disabled ? 'var(--bg-hover)' : 'var(--bg-alt)',
             color: 'var(--text-primary)',
-            border: '1px solid var(--bg-border)',
+            border: '1px solid var(--border)',
         },
         ghost: {
-            background: hovered && !disabled ? 'var(--surface-1)' : 'transparent',
-            color: 'var(--accent-blue)',
+            background: hovered && !disabled ? 'var(--accent-light)' : 'transparent',
+            color: 'var(--accent)',
             border: 'none',
             padding: '8px 12px',
         },
         danger: {
-            background: 'rgba(244,63,94,0.12)',
-            color: 'var(--accent-red)',
-            border: '1px solid rgba(244,63,94,0.2)',
+            background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)',
+            color: 'var(--color-exp)',
+            border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)',
         },
         icon: {
             width: '36px',
             height: '36px',
             padding: '0',
-            background: hovered && !disabled ? 'var(--surface-3)' : 'var(--surface-2)',
+            background: hovered && !disabled ? 'var(--bg-hover)' : 'var(--bg-alt)',
             color: 'var(--text-secondary)',
-            border: '1px solid var(--bg-border)',
+            border: '1px solid var(--border)',
             borderRadius: 'var(--radius-sm)',
         },
     };
 
     const transform = pressed && !disabled && !isLoading ? 'scale(0.93)' : 'scale(1)';
-
     const variantStyle = variants[variant] || variants.primary;
-    // For primary, override the opacity from base since we handle it in variant
     const finalOpacity = variant === 'primary'
-        ? (disabled || isLoading ? 0.4 : hovered && !disabled ? 0.85 : 1)
+        ? (disabled || isLoading ? 0.4 : hovered && !disabled ? 0.88 : 1)
         : (disabled || isLoading ? 0.4 : 1);
 
     return (
         <button
             disabled={disabled || isLoading}
-            style={{
-                ...base,
-                ...(variant !== 'icon' ? sizes[size] : {}),
-                ...variantStyle,
-                transform,
-                opacity: finalOpacity,
-                ...style,
-            }}
-            onMouseEnter={e => { setHovered(true); onMouseEnter?.(e); }}
+            style={{ ...base, ...(variant !== 'icon' ? sizes[size] : {}), ...variantStyle, transform, opacity: finalOpacity, ...style }}
+            onMouseEnter={e => { setHovered(true);  onMouseEnter?.(e); }}
             onMouseLeave={e => { setHovered(false); setPressed(false); onMouseLeave?.(e); }}
-            onMouseDown={e => { setPressed(true); onMouseDown?.(e); }}
-            onMouseUp={e => { setPressed(false); onMouseUp?.(e); }}
+            onMouseDown={e  => { setPressed(true);  onMouseDown?.(e); }}
+            onMouseUp={e    => { setPressed(false); onMouseUp?.(e); }}
             {...props}
         >
             {isLoading ? (
                 <>
-                    <div style={{
-                        width: '14px', height: '14px',
-                        border: '2px solid currentColor',
-                        borderTopColor: 'transparent',
-                        borderRadius: '50%',
-                        animation: 'spin 0.7s linear infinite',
-                    }} />
+                    <div style={{ width: '14px', height: '14px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                     Loading...
                 </>
             ) : children}
