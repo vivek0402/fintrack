@@ -14,17 +14,18 @@ export function Card({ children, padding = 'var(--space-6)', elevated = false, o
     const [hovered, setHovered] = useState(false);
 
     const interactiveHovered = hovered && !!onClick;
+
     const baseStyle: React.CSSProperties = {
         background: interactiveHovered
-            ? 'var(--surface-3)'
-            : elevated ? 'var(--surface-2)' : 'var(--surface-1)',
+            ? 'var(--bg-hover)'
+            : elevated ? 'var(--bg-alt)' : 'var(--bg-card)',
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--bg-border)',
+        border: '1px solid var(--border)',
         padding,
         boxShadow: elevated ? 'var(--shadow-elevated)' : 'var(--shadow-card)',
         cursor: onClick ? 'pointer' : undefined,
         transition: onClick
-            ? `transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast)`
+            ? 'transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast)'
             : undefined,
         transform: interactiveHovered ? 'translateY(-1px)' : undefined,
         ...style,

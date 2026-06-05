@@ -7,36 +7,35 @@ import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageShell } from '@/components/layout/PageShell';
-import { Skeleton, SkeletonTitle, SkeletonCard } from '@/components/ui/Skeleton';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
-import PageHelp from '@/components/ui/PageHelp';
-
-const HEADER_H = 64;
-const INPUT_H  = 64;
-const NAV_H    = 64;
 
 interface Message {
     role: 'user' | 'assistant';
     content: string;
+    timestamp: Date;
 }
 
-const SUGGESTIONS = [
-    'How am I doing this month?',
-    'Where am I overspending?',
-    'Can I afford a ₹5000 purchase?',
-    'What should I focus on saving?',
+const QUICK_PROMPTS = [
+    'Analyze my spending',
+    'Can I afford a trip?',
+    'Budget advice',
+    'Tax estimate',
 ];
+
+function fmtTime(d: Date): string {
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 
 export default function AiChatPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
+
     const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
+    const [input, setInput]     = useState('');
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLTextAreaElement>(null);
+    const inputRef       = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -54,7 +53,7 @@ export default function AiChatPage() {
     const handleSend = async (text: string) => {
         const trimmed = text.trim();
         if (!trimmed || loading) return;
-        const userMsg: Message = { role: 'user', content: trimmed };
+        const userMsg: Message = { role: 'user', content: trimmed, timestamp: new Date() };
         const newMessages = [...messages, userMsg];
         setMessages(newMessages);
         setInput('');
@@ -63,269 +62,138 @@ export default function AiChatPage() {
             const res = await aiAPI.chat(trimmed, messages);
             const reply = res.data.reply;
             if (!reply) throw new Error('No reply');
-            setMessages([...newMessages, { role: 'assistant', content: reply }]);
+            setMessages([...newMessages, { role: 'assistant', content: reply, timestamp: new Date() }]);
         } catch (err: any) {
             const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
-            const displayMsg = serverMsg || "I'm having trouble connecting right now. Please try again.";
-            setMessages([...newMessages, { role: 'assistant', content: displayMsg }]);
+            setMessages([...newMessages, { role: 'assistant', content: serverMsg || "I'm having trouble connecting right now. Please try again.", timestamp: new Date() }]);
         } finally {
             setLoading(false);
         }
     };
 
-    if (isLoading || !user) return (
-        <AppLayout>
-            <div style={{ marginBottom: '24px' }}>
-                <SkeletonTitle />
-                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
-            </div>
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-            <SkeletonCard height={120} />
-        </AppLayout>
-    );
+    if (isLoading || !user) return <AppLayout><div /></AppLayout>;
 
-    const leftOffset = isMobile ? '0' : '220px';
-
-    // Input bar: always glued above BottomNav on mobile, at page bottom on desktop
-    const inputBarBottom = isMobile
-        ? 'calc(64px + env(safe-area-inset-bottom))'
-        : '0';
-
-    // Messages area: fills space between header and input bar
-    const messagesBottom = isMobile
-        ? `calc(${INPUT_H + NAV_H}px + env(safe-area-inset-bottom))`
-        : `${INPUT_H}px`;
+    const canSend = !!input.trim() && !loading;
 
     return (
         <AppLayout>
-            {/* Fixed Header */}
+            {/* Flex column filling the available viewport height */}
             <div style={{
-                position: 'fixed',
-                top: 0,
-                left: leftOffset,
-                right: 0,
-                height: `${HEADER_H}px`,
-                zIndex: 300,
-                backgroundColor: 'var(--bg-primary)',
-                borderBottom: '1px solid var(--bg-border)',
                 display: 'flex',
-                alignItems: 'center',
-                padding: '0 16px',
-                gap: '10px',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
+                height: isMobile
+                    ? 'calc(100dvh - 160px)'   // mobile: account for bottom nav + padding
+                    : 'calc(100dvh - 72px)',    // desktop: account for top+bottom padding
+                animation: 'fadeUp 200ms ease forwards',
+                gap: '12px',
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: 'var(--accent-blue-bg)', border: '1px solid var(--bg-border)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
-                        <Sparkles size={18} color="var(--accent-blue)" />
-                    </div>
-                    <div>
-                        <div style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                            AI Finance Advisor
+
+                {/* ── HEADER CARD (matches other pages) ── */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '16px 20px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: 10, background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Sparkles size={18} color="var(--color-info)" />
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                            Ask anything about your finances
+                        <div>
+                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.2 }}>
+                                FinTrack AI
+                            </p>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                Your personal financial advisor
+                            </p>
                         </div>
                     </div>
                 </div>
-                <PageHelp title="AI Chat" sections={[
-                    { icon: '🤖', heading: 'What is this page?', body: 'Chat with your personal AI financial advisor. It has full access to your transactions, budgets, and goals — ask it anything.' },
-                    { icon: '💬', heading: 'What to ask', body: "Try: 'How much did I spend on food this month?', 'Can I afford a ₹5000 purchase?', 'What are my worst spending habits?', 'Generate a savings plan for me.'" },
-                    { icon: '📱', heading: 'SMS Parser', body: 'Paste a bank SMS or UPI notification and the AI will automatically extract and add the transaction for you.' },
-                    { icon: '🧠', heading: 'Financial Personality', body: "Ask 'What is my financial personality?' to get a detailed profile of your spending behaviour and money habits." },
-                ]} />
-            </div>
 
-            {/* Scrollable Messages Area */}
-            <div style={{
-                position: 'fixed',
-                top: `${HEADER_H}px`,
-                left: leftOffset,
-                right: 0,
-                bottom: messagesBottom,
-                overflowY: messages.length === 0 ? 'hidden' : 'auto',
-                overflowX: 'hidden',
-                WebkitOverflowScrolling: messages.length === 0 ? 'unset' : 'touch',
-                padding: '16px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-            }}>
-                {messages.length === 0 ? (
-                    <div style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center',
-                        justifyContent: 'center', flex: 1, gap: '24px', paddingTop: '40px',
-                    }}>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{
-                                width: '52px', height: '52px', borderRadius: '50%',
-                                background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                margin: '0 auto 12px', fontSize: '22px', color: 'white',
-                            }}>✦</div>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
+                {/* ── QUICK PROMPT CHIPS ── */}
+                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none', flexShrink: 0 }}>
+                    {QUICK_PROMPTS.map(chip => (
+                        <button key={chip} type="button" onClick={() => setInput(chip)}
+                            style={{ padding: '6px 14px', borderRadius: '999px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0, transition: 'all var(--transition-fast)' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-tint)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-light)'; }}>
+                            {chip}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ── MESSAGES AREA (flex: 1 scrolls internally) ── */}
+                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 2px 8px' }}>
+
+                    {/* Empty state */}
+                    {messages.length === 0 && !loading && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '14px', paddingTop: '32px' }}>
+                            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-info) 12%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-info) 22%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Sparkles size={22} color="var(--color-info)" />
+                            </div>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)', maxWidth: '280px', lineHeight: 1.5 }}>
                                 Ask me anything about your spending, budgets, or goals.
                             </p>
                         </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', maxWidth: '480px' }}>
-                            {SUGGESTIONS.map(s => (
-                                <button
-                                    key={s}
-                                    onClick={() => handleSend(s)}
-                                    style={{
-                                        padding: '8px 16px',
-                                        background: 'var(--bg-card)',
-                                        border: '0.5px solid var(--bg-border)',
-                                        borderRadius: '20px',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: '13px',
-                                        cursor: 'pointer',
-                                        fontFamily: 'DM Sans, sans-serif',
-                                        transition: 'border-color 150ms, color 150ms',
-                                    }}
-                                    onMouseEnter={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)';
-                                    }}
-                                    onMouseLeave={e => {
-                                        (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-                                    }}
-                                >
-                                    {s}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    messages.map((msg, i) => (
+                    )}
+
+                    {/* Message bubbles */}
+                    {messages.map((msg, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-                            {msg.role === 'assistant' && (
-                                <div style={{
-                                    width: '28px', height: '28px', borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: '13px', color: 'white', flexShrink: 0, marginBottom: '2px',
-                                }}>✦</div>
-                            )}
                             {msg.role === 'assistant' ? (
-                                <AIResponseCard
-                                    message={msg.content}
-                                    type="chat"
-                                    onAction={route => router.push(route)}
-                                    style={{ maxWidth: '85%', width: '100%' }}
-                                />
+                                <>
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginBottom: 2 }}>
+                                        <Sparkles size={14} color="var(--color-info)" />
+                                    </div>
+                                    <div style={{ maxWidth: isMobile ? '88%' : '72%' }}>
+                                        <AIResponseCard message={msg.content} type="chat" onAction={route => router.push(route)} style={{ borderRadius: '15px 15px 15px 4px', border: '1px solid var(--border)', borderLeft: 'none' }} />
+                                        <p style={{ fontSize: '10px', color: 'var(--text-faint)', margin: '3px 0 0 4px', fontFamily: 'var(--font-body)' }}>{fmtTime(msg.timestamp)}</p>
+                                    </div>
+                                </>
                             ) : (
-                                <div style={{
-                                    maxWidth: '75%',
-                                    padding: '10px 14px',
-                                    borderRadius: '18px 18px 4px 18px',
-                                    background: 'var(--accent-blue)',
-                                    color: '#fff',
-                                    fontSize: '0.875rem',
-                                    lineHeight: 1.55,
-                                    whiteSpace: 'pre-wrap',
-                                }}>
-                                    {msg.content}
+                                <div style={{ maxWidth: isMobile ? '82%' : '68%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                    <div style={{ padding: '10px 14px', borderRadius: '15px 15px 4px 15px', background: 'var(--accent)', color: 'white', fontSize: '14px', lineHeight: 1.55, whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)' }}>
+                                        {msg.content}
+                                    </div>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-faint)', margin: '3px 4px 0 0', fontFamily: 'var(--font-body)' }}>{fmtTime(msg.timestamp)}</p>
                                 </div>
                             )}
                         </div>
-                    ))
-                )}
+                    ))}
 
-                {/* Typing indicator */}
-                {loading && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-                        <div style={{
-                            width: '28px', height: '28px', borderRadius: '50%',
-                            background: 'linear-gradient(135deg, var(--accent-blue), #8b5cf6)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '13px', color: 'white', flexShrink: 0,
-                        }}>✦</div>
-                        <div style={{
-                            background: 'var(--bg-card)',
-                            border: '0.5px solid var(--bg-border)',
-                            borderRadius: '18px 18px 18px 4px',
-                            padding: '12px 16px',
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                            {[0, 1, 2].map(j => (
-                                <div key={j} style={{
-                                    width: '7px', height: '7px',
-                                    borderRadius: '50%',
-                                    background: 'var(--accent-blue)',
-                                    animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite`,
-                                }} />
-                            ))}
+                    {/* Typing indicator */}
+                    {loading && (
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Sparkles size={14} color="var(--color-info)" />
+                            </div>
+                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {[0, 1, 2].map(j => (
+                                    <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-3)', animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+                    )}
 
-            {/* Fixed Input Bar — always above BottomNav, never moves */}
-            <div style={{
-                position: 'fixed',
-                bottom: inputBarBottom,
-                left: leftOffset,
-                right: 0,
-                height: `${INPUT_H}px`,
-                zIndex: 200,
-                backgroundColor: 'var(--bg-primary)',
-                borderTop: '1px solid var(--bg-border)',
-                padding: '10px 12px',
-                display: 'flex',
-                alignItems: 'flex-end',
-                gap: '8px',
-            }}>
-                <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSend(input);
-                        }
-                    }}
-                    placeholder="Ask about your finances…"
-                    rows={1}
-                    style={{
-                        flex: 1,
-                        padding: '9px 14px',
-                        background: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--bg-border)',
-                        borderRadius: '22px',
-                        fontSize: '0.875rem',
-                        fontFamily: 'DM Sans, sans-serif',
-                        outline: 'none',
-                        resize: 'none',
-                        lineHeight: 1.5,
-                        maxHeight: '120px',
-                        overflowY: 'auto',
-                    }}
-                />
-                <button
-                    onClick={() => handleSend(input)}
-                    disabled={loading || !input.trim()}
-                    style={{
-                        width: '40px', height: '40px', borderRadius: '50%',
-                        background: 'var(--accent-blue)',
-                        border: 'none', color: '#fff',
-                        cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                        opacity: loading || !input.trim() ? 0.45 : 1,
-                        transition: 'opacity 0.15s',
-                    }}
-                >
-                    <Send size={16} />
-                </button>
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {/* ── INPUT BAR (bottom of flex container, not fixed) ── */}
+                <div style={{ flexShrink: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+                    <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(input); }
+                        }}
+                        placeholder="Ask about your finances…"
+                        rows={1}
+                        style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-alt)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)', outline: 'none', resize: 'none', lineHeight: 1.5, maxHeight: '120px', overflowY: 'auto', transition: 'border-color var(--transition-fast)' }}
+                        onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                        onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                    />
+                    <button type="button" onClick={() => handleSend(input)} disabled={!canSend}
+                        style={{ width: 38, height: 38, borderRadius: '50%', background: canSend ? 'var(--accent)' : 'var(--bg-alt)', border: canSend ? 'none' : '1px solid var(--border)', color: canSend ? 'white' : 'var(--text-muted)', cursor: canSend ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background var(--transition-fast), color var(--transition-fast)' }}>
+                        <Send size={16} />
+                    </button>
+                </div>
+
             </div>
         </AppLayout>
     );

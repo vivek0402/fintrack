@@ -75,7 +75,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                         <div style={{
                             fontSize: '17px',
                             fontWeight: 700,
-                            fontFamily: 'Sora, sans-serif',
+                            fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
                             color: 'var(--text-primary)',
                         }}>
                             How to use {title}

@@ -46,8 +46,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const theme = localStorage.getItem('fintrack-theme') || 'dark';
-                document.documentElement.setAttribute('data-theme', theme);
+                var t = localStorage.getItem('fintrack-theme');
+                var p = localStorage.getItem('fintrack-palette');
+                var validPalettes = ['ember','ocean','violet','forest','rose'];
+                document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-palette', validPalettes.indexOf(p) !== -1 ? p : 'ocean');
               } catch(e) {}
             `,
           }}

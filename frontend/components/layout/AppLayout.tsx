@@ -11,13 +11,31 @@ import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/ToastContainer';
+import { ThemePicker } from '@/components/ui/ThemePicker';
+import { RedesignAnnouncement } from '@/components/ui/RedesignAnnouncement';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
 
+// --bg-glow is already a full rgba(...) value in the token system so it can be
+// dropped directly into a gradient stop — no getComputedStyle needed.
+function buildGlowBackground(theme: string): string {
+    if (theme === 'dark') {
+        return [
+            'radial-gradient(ellipse 70% 55% at 95% 0%,  var(--bg-glow), transparent 52%)',
+            'radial-gradient(ellipse 55% 45% at 5% 100%, var(--bg-glow), transparent 52%)',
+            '#000000',
+        ].join(', ');
+    }
+    return [
+        'radial-gradient(ellipse 100% 50% at 50% -5%, var(--bg-glow), transparent 50%)',
+        'var(--bg-page)',
+    ].join(', ');
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
-    const { loadTheme } = useThemeStore();
+    const { loadTheme, theme } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
@@ -60,9 +78,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     };
 
     const sidebarWidth = collapsed ? '64px' : '220px';
+    const glowBackground = buildGlowBackground(theme);
 
     return (
-        <div className="page-glow" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <div
+            className="page-glow"
+            style={{
+                display: 'flex',
+                minHeight: '100vh',
+                background: glowBackground,
+                backgroundAttachment: 'fixed',
+                transition: 'background 0.5s ease',
+            }}
+        >
             <style>{`
                 .fintrack-card {
                     transition: transform 150ms ease-out, box-shadow 150ms ease-out;
@@ -84,7 +112,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     paddingLeft: isMobile ? '16px' : '32px',
                     minHeight: '100vh',
                     overflowX: 'hidden',
-                    background: 'var(--bg-primary)',
                     color: 'var(--text-primary)',
                     animation: 'pageEnter 0.2s ease-out forwards',
                 }}
@@ -105,13 +132,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         width: '52px',
                         height: '52px',
                         borderRadius: '50%',
-                        background: 'var(--accent-blue)',
+                        background: 'var(--accent)',
                         border: 'none',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 20px rgba(59,130,246,0.45)',
+                        boxShadow: '0 4px 20px var(--accent-tint)',
                         animation: 'springIn 400ms cubic-bezier(0.34,1.56,0.64,1) both',
                     }}
                 >
@@ -123,7 +150,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {!isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
                 <div style={{ position: 'fixed', bottom: '32px', right: '96px', zIndex: 500 }}>
                     {addFabHover && (
-                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                        <div style={{
+                            position: 'absolute', bottom: '100%', left: '50%',
+                            transform: 'translateX(-50%)', marginBottom: '8px',
+                            backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
+                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
+                        }}>
                             Add Transaction
                         </div>
                     )}
@@ -133,10 +166,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         onMouseLeave={() => setAddFabHover(false)}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
-                            background: 'var(--accent-blue)',
+                            background: 'var(--accent)',
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: addFabHover ? '0 6px 28px rgba(59,130,246,0.6)' : '0 4px 20px rgba(59,130,246,0.4)',
+                            boxShadow: addFabHover ? '0 6px 28px var(--accent-tint)' : '0 4px 20px var(--accent-border)',
                             transform: addFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                         }}
@@ -150,7 +183,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {!isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && (
                 <div style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
                     {aiFabHover && (
-                        <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                        <div style={{
+                            position: 'absolute', bottom: '100%', left: '50%',
+                            transform: 'translateX(-50%)', marginBottom: '8px',
+                            backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)',
+                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
+                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
+                        }}>
                             AI Chat
                         </div>
                     )}
@@ -160,10 +199,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         onMouseLeave={() => setAiFabHover(false)}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                            background: 'linear-gradient(135deg, var(--accent-2), var(--accent-3))',
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: aiFabHover ? '0 6px 28px rgba(99,102,241,0.6)' : '0 4px 20px rgba(99,102,241,0.4)',
+                            boxShadow: aiFabHover ? '0 6px 28px var(--accent-tint)' : '0 4px 20px var(--accent-border)',
                             transform: aiFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                             animation: 'softPulse 3s ease-in-out infinite',
@@ -174,6 +213,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                 </div>
             )}
+            <ThemePicker />
+            <RedesignAnnouncement />
             <ToastContainer />
             <WalkthroughTour
                 isOpen={showTour}

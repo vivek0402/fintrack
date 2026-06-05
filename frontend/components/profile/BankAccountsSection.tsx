@@ -18,9 +18,9 @@ interface BankAccount {
 }
 
 const ICONS = ['🏦', '💳', '💰', '🏧', '💵', '🪙', '📱', '🏢'];
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#f43f5e', '#ec4899'];
+const COLORS = ['#6366f1', '#00e5a0', '#f59e0b', '#a855f7', '#f43f5e', '#ec4899'];
 
-const DEFAULT_FORM = { name: '', icon: '🏦', color: '#3b82f6', starting_balance: '', current_balance_override: '', is_default: false };
+const DEFAULT_FORM = { name: '', icon: '🏦', color: '#6366f1', starting_balance: '', current_balance_override: '', is_default: false };
 
 function fmt(n: number) {
     return '₹' + Math.round(n).toLocaleString('en-IN');
@@ -167,8 +167,8 @@ export function BankAccountsSection() {
             {/* Success toast */}
             {successMsg && (
                 <div style={{
-                    backgroundColor: 'rgba(16,185,129,0.1)',
-                    border: '1px solid rgba(16,185,129,0.2)',
+                    backgroundColor: 'rgba(0,229,160,0.1)',
+                    border: '1px solid rgba(0,229,160,0.2)',
                     borderRadius: '8px',
                     padding: '10px 14px',
                     fontSize: '13px',
@@ -185,7 +185,7 @@ export function BankAccountsSection() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
                 <div>
-                    <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'Sora, sans-serif' }}>
+                    <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>
                         Bank Accounts
                     </p>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>
@@ -203,7 +203,7 @@ export function BankAccountsSection() {
                         border: 'none',
                         cursor: 'pointer',
                         flexShrink: 0,
-                        fontFamily: 'DM Sans, sans-serif',
+                        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                     }}
                 >
                     + Add Account
@@ -250,7 +250,7 @@ export function BankAccountsSection() {
                             fontSize: '13px',
                             border: 'none',
                             cursor: 'pointer',
-                            fontFamily: 'DM Sans, sans-serif',
+                            fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                         }}
                     >
                         + Add your first account
@@ -339,8 +339,8 @@ export function BankAccountsSection() {
                                     <div style={{
                                         display: 'inline-flex',
                                         alignItems: 'center',
-                                        backgroundColor: 'rgba(59,130,246,0.12)',
-                                        border: '1px solid rgba(59,130,246,0.25)',
+                                        backgroundColor: 'rgba(99,102,241,0.12)',
+                                        border: '1px solid rgba(99,102,241,0.25)',
                                         borderRadius: '20px',
                                         padding: '1px 8px',
                                         fontSize: '11px',
@@ -470,7 +470,7 @@ export function BankAccountsSection() {
                             borderBottom: '1px solid var(--bg-border)',
                             flexShrink: 0,
                         }}>
-                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>
+                            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>
                                 {editAccount ? 'Edit Account' : 'Add Account'}
                             </h3>
                             <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '0 4px' }}>×</button>
@@ -649,12 +649,12 @@ export function BankAccountsSection() {
                                     padding: '10px',
                                     borderRadius: '8px',
                                     border: 'none',
-                                    backgroundColor: saving || !form.name.trim() ? 'rgba(59,130,246,0.5)' : 'var(--accent-blue)',
+                                    backgroundColor: saving || !form.name.trim() ? 'rgba(99,102,241,0.5)' : 'var(--accent-blue)',
                                     color: '#fff',
                                     fontSize: '14px',
                                     fontWeight: 500,
                                     cursor: saving || !form.name.trim() ? 'not-allowed' : 'pointer',
-                                    fontFamily: 'DM Sans, sans-serif',
+                                    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                                 }}
                             >
                                 {saving ? 'Saving…' : editAccount ? 'Save Changes' : 'Add Account'}
@@ -694,7 +694,7 @@ const inputStyle: React.CSSProperties = {
     padding: '10px 12px',
     color: 'var(--text-primary)',
     fontSize: '14px',
-    fontFamily: 'DM Sans, sans-serif',
+    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
     outline: 'none',
     boxSizing: 'border-box',
 };
@@ -710,7 +710,7 @@ const menuItemStyle: React.CSSProperties = {
     border: 'none',
     cursor: 'pointer',
     borderRadius: '6px',
-    fontFamily: 'DM Sans, sans-serif',
+    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
 };
 
 const cancelBtnStyle: React.CSSProperties = {
@@ -722,5 +722,5 @@ const cancelBtnStyle: React.CSSProperties = {
     color: 'var(--text-secondary)',
     fontSize: '14px',
     cursor: 'pointer',
-    fontFamily: 'DM Sans, sans-serif',
+    fontFamily: "'Satoshi', 'DM Sans', sans-serif",
 };

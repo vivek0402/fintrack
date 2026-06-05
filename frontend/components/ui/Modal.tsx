@@ -29,11 +29,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
     }, [isOpen, onClose]);
 
     useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = '';
-        }
+        document.body.style.overflow = isOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };
     }, [isOpen]);
 
@@ -56,7 +52,9 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 left: 0,
                 width: '100vw',
                 height: '100vh',
-                backgroundColor: 'rgba(0,0,0,0.6)',
+                backgroundColor: 'rgba(0,0,0,0.55)',
+                backdropFilter: 'blur(2px)',
+                WebkitBackdropFilter: 'blur(2px)',
                 zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
@@ -73,9 +71,9 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--surface-1)',
-                    border: '1px solid var(--bg-border)',
-                    borderRadius: 'var(--radius-lg)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-xl)',
                     overflow: 'hidden',
                     zIndex: 10000,
                     animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both',
@@ -84,15 +82,33 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 {/* Header */}
                 {title && (
                     <div style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                         padding: '20px 24px',
-                        borderBottom: '1px solid var(--bg-border)',
+                        borderBottom: '1px solid var(--border)',
                         flexShrink: 0,
                     }}>
-                        <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{title}</span>
+                        <span style={{
+                            fontSize: '1rem',
+                            fontWeight: 700,
+                            color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-display)',
+                        }}>
+                            {title}
+                        </span>
                         <button
+                            type="button"
                             onClick={onClose}
-                            style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '6px', borderRadius: '8px' }}
+                            style={{
+                                background: 'var(--bg-alt)',
+                                border: 'none',
+                                cursor: 'pointer',
+                                color: 'var(--text-muted)',
+                                display: 'flex',
+                                padding: '6px',
+                                borderRadius: '8px',
+                            }}
                         >
                             <X size={18} />
                         </button>
@@ -109,7 +125,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     <div style={{
                         flexShrink: 0,
                         padding: '16px 24px',
-                        borderTop: '1px solid var(--bg-border)',
+                        borderTop: '1px solid var(--border)',
                     }}>
                         {footer}
                     </div>

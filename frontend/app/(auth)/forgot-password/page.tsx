@@ -95,10 +95,10 @@ export default function ForgotPasswordPage() {
 
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <div style={{ width: '56px', height: '56px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        {step === 'otp' ? <ShieldCheck size={24} color="#10b981" /> : <TrendingUp size={24} color="#10b981" />}
+                    <div style={{ width: '56px', height: '56px', background: 'rgba(0,229,160,0.15)', border: '1px solid rgba(0,229,160,0.25)', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        {step === 'otp' ? <ShieldCheck size={24} color="#00e5a0" /> : <TrendingUp size={24} color="#00e5a0" />}
                     </div>
-                    <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
+                    <h1 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '1.6rem', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
                         {step === 'email' && 'Forgot password'}
                         {step === 'otp' && 'Enter your code'}
                         {step === 'done' && 'Password reset!'}
@@ -181,7 +181,7 @@ export default function ForgotPasswordPage() {
                                     <button
                                         type="button"
                                         onClick={handleResend}
-                                        style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, padding: 0 }}
+                                        style={{ background: 'none', border: 'none', color: '#00e5a0', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, padding: 0 }}
                                     >
                                         Resend code
                                     </button>
@@ -200,7 +200,7 @@ export default function ForgotPasswordPage() {
 
                     {step === 'done' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'center' }}>
-                            <div style={{ padding: '16px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '12px', color: '#10b981', fontSize: '0.875rem' }}>
+                            <div style={{ padding: '16px', background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.2)', borderRadius: '12px', color: '#00e5a0', fontSize: '0.875rem' }}>
                                 Your password has been reset successfully.
                             </div>
                             <Button size="lg" style={{ width: '100%' }} onClick={() => router.push('/login')}>
@@ -211,7 +211,7 @@ export default function ForgotPasswordPage() {
 
                     <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                         Remember it?{' '}
-                        <Link href="/login" style={{ color: '#10b981', textDecoration: 'none', fontWeight: 500 }}>
+                        <Link href="/login" style={{ color: '#00e5a0', textDecoration: 'none', fontWeight: 500 }}>
                             Sign in
                         </Link>
                     </p>

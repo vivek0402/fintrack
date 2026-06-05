@@ -1,45 +1,90 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    XAxis, YAxis, CartesianGrid, Tooltip,
+    ResponsiveContainer,
+} from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
+import { GCard } from '@/components/ui/GCard';
+import { Badge } from '@/components/ui/Badge';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
+import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
-import { TrendingUp, TrendingDown, Award, Calendar, Download, Sparkles, RefreshCw, Wallet, BarChart2 } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { formatCurrency, exportToCSV } from '@/lib/utils';
-import PageHelp from '@/components/ui/PageHelp';
-import { PageShell } from '@/components/layout/PageShell';
+import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award } from 'lucide-react';
+import { exportToCSV, formatCurrency } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
+// ── Chart colour state read from CSS custom properties at runtime ─────────────
+// This ensures charts update when the palette or theme changes.
+type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; bgCard: string; };
+const DEFAULT_CC: ChartColors = { inc: '#059669', exp: '#ea580c', accent2: '#f97316', tint: '#fed7aa', border: '#e5e7eb', faint: '#94a3b8', bgCard: '#ffffff' };
+function readChartColors(): ChartColors {
+    if (typeof document === 'undefined') return DEFAULT_CC;
+    const s = getComputedStyle(document.documentElement);
+    const g = (v: string) => s.getPropertyValue(v).trim() || DEFAULT_CC[v as keyof ChartColors] || '';
+    return { inc: g('--color-inc'), exp: g('--accent'), accent2: g('--accent-2'), tint: g('--accent-tint'), border: g('--border'), faint: g('--text-faint'), bgCard: g('--bg-card') };
+}
+
+// ── Shared custom tooltip ──────────────────────────────────────────────────────
+function ChartTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 14px', boxShadow: 'var(--shadow-card)' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{label}</p>
+            {payload.map((p: any) => (
+                <p key={p.name} style={{ fontSize: '13px', color: p.stroke || p.fill, margin: '3px 0', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                    {p.name}: {fmt(p.value)}
+                </p>
+            ))}
+        </div>
+    );
+}
+
+// ── Section header ─────────────────────────────────────────────────────────────
+function SectionHead({ title }: { title: string }) {
+    return <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>{title}</h2>;
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const { theme, palette } = useThemeStore();
     const isMobile = useIsMobile();
     const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
+    const currentYear  = new Date().getFullYear();
 
+    const [cc, setCc] = useState<ChartColors>(DEFAULT_CC);
+    const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
+
+    const [summary, setSummary]                 = useState<any>(null);
+    const [trends, setTrends]                   = useState<any[]>([]);
+    const [categories, setCategories]           = useState<any[]>([]);
+    const [yearlyData, setYearlyData]           = useState<any>(null);
+    const [paymentMethods, setPaymentMethods]   = useState<any[]>([]);
+    const [paymentTotal, setPaymentTotal]       = useState(0);
     const [allTransactions, setAllTransactions] = useState<any[]>([]);
-    const [summary, setSummary] = useState<any>(null);
-    const [trends, setTrends] = useState<any[]>([]);
-    const [categories, setCategories] = useState<any[]>([]);
-    const [yearlyData, setYearlyData] = useState<any>(null);
-    const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
-    const [paymentTotal, setPaymentTotal] = useState(0);
-    const [regretData, setRegretData] = useState<any>(null);
-    const [regretLoading, setRegretLoading] = useState(false);
-    const [accounts, setAccounts] = useState<any[]>([]);
+    const [accounts, setAccounts]               = useState<any[]>([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
-    const [allocationPlan, setAllocationPlan] = useState<any>(null);
+    const [regretData, setRegretData]           = useState<any>(null);
+    const [regretLoading, setRegretLoading]     = useState(false);
+    const [allocationPlan, setAllocationPlan]   = useState<any>(null);
     const [allocationLoading, setAllocationLoading] = useState(false);
     const [allocationError, setAllocationError] = useState('');
-    const [planGenerated, setPlanGenerated] = useState(false);
+    const [planGenerated, setPlanGenerated]     = useState(false);
+    const [dataLoading, setDataLoading]         = useState(true);
+
+    // Re-read CSS custom properties whenever palette or theme changes
+    useEffect(() => { setCc(readChartColors()); }, [theme, palette]);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -47,6 +92,7 @@ export default function AnalyticsPage() {
     useEffect(() => {
         if (!user) return;
         const fetchData = async () => {
+            setDataLoading(true);
             try {
                 const [summaryRes, trendsRes, allTxRes, yearlyRes, pmRes] = await Promise.all([
                     analyticsAPI.summary({ month: currentMonth, year: currentYear }),
@@ -56,83 +102,82 @@ export default function AnalyticsPage() {
                     analyticsAPI.paymentMethods({ month: currentMonth, year: currentYear }),
                 ]);
                 setSummary(summaryRes.data.summary);
-                setCategories(summaryRes.data.category_breakdown);
-                setTrends(trendsRes.data.trends);
-                setAllTransactions(allTxRes.data.transactions);
+                setCategories(summaryRes.data.category_breakdown ?? []);
+                setTrends(trendsRes.data.trends ?? []);
+                setAllTransactions(allTxRes.data.transactions ?? []);
                 setYearlyData(yearlyRes.data);
-                setPaymentMethods(pmRes.data.breakdown || []);
-                setPaymentTotal(pmRes.data.total || 0);
+                setPaymentMethods(pmRes.data.breakdown ?? []);
+                setPaymentTotal(pmRes.data.total ?? 0);
+                // Read chart colours after DOM has updated with any new palette
+                setCc(readChartColors());
             } catch (err) { console.error(err); }
+            finally { setDataLoading(false); }
         };
         fetchData();
         accountsAPI.getAll()
-            .then((res: any) => setAccounts(res.data.accounts || []))
+            .then((res: any) => setAccounts(res.data.accounts ?? []))
             .catch(() => setAccounts([]))
             .finally(() => setAccountsLoading(false));
     }, [user]);
 
-    const barData = (() => {
-        const map: Record<string, any> = {};
+    // ── Derived chart data ────────────────────────────────────────────────────
+
+    // Trend map: { "2025-6": { income, expenses } }
+    const trendsMap = useMemo(() => {
+        const map: Record<string, { income: number; expenses: number }> = {};
         trends.forEach(row => {
             const key = `${row.year}-${row.month}`;
-            if (!map[key]) map[key] = { month: MONTH_NAMES[row.month], income: 0, expenses: 0 };
+            if (!map[key]) map[key] = { income: 0, expenses: 0 };
             if (row.type === 'income') map[key].income = parseFloat(row.total);
             else map[key].expenses = parseFloat(row.total);
         });
-        return Object.values(map);
-    })();
+        return map;
+    }, [trends]);
 
-    const totalExpenses = categories.reduce((s, c) => s + parseFloat(c.total), 0);
-    const monthlyExpenses = barData.map(d => d.expenses).filter(v => v > 0);
+    // Ordered month list for area chart
+    const areaData = useMemo(() => {
+        const entries = Object.entries(trendsMap).map(([key, v]) => {
+            const [y, m] = key.split('-');
+            return { sortKey: parseInt(y) * 100 + parseInt(m), month: MONTH_NAMES[parseInt(m)], ...v };
+        }).sort((a, b) => a.sortKey - b.sortKey);
+        const count = period === 'month' ? 6 : period === 'quarter' ? 9 : 12;
+        return entries.slice(-count);
+    }, [trendsMap, period]);
+
+    // Weekly spending pattern from all transactions
+    const weeklyData = useMemo(() => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const totals = [0, 0, 0, 0, 0, 0, 0];
+        allTransactions.filter(tx => tx.type === 'expense').forEach(tx => {
+            const dow = new Date((tx.date || '').split('T')[0] + 'T00:00:00').getDay();
+            if (!isNaN(dow)) totals[dow] += parseFloat(tx.amount);
+        });
+        return days.map((day, i) => ({ day, amount: totals[i] }));
+    }, [allTransactions]);
+    const maxWeeklyAmt = Math.max(...weeklyData.map(d => d.amount), 1);
+
+    // KPI computations
+    const totalExpenses     = categories.reduce((s, c) => s + parseFloat(c.total ?? 0), 0);
+    const daysElapsed       = new Date().getDate();
+    const dailyAvg          = daysElapsed > 0 ? (summary?.total_expenses ?? 0) / daysElapsed : 0;
+    const savingsRate       = summary?.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
+    const lastMonthKey      = (() => { let m = currentMonth - 1, y = currentYear; if (m === 0) { m = 12; y--; } return `${y}-${m}`; })();
+    const lastMonthExp      = trendsMap[lastMonthKey]?.expenses ?? 0;
+    const vsLastMonth       = lastMonthExp > 0 ? Math.round(((( summary?.total_expenses ?? 0) - lastMonthExp) / lastMonthExp) * 100) : null;
+    const totalBalance      = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
+
+    const monthlyExpenses   = Object.values(trendsMap).map(d => d.expenses).filter(v => v > 0);
     const avgMonthlyExpense = monthlyExpenses.length ? monthlyExpenses.reduce((a, b) => a + b, 0) / monthlyExpenses.length : 0;
-    const bestMonth = barData.reduce((best, curr) => (curr.income - curr.expenses) > ((best?.income || 0) - (best?.expenses || 0)) ? curr : best, barData[0]);
 
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (!active || !payload?.length) return null;
-        return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem' }}>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600 }}>{label}</p>
-                {payload.map((p: any) => <p key={p.name} style={{ color: p.fill, margin: '4px 0' }}>{p.name}: ₹{p.value?.toLocaleString('en-IN')}</p>)}
-            </div>
-        );
-    };
-
-    // Year over year helpers
-    const getTotal = (year: number, type: string) => {
+    const getYearlyTotal = (year: number, type: string) => {
         if (!yearlyData) return 0;
-        const row = yearlyData.totals.find((t: any) => parseInt(t.year) === year && t.type === type);
+        const row = yearlyData.totals?.find((t: any) => parseInt(t.year) === year && t.type === type);
         return row ? parseFloat(row.total) : 0;
     };
     const pctChange = (curr: number, last: number) => last === 0 ? null : ((curr - last) / last * 100).toFixed(1);
 
-    if (isLoading || !user) return (
-        <AppLayout>
-            <div style={{ marginBottom: '24px' }}>
-                <SkeletonTitle />
-                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                {[1,2,3].map(i => <Skeleton key={i} height={72} borderRadius={12} />)}
-            </div>
-            <SkeletonCard height={240} style={{ marginBottom: '16px' }} />
-            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                <Skeleton width="40%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
-                {[1,2,3,4,5,6].map(i => (
-                    <div key={i} style={{ marginBottom: '14px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                            <Skeleton width="35%" height={14} borderRadius={4} />
-                            <Skeleton width={60} height={14} borderRadius={4} />
-                        </div>
-                        <Skeleton width="100%" height={6} borderRadius={4} />
-                    </div>
-                ))}
-            </div>
-        </AppLayout>
-    );
-
-    const totalBalance = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
-
     const hexToRgba = (hex: string, alpha: number) => {
+        if (hex.startsWith('rgb')) return hex; // already rgba — just return
         const r = parseInt(hex.slice(1, 3), 16);
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
@@ -140,442 +185,455 @@ export default function AnalyticsPage() {
     };
 
     const handleGeneratePlan = async (force?: boolean) => {
-        setAllocationLoading(true);
-        setAllocationError('');
+        setAllocationLoading(true); setAllocationError('');
         try {
             const res = await aiAPI.salaryAllocation(force);
-            setAllocationPlan(res.data);
-            setPlanGenerated(true);
+            setAllocationPlan(res.data); setPlanGenerated(true);
         } catch (err: any) {
             setAllocationError(err?.response?.status === 429
-                ? 'AI is taking a short break due to high usage. Please try again in a few minutes.'
+                ? 'AI is taking a short break. Please try again in a few minutes.'
                 : 'Failed to generate plan. Please try again.');
-        } finally {
-            setAllocationLoading(false);
-        }
+        } finally { setAllocationLoading(false); }
     };
+
+    // ── Loading skeleton ──────────────────────────────────────────────────────
+    if (isLoading || !user) return (
+        <AppLayout>
+            <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={72} />)}
+            </div>
+            <SkeletonCard height={240} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={180} />
+        </AppLayout>
+    );
+
+    // ── Shared card wrapper ───────────────────────────────────────────────────
+    const sectionCard: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
 
     return (
         <AppLayout>
-            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
-            <PageShell
-                title="Analytics"
-                subtitle="Deep insights into your spending"
-                headerRight={
-                    <>
-                        <Button variant="secondary" size="md" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}><Download size={16} />Export All</Button>
-                        <PageHelp title="Analytics" sections={[
-                            { icon: '🥧', heading: 'What is this page?', body: 'A detailed breakdown of where your money went. Switch between chart views to see spending by category.' },
-                            { icon: '📉', heading: 'Category Breakdown', body: 'Each category shows a progress bar and percentage of total spending. The longest bar is your biggest expense area.' },
-                            { icon: '🏦', heading: 'Bank Accounts', body: 'Track your account balances here. Add accounts with starting balances to get an accurate net worth picture.' },
-                            { icon: '💼', heading: 'Salary Allocation', body: "Tap 'Generate Plan' to get an AI-recommended 50/30/20 budget split based on your actual income and spending history." },
-                        ]} />
-                    </>
-                }
-            >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-            {/* Bank Balances card */}
-            {(accountsLoading || accounts.length > 0) && (
-                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
-                    {/* Header */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
+                {/* ── HEADER ── */}
+                <div style={{ ...sectionCard, marginBottom: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Bank Balances</p>
-                            <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>Live balances across all your accounts</p>
+                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Analytics</h1>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{FULL_MONTHS[currentMonth]} {currentYear} — spending overview</p>
                         </div>
-                        {!accountsLoading && (
-                            <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                                <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)' }}>Total Balance</p>
-                                <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                    ₹{Math.round(totalBalance).toLocaleString('en-IN')}
-                                </p>
-                            </div>
-                        )}
+                        <button type="button" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            <Download size={14} /> Export
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── PERIOD PILLS + KPI GCARDS ── */}
+                <div>
+                    {/* Period pills */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                        {(['month', 'quarter', 'year'] as const).map(p => (
+                            <button key={p} type="button" onClick={() => setPeriod(p)}
+                                style={{ padding: '6px 14px', borderRadius: '999px', border: `1px solid ${period === p ? 'var(--accent)' : 'var(--border)'}`, background: period === p ? 'var(--accent)' : 'var(--bg-card)', color: period === p ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: period === p ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', textTransform: 'capitalize' }}>
+                                {p}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Tiles row */}
-                    <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
-                        {accountsLoading
-                            ? [1, 2, 3].map(i => (
-                                <div key={i} style={{ minWidth: '170px', height: '140px', backgroundColor: 'var(--bg-hover)', borderRadius: '12px', flex: '0 0 auto', animation: 'pulse 1.5s ease-in-out infinite', opacity: 0.5 }} />
-                            ))
-                            : accounts.map((account: any) => {
-                                const bal = Number(account.current_balance);
-                                const net = bal - Number(account.starting_balance);
-                                return (
-                                    <div key={account.id} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `3px solid ${account.color || '#3b82f6'}`, borderRadius: '12px', padding: '14px 16px', minWidth: '170px', flex: '0 0 auto' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontSize: '16px' }}>{account.icon || '🏦'}</span>
-                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{account.name}</span>
-                                            {account.is_default && (
-                                                <span style={{ fontSize: '10px', color: 'var(--accent-blue)', backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: '4px', padding: '1px 6px', marginLeft: 'auto', flexShrink: 0 }}>default</span>
-                                            )}
-                                        </div>
-                                        <p style={{ margin: '10px 0 0', fontSize: '20px', fontWeight: 700, color: bal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>₹{Math.round(bal).toLocaleString('en-IN')}</p>
-                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>Started ₹{Math.round(Number(account.starting_balance)).toLocaleString('en-IN')}</p>
-                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: net >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>{net >= 0 ? '▲ +' : '▼ '}₹{Math.abs(Math.round(net)).toLocaleString('en-IN')} net</p>
-                                        <div style={{ height: '1px', backgroundColor: 'var(--bg-border)', margin: '10px 0' }} />
-                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                            <div>
-                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-green)' }}>₹{Math.round(Number(account.total_income)).toLocaleString('en-IN')}</p>
-                                                <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)' }}>in</p>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--accent-red)' }}>₹{Math.round(Number(account.total_expenses)).toLocaleString('en-IN')}</p>
-                                                <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)' }}>out</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        }
+                    {/* 2×2 KPI grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {[
+                            { label: 'Total Spent', value: fmt(summary?.total_expenses ?? 0), sub: FULL_MONTHS[currentMonth], color: 'var(--color-exp)' },
+                            { label: 'Daily Average', value: fmt(dailyAvg), sub: 'this month', color: 'var(--color-warn)' },
+                            { label: 'vs Last Month', value: vsLastMonth !== null ? `${vsLastMonth > 0 ? '+' : ''}${vsLastMonth}%` : '—', sub: 'expenses', color: vsLastMonth !== null && vsLastMonth > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
+                            { label: 'Savings Rate', value: `${savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
+                        ].map(kpi => (
+                            <GCard key={kpi.label}>
+                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
+                            </GCard>
+                        ))}
                     </div>
+                </div>
 
-                    {/* Footer link */}
-                    {!accountsLoading && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                            <span onClick={() => router.push('/profile')} style={{ fontSize: '12px', color: 'var(--accent-blue)', cursor: 'pointer' }}>Manage accounts →</span>
+                {/* ── INCOME VS EXPENSES AREA CHART ── */}
+                <div style={sectionCard}>
+                    <SectionHead title="Income vs Expenses" />
+                    {dataLoading ? <SkeletonCard height={200} /> : areaData.length === 0 ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No trend data yet. Add transactions to see the chart.</p>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={220}>
+                            <AreaChart data={areaData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                <defs>
+                                    <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={cc.inc} stopOpacity={0.25} />
+                                        <stop offset="95%" stopColor={cc.inc} stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={cc.exp} stopOpacity={0.20} />
+                                        <stop offset="95%" stopColor={cc.exp} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
+                                <YAxis hide />
+                                <Tooltip content={<ChartTooltip />} />
+                                <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incGrad)" dot={false} />
+                                <Area type="monotone" dataKey="expenses" name="Expenses" stroke={cc.exp} strokeWidth={2} fill="url(#expGrad)" dot={false} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    )}
+                    {/* Legend */}
+                    {!dataLoading && areaData.length > 0 && (
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '10px' }}>
+                            {[{ label: 'Income', color: cc.inc }, { label: 'Expenses', color: cc.exp }].map(l => (
+                                <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <div style={{ width: 20, height: 2, background: l.color, borderRadius: 1 }} />
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
-            )}
 
-            {/* Salary Allocation Plan */}
-            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-6)', overflow: 'hidden' }}>
-                {/* Prompt screen */}
-                {!planGenerated && !allocationLoading && (
-                    <div style={{ padding: '32px 24px', textAlign: 'center' }}>
-                        <Wallet size={48} color="var(--accent-blue)" style={{ margin: '0 auto' }} />
-                        <p style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '12px 0 0' }}>Salary Allocation Plan</p>
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '480px', margin: '8px auto 20px', lineHeight: 1.6 }}>
-                            Get a personalised AI plan that splits your salary using the 50/30/20 rule, your financial goals, and Indian spending context — compared against what you actually spent last month.
-                        </p>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '24px' }}>
-                            {['50/30/20 Rule', 'Goal-Based', 'Indian Context'].map(pill => (
-                                <span key={pill} style={{ backgroundColor: 'var(--bg-hover)', border: '1px solid var(--bg-border)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-secondary)' }}>{pill}</span>
-                            ))}
-                        </div>
-                        {allocationError && (
-                            <p style={{ color: 'var(--accent-red)', fontSize: '13px', marginBottom: '12px' }}>{allocationError}</p>
-                        )}
-                        <Button onClick={() => handleGeneratePlan()} variant="primary" size="md">
-                            <Sparkles size={16} />Generate My Plan
-                        </Button>
-                    </div>
-                )}
-
-                {/* Loading state */}
-                {allocationLoading && (
-                    <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid var(--bg-border)', borderTop: '3px solid var(--accent-blue)', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '16px' }}>Analysing your spending patterns...</p>
-                    </div>
-                )}
-
-                {/* Plan display */}
-                {planGenerated && allocationPlan && !allocationLoading && (
-                    <div style={{ padding: '24px' }}>
-                        {/* Plan header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                            <div>
-                                <p style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>Salary Allocation Plan</p>
-                                <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '500px' }}>{allocationPlan.summary}</p>
-                                {allocationPlan.from_cache && (
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                                        Cached result · Updates every 6 hours
-                                        <span onClick={() => handleGeneratePlan(true)} style={{ color: 'var(--accent-blue)', cursor: 'pointer', marginLeft: '4px' }}>
-                                            Refresh now
-                                        </span>
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--accent-green)' }}>₹{Math.round(allocationPlan.salary).toLocaleString('en-IN')}</p>
-                                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>monthly salary</p>
-                                <Button onClick={() => handleGeneratePlan(true)} variant="secondary" size="sm" style={{ marginTop: '8px', marginLeft: 'auto' }}>
-                                    <RefreshCw size={12} />Regenerate
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Month comparison banner */}
-                        {allocationPlan.month_comparison && (
-                            <div style={{ backgroundColor: 'var(--bg-hover)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-                                <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--accent-green)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--accent-red)' : 'var(--text-muted)' }}>
-                                    {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
-                                </span>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                    Biggest change: {allocationPlan.month_comparison.biggest_change_category} {allocationPlan.month_comparison.biggest_change_amount >= 0 ? '+' : ''}₹{Math.abs(Math.round(allocationPlan.month_comparison.biggest_change_amount)).toLocaleString('en-IN')}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Bucket cards grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                            {allocationPlan.allocation?.map((bucket: any) => (
-                                <div key={bucket.bucket} style={{ backgroundColor: 'var(--bg-primary)', border: '1px solid var(--bg-border)', borderLeft: `4px solid ${bucket.color}`, borderRadius: '12px', padding: '18px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                        <span style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>{bucket.bucket}</span>
-                                        <span style={{ backgroundColor: hexToRgba(bucket.color, 0.12), color: bucket.color, borderRadius: '20px', padding: '2px 10px', fontSize: '12px', fontWeight: 600 }}>{bucket.percentage}%</span>
-                                    </div>
-                                    <p style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: bucket.color }}>₹{Math.round(bucket.amount).toLocaleString('en-IN')}</p>
-                                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>{bucket.description}</p>
-                                    <div style={{ height: '4px', borderRadius: '2px', backgroundColor: 'var(--bg-hover)', margin: '12px 0' }}>
-                                        <div style={{ height: '100%', width: `${bucket.percentage}%`, backgroundColor: bucket.color, borderRadius: '2px' }} />
-                                    </div>
-                                    <div>
-                                        {bucket.categories?.map((cat: any, ci: number) => (
-                                            <div key={cat.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: ci < bucket.categories.length - 1 ? '1px solid var(--bg-border)' : 'none' }}>
-                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{cat.name}</span>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                        {cat.recommended_amount > cat.last_month_actual ? <span style={{ color: 'var(--accent-green)', fontSize: '10px' }}>▲ </span> : cat.recommended_amount < cat.last_month_actual ? <span style={{ color: 'var(--accent-red)', fontSize: '10px' }}>▼ </span> : null}
-                                                        ₹{Math.round(cat.recommended_amount).toLocaleString('en-IN')}
-                                                    </p>
-                                                    <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)' }}>actual: ₹{Math.round(cat.last_month_actual).toLocaleString('en-IN')}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Insights */}
-                        {allocationPlan.insights?.length > 0 && (
-                            <div>
-                                <p style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Insights</p>
-                                {allocationPlan.insights.map((insight: string, i: number) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', backgroundColor: 'var(--bg-hover)', borderRadius: '10px', marginBottom: '8px' }}>
-                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'rgba(59,130,246,0.15)', color: 'var(--accent-blue)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-                                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{insight}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Key Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-                {[
-                    { label: 'This Month Income', value: formatCurrency(summary?.total_income || 0, user.currency), icon: TrendingUp, color: 'var(--accent-green)', bg: 'var(--accent-green-bg)', border: 'var(--accent-green-border)' },
-                    { label: 'This Month Expenses', value: formatCurrency(summary?.total_expenses || 0, user.currency), icon: TrendingDown, color: 'var(--accent-red)', bg: 'var(--accent-red-bg)', border: 'var(--accent-red-border)' },
-                    { label: 'Avg Monthly Expense', value: formatCurrency(avgMonthlyExpense, user.currency), icon: Calendar, color: 'var(--accent-yellow)', bg: 'var(--accent-yellow-bg)', border: 'var(--accent-yellow-border)' },
-                    { label: 'Best Savings Month', value: bestMonth?.month || '—', icon: Award, color: 'var(--accent-blue)', bg: 'var(--accent-blue-bg)', border: 'var(--accent-blue-border)' },
-                ].map(card => {
-                    const Icon = card.icon;
-                    return (
-                        <div key={card.label} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{card.label}</span>
-                                <div style={{ width: '32px', height: '32px', background: card.bg, border: `1px solid ${card.border}`, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Icon size={15} color={card.color} />
-                                </div>
-                            </div>
-                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.3rem', fontWeight: 700, color: card.color, margin: 0, animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{card.value}</p>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Bar Chart */}
-            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>Monthly Income vs Expenses</h3>
-                {barData.length === 0 ? (
-                    <EmptyState icon={BarChart2} title="No data yet" subtitle="Add some transactions to see your income vs expense trend" />
-                ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                        <BarChart data={barData} barGap={4}>
-                            <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 12, fontFamily: "'DM Mono', monospace" }} axisLine={{ stroke: 'var(--bg-border)' }} tickLine={false} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Bar dataKey="income" name="Income" fill="var(--accent-green)" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
-                            <Bar dataKey="expenses" name="Expenses" fill="var(--accent-red)" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={800} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                )}
-            </div>
-
-            {/* Category Breakdown */}
-            <div style={{ marginBottom: '16px' }}>
-                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Category Breakdown — {FULL_MONTHS[currentMonth]}</h3>
-                    {categories.length === 0 ? (
-                        <EmptyState icon={BarChart2} title="No expenses this month" subtitle="Add expense transactions to see your category breakdown" />
+                {/* ── SPENDING BREAKDOWN — Pie + list ── */}
+                <div style={sectionCard}>
+                    <SectionHead title={`Spending — ${FULL_MONTHS[currentMonth]}`} />
+                    {dataLoading ? <SkeletonCard height={150} /> : categories.length === 0 ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>No expenses this month.</p>
                     ) : (
+                        <div style={{ display: 'flex', gap: isMobile ? '12px' : '24px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
+                            {/* Donut */}
+                            <div style={{ flexShrink: 0 }}>
+                                <ResponsiveContainer width={120} height={120}>
+                                    <PieChart>
+                                        <Pie data={categories} dataKey="total" nameKey="name" innerRadius={36} outerRadius={54} paddingAngle={2} startAngle={90} endAngle={-270}>
+                                            {categories.map((cat: any, i: number) => (
+                                                <Cell key={cat.name} fill={cat.color || cc.exp} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip content={<ChartTooltip />} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {/* Category list */}
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {categories.slice(0, 6).map((cat: any) => {
+                                    const amt = parseFloat(cat.total ?? 0);
+                                    const pct = totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0;
+                                    return (
+                                        <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color || cc.exp, flexShrink: 0 }} />
+                                            <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(amt)}</span>
+                                            <Badge color="var(--text-muted)" bg="var(--bg-hover)">{pct}%</Badge>
+                                        </div>
+                                    );
+                                })}
+                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Total</span>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalExpenses)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── WEEKLY PATTERN BAR CHART ── */}
+                <div style={sectionCard}>
+                    <SectionHead title="Weekly Spending Pattern" />
+                    {dataLoading ? <SkeletonCard height={150} /> : (
+                        <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={weeklyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
+                                <YAxis hide />
+                                <Tooltip content={<ChartTooltip />} />
+                                <Bar dataKey="amount" name="Spent" radius={[4, 4, 0, 0]}>
+                                    {weeklyData.map((entry, idx) => (
+                                        <Cell key={idx} fill={entry.amount === maxWeeklyAmt && entry.amount > 0 ? cc.exp : cc.tint} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+
+                {/* ── PAYMENT METHODS ── */}
+                {paymentMethods.length > 0 && (
+                    <div style={sectionCard}>
+                        <SectionHead title={`Payment Methods — ${FULL_MONTHS[currentMonth]}`} />
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {categories.map(cat => {
-                                const pct = totalExpenses > 0 ? (parseFloat(cat.total) / totalExpenses) * 100 : 0;
+                            {paymentMethods.map((pm: any) => {
+                                const METHOD_COLORS: Record<string, string> = { 'UPI': 'var(--color-inc)', 'Credit Card': 'var(--color-exp)', 'Debit Card': 'var(--accent)', 'Net Banking': 'var(--accent-2)', 'Wallet': 'var(--color-warn)', 'Cash': 'var(--text-muted)' };
+                                const color = METHOD_COLORS[pm.method] || 'var(--text-muted)';
                                 return (
-                                    <div key={cat.name}>
+                                    <div key={pm.method}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color }} />
-                                                <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{cat.name}</span>
+                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                                                <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{pm.method}</span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pct.toFixed(1)}%</span>
-                                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>{formatCurrency(parseFloat(cat.total), user.currency)}</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                <Badge color="var(--text-muted)" bg="var(--bg-hover)">{pm.percent}%</Badge>
+                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', minWidth: '80px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(pm.total)}</span>
                                             </div>
                                         </div>
-                                        <div style={{ height: '6px', background: 'var(--accent-blue-bg)', borderRadius: '3px', overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent-blue)', borderRadius: '3px', transition: 'width 0.5s ease' }} />
+                                        <div style={{ height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: `${pm.percent}%`, background: color, borderRadius: '3px', transition: 'width 0.5s ease' }} />
                                         </div>
                                     </div>
                                 );
                             })}
-                            <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
-                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>{formatCurrency(totalExpenses, user.currency)}</span>
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Total</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(paymentTotal)}</span>
                             </div>
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
+                )}
 
-            {/* Payment Methods */}
-            {paymentMethods.length > 0 && (
-                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginBottom: 'var(--space-4)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Payment Methods — {FULL_MONTHS[currentMonth]}</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {paymentMethods.map(pm => {
-                            const METHOD_COLORS: Record<string, string> = {
-                                'UPI': 'var(--accent-green)',
-                                'Credit Card': 'var(--accent-red)',
-                                'Debit Card': 'var(--accent-blue)',
-                                'Net Banking': 'var(--accent-purple)',
-                                'Wallet': 'var(--accent-yellow)',
-                                'Cash': 'var(--text-muted)',
-                            };
-                            const color = METHOD_COLORS[pm.method] || 'var(--text-muted)';
-                            return (
-                                <div key={pm.method}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: color }} />
-                                            <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{pm.method}</span>
-                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{pm.percent}%</span>
-                                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 600, color: 'var(--accent-red)', minWidth: '80px', textAlign: 'right' }}>₹{Math.round(pm.total).toLocaleString('en-IN')}</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ height: '6px', background: 'var(--bg-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: `${pm.percent}%`, background: color, borderRadius: '3px', transition: 'width 0.5s ease' }} />
-                                    </div>
+                {/* ── BANK BALANCES ── */}
+                {(accountsLoading || accounts.length > 0) && (
+                    <div style={sectionCard}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>Bank Balances</p>
+                                <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Live balances across all accounts</p>
+                            </div>
+                            {!accountsLoading && (
+                                <div style={{ textAlign: 'right' }}>
+                                    <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Total Balance</p>
+                                    <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                                        {fmt(totalBalance)}
+                                    </p>
                                 </div>
-                            );
-                        })}
-                        <div style={{ borderTop: '1px solid var(--bg-border)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>Total</span>
-                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-red)' }}>₹{Math.round(paymentTotal).toLocaleString('en-IN')}</span>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' } as React.CSSProperties}>
+                            {accountsLoading
+                                ? [1, 2, 3].map(i => <div key={i} style={{ minWidth: '160px', height: '130px', background: 'var(--bg-hover)', borderRadius: 'var(--radius-md)', flexShrink: 0, opacity: 0.5 }} />)
+                                : accounts.map((a: any) => {
+                                    const bal = parseFloat(a.current_balance ?? 0);
+                                    const net = bal - parseFloat(a.starting_balance ?? 0);
+                                    return (
+                                        <div key={a.id} style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', borderLeft: `3px solid ${a.color || 'var(--accent)'}`, borderRadius: 'var(--radius-md)', padding: '14px', minWidth: '160px', flexShrink: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                                                <span style={{ fontSize: '15px' }}>{a.icon || '🏦'}</span>
+                                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-head)' }}>{a.name}</span>
+                                                {a.is_default && <Badge style={{ marginLeft: 'auto', flexShrink: 0 }}>default</Badge>}
+                                            </div>
+                                            <p style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(bal)}</p>
+                                            <p style={{ margin: '0 0 4px', fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Started {fmt(parseFloat(a.starting_balance ?? 0))}</p>
+                                            <p style={{ margin: 0, fontSize: '11px', color: net >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{net >= 0 ? '▲ +' : '▼ '}{fmt(Math.abs(net))} net</p>
+                                        </div>
+                                    );
+                                })
+                            }
+                        </div>
+                        {!accountsLoading && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                                <button type="button" onClick={() => router.push('/accounts')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-body)', padding: 0 }}>Manage accounts →</button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── YEAR OVER YEAR ── */}
+                {yearlyData && (
+                    <div style={sectionCard}>
+                        <SectionHead title={`Year-over-Year — ${yearlyData.years?.current} vs ${yearlyData.years?.last}`} />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
+                            {[
+                                { label: `${yearlyData.years?.current} Income`, curr: getYearlyTotal(yearlyData.years?.current, 'income'), last: getYearlyTotal(yearlyData.years?.last, 'income'), color: 'var(--color-inc)' },
+                                { label: `${yearlyData.years?.current} Expenses`, curr: getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--color-exp)' },
+                                { label: `${yearlyData.years?.current} Savings`, curr: getYearlyTotal(yearlyData.years?.current, 'income') - getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'income') - getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--accent)' },
+                            ].map(card => {
+                                const change = pctChange(card.curr, card.last);
+                                const isUp = change !== null && parseFloat(change) >= 0;
+                                return (
+                                    <div key={card.label} style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{card.label}</p>
+                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 6px', fontVariantNumeric: 'tabular-nums' }}>{fmt(card.curr)}</p>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{yearlyData.years?.last}: {fmt(card.last)}</span>
+                                            {change && <Badge color={isUp ? 'var(--color-inc)' : 'var(--color-exp)'} bg={isUp ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)'}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</Badge>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Year over Year */}
-            {yearlyData && (
-                <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)' }}>
-                    <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
-                        Year-over-Year — {yearlyData.years.current} vs {yearlyData.years.last}
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                        {[
-                            { label: `${yearlyData.years.current} Income`, curr: getTotal(yearlyData.years.current, 'income'), last: getTotal(yearlyData.years.last, 'income'), color: 'var(--accent-green)' },
-                            { label: `${yearlyData.years.current} Expenses`, curr: getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'expense'), color: 'var(--accent-red)' },
-                            { label: `${yearlyData.years.current} Savings`, curr: getTotal(yearlyData.years.current, 'income') - getTotal(yearlyData.years.current, 'expense'), last: getTotal(yearlyData.years.last, 'income') - getTotal(yearlyData.years.last, 'expense'), color: 'var(--accent-blue)' },
-                        ].map(card => {
-                            const change = pctChange(card.curr, card.last);
-                            const isUp = change !== null && parseFloat(change) >= 0;
-                            return (
-                                <div key={card.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '16px' }}>
-                                    <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 6px 0' }}>{card.label}</p>
-                                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 8px 0' }}>{formatCurrency(card.curr, user.currency)}</p>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{yearlyData.years.last}: {formatCurrency(card.last, user.currency)}</span>
-                                        {change && <span style={{ fontSize: '0.72rem', color: isUp ? 'var(--accent-green)' : 'var(--accent-red)', background: isUp ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', padding: '2px 6px', borderRadius: '4px' }}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</span>}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+                {/* ── AI SALARY ALLOCATION ── */}
+                <div style={{ ...sectionCard, overflow: 'hidden' }}>
+                    {!planGenerated && !allocationLoading && (
+                        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                            <Wallet size={40} color="var(--accent)" style={{ margin: '0 auto 12px' }} />
+                            <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-head)' }}>Salary Allocation Plan</p>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 20px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
+                                Get an AI-recommended 50/30/20 budget split based on your income and spending history.
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+                                {['50/30/20 Rule', 'Goal-Based', 'Indian Context'].map(pill => (
+                                    <span key={pill} style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pill}</span>
+                                ))}
+                            </div>
+                            {allocationError && <p style={{ color: 'var(--color-exp)', fontSize: '13px', marginBottom: '12px', fontFamily: 'var(--font-body)' }}>{allocationError}</p>}
+                            <Button onClick={() => handleGeneratePlan()} variant="primary" size="md">
+                                <Sparkles size={16} />Generate My Plan
+                            </Button>
+                        </div>
+                    )}
 
-            {/* Regret Score Section */}
-            <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-6)', marginTop: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                    <div>
-                        <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px 0' }}>🤦 Regret Score</h3>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: 0 }}>Mark transactions as regretted using the 🤦 button in your transaction list</p>
-                    </div>
-                    <button
-                        onClick={async () => {
-                            setRegretLoading(true);
-                            try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); }
-                            catch { /* silent */ }
-                            finally { setRegretLoading(false); }
-                        }}
-                        disabled={regretLoading}
-                        style={{ padding: '8px 16px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: '10px', color: '#f43f5e', fontSize: '0.8rem', fontWeight: 600, cursor: regretLoading ? 'wait' : 'pointer', opacity: regretLoading ? 0.7 : 1, fontFamily: 'DM Sans, sans-serif' }}
-                    >
-                        {regretLoading ? 'Analysing…' : regretData ? 'Refresh Analysis' : 'Analyse Regrets'}
-                    </button>
-                </div>
+                    {allocationLoading && (
+                        <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '3px solid var(--border)', borderTop: `3px solid var(--accent)`, animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '14px', fontFamily: 'var(--font-body)' }}>Analysing your spending patterns…</p>
+                        </div>
+                    )}
 
-                {regretData && (
-                    <>
-                        {regretData.count === 0 ? (
-                            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>No regretted transactions yet. Mark transactions with 🤦 to track patterns.</p>
-                        ) : (
-                            <>
-                                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
-                                        <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Regretted</p>
-                                        <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-red)', margin: 0 }}>{regretData.count} transactions</p>
-                                    </div>
-                                    {regretData.total > 0 && (
-                                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '12px', padding: '12px 16px' }}>
-                                            <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '0 0 4px 0' }}>Total Regret Value</p>
-                                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent-red)', margin: 0 }}>₹{regretData.total?.toLocaleString('en-IN')}</p>
-                                        </div>
+                    {planGenerated && allocationPlan && !allocationLoading && (
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                                <div>
+                                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>Salary Allocation Plan</p>
+                                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '480px', fontFamily: 'var(--font-body)' }}>{allocationPlan.summary}</p>
+                                    {allocationPlan.from_cache && (
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontFamily: 'var(--font-body)' }}>
+                                            Cached · updates every 6h
+                                            <button type="button" onClick={() => handleGeneratePlan(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '11px', padding: 0, marginLeft: '4px', fontFamily: 'var(--font-body)' }}>Refresh now</button>
+                                        </span>
                                     )}
                                 </div>
-                                {regretData.insight && (
-                                    <div style={{ padding: '12px 16px', background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.15)', borderRadius: '12px', marginBottom: '14px', fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                                        {regretData.insight}
-                                    </div>
-                                )}
-                                {regretData.patterns && regretData.patterns.length > 0 && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {regretData.patterns.map((p: any, i: number) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '10px' }}>
-                                                <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>⚠️</span>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
-                                                        <span style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)' }}>{p.pattern}</span>
-                                                        <span style={{ fontSize: '0.7rem', color: 'var(--accent-red)', background: 'rgba(244,63,94,0.08)', padding: '1px 7px', borderRadius: '6px' }}>{p.count}× · ₹{p.total_amount?.toLocaleString('en-IN')}</span>
-                                                    </div>
-                                                    <p style={{ fontSize: '0.78rem', color: 'var(--accent-green)', margin: 0 }}>💡 {p.tip}</p>
+                                <div style={{ textAlign: 'right' }}>
+                                    <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: 'var(--color-inc)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(allocationPlan.salary)}</p>
+                                    <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>monthly salary</p>
+                                    <Button onClick={() => handleGeneratePlan(true)} variant="secondary" size="sm"><RefreshCw size={12} />Regenerate</Button>
+                                </div>
+                            </div>
+
+                            {allocationPlan.month_comparison && (
+                                <GCard style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                                    <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--color-inc)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--color-exp)' : 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                                        {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
+                                    </span>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                        Biggest change: {allocationPlan.month_comparison.biggest_change_category} {allocationPlan.month_comparison.biggest_change_amount >= 0 ? '+' : ''}{fmt(Math.abs(allocationPlan.month_comparison.biggest_change_amount))}
+                                    </span>
+                                </GCard>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+                                {allocationPlan.allocation?.map((bucket: any) => (
+                                    <div key={bucket.bucket} style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', borderLeft: `4px solid ${bucket.color}`, borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>{bucket.bucket}</span>
+                                            <Badge color={bucket.color} bg={hexToRgba(bucket.color, 0.12)}>{bucket.percentage}%</Badge>
+                                        </div>
+                                        <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: bucket.color, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(bucket.amount)}</p>
+                                        <p style={{ margin: '0 0 10px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{bucket.description}</p>
+                                        <div style={{ height: '4px', borderRadius: '2px', background: 'var(--border)', marginBottom: '10px' }}>
+                                            <div style={{ height: '100%', width: `${bucket.percentage}%`, background: bucket.color, borderRadius: '2px' }} />
+                                        </div>
+                                        {bucket.categories?.map((cat: any, ci: number) => (
+                                            <div key={cat.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: ci < bucket.categories.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {cat.recommended_amount > cat.last_month_actual ? <span style={{ color: 'var(--color-inc)', fontSize: '10px' }}>▲ </span> : cat.recommended_amount < cat.last_month_actual ? <span style={{ color: 'var(--color-exp)', fontSize: '10px' }}>▼ </span> : null}
+                                                        {fmt(cat.recommended_amount)}
+                                                    </p>
+                                                    <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>actual: {fmt(cat.last_month_actual)}</p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                )}
-                            </>
-                        )}
-                    </>
-                )}
+                                ))}
+                            </div>
 
-                {!regretData && !regretLoading && (
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>Click "Analyse Regrets" to see AI patterns in your regretted purchases.</p>
-                )}
-            </div>
+                            {allocationPlan.insights?.length > 0 && (
+                                <div>
+                                    <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>Insights</p>
+                                    {allocationPlan.insights.map((insight: string, i: number) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
+                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-light)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
+                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>{insight}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
-            </PageShell>
+                {/* ── REGRET PATTERNS ── */}
+                <div style={sectionCard}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                        <div>
+                            <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>🤦 Regret Score</h2>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Mark transactions as regretted using 🤦 in your transaction list</p>
+                        </div>
+                        <button type="button"
+                            onClick={async () => { setRegretLoading(true); try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); } catch { } finally { setRegretLoading(false); } }}
+                            disabled={regretLoading}
+                            style={{ padding: '8px 16px', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-md)', color: 'var(--color-exp)', fontSize: '13px', fontWeight: 600, cursor: regretLoading ? 'wait' : 'pointer', opacity: regretLoading ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
+                            {regretLoading ? 'Analysing…' : regretData ? 'Refresh' : 'Analyse Regrets'}
+                        </button>
+                    </div>
+
+                    {!regretData && !regretLoading && (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0', fontFamily: 'var(--font-body)' }}>Click "Analyse Regrets" to see AI patterns in your regretted purchases.</p>
+                    )}
+
+                    {regretData && (
+                        <>
+                            {regretData.count === 0 ? (
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', fontFamily: 'var(--font-body)' }}>No regretted transactions yet.</p>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                                        {[
+                                            { label: 'Regretted', value: `${regretData.count} transactions` },
+                                            ...(regretData.total > 0 ? [{ label: 'Total Regret Value', value: fmt(regretData.total) }] : []),
+                                        ].map(s => (
+                                            <GCard key={s.label}>
+                                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{s.label}</p>
+                                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
+                                            </GCard>
+                                        ))}
+                                    </div>
+                                    {regretData.insight && (
+                                        <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--color-exp) 6%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-exp) 15%, transparent)', borderRadius: 'var(--radius-md)', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
+                                            {regretData.insight}
+                                        </div>
+                                    )}
+                                    {regretData.patterns?.length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {regretData.patterns.map((p: any, i: number) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                                                    <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>{p.pattern}</span>
+                                                            <Badge color="var(--color-exp)" bg="color-mix(in srgb, var(--color-exp) 8%, transparent)">{p.count}× · {fmt(p.total_amount)}</Badge>
+                                                        </div>
+                                                        <p style={{ fontSize: '12px', color: 'var(--color-inc)', margin: 0, fontFamily: 'var(--font-body)' }}>💡 {p.tip}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    )}
+                </div>
+
             </div>
         </AppLayout>
     );

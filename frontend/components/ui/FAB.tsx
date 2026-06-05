@@ -89,7 +89,7 @@ export function FAB() {
                             width: '56px', height: '56px', borderRadius: '50%',
                             background: 'var(--accent-blue)', border: 'none',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', boxShadow: '0 4px 16px rgba(59,130,246,0.4)', flexShrink: 0,
+                            cursor: 'pointer', boxShadow: '0 4px 16px rgba(99,102,241,0.4)', flexShrink: 0,
                         }}
                     >
                         <Plus size={24} color="white" />
@@ -142,7 +142,7 @@ export function FAB() {
                             width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '10px 12px', border: 'none', borderRadius: '8px', cursor: 'pointer',
                             background: 'transparent', color: 'var(--text-primary)',
-                            fontSize: '0.875rem', fontFamily: 'DM Sans, sans-serif', textAlign: 'left',
+                            fontSize: '0.875rem', fontFamily: "'Satoshi', 'DM Sans', sans-serif", textAlign: 'left',
                             transition: 'background 0.1s',
                         }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
@@ -160,7 +160,7 @@ export function FAB() {
                     width: '56px', height: '56px', borderRadius: '50%',
                     background: 'var(--accent-blue)', border: 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', boxShadow: '0 4px 16px rgba(59,130,246,0.4)',
+                    cursor: 'pointer', boxShadow: '0 4px 16px rgba(99,102,241,0.4)',
                     transition: 'transform 200ms ease',
                     transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
                 }}

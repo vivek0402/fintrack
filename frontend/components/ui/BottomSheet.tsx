@@ -62,22 +62,27 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
             <div
                 onClick={handleClose}
                 style={{
-                    position: 'fixed', inset: 0,
-                    background: 'rgba(0,0,0,0.5)',
-                    zIndex: 999,
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(2px)',
+                    WebkitBackdropFilter: 'blur(2px)',
+                    zIndex: 9999,
                 }}
             />
             <div
                 className={closing ? 'sheet-exit' : 'sheet-enter'}
                 style={{
                     position: 'fixed',
-                    bottom: 0, left: 0, right: 0,
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
                     maxHeight,
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-secondary)',
+                    background: 'var(--bg-card)',
                     borderRadius: '20px 20px 0 0',
-                    zIndex: 1000,
+                    zIndex: 10000,
                     transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
                     transition: dragY > 0 ? 'none' : 'transform 200ms ease-out',
                     overflow: 'hidden',
@@ -91,21 +96,40 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     style={{ flexShrink: 0 }}
                 >
                     <div style={{
-                        width: '36px', height: '4px',
-                        background: 'var(--bg-border)',
+                        width: '40px',
+                        height: '4px',
+                        background: 'var(--border)',
                         borderRadius: '2px',
                         margin: '12px auto 0',
                     }} />
                     {title && (
                         <div style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
                             padding: '14px 20px 12px',
-                            borderBottom: '1px solid var(--bg-border)',
+                            borderBottom: '1px solid var(--border)',
                         }}>
-                            <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'Sora, sans-serif' }}>{title}</span>
+                            <span style={{
+                                fontSize: '16px',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-display)',
+                            }}>
+                                {title}
+                            </span>
                             <button
+                                type="button"
                                 onClick={handleClose}
-                                style={{ background: 'var(--bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '6px', borderRadius: '8px' }}
+                                style={{
+                                    background: 'var(--bg-alt)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    display: 'flex',
+                                    padding: '6px',
+                                    borderRadius: '8px',
+                                }}
                             >
                                 <X size={18} />
                             </button>
@@ -122,9 +146,9 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                 {footer && (
                     <div style={{
                         flexShrink: 0,
-                        padding: `16px 20px calc(16px + env(safe-area-inset-bottom, 0px))`,
-                        borderTop: '1px solid var(--bg-border)',
-                        background: 'var(--bg-secondary)',
+                        padding: 'calc(16px + env(safe-area-inset-bottom, 0px)) 20px 16px',
+                        borderTop: '1px solid var(--border)',
+                        background: 'var(--bg-card)',
                     }}>
                         {footer}
                     </div>

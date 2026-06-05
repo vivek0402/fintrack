@@ -29,7 +29,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
                         <Zap size={16} color={statusColor} />
                     </div>
                     <div>
-                        <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Month Forecast</h3>
+                        <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.92rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Month Forecast</h3>
                         <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>Day {day_of_month} of {days_in_month} · {days_remaining} days left</p>
                     </div>
                 </div>
@@ -50,7 +50,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
                                 <Icon size={12} color={stat.color} />
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{stat.label}</span>
                             </div>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
+                            <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.9rem', fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
                         </div>
                     );
                 })}
@@ -76,7 +76,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
                         {i > 0 && <div style={{ width: '1px', height: '30px', background: 'var(--bg-border)' }} />}
                         <div>
                             <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>{item.label}</p>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.85rem', fontWeight: 700, color: item.warn ? 'var(--accent-red)' : item.positive ? 'var(--accent-green)' : 'var(--text-primary)', margin: 0 }}>{item.value}</p>
+                            <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.85rem', fontWeight: 700, color: item.warn ? 'var(--accent-red)' : item.positive ? 'var(--accent-green)' : 'var(--text-primary)', margin: 0 }}>{item.value}</p>
                         </div>
                     </div>
                 ))}

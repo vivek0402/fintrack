@@ -14,7 +14,7 @@ export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
             {label && (
-                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'DM Sans, sans-serif' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                     {label}
                 </label>
             )}
@@ -35,7 +35,7 @@ export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: 
                         border: `1px solid ${error ? 'var(--accent-red)' : focused ? 'var(--accent-blue)' : 'var(--bg-border)'}`,
                         borderRadius: '10px',
                         fontSize: '0.875rem',
-                        fontFamily: 'DM Sans, sans-serif',
+                        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                         outline: 'none',
                         boxSizing: 'border-box',
                         transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',

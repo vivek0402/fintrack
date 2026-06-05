@@ -14,7 +14,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     }, []);
 
     const colors: Record<string, { bg: string; border: string; icon: string }> = {
-        success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', icon: 'var(--accent-green)' },
+        success: { bg: 'rgba(0,229,160,0.12)', border: 'rgba(0,229,160,0.25)', icon: 'var(--accent-green)' },
         error:   { bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.25)',  icon: 'var(--accent-red)' },
         info:    { bg: 'var(--surface-2)',       border: 'var(--bg-border)',      icon: 'var(--accent-blue)' },
         undo:    { bg: 'var(--surface-2)',       border: 'var(--bg-border)',      icon: 'var(--text-primary)' },

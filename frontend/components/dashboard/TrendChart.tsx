@@ -22,11 +22,11 @@ export function TrendChart({ trends }: Props) {
         if (!active || !payload?.length) return null;
         return (
             <div style={{
-                background: 'var(--glass-bg)', border: '1px solid var(--glass-border)',
+                background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)',
                 borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem',
-                backdropFilter: 'blur(12px)', boxShadow: 'var(--shadow-modal)',
+                boxShadow: 'var(--shadow-modal)',
             }}>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>{label}</p>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{label}</p>
                 {payload.map((p: any) => (
                     <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
                         <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
@@ -39,7 +39,7 @@ export function TrendChart({ trends }: Props) {
 
     return (
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
-            <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
+            <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
                 Income vs Expenses
             </h3>
             {chartData.length === 0 ? (
@@ -51,8 +51,8 @@ export function TrendChart({ trends }: Props) {
                     <AreaChart data={chartData}>
                         <defs>
                             <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                                <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                                <stop offset="0%" stopColor="#00e5a0" stopOpacity={0.3} />
+                                <stop offset="100%" stopColor="#00e5a0" stopOpacity={0.0} />
                             </linearGradient>
                             <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.3} />
@@ -64,7 +64,7 @@ export function TrendChart({ trends }: Props) {
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'k'} width={48} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: '0.78rem', paddingTop: '14px' }} />
-                        <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="income" name="Income" stroke="#00e5a0" strokeWidth={2} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                         <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </AreaChart>
                 </ResponsiveContainer>

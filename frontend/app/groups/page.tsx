@@ -5,111 +5,87 @@ import { createPortal } from 'react-dom';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { formatCurrency } from '@/lib/utils';
+import { GCard } from '@/components/ui/GCard';
+import { Badge } from '@/components/ui/Badge';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { toast } from '@/store/toastStore';
 import {
     Plus, Users, X, Check, ChevronRight,
     ArrowLeft, Trash2, PlusCircle, SplitSquareHorizontal,
     Wallet, TrendingDown,
 } from 'lucide-react';
-import { PageShell } from '@/components/layout/PageShell';
-import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { FadeIn } from '@/components/ui/FadeIn';
-import { toast } from '@/store/toastStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface Member { id?: number; name: string; email?: string }
-interface Group {
-    id: number; name: string; emoji: string; description?: string;
-    budget?: number; currency: string;
-    member_count: number; total_spent: number;
-}
+interface Member  { id?: number; name: string; email?: string }
+interface Group   { id: number; name: string; emoji: string; description?: string; budget?: number; currency: string; member_count: number; total_spent: number; }
 interface Transaction { id: number; description: string; amount: number; date: string; type: string; group_name?: string }
-interface Share { id: number; member: string; amount: number; settled: boolean }
-interface Split { id: number; description: string; total_amount: number; paid_by: string; date: string; shares: Share[] }
+interface Share   { id: number; member: string; amount: number; settled: boolean }
+interface Split   { id: number; description: string; total_amount: number; paid_by: string; date: string; shares: Share[] }
 interface Settlement { from: string; to: string; amount: number }
 
 const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','🛒','💊','📚','🌿'];
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+
+const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
+const iconBt: React.CSSProperties  = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' };
 
 export default function GroupsPage() {
     const { user } = useAuthStore();
     const currency = user?.currency || 'INR';
 
-    // List state
-    const [groups, setGroups] = useState<Group[]>([]);
-    const [loadingList, setLoadingList] = useState(true);
-    const [mounted, setMounted] = useState(false);
+    const [groups,          setGroups]          = useState<Group[]>([]);
+    const [loadingList,     setLoadingList]     = useState(true);
+    const [mounted,         setMounted]         = useState(false);
+    const [selectedGroup,   setSelectedGroup]   = useState<Group | null>(null);
+    const [members,         setMembers]         = useState<Member[]>([]);
+    const [transactions,    setTransactions]    = useState<Transaction[]>([]);
+    const [splits,          setSplits]          = useState<Split[]>([]);
+    const [settlements,     setSettlements]     = useState<Settlement[]>([]);
+    const [activeTab,       setActiveTab]       = useState<'transactions' | 'splits' | 'settle'>('transactions');
+    const [loadingDetail,   setLoadingDetail]   = useState(false);
+    const [showModal,       setShowModal]       = useState(false);
+    const [editingGroup,    setEditingGroup]    = useState<Group | null>(null);
+    const [formName,        setFormName]        = useState('');
+    const [formEmoji,       setFormEmoji]       = useState('👥');
+    const [formDesc,        setFormDesc]        = useState('');
+    const [formBudget,      setFormBudget]      = useState('');
+    const [formMembers,     setFormMembers]     = useState<Member[]>([{ name: '' }]);
+    const [saving,          setSaving]          = useState(false);
+    const [showSplitModal,  setShowSplitModal]  = useState(false);
+    const [editingSplit,    setEditingSplit]     = useState<Split | null>(null);
+    const [splitDesc,       setSplitDesc]       = useState('');
+    const [splitTotal,      setSplitTotal]      = useState('');
+    const [splitPaidBy,     setSplitPaidBy]     = useState('');
+    const [splitDate,       setSplitDate]       = useState(new Date().toISOString().split('T')[0]);
+    const [splitMode,       setSplitMode]       = useState<'equal' | 'custom'>('equal');
+    const [splitCustom,     setSplitCustom]     = useState<Record<string, string>>({});
+    const [savingSplit,     setSavingSplit]      = useState(false);
+    const [showTxModal,     setShowTxModal]     = useState(false);
+    const [txSearch,        setTxSearch]        = useState('');
+    const [txResults,       setTxResults]       = useState<Transaction[]>([]);
+    const [linkingTx,       setLinkingTx]       = useState(false);
 
     useEffect(() => { setMounted(true); }, []);
 
-    // Detail state
-    const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
-    const [members, setMembers] = useState<Member[]>([]);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [splits, setSplits] = useState<Split[]>([]);
-    const [settlements, setSettlements] = useState<Settlement[]>([]);
-    const [activeTab, setActiveTab] = useState<'transactions' | 'splits' | 'settle'>('transactions');
-    const [loadingDetail, setLoadingDetail] = useState(false);
-
-    // Create/Edit modal
-    const [showModal, setShowModal] = useState(false);
-    const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-    const [formName, setFormName] = useState('');
-    const [formEmoji, setFormEmoji] = useState('👥');
-    const [formDesc, setFormDesc] = useState('');
-    const [formBudget, setFormBudget] = useState('');
-    const [formMembers, setFormMembers] = useState<Member[]>([{ name: '' }]);
-    const [saving, setSaving] = useState(false);
-
-    // Add Split modal
-    const [showSplitModal, setShowSplitModal] = useState(false);
-    const [editingSplit, setEditingSplit] = useState<Split | null>(null);
-    const [splitDesc, setSplitDesc] = useState('');
-    const [splitTotal, setSplitTotal] = useState('');
-    const [splitPaidBy, setSplitPaidBy] = useState('');
-    const [splitDate, setSplitDate] = useState(new Date().toISOString().split('T')[0]);
-    const [splitMode, setSplitMode] = useState<'equal' | 'custom'>('equal');
-    const [splitCustom, setSplitCustom] = useState<Record<string, string>>({});
-    const [savingSplit, setSavingSplit] = useState(false);
-
-    // Custom split tally
-    const customTotal = Object.values(splitCustom).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+    const customTotal  = Object.values(splitCustom).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
     const splitTotalNum = parseFloat(splitTotal) || 0;
-    const customDiff = splitTotalNum - customTotal;
+    const customDiff   = splitTotalNum - customTotal;
     const customTallyOk = Math.abs(customDiff) < 0.01;
 
-    // Add Transaction modal
-    const [showTxModal, setShowTxModal] = useState(false);
-    const [txSearch, setTxSearch] = useState('');
-    const [txResults, setTxResults] = useState<Transaction[]>([]);
-    const [linkingTx, setLinkingTx] = useState(false);
-
-    // Load list
+    // ── Data loading (all unchanged) ─────────────────────────────────────────
     const loadGroups = useCallback(async () => {
         setLoadingList(true);
-        try {
-            const res = await groupsAPI.getAll();
-            setGroups(res.data.groups);
-        } finally {
-            setLoadingList(false);
-        }
+        try { const res = await groupsAPI.getAll(); setGroups(res.data.groups); }
+        finally { setLoadingList(false); }
     }, []);
-
     useEffect(() => { loadGroups(); }, [loadGroups]);
 
-    // Load detail
     const openGroup = useCallback(async (g: Group) => {
-        setSelectedGroup(g);
-        setActiveTab('transactions');
-        setLoadingDetail(true);
-        try {
-            const res = await groupsAPI.get(String(g.id));
-            setMembers(res.data.members);
-            setTransactions(res.data.transactions);
-            setSplits(res.data.splits);
-        } finally {
-            setLoadingDetail(false);
-        }
+        setSelectedGroup(g); setActiveTab('transactions'); setLoadingDetail(true);
+        try { const res = await groupsAPI.get(String(g.id)); setMembers(res.data.members); setTransactions(res.data.transactions); setSplits(res.data.splits); }
+        finally { setLoadingDetail(false); }
     }, []);
 
     const loadSettlements = useCallback(async () => {
@@ -117,424 +93,318 @@ export default function GroupsPage() {
         const res = await groupsAPI.settlements(String(selectedGroup.id));
         setSettlements(res.data.settlements);
     }, [selectedGroup]);
+    useEffect(() => { if (activeTab === 'settle') loadSettlements(); }, [activeTab, loadSettlements]);
 
-    useEffect(() => {
-        if (activeTab === 'settle') loadSettlements();
-    }, [activeTab, loadSettlements]);
-
-    // Open create modal
-    const openCreate = () => {
-        setEditingGroup(null);
-        setFormName(''); setFormEmoji('👥'); setFormDesc(''); setFormBudget('');
-        setFormMembers([{ name: '' }]);
-        setShowModal(true);
-    };
-
-    // Open edit modal
-    const openEdit = (g: Group, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setEditingGroup(g);
-        setFormName(g.name); setFormEmoji(g.emoji); setFormDesc(g.description || '');
-        setFormBudget(g.budget ? String(g.budget) : '');
-        setFormMembers(members.length ? [...members] : [{ name: '' }]);
-        setShowModal(true);
-    };
-
+    // ── Group CRUD (all unchanged) ────────────────────────────────────────────
+    const openCreate = () => { setEditingGroup(null); setFormName(''); setFormEmoji('👥'); setFormDesc(''); setFormBudget(''); setFormMembers([{ name: '' }]); setShowModal(true); };
+    const openEdit = (g: Group, e: React.MouseEvent) => { e.stopPropagation(); setEditingGroup(g); setFormName(g.name); setFormEmoji(g.emoji); setFormDesc(g.description || ''); setFormBudget(g.budget ? String(g.budget) : ''); setFormMembers(members.length ? [...members] : [{ name: '' }]); setShowModal(true); };
     const saveGroup = async () => {
-        if (!formName.trim()) return;
-        setSaving(true);
+        if (!formName.trim()) return; setSaving(true);
         const validMembers = formMembers.filter(m => m.name.trim());
-        const payload = {
-            name: formName.trim(), emoji: formEmoji,
-            description: formDesc || undefined,
-            budget: formBudget ? parseFloat(formBudget) : undefined,
-            currency,
-            members: validMembers,
-        };
-        try {
-            if (editingGroup) {
-                await groupsAPI.update(String(editingGroup.id), payload);
-            } else {
-                await groupsAPI.create(payload);
-            }
-            setShowModal(false);
-            await loadGroups();
-            if (selectedGroup && editingGroup?.id === selectedGroup.id) {
-                await openGroup({ ...selectedGroup, ...payload } as Group);
-            }
-        } finally {
-            setSaving(false);
-        }
+        const payload = { name: formName.trim(), emoji: formEmoji, description: formDesc || undefined, budget: formBudget ? parseFloat(formBudget) : undefined, currency, members: validMembers };
+        try { if (editingGroup) await groupsAPI.update(String(editingGroup.id), payload); else await groupsAPI.create(payload); setShowModal(false); await loadGroups(); if (selectedGroup && editingGroup?.id === selectedGroup.id) await openGroup({ ...selectedGroup, ...payload } as Group); }
+        finally { setSaving(false); }
     };
+    const deleteGroup = async (g: Group, e: React.MouseEvent) => { e.stopPropagation(); if (!confirm(`Delete "${g.name}"? Transactions will be unlinked.`)) return; await groupsAPI.delete(String(g.id)); if (selectedGroup?.id === g.id) setSelectedGroup(null); await loadGroups(); };
 
-    const deleteGroup = async (g: Group, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!confirm(`Delete "${g.name}"? Transactions will be unlinked.`)) return;
-        await groupsAPI.delete(String(g.id));
-        if (selectedGroup?.id === g.id) setSelectedGroup(null);
-        await loadGroups();
-    };
-
-    // Open split for editing
+    // ── Split CRUD (all unchanged) ────────────────────────────────────────────
     const openEditSplit = (sp: Split) => {
-        setEditingSplit(sp);
-        setSplitDesc(sp.description);
-        setSplitTotal(String(sp.total_amount));
-        setSplitPaidBy(sp.paid_by);
-        setSplitDate(String(sp.date).split('T')[0]);
-        // Detect equal vs custom
-        const amounts = sp.shares.map(s => s.amount);
-        const allEqual = amounts.every(a => Math.abs(a - amounts[0]) < 0.01);
-        setSplitMode(allEqual ? 'equal' : 'custom');
-        const customMap: Record<string, string> = {};
-        sp.shares.forEach(s => { customMap[s.member] = String(s.amount); });
-        setSplitCustom(customMap);
-        setShowSplitModal(true);
+        setEditingSplit(sp); setSplitDesc(sp.description); setSplitTotal(String(sp.total_amount)); setSplitPaidBy(sp.paid_by); setSplitDate(String(sp.date).split('T')[0]);
+        const amounts = sp.shares.map(s => s.amount); const allEqual = amounts.every(a => Math.abs(a - amounts[0]) < 0.01); setSplitMode(allEqual ? 'equal' : 'custom');
+        const customMap: Record<string, string> = {}; sp.shares.forEach(s => { customMap[s.member] = String(s.amount); }); setSplitCustom(customMap); setShowSplitModal(true);
     };
-
-    // Add/edit split
     const saveSplit = async () => {
-        if (!selectedGroup || !splitDesc || !splitTotal || !splitPaidBy) return;
-        setSavingSplit(true);
+        if (!selectedGroup || !splitDesc || !splitTotal || !splitPaidBy) return; setSavingSplit(true);
         const allMemberNames = [...members.map(m => m.name), 'Me'].filter(Boolean);
         let shares: { member: string; amount: number }[];
-        if (splitMode === 'equal') {
-            const each = parseFloat(splitTotal) / allMemberNames.length;
-            shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(each.toFixed(2)) }));
-        } else {
-            shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(splitCustom[m] || '0') }));
-        }
+        if (splitMode === 'equal') { const each = parseFloat(splitTotal) / allMemberNames.length; shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(each.toFixed(2)) })); }
+        else { shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(splitCustom[m] || '0') })); }
         try {
-            if (editingSplit) {
-                await groupsAPI.updateSplit(String(selectedGroup.id), String(editingSplit.id), {
-                    description: splitDesc, total_amount: parseFloat(splitTotal),
-                    paid_by: splitPaidBy, date: splitDate, shares,
-                });
-            } else {
-                await groupsAPI.addSplit(String(selectedGroup.id), {
-                    description: splitDesc, total_amount: parseFloat(splitTotal),
-                    paid_by: splitPaidBy, date: splitDate, shares,
-                });
-            }
-            setShowSplitModal(false);
-            setEditingSplit(null);
-            setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({});
-            await openGroup(selectedGroup);
-        } finally {
-            setSavingSplit(false);
-        }
+            if (editingSplit) await groupsAPI.updateSplit(String(selectedGroup.id), String(editingSplit.id), { description: splitDesc, total_amount: parseFloat(splitTotal), paid_by: splitPaidBy, date: splitDate, shares });
+            else await groupsAPI.addSplit(String(selectedGroup.id), { description: splitDesc, total_amount: parseFloat(splitTotal), paid_by: splitPaidBy, date: splitDate, shares });
+            setShowSplitModal(false); setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); await openGroup(selectedGroup);
+        } finally { setSavingSplit(false); }
     };
-
-    // Settle share
     const settleShare = async (split: Split, share: Share) => {
         if (!selectedGroup) return;
-        try {
-            await groupsAPI.settleShare(String(selectedGroup.id), String(split.id), String(share.id));
-            await openGroup(selectedGroup);
-            if (activeTab === 'settle') await loadSettlements();
-            toast.success(`${share.member}'s share marked as settled`);
-        } catch { toast.error('Failed to settle share'); }
+        try { await groupsAPI.settleShare(String(selectedGroup.id), String(split.id), String(share.id)); await openGroup(selectedGroup); if (activeTab === 'settle') await loadSettlements(); toast.success(`${share.member}'s share marked as settled`); }
+        catch { toast.error('Failed to settle share'); }
     };
+    const searchTx = async (q: string) => { setTxSearch(q); if (q.length < 2) { setTxResults([]); return; } const res = await transactionsAPI.search(q); setTxResults(res.data.transactions || []); };
+    const linkTx = async (tx: Transaction) => { if (!selectedGroup) return; setLinkingTx(true); try { await groupsAPI.linkTransaction(String(selectedGroup.id), String(tx.id)); setShowTxModal(false); setTxSearch(''); setTxResults([]); await openGroup(selectedGroup); } finally { setLinkingTx(false); } };
+    const unlinkTx = async (tx: Transaction) => { if (!selectedGroup) return; await groupsAPI.unlinkTransaction(String(selectedGroup.id), String(tx.id)); await openGroup(selectedGroup); };
 
-    // Link transaction
-    const searchTx = async (q: string) => {
-        setTxSearch(q);
-        if (q.length < 2) { setTxResults([]); return; }
-        const res = await transactionsAPI.search(q);
-        setTxResults(res.data.transactions || []);
-    };
+    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: active ? 600 : 400, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
 
-    const linkTx = async (tx: Transaction) => {
-        if (!selectedGroup) return;
-        setLinkingTx(true);
-        try {
-            await groupsAPI.linkTransaction(String(selectedGroup.id), String(tx.id));
-            setShowTxModal(false);
-            setTxSearch(''); setTxResults([]);
-            await openGroup(selectedGroup);
-        } finally {
-            setLinkingTx(false);
-        }
-    };
-
-    const unlinkTx = async (tx: Transaction) => {
-        if (!selectedGroup) return;
-        await groupsAPI.unlinkTransaction(String(selectedGroup.id), String(tx.id));
-        await openGroup(selectedGroup);
-    };
-
-    // ─── Shared styles ────────────────────────────────────────────────────────
-    const card: React.CSSProperties = {
-        background: 'var(--bg-card)', border: '1px solid var(--bg-border)',
-        borderRadius: '14px', padding: '20px',
-    };
-    const pill = (active: boolean): React.CSSProperties => ({
-        padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500,
-        border: 'none', cursor: 'pointer',
-        background: active ? 'var(--accent-blue)' : 'var(--bg-secondary)',
-        color: active ? '#fff' : 'var(--text-secondary)',
-        transition: 'all 0.15s',
-    });
-
-    // ─── List view ────────────────────────────────────────────────────────────
+    // ── LIST VIEW ─────────────────────────────────────────────────────────────
     if (!selectedGroup) {
         return (
             <AppLayout>
-            <PageShell
-                title="Expense Groups"
-                subtitle={groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Track shared expenses with friends & family'}
-                headerRight={
-                    <Button onClick={openCreate} size="md">
-                        <Plus size={16} /> New Group
-                    </Button>
-                }
-            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {loadingList ? (
-                    <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>Loading…</div>
-                ) : groups.length === 0 ? (
-                    <EmptyState
-                        icon={Users}
-                        title="No groups yet"
-                        subtitle="Create a group to split expenses with friends or family"
-                        action={<Button onClick={openCreate} size="md"><Plus size={16} /> New Group</Button>}
-                    />
-                ) : (
-                    <FadeIn><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {groups.map(g => {
-                            const pct = g.budget ? Math.min(100, (Number(g.total_spent) / Number(g.budget)) * 100) : null;
-                            return (
-                                <div key={g.id} onClick={() => openGroup(g)} style={{
-                                    ...card, cursor: 'pointer', transition: 'border-color 0.15s',
-                                    display: 'flex', alignItems: 'center', gap: '16px',
-                                }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-blue)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--bg-border)'}
-                                >
-                                    <div style={{ fontSize: '2rem', lineHeight: '1', flexShrink: 0 }}>{g.emoji}</div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>{g.name}</span>
-                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '4px', padding: '1px 6px' }}>
-                                                {g.member_count} member{Number(g.member_count) !== 1 ? 's' : ''}
-                                            </span>
-                                        </div>
-                                        {pct !== null && (
-                                            <div style={{ marginBottom: '4px' }}>
-                                                <div style={{ height: '4px', borderRadius: '2px', background: 'var(--bg-secondary)', overflow: 'hidden', marginBottom: '3px' }}>
-                                                    <div style={{ height: '100%', width: `${pct}%`, borderRadius: '2px', background: pct >= 90 ? 'var(--accent-red)' : pct >= 70 ? 'var(--accent-yellow)' : 'var(--accent-green)', transition: 'width 0.4s' }} />
-                                                </div>
-                                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                                                    {formatCurrency(Number(g.total_spent), currency)} / {formatCurrency(Number(g.budget), currency)} budget
-                                                </span>
+                    {/* Header */}
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Groups</h1>
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                    {groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Track shared expenses with friends & family'}
+                                </p>
+                            </div>
+                            <button type="button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <Plus size={14} /> New Group
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Group cards */}
+                    {loadingList ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
+                        </div>
+                    ) : groups.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+                            <p style={{ fontSize: '40px', marginBottom: '10px' }}>👥</p>
+                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No groups yet</p>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Create a group to split expenses with friends or family</p>
+                            <button type="button" onClick={openCreate} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>New Group</button>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {groups.map(g => {
+                                const budgetPct = g.budget ? (Number(g.total_spent) / Number(g.budget)) * 100 : null;
+                                return (
+                                    <div key={g.id} onClick={() => openGroup(g)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'border-color var(--transition-fast)' }}
+                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
+                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}>
+                                        <div style={{ fontSize: '2rem', lineHeight: 1, flexShrink: 0 }}>{g.emoji}</div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{g.name}</span>
+                                                <Badge>{g.member_count} member{Number(g.member_count) !== 1 ? 's' : ''}</Badge>
                                             </div>
-                                        )}
-                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                                            Spent: {formatCurrency(Number(g.total_spent), currency)}
-                                        </span>
+                                            {budgetPct !== null ? (
+                                                <div>
+                                                    <ProgressBar pct={budgetPct} height={4} />
+                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '3px 0 0', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
+                                                        {fmt(Number(g.total_spent))} / {fmt(Number(g.budget))} budget
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                                    Spent: <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(g.total_spent))}</span>
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
+                                            <button type="button" onClick={e => openEdit(g, e)} style={{ padding: '5px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>Edit</button>
+                                            <button type="button" onClick={e => deleteGroup(g, e)} style={{ padding: '5px 7px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                                            <ChevronRight size={16} color="var(--text-muted)" />
+                                        </div>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-                                        <button onClick={e => openEdit(g, e)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '5px 8px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                                            Edit
-                                        </button>
-                                        <button onClick={e => deleteGroup(g, e)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '6px', cursor: 'pointer', color: 'var(--accent-red)', display: 'flex', alignItems: 'center' }}>
-                                            <Trash2 size={13} />
-                                        </button>
-                                        <ChevronRight size={18} color="var(--text-muted)" />
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div></FadeIn>
-                )}
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
 
-                {showModal && (
-                    <GroupModal
-                        editing={editingGroup}
-                        formName={formName} setFormName={setFormName}
-                        formEmoji={formEmoji} setFormEmoji={setFormEmoji}
-                        formDesc={formDesc} setFormDesc={setFormDesc}
-                        formBudget={formBudget} setFormBudget={setFormBudget}
-                        formMembers={formMembers} setFormMembers={setFormMembers}
-                        saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)}
-                    />
-                )}
-            </PageShell>
+                {showModal && (<GroupModal editing={editingGroup} formName={formName} setFormName={setFormName} formEmoji={formEmoji} setFormEmoji={setFormEmoji} formDesc={formDesc} setFormDesc={setFormDesc} formBudget={formBudget} setFormBudget={setFormBudget} formMembers={formMembers} setFormMembers={setFormMembers} saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)} />)}
             </AppLayout>
         );
     }
 
-    // ─── Detail view ──────────────────────────────────────────────────────────
+    // ── DETAIL VIEW ───────────────────────────────────────────────────────────
     const allMemberNames = [...members.map(m => m.name), 'Me'];
-    const totalSplits = splits.reduce((s, sp) => s + parseFloat(String(sp.total_amount)), 0);
+    const totalSplits  = splits.reduce((s, sp) => s + parseFloat(String(sp.total_amount)), 0);
     const unsettledCount = splits.reduce((s, sp) => s + sp.shares.filter(sh => !sh.settled).length, 0);
+    const youOwe = splits.reduce((sum, sp) => {
+        const myShare = sp.shares.find(sh => sh.member === 'Me');
+        if (myShare && !myShare.settled && sp.paid_by !== 'Me') sum += myShare.amount;
+        return sum;
+    }, 0);
+    const owedToYou = splits.reduce((sum, sp) => {
+        if (sp.paid_by === 'Me') sum += sp.shares.filter(sh => sh.member !== 'Me' && !sh.settled).reduce((s, sh) => s + sh.amount, 0);
+        return sum;
+    }, 0);
+    const budgetPct = selectedGroup.budget ? (Number(selectedGroup.total_spent) / Number(selectedGroup.budget)) * 100 : null;
 
     return (
         <AppLayout>
-        <FadeIn><div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
-            {/* Back + header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-                <button onClick={() => setSelectedGroup(null)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '7px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex' }}>
-                    <ArrowLeft size={18} />
-                </button>
-                <span style={{ fontSize: '1.8rem', lineHeight: '1' }}>{selectedGroup.emoji}</span>
-                <div>
-                    <h1 style={{ fontSize: '1.35rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{selectedGroup.name}</h1>
-                    {selectedGroup.description && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>{selectedGroup.description}</p>}
-                </div>
-                <button onClick={e => openEdit(selectedGroup, e)} style={{ marginLeft: 'auto', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '8px', padding: '7px 12px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Edit</button>
-            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-            {/* 4 stat tiles */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '20px' }}>
-                {[
-                    { label: 'Members', value: String(members.length), icon: <Users size={16} /> },
-                    { label: 'Transactions', value: String(transactions.length), icon: <Wallet size={16} /> },
-                    { label: 'Total Splits', value: formatCurrency(totalSplits, currency), icon: <SplitSquareHorizontal size={16} /> },
-                    { label: 'Unsettled', value: String(unsettledCount), icon: <TrendingDown size={16} />, accent: unsettledCount > 0 },
-                ].map(t => (
-                    <div key={t.label} style={{ ...card, padding: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <div style={{ color: t.accent ? 'var(--accent-red)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.72rem' }}>
-                            {t.icon} {t.label}
+                {/* Back + header */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button type="button" onClick={() => setSelectedGroup(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                            <ArrowLeft size={14} /> Groups
+                        </button>
+                        <span style={{ fontSize: '1.8rem', lineHeight: 1 }}>{selectedGroup.emoji}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{selectedGroup.name}</h1>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
+                                {members.length} member{members.length !== 1 ? 's' : ''}
+                                {selectedGroup.budget && <span> · Budget {fmt(Number(selectedGroup.budget))}</span>}
+                            </p>
                         </div>
-                        <span style={{ fontSize: '1.1rem', fontWeight: 700, color: t.accent ? 'var(--accent-red)' : 'var(--text-primary)' }}>{t.value}</span>
-                    </div>
-                ))}
-            </div>
-
-            {/* Budget bar */}
-            {selectedGroup.budget && (
-                <div style={{ ...card, marginBottom: '20px', padding: '14px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Budget</span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{formatCurrency(Number(selectedGroup.total_spent), currency)} / {formatCurrency(Number(selectedGroup.budget), currency)}</span>
-                    </div>
-                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(100,(Number(selectedGroup.total_spent)/Number(selectedGroup.budget))*100)}%`, borderRadius: '3px', background: Number(selectedGroup.total_spent)/Number(selectedGroup.budget) >= 0.9 ? 'var(--accent-red)' : 'var(--accent-green)', transition: 'width 0.4s' }} />
+                        <button type="button" onClick={e => openEdit(selectedGroup, e)} style={{ padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>Edit</button>
                     </div>
                 </div>
-            )}
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                {(['transactions','splits','settle'] as const).map(t => (
-                    <button key={t} onClick={() => setActiveTab(t)} style={pill(activeTab === t)}>
-                        {t === 'transactions' ? 'Transactions' : t === 'splits' ? 'Splits' : 'Settle Up'}
-                    </button>
-                ))}
-            </div>
+                {/* You owe / Owed to you GCards */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <GCard>
+                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>You Owe</p>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: youOwe > 0 ? 'var(--color-exp)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            {youOwe > 0 ? fmt(youOwe) : '—'}
+                        </p>
+                    </GCard>
+                    <GCard>
+                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Owed to You</p>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: owedToYou > 0 ? 'var(--color-inc)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            {owedToYou > 0 ? fmt(owedToYou) : '—'}
+                        </p>
+                    </GCard>
+                </div>
 
-            {loadingDetail ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading…</div>
-            ) : (
-                <>
-                    {/* Transactions tab */}
-                    {activeTab === 'transactions' && (
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                                <button onClick={() => setShowTxModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '9px', padding: '7px 14px', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                    <PlusCircle size={14} /> Add Existing
-                                </button>
-                            </div>
-                            {transactions.length === 0 ? (
-                                <div style={{ ...card, textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No transactions linked. Add one above.</div>
-                            ) : transactions.map(tx => (
-                                <div key={tx.id} style={{ ...card, marginBottom: '8px', display: 'flex', alignItems: 'center', padding: '12px 16px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', fontSize: '0.88rem' }}>{tx.description}</p>
-                                        <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>{String(tx.date).split('T')[0]}</p>
-                                    </div>
-                                    <span style={{ fontWeight: 600, color: tx.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)', marginRight: '12px' }}>
-                                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Number(tx.amount), currency)}
-                                    </span>
-                                    <button onClick={() => unlinkTx(tx)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}>
-                                        <X size={14} />
+                {/* Budget bar */}
+                {budgetPct !== null && (
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Group Budget</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(selectedGroup.total_spent))} / {fmt(Number(selectedGroup.budget))}</span>
+                        </div>
+                        <ProgressBar pct={budgetPct} height={6} />
+                    </div>
+                )}
+
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    {(['transactions', 'splits', 'settle'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => setActiveTab(t)} style={tabStyle(activeTab === t)}>
+                            {t === 'transactions' ? 'Transactions' : t === 'splits' ? `Splits${unsettledCount > 0 ? ` (${unsettledCount})` : ''}` : 'Settle Up'}
+                        </button>
+                    ))}
+                </div>
+
+                {loadingDetail ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {[1, 2].map(i => <SkeletonCard key={i} height={80} />)}
+                    </div>
+                ) : (
+                    <>
+                        {/* Transactions tab */}
+                        {activeTab === 'transactions' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                                    <button type="button" onClick={() => setShowTxModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                        <PlusCircle size={13} /> Add Existing
                                     </button>
                                 </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Splits tab */}
-                    {activeTab === 'splits' && (
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-                                <button onClick={() => { setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); setSplitDate(new Date().toISOString().split('T')[0]); setSplitMode('equal'); setShowSplitModal(true); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--accent-blue)', border: 'none', borderRadius: '9px', padding: '7px 14px', fontSize: '0.8rem', cursor: 'pointer', color: '#fff', fontWeight: 600 }}>
-                                    <Plus size={14} /> Add Split
-                                </button>
+                                {transactions.length === 0 ? (
+                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No transactions linked. Add one above.</div>
+                                ) : transactions.map(tx => (
+                                    <div key={tx.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
+                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
+                                        </div>
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: tx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)', marginRight: '12px', fontVariantNumeric: 'tabular-nums' }}>
+                                            {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
+                                        </span>
+                                        <button type="button" onClick={() => unlinkTx(tx)} style={iconBt}><X size={14} /></button>
+                                    </div>
+                                ))}
                             </div>
-                            {splits.length === 0 ? (
-                                <div style={{ ...card, textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No splits yet.</div>
-                            ) : splits.map(sp => (
-                                <div key={sp.id} style={{ ...card, marginBottom: '12px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                        <div>
-                                            <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>{sp.description}</p>
-                                            <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: 'var(--text-muted)' }}>Paid by {sp.paid_by} · {String(sp.date).split('T')[0]}</p>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(Number(sp.total_amount), currency)}</span>
-                                            <button onClick={() => openEditSplit(sp)} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '7px', padding: '4px 10px', fontSize: '0.75rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>Edit</button>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        {(sp.shares || []).map(sh => (
-                                            <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                                <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{sh.member}</span>
-                                                <span style={{ fontSize: '0.82rem', fontWeight: 500, color: 'var(--text-primary)' }}>{formatCurrency(Number(sh.amount), currency)}</span>
-                                                <button onClick={() => settleShare(sp, sh)} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: sh.settled ? 'rgba(52,211,153,0.1)' : 'var(--bg-hover)', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', color: sh.settled ? 'var(--accent-green)' : 'var(--text-muted)', fontSize: '0.72rem' }}>
-                                                    {sh.settled ? <><Check size={11} /> Settled</> : 'Settle'}
-                                                </button>
+                        )}
+
+                        {/* Splits tab */}
+                        {activeTab === 'splits' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+                                    <button type="button" onClick={() => { setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); setSplitDate(new Date().toISOString().split('T')[0]); setSplitMode('equal'); setShowSplitModal(true); }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'white', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+                                        <Plus size={13} /> Add Split
+                                    </button>
+                                </div>
+                                {splits.length === 0 ? (
+                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No splits yet.</div>
+                                ) : splits.map(sp => {
+                                    const isSettled = sp.shares.every(sh => sh.settled);
+                                    const perPerson = sp.shares.length > 0 ? sp.total_amount / sp.shares.length : 0;
+                                    return (
+                                        <div key={sp.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginBottom: '10px', overflow: 'hidden' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '14px 16px 10px' }}>
+                                                <div>
+                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{sp.description}</p>
+                                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                                                        Paid by {sp.paid_by} · {fmt(perPerson)}/person
+                                                    </p>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(sp.total_amount)}</span>
+                                                    <Badge color={isSettled ? 'var(--color-inc)' : 'var(--color-warn)'} bg={isSettled ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
+                                                        {isSettled ? 'Settled' : 'Pending'}
+                                                    </Badge>
+                                                    <button type="button" onClick={() => openEditSplit(sp)} style={{ padding: '4px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Edit</button>
+                                                </div>
                                             </div>
-                                        ))}
+                                            <div style={{ borderTop: '1px solid var(--border)', padding: '8px 16px 12px' }}>
+                                                {sp.shares.map(sh => (
+                                                    <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-head)' }}>
+                                                            {sh.member[0]?.toUpperCase() || '?'}
+                                                        </div>
+                                                        <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{sh.member}</span>
+                                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(sh.amount)}</span>
+                                                        {sh.settled ? (
+                                                            <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--color-inc) 10%, transparent)"><Check size={10} /></Badge>
+                                                        ) : (
+                                                            <button type="button" onClick={() => settleShare(sp, sh)} style={{ padding: '4px 10px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                                Settle Up
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Settle Up tab */}
+                        {activeTab === 'settle' && (
+                            <div>
+                                {settlements.length === 0 ? (
+                                    <div style={{ background: 'var(--bg-card)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center' }}>
+                                        <Check size={28} color="var(--color-inc)" style={{ marginBottom: '8px' }} />
+                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-inc)', fontFamily: 'var(--font-head)' }}>All settled up!</p>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                                ) : settlements.map((s, i) => (
+                                    <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--color-exp)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{s.from}</span>
+                                        <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>owes</span>
+                                        <span style={{ fontWeight: 600, color: 'var(--color-inc)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{s.to}</span>
+                                        <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(s.amount)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
 
-                    {/* Settle Up tab */}
-                    {activeTab === 'settle' && (
-                        <div>
-                            {settlements.length === 0 ? (
-                                <div style={{ ...card, textAlign: 'center', padding: '40px', color: 'var(--accent-green)', fontSize: '0.9rem' }}>
-                                    <Check size={28} style={{ marginBottom: '8px' }} />
-                                    <p style={{ margin: 0, fontWeight: 600 }}>All settled up!</p>
-                                </div>
-                            ) : settlements.map((s, i) => (
-                                <div key={i} style={{ ...card, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px' }}>
-                                    <span style={{ fontWeight: 600, color: 'var(--accent-red)', fontSize: '0.9rem' }}>{s.from}</span>
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>owes</span>
-                                    <span style={{ fontWeight: 600, color: 'var(--accent-green)', fontSize: '0.9rem' }}>{s.to}</span>
-                                    <span style={{ marginLeft: 'auto', fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrency(s.amount, currency)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </>
-            )}
-
-            {/* Create/Edit Modal */}
-            {showModal && (
-                <GroupModal
-                    editing={editingGroup}
-                    formName={formName} setFormName={setFormName}
-                    formEmoji={formEmoji} setFormEmoji={setFormEmoji}
-                    formDesc={formDesc} setFormDesc={setFormDesc}
-                    formBudget={formBudget} setFormBudget={setFormBudget}
-                    formMembers={formMembers} setFormMembers={setFormMembers}
-                    saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)}
-                />
-            )}
+            {/* Group Modal */}
+            {showModal && (<GroupModal editing={editingGroup} formName={formName} setFormName={setFormName} formEmoji={formEmoji} setFormEmoji={setFormEmoji} formDesc={formDesc} setFormDesc={setFormDesc} formBudget={formBudget} setFormBudget={setFormBudget} formMembers={formMembers} setFormMembers={setFormMembers} saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)} />)}
 
             {/* Add Split Modal */}
             {showSplitModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false); }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{editingSplit ? 'Edit Split' : 'Add Split'}</h3>
-                            <button onClick={() => { setShowSplitModal(false); setEditingSplit(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
+                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingSplit ? 'Edit Split' : 'Add Split'}</h3>
+                            <button type="button" onClick={() => { setShowSplitModal(false); setEditingSplit(null); }} style={iconBt}><X size={18} /></button>
                         </div>
                         {([
                             { label: 'Description', value: splitDesc, set: setSplitDesc, placeholder: 'Dinner, Uber, etc.', type: 'text' },
@@ -542,24 +412,22 @@ export default function GroupsPage() {
                             { label: 'Date', value: splitDate, set: setSplitDate, placeholder: '', type: 'date' },
                         ] as const).map(f => (
                             <div key={f.label} style={{ marginBottom: '14px' }}>
-                                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>{f.label}</label>
-                                <input value={f.value} onChange={e => (f.set as (v: string) => void)(e.target.value)} type={f.type} placeholder={f.placeholder}
-                                    style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                                <label style={labelSt}>{f.label}</label>
+                                <input value={f.value} onChange={e => (f.set as (v: string) => void)(e.target.value)} type={f.type} placeholder={f.placeholder} style={inputSt} />
                             </div>
                         ))}
                         <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Paid By</label>
-                            <select value={splitPaidBy} onChange={e => setSplitPaidBy(e.target.value)}
-                                style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem' }}>
+                            <label style={labelSt}>Paid By</label>
+                            <select value={splitPaidBy} onChange={e => setSplitPaidBy(e.target.value)} style={inputSt}>
                                 <option value="">Select…</option>
                                 {allMemberNames.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
                         </div>
                         <div style={{ marginBottom: '14px' }}>
-                            <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Split Mode</label>
+                            <label style={{ ...labelSt, marginBottom: 6 }}>Split Mode</label>
                             <div style={{ display: 'flex', gap: '8px' }}>
-                                {(['equal','custom'] as const).map(m => (
-                                    <button key={m} onClick={() => setSplitMode(m)} style={pill(splitMode === m)}>
+                                {(['equal', 'custom'] as const).map(m => (
+                                    <button key={m} type="button" onClick={() => setSplitMode(m)} style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', border: `1px solid ${splitMode === m ? 'var(--accent)' : 'var(--border)'}`, background: splitMode === m ? 'var(--accent)' : 'var(--bg-card)', color: splitMode === m ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                         {m === 'equal' ? 'Equal' : 'Custom'}
                                     </button>
                                 ))}
@@ -567,41 +435,25 @@ export default function GroupsPage() {
                         </div>
                         {splitMode === 'custom' && (
                             <div style={{ marginBottom: '14px' }}>
-                                <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Custom Amounts</label>
+                                <label style={labelSt}>Custom Amounts</label>
                                 {allMemberNames.map(n => (
                                     <div key={n} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                        <span style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{n}</span>
-                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))}
-                                            placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.82rem' }} />
+                                        <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{n}</span>
+                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
                                     </div>
                                 ))}
-                                {/* Running tally */}
-                                <div style={{
-                                    marginTop: '10px', padding: '10px 12px', borderRadius: '9px',
-                                    background: customTallyOk ? 'rgba(52,211,153,0.08)' : customTotal > 0 ? 'rgba(239,68,68,0.08)' : 'var(--bg-secondary)',
-                                    border: `1px solid ${customTallyOk ? 'rgba(52,211,153,0.3)' : customTotal > 0 ? 'rgba(239,68,68,0.3)' : 'var(--bg-border)'}`,
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                }}>
-                                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Sum of shares</span>
+                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'var(--bg-alt)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--border)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Sum of shares</span>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: customTallyOk ? 'var(--accent-green)' : customTotal > 0 ? 'var(--accent-red)' : 'var(--text-primary)' }}>
-                                            {formatCurrency(customTotal, currency)}
-                                            {splitTotalNum > 0 && ` / ${formatCurrency(splitTotalNum, currency)}`}
-                                        </span>
-                                        {!customTallyOk && customTotal > 0 && splitTotalNum > 0 && (
-                                            <span style={{ fontSize: '0.7rem', color: customDiff > 0 ? 'var(--accent-yellow)' : 'var(--accent-red)' }}>
-                                                {customDiff > 0 ? `${formatCurrency(customDiff, currency)} unallocated` : `${formatCurrency(-customDiff, currency)} over total`}
-                                            </span>
-                                        )}
-                                        {customTallyOk && splitTotalNum > 0 && (
-                                            <span style={{ fontSize: '0.7rem', color: 'var(--accent-green)' }}>✓ Balanced</span>
-                                        )}
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: customTallyOk ? 'var(--color-inc)' : customTotal > 0 ? 'var(--color-exp)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(customTotal)}{splitTotalNum > 0 && ` / ${fmt(splitTotalNum)}`}</span>
+                                        {customTallyOk && splitTotalNum > 0 && <span style={{ fontSize: '11px', color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}>✓ Balanced</span>}
+                                        {!customTallyOk && customTotal > 0 && splitTotalNum > 0 && <span style={{ fontSize: '11px', color: customDiff > 0 ? 'var(--color-warn)' : 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>{customDiff > 0 ? `${fmt(customDiff)} unallocated` : `${fmt(-customDiff)} over total`}</span>}
                                     </div>
                                 </div>
                             </div>
                         )}
-                        <button onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy || (splitMode === 'custom' && !customTallyOk)}
-                            style={{ width: '100%', padding: '11px', background: 'var(--accent-blue)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', opacity: (savingSplit || (splitMode === 'custom' && !customTallyOk && customTotal > 0)) ? 0.6 : 1 }}>
+                        <button type="button" onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy || (splitMode === 'custom' && !customTallyOk && customTotal > 0)}
+                            style={{ width: '100%', padding: '11px', background: 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: (savingSplit || (splitMode === 'custom' && !customTallyOk && customTotal > 0)) ? 0.6 : 1 }}>
                             {savingSplit ? (editingSplit ? 'Saving…' : 'Adding…') : (editingSplit ? 'Save Changes' : 'Add Split')}
                         </button>
                     </div>
@@ -611,130 +463,79 @@ export default function GroupsPage() {
 
             {/* Link Transaction Modal */}
             {showTxModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) { setShowTxModal(false); setTxSearch(''); setTxResults([]); } }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>Link Transaction</h3>
-                            <button onClick={() => { setShowTxModal(false); setTxSearch(''); setTxResults([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
+                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Link Transaction</h3>
+                            <button type="button" onClick={() => { setShowTxModal(false); setTxSearch(''); setTxResults([]); }} style={iconBt}><X size={18} /></button>
                         </div>
-                        <input value={txSearch} onChange={e => searchTx(e.target.value)} placeholder="Search transactions…"
-                            style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', marginBottom: '12px' }} />
+                        <input value={txSearch} onChange={e => searchTx(e.target.value)} placeholder="Search transactions…" style={{ ...inputSt, marginBottom: '12px' }} />
                         <div style={{ overflowY: 'auto', flex: 1 }}>
                             {txResults.map(tx => (
-                                <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)}
-                                    style={{ padding: '10px 12px', borderRadius: '9px', cursor: 'pointer', marginBottom: '4px', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)} style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: '4px', background: 'var(--bg-alt)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)'}>
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-alt)'}>
                                     <div>
-                                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>{tx.description}</p>
-                                        <p style={{ margin: '2px 0 0', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{String(tx.date).split('T')[0]}</p>
+                                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.description}</p>
+                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
                                     </div>
-                                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: tx.type === 'income' ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                                        {formatCurrency(Number(tx.amount), currency)}
-                                    </span>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '13px', color: tx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(tx.amount))}</span>
                                 </div>
                             ))}
-                            {txSearch.length >= 2 && txResults.length === 0 && (
-                                <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>No results found.</p>
-                            )}
+                            {txSearch.length >= 2 && txResults.length === 0 && (<p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No results.</p>)}
                         </div>
                     </div>
                 </div>,
                 document.body
             )}
-        </div></FadeIn>
         </AppLayout>
     );
 }
 
 // ─── Group Create/Edit Modal ──────────────────────────────────────────────────
 function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, formDesc, setFormDesc, formBudget, setFormBudget, formMembers, setFormMembers, saving, onSave, onClose }: {
-    editing: Group | null;
-    formName: string; setFormName: (v: string) => void;
-    formEmoji: string; setFormEmoji: (v: string) => void;
-    formDesc: string; setFormDesc: (v: string) => void;
-    formBudget: string; setFormBudget: (v: string) => void;
-    formMembers: Member[]; setFormMembers: (v: Member[]) => void;
-    saving: boolean; onSave: () => void; onClose: () => void;
+    editing: Group | null; formName: string; setFormName: (v: string) => void; formEmoji: string; setFormEmoji: (v: string) => void; formDesc: string; setFormDesc: (v: string) => void; formBudget: string; setFormBudget: (v: string) => void; formMembers: Member[]; setFormMembers: (v: Member[]) => void; saving: boolean; onSave: () => void; onClose: () => void;
 }) {
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
-
-    const addMember = () => setFormMembers([...formMembers, { name: '' }]);
+    const addMember    = () => setFormMembers([...formMembers, { name: '' }]);
     const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
-    const updateMember = (i: number, field: keyof Member, val: string) => {
-        const updated = [...formMembers];
-        updated[i] = { ...updated[i], [field]: val };
-        setFormMembers(updated);
-    };
-
+    const updateMember = (i: number, field: keyof Member, val: string) => { const updated = [...formMembers]; updated[i] = { ...updated[i], [field]: val }; setFormMembers(updated); };
+    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+    const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
     if (!mounted) return null;
-
     return createPortal(
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '16px', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{editing ? 'Edit Group' : 'New Group'}</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
+                    <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editing ? 'Edit Group' : 'New Group'}</h3>
+                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
                 </div>
-
-                {/* Emoji picker */}
                 <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Emoji</label>
+                    <label style={labelSt}>Emoji</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {EMOJIS.map(em => (
-                            <button key={em} onClick={() => setFormEmoji(em)} style={{
-                                width: '36px', height: '36px', borderRadius: '8px', fontSize: '1.1rem',
-                                border: formEmoji === em ? '2px solid var(--accent-blue)' : '1px solid var(--bg-border)',
-                                background: formEmoji === em ? 'var(--bg-hover)' : 'var(--bg-secondary)', cursor: 'pointer',
-                            }}>{em}</button>
-                        ))}
+                        {EMOJIS.map(em => (<button key={em} type="button" onClick={() => setFormEmoji(em)} style={{ width: 36, height: 36, borderRadius: 8, fontSize: '1.1rem', border: formEmoji === em ? '2px solid var(--accent)' : '1px solid var(--border)', background: formEmoji === em ? 'var(--accent-light)' : 'var(--bg-alt)', cursor: 'pointer' }}>{em}</button>))}
                     </div>
                 </div>
-
-                {/* Name */}
-                <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Name *</label>
-                    <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Trip to Goa, Flat Expenses…"
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box' }} />
-                </div>
-
-                {/* Description */}
-                <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Description</label>
-                    <input value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="Optional"
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box' }} />
-                </div>
-
-                {/* Budget */}
-                <div style={{ marginBottom: '14px' }}>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Budget (optional)</label>
-                    <input type="number" value={formBudget} onChange={e => setFormBudget(e.target.value)} placeholder="0.00"
-                        style={{ width: '100%', padding: '9px 12px', borderRadius: '9px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box' }} />
-                </div>
-
-                {/* Members */}
-                <div style={{ marginBottom: '20px' }}>
-                    <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Members</label>
+                <div style={{ marginBottom: 14 }}><label style={labelSt}>Name *</label><input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Trip to Goa, Flat Expenses…" style={inputSt} /></div>
+                <div style={{ marginBottom: 14 }}><label style={labelSt}>Description</label><input value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="Optional" style={inputSt} /></div>
+                <div style={{ marginBottom: 14 }}><label style={labelSt}>Budget (optional)</label><input type="number" value={formBudget} onChange={e => setFormBudget(e.target.value)} placeholder="0" style={inputSt} /></div>
+                <div style={{ marginBottom: 20 }}>
+                    <label style={labelSt}>Members</label>
                     {formMembers.map((m, i) => (
                         <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name"
-                                style={{ flex: 1, padding: '7px 10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.82rem' }} />
-                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)"
-                                style={{ flex: 1, padding: '7px 10px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '0.82rem' }} />
-                            {formMembers.length > 1 && (
-                                <button onClick={() => removeMember(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-red)', display: 'flex', alignItems: 'center' }}><X size={14} /></button>
-                            )}
+                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            {formMembers.length > 1 && (<button type="button" onClick={() => removeMember(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><X size={14} /></button>)}
                         </div>
                     ))}
-                    <button onClick={addMember} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent-blue)', fontSize: '0.8rem', padding: '2px 0' }}>
+                    <button type="button" onClick={addMember} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', padding: '2px 0', fontFamily: 'var(--font-body)' }}>
                         <Plus size={13} /> Add member
                     </button>
                 </div>
-
-                <button onClick={onSave} disabled={saving || !formName.trim()} style={{ width: '100%', padding: '11px', background: 'var(--accent-blue)', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                <button type="button" onClick={onSave} disabled={saving || !formName.trim()} style={{ width: '100%', padding: '11px', background: saving || !formName.trim() ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
                     {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Group'}
                 </button>
             </div>

@@ -49,10 +49,10 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
             label: 'TOTAL INCOME',
             animValue: animIncome,
             icon: TrendingUp,
-            bg: 'linear-gradient(135deg,#062e1a,#0d2818,#0a1f12)',
-            glowBg: 'linear-gradient(135deg,#10b981,transparent)',
-            accent: '#10b981',
-            iconBg: 'rgba(16,185,129,0.15)',
+            bg: 'linear-gradient(135deg,#002e1f,#001f14,#00140d)',
+            glowBg: 'linear-gradient(135deg,#00e5a0,transparent)',
+            accent: '#00e5a0',
+            iconBg: 'rgba(0,229,160,0.15)',
             format: (v: number) => fmt(v),
             subLabel: periodLabel,
         },
@@ -73,10 +73,10 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
             label: 'NET BALANCE',
             animValue: animBalance,
             icon: Wallet,
-            bg: 'linear-gradient(135deg,#091628,#0d1a2a,#081320)',
-            glowBg: 'linear-gradient(135deg,#3b82f6,transparent)',
-            accent: '#3b82f6',
-            iconBg: 'rgba(59,130,246,0.15)',
+            bg: 'linear-gradient(135deg,#0f0f28,#0a0a1e,#060614)',
+            glowBg: 'linear-gradient(135deg,#6366f1,transparent)',
+            accent: '#6366f1',
+            iconBg: 'rgba(99,102,241,0.15)',
             format: (v: number) => (balance < 0 ? '-' : '') + fmt(v),
             subLabel: 'All time',
         },
@@ -126,12 +126,12 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
                                 </div>
                             </div>
 
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '22px', fontWeight: 800, color: card.accent, margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                            <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '22px', fontWeight: 700, color: card.accent, margin: '0 0 8px 0', letterSpacing: '-0.02em', lineHeight: 1 }}>
                                 {card.format(card.animValue)}
                             </p>
 
                             {card.id === 'savings' ? (
-                                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: 600, color: '#f59e0b', background: 'rgba(245,158,11,0.12)', borderRadius: '20px', padding: '2px 8px' }}>
+                                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: 600, color: 'var(--accent-yellow)', background: 'var(--accent-yellow-bg)', borderRadius: '20px', padding: '2px 8px' }}>
                                     {savingsLabel}
                                 </span>
                             ) : (

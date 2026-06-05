@@ -67,7 +67,7 @@ export function GlobalSearch() {
                                 value={query}
                                 onChange={e => setQuery(e.target.value)}
                                 placeholder="Search transactions..."
-                                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.95rem', fontFamily: 'DM Sans, sans-serif' }}
+                                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.95rem', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}
                             />
                             {query && <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>}
                         </div>
@@ -85,15 +85,15 @@ export function GlobalSearch() {
                                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: isIncome ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {isIncome ? <TrendingUp size={14} color="#10b981" /> : <TrendingDown size={14} color="#f43f5e" />}
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: isIncome ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {isIncome ? <TrendingUp size={14} color="var(--accent-green)" /> : <TrendingDown size={14} color="var(--accent-red)" />}
                                             </div>
                                             <div>
                                                 <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>{tx.description}</p>
                                                 <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>{tx.category_name || 'Uncategorized'} · {formatDate(tx.date)}</p>
                                             </div>
                                         </div>
-                                        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: isIncome ? '#10b981' : '#f43f5e' }}>
+                                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.875rem', fontWeight: 600, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                                             {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), user?.currency)}
                                         </span>
                                     </div>

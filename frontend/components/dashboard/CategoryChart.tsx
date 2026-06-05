@@ -5,7 +5,7 @@ import { formatCurrency } from '@/lib/utils';
 
 interface Props { data: any[]; currency?: string; }
 
-const PALETTE = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#ec4899', '#14b8a6'];
+const PALETTE = ['#00e5a0', '#6366f1', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#ec4899', '#14b8a6'];
 
 export function CategoryChart({ data, currency = 'INR' }: Props) {
     const total = data.reduce((sum, c) => sum + parseFloat(c.total), 0);
@@ -16,8 +16,8 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
         const item = payload[0];
         const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
         return (
-            <div style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', backdropFilter: 'blur(12px)', boxShadow: 'var(--shadow-modal)' }}>
-                <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: 'Sora, sans-serif' }}>{item.name}</p>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
+                <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{item.name}</p>
                 <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
                     {formatCurrency(item.value, currency)} <span style={{ color: 'var(--text-secondary)' }}>({pct}%)</span>
                 </p>
@@ -27,7 +27,7 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
 
     return (
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
-            <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+            <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
                 Spending by Category
             </h3>
             {data.length === 0 ? (
@@ -45,8 +45,8 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
                                 animationDuration={800}
                                 label={({ cx, cy }) => (
                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                                        <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" fontFamily="DM Sans">Total</tspan>
-                                        <tspan x={cx} dy="16" fontSize="13" fontWeight="700" fill="var(--text-primary)" fontFamily="Sora">₹{(total / 1000).toFixed(1)}k</tspan>
+                                        <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" fontFamily="Satoshi">Total</tspan>
+                                        <tspan x={cx} dy="16" fontSize="13" fontWeight="700" fill="var(--text-primary)" fontFamily="DM Mono">₹{(total / 1000).toFixed(1)}k</tspan>
                                     </text>
                                 )}
                                 labelLine={false}

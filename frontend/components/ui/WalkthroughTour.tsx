@@ -14,13 +14,13 @@ interface Props {
 
 const STEPS = [
     {
-        iconGradient: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+        iconGradient: 'linear-gradient(135deg, #312e81, #6366f1)',
         Icon: Sparkles,
         title: 'Welcome to FinTrack 🎉',
         description: "Your AI-powered personal finance companion. Let's take a 2-minute tour so you know exactly where everything lives and what each feature does.",
     },
     {
-        iconGradient: 'linear-gradient(135deg, #065f46, #10b981)',
+        iconGradient: 'linear-gradient(135deg, #065f46, #00e5a0)',
         Icon: LayoutDashboard,
         title: 'Your Financial Command Centre',
         description: 'The dashboard shows your income, expenses, savings rate, and a 6-month spending trend at a glance. It updates in real-time as you add transactions — check it daily to stay on track.',
@@ -182,7 +182,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                         style={{
                             fontSize: '22px',
                             fontWeight: 700,
-                            fontFamily: 'Sora, sans-serif',
+                            fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
                             color: 'var(--text-primary)',
                             textAlign: 'center',
                             marginBottom: '12px',
@@ -276,7 +276,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                                 type="button"
                                 onClick={handleNext}
                                 style={{
-                                    background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+                                    background: 'linear-gradient(135deg,#312e81,#6366f1)',
                                     color: 'white',
                                     borderRadius: '8px',
                                     padding: '10px 20px',

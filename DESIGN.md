@@ -201,3 +201,8 @@ The AI layer is a command palette, not a chat widget:
 | 2026-04-02 | ⌘K command palette for AI | AI as infrastructure, not a feature — Superhuman-pattern |
 | 2026-04-02 | No glassmorphism | It's category-ubiquitous now, no longer a differentiator |
 | 2026-04-02 | Initial design system created | Created by /design-consultation — research + Claude subagent synthesis |
+| 2026-06-04 | **AMOLED black (#000000) kept** instead of cold obsidian (#080c18) | Superior on OLED panels (true black = off pixels); difference is imperceptible on LCD; chosen consciously over the design doc spec |
+| 2026-06-04 | **Light mode --accent-blue: #4f46e5** (not #2563eb) | Aligns with indigo family (#6366f1 dark / #4f46e5 light) for coherent cross-theme identity |
+| 2026-06-04 | **--glass-bg/border vars retired** | Redefined to solid `--bg-card/--bg-border-strong` values. TrendChart and CategoryChart tooltips no longer use backdropFilter. Glassmorphism ban now enforced in code, not just spec. |
+| 2026-06-04 | **Font stack unified** across all components | Purged bare `Sora,sans-serif` → `'Cabinet Grotesk','Sora',sans-serif` and `DM Sans,sans-serif` → `'Satoshi','DM Sans',sans-serif`. Currency/number contexts changed to `'DM Mono',monospace`. Remaining tech debt: non-SVG hardcoded hex in page files (color-picker swatches for user content are intentional and left alone). |
+| 2026-06-04 | **Home screen KPI grid and ⌘K search retained** for now | Converting to financial-pulse home and full AI command palette is a product-scope rewrite, not a token change. Logged here as accepted scope debt — build as a discrete feature sprint, not part of a token reconciliation. |

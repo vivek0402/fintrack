@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { aiAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { PageShell } from '@/components/layout/PageShell';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { GCard } from '@/components/ui/GCard';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import {
     Loader2, AlertCircle, Sparkles, BarChart2,
@@ -14,98 +14,58 @@ import {
     Gamepad2, BookOpen, Coffee, Music, Dumbbell, Gift, Bus, Wallet,
     TrendingUp, CreditCard,
 } from 'lucide-react';
-import { FadeIn } from '@/components/ui/FadeIn';
 
 const ICON_MAP: Record<string, React.ElementType> = {
     utensils: Utensils, zap: Zap, car: Car, plane: Plane,
     'shopping-bag': ShoppingBag, laptop: Laptop, home: Home,
     heart: Heart, gamepad2: Gamepad2, 'book-open': BookOpen,
     coffee: Coffee, music: Music, dumbbell: Dumbbell, gift: Gift,
-    bus: Bus, wallet: Wallet, 'trending-up': TrendingUp,
-    'credit-card': CreditCard,
+    bus: Bus, wallet: Wallet, 'trending-up': TrendingUp, 'credit-card': CreditCard,
 };
 
 function CategoryIcon({ name, size = 16, color }: { name: string; size?: number; color?: string }) {
     const Icon = ICON_MAP[name?.toLowerCase()] || Wallet;
-    return <Icon size={size} color={color || 'var(--accent-blue)'} />;
+    return <Icon size={size} color={color || 'var(--accent)'} />;
 }
 
-function fmt(n: number) {
-    return '₹' + Math.round(n).toLocaleString('en-IN');
-}
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
-interface CalendarDay {
-    day: number;
-    actual?: number;
-    projected?: number;
-    isFuture: boolean;
-}
+interface CalendarDay { day: number; actual?: number; projected?: number; isFuture: boolean; }
+interface ForecastCategory { name: string; icon: string; color: string | null; avgMonthly: number; projected: number; spentSoFar: number; percentOfTotal: number; }
+interface ForecastData { totalForecast: number; avgDaily: number; currentMonthSpent: number; daysElapsed: number; daysInMonth: number; daysRemaining: number; categories: ForecastCategory[]; calendarDays: CalendarDay[]; insight: string; insufficientData?: boolean; }
 
-interface ForecastCategory {
-    name: string;
-    icon: string;
-    color: string | null;
-    avgMonthly: number;
-    projected: number;
-    spentSoFar: number;
-    percentOfTotal: number;
-}
-
-interface ForecastData {
-    totalForecast: number;
-    avgDaily: number;
-    currentMonthSpent: number;
-    daysElapsed: number;
-    daysInMonth: number;
-    daysRemaining: number;
-    categories: ForecastCategory[];
-    calendarDays: CalendarDay[];
-    insight: string;
-    insufficientData?: boolean;
-}
-
-const card: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--bg-border)',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
-};
-
+const card: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 16 };
 const DAYS_HEADER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default function ForecastPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-
-    const [forecast, setForecast] = useState<ForecastData | null>(null);
-    const [loading, setLoading] = useState(false);
+    const [forecast, setForecast]   = useState<ForecastData | null>(null);
+    const [loading, setLoading]     = useState(false);
     const [generated, setGenerated] = useState(false);
-    const [error, setError] = useState('');
+    const [error, setError]         = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     const fetchForecast = async () => {
-        setError('');
-        setLoading(true);
+        setError(''); setLoading(true);
         try {
             const res = await aiAPI.forecastCalendar(true);
-            const data: ForecastData = res.data.data;
-            setForecast(data);
-            setGenerated(true);
+            setForecast(res.data.data); setGenerated(true);
         } catch (err: any) {
             setError(err?.response?.data?.error || 'Could not generate forecast. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
-    if (isLoading || !user) {
-        return <AppLayout><div style={{ maxWidth: 800, margin: '0 auto' }} /></AppLayout>;
-    }
+    if (isLoading || !user) return (
+        <AppLayout>
+            <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={300} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </AppLayout>
+    );
 
     const now = new Date();
     const year = now.getFullYear();
@@ -116,215 +76,132 @@ export default function ForecastPage() {
 
     return (
         <AppLayout>
-            <PageShell
-                title="Forecast"
-                subtitle="AI spending prediction"
-                headerRight={
-                    generated && !loading ? (
-                        <Button variant="secondary" size="md" onClick={fetchForecast}>Regenerate</Button>
-                    ) : undefined
-                }
-            >
-            <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* Error state */}
+                {/* Header */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Forecast</h1>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>AI spending prediction</p>
+                        </div>
+                        {generated && !loading && <Button variant="secondary" size="md" onClick={fetchForecast}>Regenerate</Button>}
+                    </div>
+                </div>
+
+                {/* Error */}
                 {error && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 40 }}>
-                        <AlertCircle size={28} color="var(--accent-red)" />
-                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Could not generate forecast</p>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textAlign: 'center' }}>{error}</p>
-                        <button type="button" onClick={fetchForecast} style={{
-                            background: 'none', border: '1px solid var(--bg-border)',
-                            borderRadius: 8, padding: '8px 20px',
-                            color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer',
-                        }}>
-                            Try Again
-                        </button>
+                        <AlertCircle size={28} color="var(--color-exp)" />
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)' }}>Could not generate forecast</p>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
+                        <button type="button" onClick={fetchForecast} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 20px', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try Again</button>
                     </div>
                 )}
 
-                {/* Loading state */}
+                {/* Loading */}
                 {loading && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 14 }}>
-                        <Loader2 size={28} color="var(--accent-blue)" style={{ animation: 'spin 1s linear infinite' }} />
-                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                            Generating your forecast...
-                        </p>
+                        <Loader2 size={28} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)' }}>Generating your forecast...</p>
                     </div>
                 )}
 
-                {/* Empty state */}
+                {/* Empty */}
                 {!generated && !loading && !error && (
-                    <EmptyState
-                        icon={BarChart2}
-                        title="No forecast yet"
-                        subtitle="Uses your last 3 months of transactions to predict this month's spending — no guesswork"
-                        action={
-                            <Button variant="primary" size="md" onClick={fetchForecast}>
-                                Generate Forecast
-                            </Button>
-                        }
-                    />
+                    <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+                        <p style={{ fontSize: '48px', marginBottom: '12px' }}>📅</p>
+                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No forecast yet</p>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Uses your last 3 months of transactions to predict this month's spending — no guesswork</p>
+                        <Button variant="primary" size="md" onClick={fetchForecast}>Generate Forecast</Button>
+                    </div>
                 )}
 
                 {/* Insufficient data */}
                 {forecast?.insufficientData && !loading && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 50, textAlign: 'center' }}>
                         <Sparkles size={32} color="var(--text-muted)" />
-                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Not enough data yet</p>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, maxWidth: 340, lineHeight: 1.6 }}>
-                            Add at least 1 week of transactions to generate a forecast.
-                        </p>
-                        <button type="button" onClick={() => router.push('/transactions')} style={{
-                            background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
-                            color: '#fff', border: 'none', borderRadius: 10,
-                            padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                        }}>
-                            Go to Transactions
-                        </button>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)' }}>Not enough data yet</p>
+                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, maxWidth: 340, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>Add at least 1 week of transactions to generate a forecast.</p>
+                        <button type="button" onClick={() => router.push('/transactions')} style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go to Transactions</button>
                     </div>
                 )}
 
                 {forecast && !forecast.insufficientData && !loading && (
-                    <FadeIn>
                     <>
-                        {/* Section 1 — Stat tiles */}
-                        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                        {/* Stat tiles */}
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                             {[
-                                { label: 'FORECASTED TOTAL', value: fmt(forecast.totalForecast), color: 'var(--accent-blue)' },
-                                { label: 'SPENT SO FAR', value: fmt(forecast.currentMonthSpent), color: 'var(--accent-red)' },
-                                { label: 'DAILY AVERAGE', value: fmt(forecast.avgDaily), color: 'var(--accent-yellow)' },
+                                { label: 'FORECASTED TOTAL', value: fmt(forecast.totalForecast), color: 'var(--accent)' },
+                                { label: 'SPENT SO FAR',     value: fmt(forecast.currentMonthSpent), color: 'var(--color-exp)' },
+                                { label: 'DAILY AVERAGE',    value: fmt(forecast.avgDaily), color: 'var(--color-warn)' },
                             ].map(tile => (
-                                <div key={tile.label} style={{
-                                    flex: 1, minWidth: 140,
-                                    background: 'var(--bg-card)',
-                                    border: '1px solid var(--bg-border)',
-                                    borderRadius: 12,
-                                    padding: '20px 24px',
-                                }}>
-                                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' as const, letterSpacing: '0.8px', margin: '0 0 8px', fontWeight: 600 }}>
-                                        {tile.label}
-                                    </p>
-                                    <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 28, fontWeight: 700, color: tile.color, margin: 0 }}>
-                                        {tile.value}
-                                    </p>
+                                <div key={tile.label} style={{ flex: 1, minWidth: 140, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
+                                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.8px', margin: '0 0 8px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{tile.label}</p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700, color: tile.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{tile.value}</p>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Section 2 — Monthly Calendar */}
+                        {/* Calendar */}
                         <div style={card}>
-                            <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-                                {monthLabel}
-                            </p>
-
-                            {/* Day headers */}
+                            <p style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>{monthLabel}</p>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
-                                {DAYS_HEADER.map(d => (
-                                    <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', padding: '4px 0' }}>
-                                        {d}
-                                    </div>
-                                ))}
+                                {DAYS_HEADER.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>)}
                             </div>
-
-                            {/* Calendar grid */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
-                                {/* Empty offset cells */}
-                                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                                    <div key={`empty-${i}`} style={{ minHeight: 64 }} />
-                                ))}
-
-                                {/* Day cells */}
+                                {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} style={{ minHeight: 64 }} />)}
                                 {forecast.calendarDays.map(cd => {
-                                    const isToday = cd.day === todayDay;
+                                    const isToday  = cd.day === todayDay;
                                     const hasActual = !cd.isFuture && (cd.actual || 0) > 0;
-
                                     return (
-                                        <div key={cd.day} style={{
-                                            minHeight: 64,
-                                            padding: '6px 8px',
-                                            borderRadius: 8,
-                                            background: hasActual ? 'var(--bg-hover)' : 'transparent',
-                                            border: isToday ? '1px solid var(--accent-blue)' : '1px solid transparent',
-                                            position: 'relative',
-                                            opacity: cd.isFuture ? 0.75 : 1,
-                                        }}>
-                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: isToday ? 700 : 400, marginBottom: 4 }}>
-                                                {cd.day}
-                                            </div>
-                                            {hasActual && (
-                                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent-red)', lineHeight: 1.2 }}>
-                                                    {fmt(cd.actual!)}
-                                                </div>
-                                            )}
-                                            {cd.isFuture && cd.projected! > 0 && (
-                                                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.2 }}>
-                                                    ~{fmt(cd.projected!)}
-                                                </div>
-                                            )}
+                                        <div key={cd.day} style={{ minHeight: 64, padding: '6px 8px', borderRadius: 8, background: hasActual ? 'var(--bg-hover)' : 'transparent', border: isToday ? '1px solid var(--accent)' : '1px solid transparent', opacity: cd.isFuture ? 0.75 : 1 }}>
+                                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: isToday ? 700 : 400, marginBottom: 4, fontFamily: 'var(--font-body)' }}>{cd.day}</div>
+                                            {hasActual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--color-exp)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmt(cd.actual!)}</div>}
+                                            {cd.isFuture && cd.projected! > 0 && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>~{fmt(cd.projected!)}</div>}
                                         </div>
                                     );
                                 })}
                             </div>
                         </div>
 
-                        {/* Section 3 — Category Breakdown */}
+                        {/* Category breakdown */}
                         <div style={card}>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 20 }}>
-                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                    Category Breakdown
-                                </p>
-                                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>(last 3 months average)</span>
+                                <p style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Category Breakdown</p>
+                                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>(last 3 months average)</span>
                             </div>
-
                             {forecast.categories.map(cat => (
                                 <div key={cat.name} style={{ marginBottom: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-                                        <CategoryIcon name={cat.icon} size={20} color={cat.color || 'var(--accent-blue)'} />
-                                        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, flex: 1 }}>
-                                            {cat.name}
-                                        </span>
-                                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                                            {fmt(cat.projected)}
-                                        </span>
+                                        <CategoryIcon name={cat.icon} size={20} color={cat.color || 'var(--accent)'} />
+                                        <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, flex: 1, fontFamily: 'var(--font-body)' }}>{cat.name}</span>
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(cat.projected)}</span>
                                     </div>
                                     <div style={{ background: 'var(--bg-hover)', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
-                                        <div style={{
-                                            height: '100%',
-                                            width: `${Math.min(cat.percentOfTotal, 100)}%`,
-                                            background: cat.color || 'var(--accent-blue)',
-                                            borderRadius: 3,
-                                        }} />
+                                        <div style={{ height: '100%', width: `${Math.min(cat.percentOfTotal, 100)}%`, background: cat.color || 'var(--accent)', borderRadius: 3 }} />
                                     </div>
-                                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                                        {fmt(cat.spentSoFar)} spent so far this month
-                                    </p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(cat.spentSoFar)} spent so far this month</p>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Section 4 — AI Insight */}
+                        {/* AI Insight */}
                         {forecast.insight && (
-                            <div style={card}>
+                            <GCard style={{ background: 'color-mix(in srgb, var(--color-info) 6%, var(--bg-card))', border: '1.5px solid color-mix(in srgb, var(--color-info) 18%, transparent)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                                    <Sparkles size={16} color="var(--accent-blue)" />
-                                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                                        AI Insight
-                                    </span>
+                                    <Sparkles size={16} color="var(--color-info)" />
+                                    <span style={{ fontFamily: 'var(--font-head)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>AI Insight</span>
                                 </div>
-                                <div style={{ borderLeft: '3px solid var(--accent-blue)', paddingLeft: 16 }}>
-                                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.8 }}>
-                                        {forecast.insight}
-                                    </p>
+                                <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 16 }}>
+                                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.8, fontFamily: 'var(--font-body)' }}>{forecast.insight}</p>
                                 </div>
-                            </div>
+                            </GCard>
                         )}
                     </>
-                    </FadeIn>
                 )}
             </div>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </PageShell>
         </AppLayout>
     );
 }

@@ -18,9 +18,9 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
     if (loading) {
         return (
             <div style={{
-                background: 'var(--surface-1)',
+                background: 'var(--bg-card)',
                 borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--bg-border)',
+                border: '1px solid var(--border)',
                 padding: 'var(--space-4)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -38,9 +38,9 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
 
     return (
         <div style={{
-            background: 'var(--surface-1)',
+            background: 'var(--bg-card)',
             borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--bg-border)',
+            border: '1px solid var(--border)',
             padding: 'var(--space-4)',
             display: 'flex',
             flexDirection: 'column',
@@ -53,13 +53,13 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
                     color: 'var(--text-secondary)',
-                    fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
+                    fontFamily: 'var(--font-head)',
                     fontWeight: 600,
                 }}>
                     {label}
                 </span>
                 {icon && (
-                    <span style={{ color: accentColor || 'var(--accent-blue)', opacity: 0.8 }}>
+                    <span style={{ color: accentColor || 'var(--accent)', opacity: 0.8 }}>
                         {icon}
                     </span>
                 )}
@@ -67,7 +67,8 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
 
             <div style={{
                 fontSize: 'var(--text-hero)',
-                fontFamily: "'DM Mono', monospace",
+                fontFamily: 'var(--font-mono)',
+                fontVariantNumeric: 'tabular-nums',
                 fontWeight: 700,
                 color: accentColor || 'var(--text-primary)',
                 lineHeight: 1,
@@ -92,8 +93,10 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
                         borderRadius: '999px',
                         fontSize: '0.7rem',
                         fontWeight: 600,
-                        background: trendPositive ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)',
-                        color: trendPositive ? 'var(--accent-green)' : 'var(--accent-red)',
+                        background: trendPositive
+                            ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)'
+                            : 'color-mix(in srgb, var(--color-exp) 12%, transparent)',
+                        color: trendPositive ? 'var(--color-inc)' : 'var(--color-exp)',
                     }}>
                         {trendPositive ? '▲' : '▼'} {Math.abs(trend).toFixed(1)}%
                     </span>

@@ -191,7 +191,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                                             {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color}22`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>{tx.category_name}</span>}
                                             {!isIncome && tx.payment_method && tx.payment_method !== 'Cash' && (
-                                                <span style={{ fontSize: '0.65rem', fontWeight: 500, background: 'rgba(59,130,246,0.08)', color: 'var(--accent-blue)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.payment_method}</span>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 500, background: 'rgba(99,102,241,0.08)', color: 'var(--accent-blue)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.payment_method}</span>
                                             )}
                                             {tx.group_name && <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.group_name}</span>}
                                             {(tx.tags || []).map((tag: string) => (

@@ -129,7 +129,7 @@ export function DatePicker({
                         padding: '10px 14px',
                         color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)',
                         fontSize: '0.875rem',
-                        fontFamily: 'DM Sans, sans-serif',
+                        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -187,7 +187,7 @@ export function DatePicker({
                                 onClick={prevMonth}
                                 style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}
                             >‹</button>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', fontFamily: 'DM Sans, sans-serif' }}>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                 {MONTHS[calMonth]} {calYear}
                             </span>
                             <button
@@ -200,7 +200,7 @@ export function DatePicker({
                         {/* Weekday headers */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
                             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                                <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'DM Sans, sans-serif' }}>
+                                <div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: "'Satoshi', 'DM Sans', sans-serif" }}>
                                     {d}
                                 </div>
                             ))}
@@ -237,7 +237,7 @@ export function DatePicker({
                                             outline: (!isSelected && isToday) ? '2px solid var(--accent-blue)' : 'none',
                                             outlineOffset: '-2px',
                                             transition: 'background-color 0.1s',
-                                            fontFamily: 'DM Sans, sans-serif',
+                                            fontFamily: "'Satoshi', 'DM Sans', sans-serif",
                                         }}
                                         onMouseEnter={e => {
                                             if (!isSelected && !isDisabled)

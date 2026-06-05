@@ -1,719 +1,461 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
-import { FadeIn } from '@/components/ui/FadeIn';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { PageShell } from '@/components/layout/PageShell';
-import { Skeleton, SkeletonTitle, SkeletonCard, SkeletonCircle, SkeletonText } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
-import { StatsCards } from '@/components/dashboard/StatsCards';
-import PageHelp from '@/components/ui/PageHelp';
+import { useThemeStore } from '@/store/themeStore';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
-import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
-import { BudgetAlerts } from '@/components/dashboard/BudgetAlerts';
-import { SpendingForecast } from '@/components/dashboard/SpendingForecast';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 
-const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+
+function getDateLabel(dateStr: string): string {
+    const today     = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const d = (dateStr || '').split('T')[0];
+    if (d === today)     return 'Today';
+    if (d === yesterday) return 'Yesterday';
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+// ── Sparkline SVG chart ───────────────────────────────────────────────────────
+function SparklineChart({ data, incColor, expColor }: {
+    data: { month: string; income: number; expenses: number }[];
+    incColor: string; expColor: string;
+}) {
+    if (!data.length) return <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
+    </div>;
+
+    const W = 600, H = 100, PL = 8, PR = 8, PT = 8, PB = 20;
+    const plotW = W - PL - PR, plotH = H - PT - PB;
+    const maxVal = Math.max(...data.flatMap(d => [d.income, d.expenses]), 1);
+    const xPos = (i: number) => PL + (i / (data.length - 1)) * plotW;
+    const yPos = (v: number) => PT + (1 - Math.min(v / maxVal, 1)) * plotH;
+
+    const incPts: [number, number][] = data.map((d, i) => [xPos(i), yPos(d.income)]);
+    const expPts: [number, number][] = data.map((d, i) => [xPos(i), yPos(d.expenses)]);
+
+    const smoothPath = (pts: [number, number][]) => {
+        if (pts.length < 2) return '';
+        let path = `M${pts[0][0]},${pts[0][1]}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
+            path += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
+        }
+        return path;
+    };
+
+    const incPath = smoothPath(incPts);
+    const expPath = smoothPath(expPts);
+    const lastInc = incPts[incPts.length - 1];
+    const lastExp = expPts[expPts.length - 1];
+
+    return (
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
+            {/* Area fills */}
+            <path d={`${incPath} L${lastInc[0]},${PT + plotH} L${PL},${PT + plotH} Z`} fill={incColor} fillOpacity="0.08" />
+            <path d={`${expPath} L${lastExp[0]},${PT + plotH} L${PL},${PT + plotH} Z`} fill={expColor} fillOpacity="0.06" />
+            {/* Lines */}
+            <path d={incPath} fill="none" stroke={incColor} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            <path d={expPath} fill="none" stroke={expColor} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            {/* End dots */}
+            <circle cx={lastInc[0]} cy={lastInc[1]} r="4" fill={incColor} vectorEffect="non-scaling-stroke" />
+            <circle cx={lastExp[0]} cy={lastExp[1]} r="4" fill={expColor} vectorEffect="non-scaling-stroke" />
+            {/* Month labels */}
+            {data.map((d, i) => (
+                <text key={i} x={xPos(i)} y={H - 4} textAnchor="middle" fontSize="9"
+                    fill={i === data.length - 1 ? 'var(--text-secondary)' : 'var(--text-faint)'}
+                    fontWeight={i === data.length - 1 ? '600' : '400'}
+                    fontFamily="DM Mono, monospace">{d.month}</text>
+            ))}
+        </svg>
+    );
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const { theme, palette } = useThemeStore();
     const { month, year } = getCurrentMonthYear();
     const isMobile = useIsMobile();
 
-    const [summary, setSummary] = useState<any>(null);
-    const [trends, setTrends] = useState<any[]>([]);
-    const [categories, setCategories] = useState<any[]>([]);
+    const [summary, setSummary]         = useState<any>(null);
+    const [trends, setTrends]           = useState<any[]>([]);
     const [transactions, setTransactions] = useState<any[]>([]);
-    const [budgets, setBudgets] = useState<any[]>([]);
-    const [forecast, setForecast] = useState<any>(null);
+    const [budgets, setBudgets]         = useState<any[]>([]);
+    const [goals, setGoals]             = useState<any[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
-
-    const [salaryData, setSalaryData] = useState<any>(null);
-    const [salaryBannerDismissed, setSalaryBannerDismissed] = useState(false);
-
-    const [aiReport, setAiReport] = useState('');
+    const [aiInsight, setAiInsight]     = useState('');
+    const [aiLoading, setAiLoading]     = useState(true);
     const [aiReportLoading, setAiReportLoading] = useState(false);
+    const [salaryData, setSalaryData]   = useState<any>(null);
+    const [salaryDismissed, setSalaryDismissed] = useState(false);
 
-    // Animated hero numbers — count up from 0 when data finishes loading
-    const heroIncome   = useCountUp(summary?.total_income   ?? 0, 1000, !dataLoading);
-    const heroExpenses = useCountUp(summary?.total_expenses ?? 0, 1000, !dataLoading);
-    const heroNet      = useCountUp((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0), 1000, !dataLoading);
-    const fmtHero = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+    // Chart colours (read from CSS vars)
+    const [incColor, setIncColor] = useState('#059669');
+    const [expColor, setExpColor] = useState('#ea580c');
+
+    useEffect(() => {
+        const s = getComputedStyle(document.documentElement);
+        setIncColor(s.getPropertyValue('--color-inc').trim() || '#059669');
+        setExpColor(s.getPropertyValue('--color-exp').trim() || '#ea580c');
+    }, [theme, palette]);
+
+    // Animated numbers
+    const heroIncome   = useCountUp(summary?.total_income   ?? 0, 900, !dataLoading);
+    const heroExpenses = useCountUp(summary?.total_expenses ?? 0, 900, !dataLoading);
+    const heroNet      = useCountUp((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0), 900, !dataLoading);
+
+    const hour     = new Date().getHours();
+    const greeting = `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.full_name?.split(' ')[0] ?? 'there'}`;
+    const savingsPct = summary?.total_income > 0
+        ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100))
+        : 0;
+    const netBalance = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
+
+    // Savings rate badge
+    const savingsBadge = savingsPct >= 20
+        ? { label: `${savingsPct}% · Good`, color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 12%, transparent)' }
+        : savingsPct >= 10
+        ? { label: `${savingsPct}% · Fair`, color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)' }
+        : { label: 'Needs work',            color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)'  };
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
-
     useEffect(() => {
-        const key = `salary-banner-dismissed-${month}-${year}`;
-        setSalaryBannerDismissed(localStorage.getItem(key) === 'true');
+        setSalaryDismissed(localStorage.getItem(`salary-banner-dismissed-${month}-${year}`) === 'true');
     }, [month, year]);
 
     useEffect(() => {
         if (!user) return;
         const CACHE_KEY = `dashboard-cache-${user.id}-${month}-${year}`;
-        const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+        const CACHE_TTL = 10 * 60 * 1000;
 
         const fetchData = async () => {
-            // Serve from cache instantly if fresh
             try {
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (cached) {
                     const { data, ts } = JSON.parse(cached);
                     if (Date.now() - ts < CACHE_TTL) {
                         setSummary(data.summary);
-                        setCategories(data.categories);
-                        setTrends(data.trends);
+                        setTrends(data.trends ?? []);
                         setTransactions(data.transactions);
                         setBudgets(data.budgets);
-                        setForecast(data.forecast);
+                        setGoals(data.goals ?? []);
                         setDataLoading(false);
-                        return; // skip network call
+                        return;
                     }
                 }
-            } catch { /* stale/corrupt cache — ignore */ }
+            } catch { /* stale cache */ }
 
             setDataLoading(true);
             try {
-                recurringAPI.process().catch(err => console.error('[Recurring]', err));
-                const [summaryRes, trendsRes, txRes, budgetsRes, forecastRes] = await Promise.all([
+                recurringAPI.process().catch(() => {});
+                const [summaryRes, trendsRes, txRes, budgetsRes, goalsRes] = await Promise.all([
                     analyticsAPI.summary({ month, year }),
                     analyticsAPI.trends(),
                     transactionsAPI.getAll({ month, year }),
                     budgetsAPI.getAll({ month, year }),
-                    analyticsAPI.forecast({ month, year }),
+                    goalsAPI.getAll(),
                 ]);
                 const data = {
                     summary:      summaryRes.data.summary,
-                    categories:   summaryRes.data.category_breakdown,
-                    trends:       trendsRes.data.trends,
+                    trends:       trendsRes.data.trends ?? [],
                     transactions: txRes.data.transactions,
                     budgets:      budgetsRes.data.budgets,
-                    forecast:     forecastRes.data.forecast,
+                    goals:        goalsRes.data.goals ?? [],
                 };
                 setSummary(data.summary);
-                setCategories(data.categories);
                 setTrends(data.trends);
                 setTransactions(data.transactions);
                 setBudgets(data.budgets);
-                setForecast(data.forecast);
-                // Write to cache
-                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
-            } catch (err) { console.error(err); }
+                setGoals(data.goals);
+                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
+            } catch (err) { console.error('[Dashboard]', err); }
             finally { setDataLoading(false); }
         };
-        fetchData();
 
-        aiAPI.salaryIntelligence().then(res => {
-            if (res.data.detected) setSalaryData(res.data);
-        }).catch(() => { });
+        fetchData();
+        aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
+        aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
     }, [user]);
 
-    const handleGenerateReport = async () => {
-        setAiReportLoading(true);
-        try {
-            const res = await aiAPI.report();
-            setAiReport(res.data.report);
-        } catch {
-            setAiReport('Unable to generate report right now. Please try again.');
-        } finally {
-            setAiReportLoading(false);
-        }
-    };
-
-
-    const hour = new Date().getHours();
-    const greeting = `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.full_name?.split(' ')[0] ?? 'there'} 👋`;
-
-    // Build sparkline data (last 6 months) from raw trends
-    const sparklineData = (() => {
-        const map: Record<string, { month: number; year: number; income: number; expenses: number }> = {};
-        trends.forEach(row => {
+    // Sparkline data (last 6 months)
+    const sparklineData = useMemo(() => {
+        const map: Record<string, { month: string; income: number; expenses: number }> = {};
+        trends.forEach((row: any) => {
             const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-            if (!map[key]) map[key] = { month: row.month, year: row.year, income: 0, expenses: 0 };
-            if (row.type === 'income') map[key].income = parseFloat(row.total);
+            if (!map[key]) map[key] = { month: MONTH_SHORT[row.month] || '', income: 0, expenses: 0 };
+            if (row.type === 'income')  map[key].income   = parseFloat(row.total);
             if (row.type === 'expense') map[key].expenses = parseFloat(row.total);
         });
-        return Object.values(map)
-            .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month)
-            .slice(-6);
-    })();
-    const sparkMax = Math.max(...sparklineData.flatMap(d => [d.income, d.expenses]), 1);
+        return Object.entries(map)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-6)
+            .map(([, v]) => v);
+    }, [trends]);
 
-    const sortedCategories = categories && categories.length > 0
-        ? [...categories].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0))
-        : [];
-    const topCategory = sortedCategories.length > 0 ? sortedCategories[0] : null;
-    const totalCatExpenses = categories?.reduce((sum, c) => sum + parseFloat(c.total ?? c.value ?? 0), 0) ?? 0;
-    const topCategoryAmt = topCategory ? parseFloat(topCategory.total ?? topCategory.value ?? 0) : 0;
-    const topCategoryPct = topCategory && totalCatExpenses > 0 ? Math.round((topCategoryAmt / totalCatExpenses) * 100) : 0;
+    // Over-budget count
+    const overBudget = budgets.filter((b: any) => parseFloat(b.spent) > parseFloat(b.amount)).length;
 
     if (isLoading || !user) return (
         <AppLayout>
-            <div style={{ marginBottom: '24px' }}>
-                <SkeletonTitle />
-                <Skeleton width="40%" height={14} borderRadius={4} style={{ marginTop: '8px' }} />
+            <SkeletonCard height={60} style={{ marginBottom: '24px' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '16px' }}>
+                {[1,2,3,4].map(i => <SkeletonCard key={i} height={100} />)}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={90} />)}
-            </div>
-            <SkeletonCard height={110} style={{ marginBottom: '12px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '16px', marginBottom: '16px' }}>
-                <SkeletonCard height={200} />
-                <SkeletonCard height={200} />
-            </div>
-            <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px' }}>
-                <Skeleton width="30%" height={16} borderRadius={4} style={{ marginBottom: '16px' }} />
-                {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '12px', paddingBottom: '12px', borderBottom: i < 5 ? '1px solid var(--bg-border)' : 'none' }}>
-                        <SkeletonCircle size={40} />
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <SkeletonText />
-                            <Skeleton width="50%" height={12} borderRadius={4} />
-                        </div>
-                        <Skeleton width={72} height={16} borderRadius={4} />
-                    </div>
-                ))}
-            </div>
+            <SkeletonCard height={220} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={100} style={{ marginBottom: '16px' }} />
+            <SkeletonCard height={260} />
         </AppLayout>
     );
 
-    const dismissSalaryBanner = () => {
-        const key = `salary-banner-dismissed-${month}-${year}`;
-        localStorage.setItem(key, 'true');
-        setSalaryBannerDismissed(true);
-    };
-
-    // ── HERO CARD ──
-    const HeroCard = () => isMobile ? (
-        /* ── MOBILE HERO CARD ── */
-        <div style={{ background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))', borderRadius: 'var(--radius-xl)', border: '1px solid var(--bg-border)', padding: 'var(--space-6)', position: 'relative', overflow: 'hidden', marginBottom: 12 }}>
-
-            {/* Ambient glows */}
-            <div style={{ position: 'absolute', bottom: -40, left: -20, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.10),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: -40, right: -20, width: 180, height: 180, background: 'radial-gradient(circle,rgba(244,63,94,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, background: 'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-            {/* ── SECTION 1: Net Worth + mini income/expense stats ── */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-                <div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Net Balance</div>
-                    <div style={{ fontSize: 38, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>
-                        {fmtHero(heroNet)}
-                    </div>
-                    <div style={{ marginTop: 8, display: 'inline-block', padding: '4px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                        {(heroNet >= 0 ? '+' : '') + fmtHero(heroNet) + ' this month'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                        {new Date().toLocaleString('default', { month: 'long' })} {new Date().getFullYear()}
-                    </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Income</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-green)', fontFamily: "'DM Mono', monospace" }}>{fmtHero(heroIncome)}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Expenses</div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-red)', fontFamily: "'DM Mono', monospace" }}>{fmtHero(heroExpenses)}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── SECTION 2: Neon line chart ── */}
-            {(() => {
-                const raw = (sparklineData || []).slice(-6);
-                const padded: { income: number, expenses: number, month?: number }[] = Array(6).fill(null).map((_, i) => raw[i - (6 - raw.length)] || { income: 0, expenses: 0 });
-
-                const CHART_W = 400, CHART_H = 100;
-                const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
-                const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
-                const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
-
-                const maxVal = Math.max(...padded.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
-                const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
-                const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
-
-                const incPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.income || 0)]);
-                const expPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.expenses || 0)]);
-
-                const smoothPath = (pts: [number, number][]) => {
-                    if (pts.length < 2) return '';
-                    let d = `M${pts[0][0]},${pts[0][1]}`;
-                    for (let i = 0; i < pts.length - 1; i++) {
-                        const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
-                        d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
-                    }
-                    return d;
-                };
-
-                const incPath = smoothPath(incPts);
-                const expPath = smoothPath(expPts);
-
-                const yLabels = [maxVal, maxVal * 0.5, 0].map(v => ({
-                    value: '₹' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)),
-                    y: yPos(v),
-                }));
-
-                const monthLabels = padded.map((m, i) => {
-                    if (m.month) return new Date(0, m.month - 1).toLocaleString('default', { month: 'short' });
-                    const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
-                    return d.toLocaleString('default', { month: 'short' });
-                });
-
-                return (
-                    <div style={{ position: 'relative', zIndex: 1, marginTop: 16 }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>6-month trend</div>
-                        <div>
-                            <svg
-                                width="100%"
-                                viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                                preserveAspectRatio="xMidYMid meet"
-                                style={{ display: 'block', overflow: 'visible' }}
-                            >
-                                <defs>
-                                    <filter id="mgneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                                    </filter>
-                                    <filter id="mrneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                                    </filter>
-                                    <linearGradient id="mgfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14" />
-                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                                    </linearGradient>
-                                    <linearGradient id="mrfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10" />
-                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
-                                    </linearGradient>
-                                </defs>
-
-                                {yLabels.map((lbl, i) => (
-                                    <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
-                                        textAnchor="end" fontSize="9" fill="#4a5568"
-                                        fontFamily="DM Sans, sans-serif">{lbl.value}</text>
-                                ))}
-                                {yLabels.map((lbl, i) => (
-                                    <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
-                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-                                ))}
-                                {incPts.map(([x], i) => (
-                                    <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
-                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                                ))}
-
-                                <path d={incPath + ` L${incPts[incPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#mgfill2)" />
-                                <path d={expPath + ` L${expPts[expPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#mrfill2)" />
-
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#mgneon2)" vectorEffect="non-scaling-stroke" />
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#mrneon2)" vectorEffect="non-scaling-stroke" />
-
-                                {incPts.slice(0, -1).map(([x, y], i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                                ))}
-                                {expPts.slice(0, -1).map(([x, y], i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                                ))}
-                                <circle cx={incPts[incPts.length - 1][0]} cy={incPts[incPts.length - 1][1]} r="4.5" fill="#10b981" filter="url(#mgneon2)" />
-                                <circle cx={expPts[expPts.length - 1][0]} cy={expPts[expPts.length - 1][1]} r="4.5" fill="#f43f5e" filter="url(#mrneon2)" />
-
-                                {monthLabels.map((m, i) => (
-                                    <text key={i} x={xPos(i)} y={CHART_H - 4}
-                                        textAnchor="middle" fontSize="9"
-                                        fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
-                                        fontWeight={i === monthLabels.length - 1 ? '600' : '400'}
-                                        fontFamily="DM Sans, sans-serif">{m}</text>
-                                ))}
-                            </svg>
-                            <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <div style={{ width: 20, height: 2, background: '#10b981', borderRadius: 1, boxShadow: '0 0 4px #10b981' }} />
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Income</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <div style={{ width: 20, height: 2, background: '#f43f5e', borderRadius: 1, boxShadow: '0 0 4px #f43f5e' }} />
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Expenses</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {/* divider */}
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
-
-            {/* ── SECTION 3: Top Spending ── */}
-            {(() => {
-                const sorted = [...(categories || [])].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
-                const top = sorted[0];
-                if (!top) return null;
-                const totalExp = (categories || []).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
-                const topAmt = parseFloat(top.total ?? top.value ?? 0);
-                const pct = totalExp > 0 ? Math.round((topAmt / totalExp) * 100) : 0;
-                return (
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Top spending</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(244,63,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: top.color || '#f43f5e', boxShadow: `0 0 8px ${top.color || '#f43f5e'}` }} />
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{top.name}</span>
-                                    <span style={{ fontSize: 13, color: 'var(--accent-red)', fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>{'₹' + Math.round(topAmt).toLocaleString('en-IN')}</span>
-                                </div>
-                                <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
-                                </div>
-                                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>{pct}% of total expenses</div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
-
-            {/* divider */}
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
-
-            {/* ── SECTION 4: AI Insight ── */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ color: '#a78bfa', fontSize: 13 }}>✦</span>
-                    <span>AI insight</span>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6, marginBottom: 12, padding: '10px 12px', background: 'rgba(167,139,250,0.06)', borderRadius: 10, borderLeft: '2px solid rgba(167,139,250,0.3)' }}>
-                    {aiReport || 'Tap generate to get your monthly AI summary.'}
-                </div>
-                <Button onClick={handleGenerateReport} variant="primary" size="sm" style={{ width: '100%' }}>Generate Report</Button>
-            </div>
-
-        </div>
-    ) : (
-        /* ── DESKTOP HERO CARD (3-column) ── */
-        <div style={{
-            background: 'linear-gradient(135deg, var(--bg-secondary), var(--bg-primary))',
-            borderRadius: 'var(--radius-xl)',
-            border: '1px solid var(--bg-border)',
-            padding: 'var(--space-6)',
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'stretch',
-            gap: 0,
-            position: 'relative',
-            overflow: 'hidden',
-            marginBottom: 'var(--space-3)',
-        }}>
-
-            {/* Decorative glow */}
-            <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, background: 'radial-gradient(circle,rgba(59,130,246,0.07),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-            {/* ── LEFT: This Month ── */}
-            <div style={{ width: 200, flexShrink: 0, paddingRight: 24 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>This month</div>
-                <div style={{ fontSize: 34, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.03em', lineHeight: 1, fontFamily: "'DM Mono', monospace" }}>
-                    {fmtHero(heroNet)}
-                </div>
-                <div style={{ marginTop: 8, display: 'inline-block', padding: '3px 10px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: 'var(--accent-green)', fontSize: 12, fontWeight: 600 }}>
-                    {(heroNet >= 0 ? '+' : '') + fmtHero(heroNet)} this month
-                </div>
-                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)', fontFamily: "'DM Mono', monospace" }}>
-                    {fmtHero(heroIncome)} in · {fmtHero(heroExpenses)} out
-                </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0, alignSelf: 'stretch' }} />
-
-            {/* ── MIDDLE: Trend + Top Spending ── */}
-            <div style={{ flex: 1, paddingLeft: 24, paddingRight: 24, minWidth: 0, overflow: 'hidden' }}>
-
-                {/* Sparkline label */}
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>6-month trend</div>
-
-                {/* Neon line chart */}
-                {(() => {
-                    const raw = (sparklineData || []).slice(-6);
-                    const padded: { income: number, expenses: number, month?: number }[] = Array(6).fill(null).map((_, i) => raw[i - (6 - raw.length)] || { income: 0, expenses: 0 });
-
-                    const CHART_W = 600, CHART_H = 100;
-                    const PAD_LEFT = 40, PAD_RIGHT = 10, PAD_TOP = 10, PAD_BOTTOM = 24;
-                    const plotW = CHART_W - PAD_LEFT - PAD_RIGHT;
-                    const plotH = CHART_H - PAD_TOP - PAD_BOTTOM;
-
-                    const maxVal = Math.max(...padded.flatMap(m => [m.income || 0, m.expenses || 0]), 1);
-                    const xPos = (i: number) => PAD_LEFT + (i / (padded.length - 1)) * plotW;
-                    const yPos = (v: number) => PAD_TOP + (1 - Math.min(v / maxVal, 1)) * plotH;
-
-                    const incPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.income || 0)]);
-                    const expPts: [number, number][] = padded.map((m, i) => [xPos(i), yPos(m.expenses || 0)]);
-
-                    const smoothPath = (pts: [number, number][]) => {
-                        if (pts.length < 2) return '';
-                        let d = `M${pts[0][0]},${pts[0][1]}`;
-                        for (let i = 0; i < pts.length - 1; i++) {
-                            const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
-                            d += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
-                        }
-                        return d;
-                    };
-
-                    const incPath = smoothPath(incPts);
-                    const expPath = smoothPath(expPts);
-
-                    const yLabels = [maxVal, maxVal * 0.5, 0].map(v => ({
-                        value: '₹' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v)),
-                        y: yPos(v),
-                    }));
-
-                    const monthLabels = padded.map((m, i) => {
-                        if (m.month) return new Date(0, m.month - 1).toLocaleString('default', { month: 'short' });
-                        const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
-                        return d.toLocaleString('default', { month: 'short' });
-                    });
-
-                    return (
-                        <div>
-                            <svg
-                                width="100%"
-                                viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                                preserveAspectRatio="xMidYMid meet"
-                                style={{ display: 'block', overflow: 'visible' }}
-                            >
-                                <defs>
-                                    <filter id="dgneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                                    </filter>
-                                    <filter id="drneon2" x="-50%" y="-100%" width="200%" height="300%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
-                                        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                                    </filter>
-                                    <linearGradient id="dgfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.14" />
-                                        <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                                    </linearGradient>
-                                    <linearGradient id="drfill2" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.10" />
-                                        <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
-                                    </linearGradient>
-                                </defs>
-
-                                {yLabels.map((lbl, i) => (
-                                    <text key={i} x={PAD_LEFT - 6} y={lbl.y + 4}
-                                        textAnchor="end" fontSize="9" fill="#4a5568"
-                                        fontFamily="DM Sans, sans-serif">{lbl.value}</text>
-                                ))}
-                                {yLabels.map((lbl, i) => (
-                                    <line key={i} x1={PAD_LEFT} y1={lbl.y} x2={CHART_W - PAD_RIGHT} y2={lbl.y}
-                                        stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
-                                ))}
-                                {incPts.map(([x], i) => (
-                                    <line key={i} x1={x} y1={PAD_TOP} x2={x} y2={PAD_TOP + plotH}
-                                        stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                                ))}
-
-                                <path d={incPath + ` L${incPts[incPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#dgfill2)" />
-                                <path d={expPath + ` L${expPts[expPts.length - 1][0]},${PAD_TOP + plotH} L${PAD_LEFT},${PAD_TOP + plotH} Z`} fill="url(#drfill2)" />
-
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="5" strokeOpacity="0.13" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="5" strokeOpacity="0.10" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                                <path d={incPath} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" filter="url(#dgneon2)" vectorEffect="non-scaling-stroke" />
-                                <path d={expPath} fill="none" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" filter="url(#drneon2)" vectorEffect="non-scaling-stroke" />
-
-                                {incPts.slice(0, -1).map(([x, y], i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#10b981" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                                ))}
-                                {expPts.slice(0, -1).map(([x, y], i) => (
-                                    <circle key={i} cx={x} cy={y} r="2.5" fill="#0d1628" stroke="#f43f5e" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-                                ))}
-                                <circle cx={incPts[incPts.length - 1][0]} cy={incPts[incPts.length - 1][1]} r="4.5" fill="#10b981" filter="url(#dgneon2)" />
-                                <circle cx={expPts[expPts.length - 1][0]} cy={expPts[expPts.length - 1][1]} r="4.5" fill="#f43f5e" filter="url(#drneon2)" />
-
-                                {monthLabels.map((m, i) => (
-                                    <text key={i} x={xPos(i)} y={CHART_H - 4}
-                                        textAnchor="middle" fontSize="9"
-                                        fill={i === monthLabels.length - 1 ? '#f0f4ff' : '#4a5568'}
-                                        fontWeight={i === monthLabels.length - 1 ? '600' : '400'}
-                                        fontFamily="DM Sans, sans-serif">{m}</text>
-                                ))}
-                            </svg>
-                            <div style={{ display: 'flex', gap: 16, marginTop: 6 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <div style={{ width: 20, height: 2, background: '#10b981', borderRadius: 1, boxShadow: '0 0 4px #10b981' }} />
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Income</span>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <div style={{ width: 20, height: 2, background: '#f43f5e', borderRadius: 1, boxShadow: '0 0 4px #f43f5e' }} />
-                                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Expenses</span>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* Top Spending */}
-                <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Top spending</div>
-                    {(() => {
-                        const sorted = [...(categories || [])].sort((a, b) => parseFloat(b.total ?? b.value ?? 0) - parseFloat(a.total ?? a.value ?? 0));
-                        const top = sorted[0];
-                        if (!top) return <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No spending data yet</div>;
-                        const totalExp = (categories || []).reduce((s: number, c: any) => s + parseFloat(c.total ?? c.value ?? 0), 0);
-                        const amt = parseFloat(top.total ?? top.value ?? 0);
-                        const pct = totalExp > 0 ? Math.round((amt / totalExp) * 100) : 0;
-                        return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
-                                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: top.color || '#f43f5e', flexShrink: 0 }} />
-                                        <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{top.name}</span>
-                                        <span style={{ fontSize: 10, color: 'var(--text-secondary)', flexShrink: 0 }}>{pct}% of expenses</span>
-                                    </div>
-                                    <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: pct + '%', maxWidth: '100%', background: 'linear-gradient(90deg,#f43f5e,#f97316)', borderRadius: 2 }} />
-                                    </div>
-                                </div>
-                                <div style={{ fontSize: 12, color: 'var(--accent-red)', fontWeight: 600, flexShrink: 0 }}>
-                                    {'₹' + Math.round(amt).toLocaleString('en-IN')}
-                                </div>
-                            </div>
-                        );
-                    })()}
-                </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0, alignSelf: 'stretch' }} />
-
-            {/* ── RIGHT: AI Insight ── */}
-            <div style={{ width: 260, flexShrink: 0, paddingLeft: 24 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>✦</span><span>AI insight</span>
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.55, marginBottom: 12 }}>
-                    {aiReport || 'Tap generate to get your monthly AI summary.'}
-                </div>
-                <Button onClick={handleGenerateReport} variant="primary" size="sm">Generate Report</Button>
-            </div>
-
-        </div>
-    );
-
+    // ── Render ────────────────────────────────────────────────────────────────
     return (
-
         <AppLayout>
-            <div style={{ animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-            {/* Salary Banner */}
-            {salaryData && !salaryBannerDismissed && salaryData.plan && (
-                <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))', border: '1px solid rgba(16,185,129,0.25)', borderRadius: '16px', padding: '16px 20px', marginBottom: '16px', position: 'relative' }}>
-                    <button onClick={dismissSalaryBanner} style={{ position: 'absolute', top: '12px', right: '12px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>✕</button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                        <span style={{ fontSize: '1.1rem' }}>💰</span>
-                        <span style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.9rem', fontWeight: 600, color: 'var(--accent-green)' }}>Salary Detected — AI Allocation Plan</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>{salaryData.description} · ₹{salaryData.salary?.toLocaleString('en-IN')}</span>
-                    </div>
-                    {salaryData.insight && <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.5 }}>{salaryData.insight}</p>}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px' }}>
-                        {Object.entries(salaryData.plan).map(([key, val]: [string, any]) => (
-                            <div key={key} style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border)', borderRadius: '10px', padding: '10px 12px' }}>
-                                <p style={{ fontSize: '0.68rem', color: 'var(--text-muted)', margin: '0 0 3px 0', textTransform: 'capitalize' }}>{key}</p>
-                                <p style={{ fontFamily: 'Sora, sans-serif', fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-green)', margin: 0 }}>₹{val.amount?.toLocaleString('en-IN')}</p>
-                                <p style={{ fontSize: '0.62rem', color: 'var(--text-muted)', margin: '2px 0 0 0' }}>{val.percentage}%</p>
+                {/* ── PAGE HEADER (no card) ── */}
+                <div style={{ marginBottom: '4px' }}>
+                    <h1 style={{ fontFamily: 'var(--font-head)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        {greeting} 👋
+                    </h1>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                        {MONTH_NAMES[month]} {year} — Overview
+                    </p>
+                </div>
+
+                {/* ── FOUR STAT TILES ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
+                    {[
+                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
+                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
+                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-card))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
+                        { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
+                    ].map(tile => (
+                        <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
+                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <tile.Icon size={14} color={tile.color} />
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            <PageShell
-                title={greeting}
-                subtitle={`${MONTH_NAMES[month]} ${year} — Overview`}
-                headerRight={<PageHelp title="Dashboard" sections={[
-                    { icon: '📊', heading: 'What is this page?', body: 'Your financial command centre. See your income, expenses, net balance, and savings rate for the current month at a glance.' },
-                    { icon: '💡', heading: 'Stat Cards', body: "The 4 coloured cards show this month's totals. The savings rate pill turns green when you save more than 20% of your income." },
-                    { icon: '📈', heading: '6-Month Trend Chart', body: 'The neon line chart shows your income vs expenses trend over the last 6 months. Green = income, red = expenses.' },
-                    { icon: '🏆', heading: 'Top Spending', body: "Shows which category you've spent the most in this month. Tap 'See all' to go to Analytics for a full breakdown." },
-                    { icon: '🤖', heading: 'AI Insight', body: "Tap 'Generate Insight' to get a personalised AI comment about your spending patterns this month." },
-                ]} />}
-            >
-
-            {/* ── DESKTOP BENTO GRID ── */}
-            {!isMobile ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {/* Row 1 — Stat tiles */}
-                    {dataLoading ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '90px' }} />)}
+                            {dataLoading ? (
+                                <Skeleton width="70%" height={28} borderRadius={4} />
+                            ) : (
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                    {tile.value}
+                                </p>
+                            )}
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{tile.sub}</p>
                         </div>
-                    ) : summary && (
-                        <FadeIn><StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} /></FadeIn>
-                    )}
-
-                    {/* Row 2 — Hero card */}
-                    <HeroCard />
-
-                    {/* Row 3 — Budget tile */}
-                    <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
-                        <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-4) 0' }}>Budgets</p>
-                        {budgets.length > 0
-                            ? <BudgetAlerts budgets={budgets} currency={user.currency} />
-                            : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
-                        }
-                    </div>
-
-                    {/* Row 5 — Recent + Forecast */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '12px' }}>
-                        <RecentTransactions transactions={transactions} currency={user.currency} />
-                        <SpendingForecast forecast={forecast} currency={user.currency} />
-                    </div>
+                    ))}
                 </div>
-            ) : (
-                /* ── MOBILE STACK ── */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {/* Stats 2x2 */}
-                    {dataLoading ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                            {[1, 2, 3, 4].map(i => <div key={i} style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', height: '80px' }} />)}
+
+                {/* ── HERO CARD — 3 column ── */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
+
+                    {/* Left: This Month balance */}
+                    <div style={{ padding: '20px 24px', borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none', flexShrink: 0, width: isMobile ? 'auto' : '200px', minWidth: isMobile ? 'auto' : '200px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
+                            This month
+                        </p>
+                        {dataLoading ? (
+                            <Skeleton width="90%" height={32} borderRadius={4} style={{ marginBottom: '8px' }} />
+                        ) : (
+                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '28px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 8px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                {fmt(heroNet)}
+                            </p>
+                        )}
+                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '8px' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>
+                                {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
+                            </span>
                         </div>
-                    ) : summary && (
-                        <FadeIn><StatsCards totalIncome={summary.total_income} totalExpenses={summary.total_expenses} balance={summary.balance} savingsRate={summary.savings_rate} currency={user.currency} month={month} year={year} /></FadeIn>
-                    )}
-
-                    {/* Hero */}
-                    <HeroCard />
-
-
-                    {/* Budgets */}
-                    <div style={{ background: 'var(--surface-1)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-6)', overflow: 'hidden' }}>
-                        <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 var(--space-4) 0' }}>Budgets</p>
-                        {budgets.length > 0
-                            ? <BudgetAlerts budgets={budgets} currency={user.currency} />
-                            : <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>All budgets on track ✅</p>
-                        }
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            {fmt(heroIncome)} in · {fmt(heroExpenses)} out
+                        </p>
                     </div>
 
-                    {/* Recent Transactions */}
-                    <RecentTransactions transactions={transactions} currency={user.currency} />
+                    {/* Middle: 6-month trend */}
+                    <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0, borderRight: isMobile ? 'none' : '1px solid var(--border)', borderBottom: isMobile ? '1px solid var(--border)' : 'none' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
+                            6-month trend
+                        </p>
+                        {dataLoading ? (
+                            <Skeleton width="100%" height={80} borderRadius={6} />
+                        ) : (
+                            <SparklineChart data={sparklineData} incColor={incColor} expColor={expColor} />
+                        )}
+                        <div style={{ display: 'flex', gap: '14px', marginTop: '8px' }}>
+                            {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
+                                <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <div style={{ width: 16, height: 2, background: l.color, borderRadius: 1 }} />
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
+                                </div>
+                            ))}
+                        </div>
 
-                    {/* Forecast */}
-                    <SpendingForecast forecast={forecast} currency={user.currency} />
+                        {/* Top spending */}
+                        {!dataLoading && (
+                            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
+                                    Top spending
+                                </p>
+                                {budgets.length === 0 ? (
+                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No spending data yet</p>
+                                ) : (() => {
+                                    const top = [...budgets].sort((a: any, b: any) => parseFloat(b.spent) - parseFloat(a.spent))[0];
+                                    const pct  = top && parseFloat(top.amount) > 0 ? Math.round((parseFloat(top.spent) / parseFloat(top.amount)) * 100) : 0;
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: top.category_color || expColor, flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{top.category_name}</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, fontFamily: 'var(--font-body)' }}>{pct}% of budget</span>
+                                                </div>
+                                                <ProgressBar pct={pct} height={3} color={top.category_color || expColor} />
+                                            </div>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-exp)', fontWeight: 600, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(top.spent))}</span>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right: AI Insight */}
+                    <div style={{ padding: '20px 24px', flexShrink: 0, width: isMobile ? 'auto' : '260px', minWidth: isMobile ? 'auto' : '260px', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                            <Sparkles size={14} color="var(--accent)" />
+                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
+                        </div>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', flex: 1, fontFamily: 'var(--font-body)' }}>
+                            {aiLoading ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
+                        </p>
+                        <Button
+                            onClick={async () => {
+                                setAiReportLoading(true);
+                                try { const res = await aiAPI.report(true); setAiInsight(res.data?.report ?? ''); }
+                                catch { }
+                                finally { setAiReportLoading(false); }
+                            }}
+                            isLoading={aiReportLoading}
+                            size="sm"
+                            style={{ alignSelf: 'flex-start' }}
+                        >
+                            <RefreshCw size={12} /> Generate Report
+                        </Button>
+                    </div>
                 </div>
-            )}
 
-            </PageShell>
+                {/* ── BUDGETS ── */}
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: budgets.length > 0 ? '14px' : '0' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Budgets</h2>
+                        {overBudget > 0 && (
+                            <span style={{ fontSize: '11px', color: 'var(--color-exp)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', padding: '2px 8px', borderRadius: '20px', fontFamily: 'var(--font-body)' }}>
+                                {overBudget} over budget
+                            </span>
+                        )}
+                        <button type="button" onClick={() => router.push('/budgets')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
+                            See all →
+                        </button>
+                    </div>
+                    {dataLoading ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {[1,2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
+                        </div>
+                    ) : budgets.length === 0 ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>All budgets on track ✅</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {budgets.slice(0, 4).map((b: any) => {
+                                const pct = parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0;
+                                const over = pct > 100;
+                                return (
+                                    <div key={b.id ?? b.category_id}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: over ? 'var(--color-exp)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                                                {fmt(parseFloat(b.spent))} / {fmt(parseFloat(b.amount))}
+                                            </span>
+                                        </div>
+                                        <ProgressBar pct={pct} height={4} />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── RECENT TRANSACTIONS ── */}
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Recent Transactions</h2>
+                        <button type="button" onClick={() => router.push('/transactions')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)' }}>
+                            View all →
+                        </button>
+                    </div>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        {dataLoading ? (
+                            [1,2,3,4,5].map(i => (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: i < 5 ? '1px solid var(--border)' : 'none' }}>
+                                    <Skeleton width={36} height={36} borderRadius={999} />
+                                    <div style={{ flex: 1 }}>
+                                        <Skeleton width="55%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} />
+                                        <Skeleton width="35%" height={10} borderRadius={4} />
+                                    </div>
+                                    <Skeleton width={70} height={14} borderRadius={4} />
+                                </div>
+                            ))
+                        ) : transactions.length === 0 ? (
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '28px', textAlign: 'center', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                No transactions yet — add your first one!
+                            </p>
+                        ) : (
+                            transactions.slice(0, 5).map((tx: any, idx: number) => {
+                                const amount   = parseFloat(String(tx.amount));
+                                const isIncome = tx.type === 'income';
+                                return (
+                                    <div key={tx.id} onClick={() => router.push('/transactions')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: idx < Math.min(transactions.length, 5) - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '17px' }}>
+                                            {tx.category_icon || '💳'}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
+                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
+                                                {tx.category_name || 'Uncategorized'} · {getDateLabel(tx.date)}
+                                            </p>
+                                        </div>
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                            {isIncome ? '+' : '−'}{fmt(amount)}
+                                        </span>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
             </div>
         </AppLayout>
     );

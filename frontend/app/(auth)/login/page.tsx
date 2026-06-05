@@ -38,21 +38,21 @@ export default function LoginPage() {
     const inputStyle = (field: string): React.CSSProperties => ({
         width: '100%',
         background: 'var(--surface-1)',
-        border: focusedField === field ? '1px solid #3b82f6' : '1px solid #1e2d4a',
+        border: focusedField === field ? '1px solid #6366f1' : '1px solid #1e2d4a',
         borderRadius: 8,
         padding: '10px 12px',
         fontSize: 14,
         color: 'var(--text-primary)',
         outline: 'none',
         boxSizing: 'border-box',
-        boxShadow: focusedField === field ? '0 0 0 2px rgba(59,130,246,0.12)' : 'none',
+        boxShadow: focusedField === field ? '0 0 0 2px rgba(99,102,241,0.12)' : 'none',
     });
 
     return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'DM Sans, sans-serif', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: "'Satoshi', 'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
             {/* Ambient glows */}
-            <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, background: 'radial-gradient(circle,rgba(59,130,246,0.11),transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: -50, left: -30, width: 180, height: 180, background: 'radial-gradient(circle,rgba(16,185,129,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, background: 'radial-gradient(circle,rgba(99,102,241,0.11),transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -50, left: -30, width: 180, height: 180, background: 'radial-gradient(circle,rgba(0,229,160,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
             <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, background: 'rgba(12,18,36,0.95)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '32px 28px' }}>
 
