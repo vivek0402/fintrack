@@ -18,7 +18,6 @@ import { processQueue } from '@/lib/txQueue';
 import { toast } from '@/store/toastStore';
 import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
-import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
@@ -163,16 +162,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <OfflineBanner />
-            {/* Notification bell — pinned to top-right of viewport */}
-            <div style={{
-                position: 'fixed',
-                top: isMobile ? 'calc(16px + env(safe-area-inset-top, 0px))' : 16,
-                right: isMobile ? 16 : 24,
-                zIndex: 9999,
-                transform: 'translateZ(0)',
-            }}>
-                <NotificationCenter />
-            </div>
             <Sidebar collapsed={collapsed} onToggle={handleToggle} />
             <main
                 key={pathname}

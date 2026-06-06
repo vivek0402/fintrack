@@ -16,6 +16,7 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -236,13 +237,16 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER (no card) ── */}
-                <div style={{ marginBottom: '4px' }}>
-                    <h1 style={{ fontFamily: 'var(--font-head)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        {greeting} 👋
-                    </h1>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        {MONTH_NAMES[month]} {year} — Overview
-                    </p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <div>
+                        <h1 style={{ fontFamily: 'var(--font-head)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                            {greeting} 👋
+                        </h1>
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                            {MONTH_NAMES[month]} {year} — Overview
+                        </p>
+                    </div>
+                    <NotificationCenter />
                 </div>
 
                 {/* ── COACH ALERTS ── */}
