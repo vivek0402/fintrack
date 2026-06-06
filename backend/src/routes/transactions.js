@@ -93,6 +93,36 @@ router.post('/', async (req, res) => {
 
         res.status(201).json({ transaction: tx });
 
+        // Fire-and-forget: check if transaction count today is unusually high
+        setImmediate(async () => {
+            try {
+                const today = tx.date;
+                const alertKey = `high_tx_count:${req.user.id}:${today}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [req.user.id, alertKey]
+                );
+                if (alreadySent) return;
+
+                const { rows } = await pool.query(
+                    `SELECT COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND date=$2`,
+                    [req.user.id, today]
+                );
+                const count = parseInt(rows[0]?.cnt || 0);
+                if (count < 10) return;
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                await sendToUser(req.user.id, {
+                    title: 'High Spending Activity',
+                    body: `You've logged ${count} transactions today. Everything going as planned?`,
+                    data: { type: 'high_tx_count' },
+                });
+            } catch { /* silent */ }
+        });
+
         // Fire-and-forget: check if any budget is now over 80%
         setImmediate(async () => {
             try {

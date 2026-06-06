@@ -354,3 +354,94 @@ cron.schedule('0 9 * * 0', async () => {
         console.error('[Cron:Weekly] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: 8pm daily reminder to log transactions ────────────────────────────
+cron.schedule('0 20 * * *', async () => {
+    console.log('[Cron] Sending 8pm transaction reminders...');
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `daily_reminder:${today}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                // Only send if no transactions logged today
+                const { rows } = await pool.query(
+                    `SELECT 1 FROM transactions WHERE user_id=$1 AND date=$2 LIMIT 1`,
+                    [user_id, today]
+                );
+                if (rows.length) continue;
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: "Log Today's Expenses",
+                    body: "Don't forget to record your transactions for today!",
+                    data: { type: 'daily_reminder' },
+                });
+            } catch (err) {
+                console.error(`[Cron:DailyReminder] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:DailyReminder] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: inactivity reminder — daily at noon ───────────────────────────────
+cron.schedule('0 12 * * *', async () => {
+    console.log('[Cron] Checking inactivity...');
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `inactivity:${today}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const { rows } = await pool.query(
+                    `SELECT MAX(date) AS last_date FROM transactions WHERE user_id=$1`,
+                    [user_id]
+                );
+                const lastDate = rows[0]?.last_date;
+                if (!lastDate) continue;
+
+                const daysSince = Math.floor(
+                    (Date.now() - new Date(lastDate).getTime()) / 86400000
+                );
+                if (daysSince < 2) continue;
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: 'Missing Transactions?',
+                    body: `You haven't logged any transactions in ${daysSince} days. Stay on top of your finances!`,
+                    data: { type: 'inactivity_reminder' },
+                });
+            } catch (err) {
+                console.error(`[Cron:Inactivity] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:Inactivity] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
