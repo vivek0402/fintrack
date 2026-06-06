@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Pencil, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Pencil, AlertCircle, BarChart2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { budgetsAPI, categoriesAPI } from '@/lib/api';
+import { budgetsAPI, categoriesAPI, analyticsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
@@ -14,6 +14,7 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/store/toastStore';
+import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -46,8 +47,24 @@ export default function BudgetsPage() {
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError]   = useState('');
 
+    // Smart budget features
+    const [prevMonthBudgets, setPrevMonthBudgets]   = useState<any[]>([]);
+    const [prev2MonthBudgets, setPrev2MonthBudgets] = useState<any[]>([]);
+    const [monthlyIncome, setMonthlyIncome]         = useState(0);
+    const [dismissed, setDismissed]                 = useState<Set<string>>(new Set());
+    const [rolloverEnabled, setRolloverEnabled]     = useState<Record<string, boolean>>({});
+    const [zeroBasedMode, setZeroBasedMode]         = useState(false);
+    const [healthFilter, setHealthFilter]           = useState<'all'|'on-track'|'over'|'suggestion'>('all');
+    const [adjusting, setAdjusting]                 = useState<string | null>(null);
+
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+
+    // Load persisted preferences
+    useEffect(() => {
+        try { setDismissed(new Set(JSON.parse(localStorage.getItem('fintrack-budget-dismissed') ?? '[]'))); } catch {}
+        try { setRolloverEnabled(JSON.parse(localStorage.getItem('fintrack-budget-rollover') ?? '{}')); } catch {}
+    }, []);
 
     const fetchBudgets = async () => {
         setLoading(true);
@@ -62,9 +79,52 @@ export default function BudgetsPage() {
         if (!user) return;
         fetchBudgets();
         categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(console.error);
+
+        // Fetch prev 2 months + current summary for suggestions / zero-based mode
+        const pm  = currentMonth === 1 ? 12 : currentMonth - 1;
+        const py  = currentMonth === 1 ? currentYear - 1 : currentYear;
+        const p2m = currentMonth <= 2  ? currentMonth + 10 : currentMonth - 2;
+        const p2y = currentMonth <= 2  ? currentYear  - 1  : currentYear;
+        Promise.all([
+            budgetsAPI.getAll({ month: pm, year: py }),
+            budgetsAPI.getAll({ month: p2m, year: p2y }),
+            analyticsAPI.summary({ month: currentMonth, year: currentYear }),
+        ]).then(([r1, r2, rs]) => {
+            setPrevMonthBudgets(r1.data.budgets ?? []);
+            setPrev2MonthBudgets(r2.data.budgets ?? []);
+            setMonthlyIncome(parseFloat(rs.data.summary?.total_income ?? '0'));
+        }).catch(() => {});
     }, [user]);
 
-    // ── Handlers (logic unchanged) ────────────────────────────────────────────
+    // ── Smart suggestions ─────────────────────────────────────────────────────
+    const suggestions = useMemo<SuggestionItem[]>(() => {
+        const out: SuggestionItem[] = [];
+        for (const b of budgets) {
+            const catId = b.category_id;
+            const id    = `${catId}-${currentMonth}-${currentYear}`;
+            if (dismissed.has(id)) continue;
+            const p1 = prevMonthBudgets.find(x => x.category_id === catId);
+            const p2 = prev2MonthBudgets.find(x => x.category_id === catId);
+            if (!p1 && !p2) continue;
+            const spends = [p1, p2].filter(Boolean).map(x => parseFloat(x!.spent)).filter(s => s > 0);
+            if (!spends.length) continue;
+            const avg    = spends.reduce((a, s) => a + s, 0) / spends.length;
+            const getAmt = (x: any) => x ? parseFloat(x.amount) : 0;
+            const overCnt  = [p1, p2].filter(x => x && getAmt(x) > 0 && parseFloat(x.spent) > getAmt(x) * 1.2).length;
+            const underCnt = [p1, p2].filter(x => x && getAmt(x) > 0 && parseFloat(x.spent) > 0 && parseFloat(x.spent) < getAmt(x) * 0.6).length;
+            const curAmt   = parseFloat(b.amount);
+            if (overCnt >= 2) {
+                const s = Math.ceil(avg / 500) * 500;
+                if (s > curAmt) out.push({ id, categoryId: catId, categoryName: b.category_name, categoryIcon: b.category_icon || '📊', type: 'over', avgSpend: avg, currentBudget: curAmt, suggestedAmount: s });
+            } else if (underCnt >= 2) {
+                const s = Math.max(100, Math.floor(avg / 100) * 100);
+                if (s < curAmt) out.push({ id, categoryId: catId, categoryName: b.category_name, categoryIcon: b.category_icon || '📊', type: 'under', avgSpend: avg, currentBudget: curAmt, suggestedAmount: s });
+            }
+        }
+        return out;
+    }, [budgets, prevMonthBudgets, prev2MonthBudgets, dismissed, currentMonth, currentYear]);
+
+    // ── Handlers ─────────────────────────────────────────────────────────────
 
     const handleAdd = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -95,14 +155,42 @@ export default function BudgetsPage() {
         finally { setEditLoading(false); }
     };
 
+    const handleAdjust = async (item: SuggestionItem) => {
+        setAdjusting(item.id);
+        try {
+            await budgetsAPI.create({ category_id: item.categoryId, amount: item.suggestedAmount, month: currentMonth, year: currentYear });
+            handleDismiss(item.id); fetchBudgets();
+            toast.success(`Budget adjusted to ${fmt(item.suggestedAmount)}`);
+        } catch { toast.error('Failed to update budget'); }
+        finally { setAdjusting(null); }
+    };
+
+    const handleDismiss = (id: string) => {
+        const next = new Set([...dismissed, id]);
+        setDismissed(next);
+        try { localStorage.setItem('fintrack-budget-dismissed', JSON.stringify([...next])); } catch {}
+    };
+
+    const toggleRollover = (catId: string) => {
+        const next = { ...rolloverEnabled, [catId]: !rolloverEnabled[catId] };
+        setRolloverEnabled(next);
+        try { localStorage.setItem('fintrack-budget-rollover', JSON.stringify(next)); } catch {}
+    };
+
     // ── Derived totals ────────────────────────────────────────────────────────
 
-    const totalBudgeted  = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
-    const totalSpent     = budgets.reduce((s, b) => s + parseFloat(b.spent),  0);
-    const totalRemaining = Math.max(totalBudgeted - totalSpent, 0);
-    const overallRawPct  = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
-    const overBudgetList = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount));
-    const isOverTotal    = totalSpent > totalBudgeted;
+    const totalBudgeted   = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
+    const totalSpent      = budgets.reduce((s, b) => s + parseFloat(b.spent),  0);
+    const totalRemaining  = Math.max(totalBudgeted - totalSpent, 0);
+    const overallRawPct   = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
+    const overBudgetList  = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount));
+    const isOverTotal     = totalSpent > totalBudgeted;
+    const onTrackCount    = budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount)).length;
+    const unallocated     = monthlyIncome - totalBudgeted;
+    const filteredBudgets = healthFilter === 'all'       ? budgets
+        : healthFilter === 'on-track'                    ? budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount))
+        : healthFilter === 'over'                        ? budgets.filter(b => parseFloat(b.spent) >  parseFloat(b.amount))
+        : budgets.filter(b => suggestions.some(s => s.categoryId === b.category_id));
 
     // ── Loading skeleton ──────────────────────────────────────────────────────
 
@@ -120,6 +208,15 @@ export default function BudgetsPage() {
         </AppLayout>
     );
 
+    const openAdd = () => { setShowForm(true); setFormError(''); setFormCategory(''); setFormAmount(''); };
+    const chipStyle = (active: boolean): React.CSSProperties => ({
+        fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: 'none',
+        cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: active ? 600 : 400,
+        background: active ? 'var(--accent)' : 'var(--bg-alt)',
+        color: active ? 'white' : 'var(--text-secondary)',
+        transition: 'all var(--transition-fast)',
+    });
+
     return (
         <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
@@ -133,11 +230,35 @@ export default function BudgetsPage() {
                                 {MONTH_NAMES[currentMonth]} {currentYear} · {budgets.length} {budgets.length === 1 ? 'category' : 'categories'}
                             </p>
                         </div>
-                        <button type="button" onClick={() => { setShowForm(true); setFormError(''); setFormCategory(''); setFormAmount(''); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            <Plus size={14} /> {isMobile ? 'Add' : 'Add Budget'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                            <button type="button" onClick={() => setZeroBasedMode(v => !v)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${zeroBasedMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <BarChart2 size={12} /> {isMobile ? '0-base' : 'Zero-based'}
+                            </button>
+                            <button type="button" onClick={openAdd}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <Plus size={14} /> {isMobile ? 'Add' : 'Add Budget'}
+                            </button>
+                        </div>
                     </div>
+
+                    {/* ── BUDGET HEALTH CHIPS ── */}
+                    {!loading && budgets.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                            {([
+                                { id: 'all',        label: 'All',           count: budgets.length },
+                                { id: 'on-track',   label: '✅ On track',   count: onTrackCount },
+                                { id: 'over',       label: '🔴 Over budget', count: overBudgetList.length },
+                                { id: 'suggestion', label: '💡 Suggestions', count: suggestions.length },
+                            ] as const).map(chip => (
+                                <button key={chip.id} type="button"
+                                    onClick={() => setHealthFilter(healthFilter === chip.id ? 'all' : chip.id)}
+                                    style={chipStyle(healthFilter === chip.id)}>
+                                    {chip.label} · {chip.count}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* ── SUMMARY GCARDS ── */}
@@ -171,6 +292,26 @@ export default function BudgetsPage() {
                     </div>
                 )}
 
+                {/* ── ZERO-BASED MODE BANNER ── */}
+                {zeroBasedMode && monthlyIncome > 0 && (
+                    <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Zero-based Budget</p>
+                        <p style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmt(monthlyIncome)}</span> income allocated: {' '}
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmt(totalBudgeted)}</span> budgeted, {' '}
+                            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: unallocated >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
+                                {unallocated >= 0 ? `${fmt(unallocated)} unallocated` : `${fmt(-unallocated)} over-allocated`}
+                            </span>
+                        </p>
+                        {unallocated > 0 && (
+                            <button type="button" onClick={openAdd}
+                                style={{ padding: '7px 16px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                + Allocate {fmt(unallocated)}
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {/* ── OVER-BUDGET ALERT BANNER ── */}
                 {overBudgetList.length > 0 && (
                     <div style={{ background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 28%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -186,13 +327,18 @@ export default function BudgetsPage() {
                     </div>
                 )}
 
+                {/* ── SMART SUGGESTIONS BANNER ── */}
+                {suggestions.length > 0 && (
+                    <SuggestionsBanner items={suggestions} adjusting={adjusting} onAdjust={handleAdjust} onDismiss={handleDismiss} />
+                )}
+
                 {/* ── BUDGET CATEGORY CARDS ── */}
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                         <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                            Budget Categories
+                            Budget Categories {healthFilter !== 'all' && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>({filteredBudgets.length} shown)</span>}
                         </h2>
-                        <button type="button" onClick={() => { setShowForm(true); setFormError(''); setFormCategory(''); setFormAmount(''); }}
+                        <button type="button" onClick={openAdd}
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                             <Plus size={12} /> Add Budget
                         </button>
@@ -207,13 +353,17 @@ export default function BudgetsPage() {
                             <p style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</p>
                             <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No budgets set</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Set monthly limits to stay on track</p>
-                            <button type="button" onClick={() => setShowForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Set your first budget
                             </button>
                         </div>
+                    ) : filteredBudgets.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No budgets match this filter</p>
+                        </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {budgets.map(budget => {
+                            {filteredBudgets.map(budget => {
                                 const spent    = parseFloat(budget.spent);
                                 const limit    = parseFloat(budget.amount);
                                 const rawPct   = limit > 0 ? (spent / limit) * 100 : 0;
@@ -222,12 +372,13 @@ export default function BudgetsPage() {
                                 const leftAmt  = isOver ? 0 : limit - spent;
                                 const barColor = isOver ? 'var(--color-exp)' : 'var(--accent-2)';
                                 const emojiBg  = isOver ? 'color-mix(in srgb, var(--color-exp) 12%, transparent)' : 'var(--accent-light)';
+                                const rollover = rolloverEnabled[budget.category_id];
+                                const prevB    = prevMonthBudgets.find(p => p.category_id === budget.category_id);
+                                const rolloverAmt = prevB ? Math.max(0, parseFloat(prevB.amount) - parseFloat(prevB.spent)) : 0;
 
                                 return (
                                     <div key={budget.id} style={{ background: 'var(--bg-card)', border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
-                                        {/* Top row: emoji + name + budget amount | spent + over/left */}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
-                                            {/* Left: emoji icon + name + limit */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                                                 <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: emojiBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>
                                                     {budget.category_icon || budget.category_emoji || '📊'}
@@ -242,7 +393,6 @@ export default function BudgetsPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Right: spent + over/left + actions */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                                                 <div style={{ textAlign: 'right' }}>
                                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: isOver ? 'var(--color-exp)' : 'var(--text-primary)', margin: '0 0 3px', fontVariantNumeric: 'tabular-nums' }}>
@@ -259,7 +409,6 @@ export default function BudgetsPage() {
                                                     )}
                                                 </div>
 
-                                                {/* Edit / Delete */}
                                                 {confirmDeleteId === budget.id ? (
                                                     <div style={{ display: 'flex', gap: '4px' }}>
                                                         <button type="button" onClick={() => handleDelete(budget.id)} disabled={deletingId === budget.id}
@@ -288,8 +437,20 @@ export default function BudgetsPage() {
                                             </div>
                                         </div>
 
-                                        {/* ProgressBar */}
                                         <ProgressBar pct={rawPct} color={barColor} height={6} />
+
+                                        {/* Rollover toggle + amount */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '7px' }}>
+                                            <button type="button" onClick={() => toggleRollover(budget.category_id)}
+                                                style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${rollover ? 'var(--accent-border)' : 'var(--border)'}`, background: rollover ? 'var(--accent-light)' : 'transparent', color: rollover ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all var(--transition-fast)' }}>
+                                                ↩ Rollover
+                                            </button>
+                                            {rollover && rolloverAmt > 0 && (
+                                                <span style={{ fontSize: '11px', color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}>
+                                                    (+{fmt(rolloverAmt)} rolled over from last month)
+                                                </span>
+                                            )}
+                                        </div>
 
                                         {/* Inline edit */}
                                         {editingId === budget.id && (
