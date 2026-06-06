@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
@@ -63,6 +63,11 @@ export function BottomNav() {
     const [rendered, setRendered] = useState(false);
     const [visible,  setVisible]  = useState(false);
 
+    const sheetRef      = useRef<HTMLDivElement>(null);
+    const moreButtonRef = useRef<HTMLButtonElement>(null);
+    // Prevents the synthesised click event from toggling after a swipe-up gesture
+    const swipeOpenedRef = useRef(false);
+
     const isActive   = (href: string) => pathname === href || pathname.startsWith(href);
     const moreActive = !mainTabs.some(t => isActive(t.href));
 
@@ -82,6 +87,92 @@ export function BottomNav() {
         return () => { document.body.style.overflow = ''; };
     }, [moreOpen]);
 
+    // Drag-down-to-close — attaches when the sheet is rendered
+    useEffect(() => {
+        const sheet = sheetRef.current;
+        if (!sheet || !moreOpen) return;
+
+        let startY = 0;
+        let lastY  = 0;
+        let lastT  = 0;
+        let vel    = 0; // px/ms positive = downward
+
+        const onStart = (e: TouchEvent) => {
+            startY = e.touches[0].clientY;
+            lastY  = startY;
+            lastT  = Date.now();
+            vel    = 0;
+        };
+
+        const onMove = (e: TouchEvent) => {
+            const y  = e.touches[0].clientY;
+            const dy = y - startY;
+            const dt = Math.max(Date.now() - lastT, 1);
+            vel   = (y - lastY) / dt;
+            lastY = y;
+            lastT = Date.now();
+
+            // Only intercept downward drag from top of scroll
+            if (dy > 0 && sheet.scrollTop === 0) {
+                e.preventDefault();
+                sheet.style.transition = 'none';
+                sheet.style.transform  = `translateY(${dy}px)`;
+            }
+        };
+
+        const onEnd = () => {
+            const dy = lastY - startY;
+            sheet.style.transition = '';
+            if (dy > 100 || vel > 0.5) {
+                // Animate out then unmount
+                sheet.style.transform = 'translateY(100%)';
+                setTimeout(() => setMoreOpen(false), 280);
+            } else {
+                // Snap back
+                sheet.style.transform = '';
+            }
+        };
+
+        sheet.addEventListener('touchstart', onStart, { passive: true });
+        sheet.addEventListener('touchmove',  onMove,  { passive: false });
+        sheet.addEventListener('touchend',   onEnd,   { passive: true });
+
+        return () => {
+            sheet.removeEventListener('touchstart', onStart);
+            sheet.removeEventListener('touchmove',  onMove);
+            sheet.removeEventListener('touchend',   onEnd);
+        };
+    }, [moreOpen]);
+
+    // Swipe-up on the More button to open the sheet
+    useEffect(() => {
+        const btn = moreButtonRef.current;
+        if (!btn) return;
+
+        let startY = 0;
+
+        const onStart = (e: TouchEvent) => { startY = e.touches[0].clientY; };
+        const onEnd   = (e: TouchEvent) => {
+            const dy = e.changedTouches[0].clientY - startY;
+            if (dy < -20) {
+                swipeOpenedRef.current = true;
+                setMoreOpen(true);
+            }
+        };
+
+        btn.addEventListener('touchstart', onStart, { passive: true });
+        btn.addEventListener('touchend',   onEnd,   { passive: true });
+        return () => {
+            btn.removeEventListener('touchstart', onStart);
+            btn.removeEventListener('touchend',   onEnd);
+        };
+    }, []);
+
+    const handleMoreButtonClick = () => {
+        if (swipeOpenedRef.current) { swipeOpenedRef.current = false; return; }
+        setMoreOpen(v => !v);
+    };
+
     const handleNavigate = (href: string) => {
         setMoreOpen(false);
         router.push(href);
@@ -99,7 +190,7 @@ export function BottomNav() {
 
             {/* More sheet */}
             {rendered && (
-                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-card)', borderRadius: '20px 20px 0 0', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto', transform: moreOpen ? 'translateY(0)' : 'translateY(100%)', opacity: moreOpen ? 1 : 0, transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease' }}>
+                <div ref={sheetRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-card)', borderRadius: '20px 20px 0 0', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto', transform: moreOpen ? 'translateY(0)' : 'translateY(100%)', opacity: moreOpen ? 1 : 0, transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease' }}>
 
                     {/* Handle */}
                     <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--border)', margin: '12px auto 8px' }} />
@@ -181,7 +272,7 @@ export function BottomNav() {
                 })}
 
                 {/* More button */}
-                <button type="button" onClick={() => setMoreOpen(v => !v)}
+                <button ref={moreButtonRef} type="button" onClick={handleMoreButtonClick}
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
                     <div key={moreOpen ? 'open' : 'closed'} style={{ padding: '5px 14px', borderRadius: '20px', background: moreActive || moreOpen ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                         <MoreHorizontal size={22} color={moreActive || moreOpen ? 'white' : 'var(--text-muted)'} />
