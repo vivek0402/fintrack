@@ -57,6 +57,20 @@ const emptyBankForm   = () => ({ name: '', account_type: 'Savings', last_four: '
 const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1' });
 const emptyWalletForm = () => ({ name: '', emoji: '👛', balance: '' });
 
+function SectionHead({ title, total, totalColor, onAdd }: { title: string; total: string; totalColor: string; onAdd: () => void }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px' }}>{title}</h2>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: totalColor, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
+            </div>
+            <button type="button" onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                <Plus size={14} /> Add
+            </button>
+        </div>
+    );
+}
+
 // ── Shared modal style helpers ────────────────────────────────────────────────
 
 const inputSt: React.CSSProperties = {
@@ -212,19 +226,6 @@ export default function AccountsPage() {
     };
 
     if (isLoading) return null;
-
-    // ── Shared section header ─────────────────────────────────────────────────
-    const SectionHead = ({ title, total, totalColor, onAdd }: { title: string; total: string; totalColor: string; onAdd: () => void }) => (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px' }}>{title}</h2>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: totalColor, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
-            </div>
-            <button type="button" onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                <Plus size={14} /> Add
-            </button>
-        </div>
-    );
 
     return (
         <AppLayout>

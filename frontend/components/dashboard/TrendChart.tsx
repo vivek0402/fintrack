@@ -6,6 +6,25 @@ interface Props { trends: any[] }
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+function CustomTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)',
+            borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem',
+            boxShadow: 'var(--shadow-modal)',
+        }}>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{label}</p>
+            {payload.map((p: any) => (
+                <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
+                    <p style={{ color: 'var(--text-primary)', margin: 0 }}>{p.name}: <strong>₹{Math.round(p.value ?? 0).toLocaleString('en-IN')}</strong></p>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export function TrendChart({ trends }: Props) {
     const chartData = (() => {
         const map: Record<string, any> = {};
@@ -17,25 +36,6 @@ export function TrendChart({ trends }: Props) {
         });
         return Object.values(map);
     })();
-
-    const CustomTooltip = ({ active, payload, label }: any) => {
-        if (!active || !payload?.length) return null;
-        return (
-            <div style={{
-                background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)',
-                borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem',
-                boxShadow: 'var(--shadow-modal)',
-            }}>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{label}</p>
-                {payload.map((p: any) => (
-                    <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
-                        <p style={{ color: 'var(--text-primary)', margin: 0 }}>{p.name}: <strong>₹{Math.round(p.value ?? 0).toLocaleString('en-IN')}</strong></p>
-                    </div>
-                ))}
-            </div>
-        );
-    };
 
     return (
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>

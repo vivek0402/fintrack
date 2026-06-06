@@ -7,23 +7,23 @@ interface Props { data: any[]; currency?: string; }
 
 const PALETTE = ['#00e5a0', '#6366f1', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#ec4899', '#14b8a6'];
 
+function CustomTooltip({ active, payload, total, currency }: { active?: boolean; payload?: any[]; total: number; currency: string }) {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+    const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
+    return (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
+            <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{item.name}</p>
+            <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
+                {formatCurrency(item.value, currency)} <span style={{ color: 'var(--text-secondary)' }}>({pct}%)</span>
+            </p>
+        </div>
+    );
+}
+
 export function CategoryChart({ data, currency = 'INR' }: Props) {
     const total = data.reduce((sum, c) => sum + parseFloat(c.total), 0);
     const chartData = data.map((c, i) => ({ name: c.name, value: parseFloat(c.total), color: c.color || PALETTE[i % PALETTE.length] }));
-
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (!active || !payload?.length) return null;
-        const item = payload[0];
-        const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
-        return (
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
-                <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{item.name}</p>
-                <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
-                    {formatCurrency(item.value, currency)} <span style={{ color: 'var(--text-secondary)' }}>({pct}%)</span>
-                </p>
-            </div>
-        );
-    };
 
     return (
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
@@ -53,7 +53,7 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
                             >
                                 {chartData.map((c, i) => <Cell key={i} fill={c.color} />)}
                             </Pie>
-                            <Tooltip content={<CustomTooltip />} />
+                            <Tooltip content={<CustomTooltip total={total} currency={currency} />} />
                         </PieChart>
                     </ResponsiveContainer>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginTop: '10px' }}>

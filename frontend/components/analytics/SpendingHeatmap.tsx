@@ -25,7 +25,7 @@ export function SpendingHeatmap({ transactions }: Props) {
         s.setDate(s.getDate() - 363 - s.getDay()); // align to Sunday 52 weeks ago
 
         const weeks: { date: Date; key: string }[][] = [];
-        let cur = new Date(s), week: { date: Date; key: string }[] = [];
+        const cur = new Date(s); let week: { date: Date; key: string }[] = [];
         while (cur <= today) {
             week.push({ date: new Date(cur), key: cur.toISOString().split('T')[0] });
             cur.setDate(cur.getDate() + 1);
