@@ -341,11 +341,15 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+            {/* ── Search input + dropdown overlays (position:relative anchors them) ── */}
+            <div style={{ position: 'relative' }}>
 
             {/* ── Search input with token chips ──────────────────────────────────── */}
             <div
                 style={{
+                    position: 'relative',
                     display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px',
                     padding: '6px 44px 6px 36px',
                     background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -411,7 +415,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
             {/* ── Search history dropdown ───────────────────────────────────────── */}
             {historyOpen && history.length > 0 && (
                 <div style={{
-                    position: 'absolute', top: '48px', left: 0, right: 0,
+                    position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
                     background: 'var(--bg-card)', border: '1px solid var(--border)',
                     borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)',
                     zIndex: 200, overflow: 'hidden',
@@ -439,7 +443,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
             {/* ── Filter panel ──────────────────────────────────────────────────── */}
             {panelOpen && (
-                <div ref={panelRef} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div ref={panelRef} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, maxHeight: 'min(480px, 60vh)', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: 'var(--shadow-modal)' }}>
 
                     {/* Amount range */}
                     <div>
@@ -563,6 +567,8 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     </div>
                 </div>
             )}
+
+            </div>{/* end: search + dropdown overlays wrapper */}
 
             {/* ── Active filter summary row ─────────────────────────────────────── */}
             {summaryChips.length > 0 && (
