@@ -16,7 +16,6 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
-import { updateWidgetData } from '@/lib/widgetBridge';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -200,24 +199,6 @@ export default function DashboardPage() {
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
         aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
     }, [user]);
-
-    // Push data to Android home-screen widget whenever dashboard data refreshes
-    useEffect(() => {
-        if (!user || !summary || transactions.length === 0) return;
-        const today = new Date().toISOString().split('T')[0];
-        const spentToday = transactions
-            .filter((tx: any) => tx.type === 'expense' && (tx.date || '').split('T')[0] === today)
-            .reduce((sum: number, tx: any) => sum + parseFloat(tx.amount || '0'), 0);
-        const monthBudget = budgets.reduce((sum: number, b: any) => sum + parseFloat(b.amount || '0'), 0);
-        const monthSpent  = summary.total_expenses ?? 0;
-        updateWidgetData({
-            spent_today:       spentToday,
-            budget_remaining:  monthBudget - monthSpent,
-            currency:          user.currency ?? 'INR',
-            month_spent:       monthSpent,
-            month_budget:      monthBudget,
-        });
-    }, [summary, transactions, budgets, user]);
 
     // Sparkline data (last 6 months)
     const sparklineData = useMemo(() => {
