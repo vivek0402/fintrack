@@ -8,6 +8,7 @@ import {
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
 import { transactionsAPI, categoriesAPI, accountsAPI } from '@/lib/api';
+import { addToQueue } from '@/lib/txQueue';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -84,6 +85,7 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    onOfflineSave?: (tx: any) => void;
     transaction?: any;
     prefill?: any;
     defaultDate?: string;
@@ -91,7 +93,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TransactionModal({ isOpen, onClose, onSuccess, transaction, prefill, defaultDate }: Props) {
+export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
     const [form, setForm] = useState({
@@ -235,8 +237,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setLoading(true);
+        const payload = { type: form.type, amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
         try {
-            const payload = { type: form.type, amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
             if (user) {
@@ -261,7 +263,19 @@ export function TransactionModal({ isOpen, onClose, onSuccess, transaction, pref
             toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Something went wrong.');
+            const isNetworkErr = !err.response;
+            if (isNetworkErr && !isEditing) {
+                try {
+                    const tempId = await addToQueue('create', payload as Record<string, any>);
+                    toast.info('Saved offline — will sync when reconnected');
+                    onOfflineSave?.({ ...(payload as Record<string, any>), id: tempId, _pending: true, is_regretted: false });
+                    onClose();
+                } catch {
+                    setError('Something went wrong. Please try again.');
+                }
+            } else {
+                setError(err.response?.data?.error || 'Something went wrong.');
+            }
         } finally { setLoading(false); }
     };
 

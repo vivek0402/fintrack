@@ -6,6 +6,7 @@ import { Sparkles, Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
@@ -13,6 +14,8 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { RedesignAnnouncement } from '@/components/ui/RedesignAnnouncement';
 import { PageErrorBoundary } from '@/components/ui/PageErrorBoundary';
+import { processQueue } from '@/lib/txQueue';
+import { toast } from '@/store/toastStore';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
@@ -69,6 +72,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         if (stored === 'true') setCollapsed(true);
     }, []);
 
+    useEffect(() => {
+        const handleOnline = async () => {
+            try {
+                const count = await processQueue();
+                if (count > 0) toast.success(`${count} transaction${count > 1 ? 's' : ''} synced`);
+            } catch { /* silent */ }
+        };
+        window.addEventListener('online', handleOnline);
+        return () => window.removeEventListener('online', handleOnline);
+    }, []);
+
     const handleToggle = () => {
         setCollapsed(v => {
             const next = !v;
@@ -99,7 +113,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 .fintrack-card:hover {
                     transform: translateY(-2px);
                 }
+                @keyframes pulseDot {
+                    0%,100% { opacity:1; transform:scale(1); }
+                    50% { opacity:0.5; transform:scale(1.5); }
+                }
             `}</style>
+            <OfflineBanner />
             <Sidebar collapsed={collapsed} onToggle={handleToggle} />
             <main
                 key={pathname}

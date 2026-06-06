@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Download, Zap, X, CheckSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
+import { apiWithCache } from '@/lib/apiWithCache';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
@@ -114,8 +115,8 @@ function TransactionsPageInner() {
         setLoading(true);
         try {
             const params = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
-            const res = await transactionsAPI.getAll(params);
-            setTransactions(res.data.transactions);
+            const txs = await apiWithCache.getTransactions(params);
+            setTransactions(txs);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     };
@@ -123,6 +124,16 @@ function TransactionsPageInner() {
     useEffect(() => {
         if (user) { setDisplayCount(50); fetchTransactions(); }
     }, [user, selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        const handler = () => fetchTransactions();
+        window.addEventListener('fintrack:queue-synced', handler);
+        return () => window.removeEventListener('fintrack:queue-synced', handler);
+    }, [user, selectedMonth, selectedYear]);
+
+    const handleOfflineSave = (pendingTx: any) => {
+        setTransactions(prev => [pendingTx, ...prev]);
+    };
 
     // Reset display count when filtered changes
     useEffect(() => { setDisplayCount(50); }, [filtered]);
@@ -321,7 +332,7 @@ function TransactionsPageInner() {
             </div>
 
             {/* ── TRANSACTION MODAL ── */}
-            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} transaction={editingTx} prefill={prefillData} />
+            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
 
             {/* ── BULK OPS PANEL ── */}
             {selectMode && selectedIds.size > 0 && (

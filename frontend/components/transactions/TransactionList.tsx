@@ -184,8 +184,12 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         {formatDate((tx.date || '').split('T')[0])}
                                     </div>
                                 </div>
-                                {/* Mobile regret toggle (expenses only, outside select mode) */}
-                                {!isIncome && !selectMode && (
+                                {/* Mobile regret toggle or pending indicator */}
+                                {(tx as any)._pending ? (
+                                    <span style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
+                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn, #f59e0b)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
+                                    </span>
+                                ) : !isIncome && !selectMode && (
                                     <button
                                         type="button"
                                         onClick={e => { e.stopPropagation(); handleRegret(tx.id); }}
@@ -254,38 +258,47 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
                                         {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
                                     </p>
-                                    <button
-                                        onClick={() => handleRegret(tx.id)}
-                                        disabled={regrettingId === tx.id}
-                                        title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
-                                        style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent', border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent', color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
-                                        onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.08)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; } }}
-                                        onMouseLeave={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; } }}
-                                    >
-                                        🤦
-                                    </button>
-                                    <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                        <Pencil size={13} />
-                                    </button>
-                                    {isConfirm ? (
-                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => handleDelete(tx.id)} disabled={deletingId === tx.id}
-                                                style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
-                                                {deletingId === tx.id ? '...' : 'Delete'}
-                                            </button>
-                                            <button onClick={() => setConfirmId(null)}
-                                                style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
-                                                Cancel
-                                            </button>
-                                        </div>
+                                    {(tx as any)._pending ? (
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn, #f59e0b)', display: 'inline-block', animation: 'pulseDot 1.2s ease-in-out infinite', flexShrink: 0 }} />
+                                            Pending
+                                        </span>
                                     ) : (
-                                        <button onClick={() => setConfirmId(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
-                                            <Trash2 size={13} />
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => handleRegret(tx.id)}
+                                                disabled={regrettingId === tx.id}
+                                                title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
+                                                style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent', border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent', color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
+                                                onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.08)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; } }}
+                                                onMouseLeave={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; } }}
+                                            >
+                                                🤦
+                                            </button>
+                                            <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                <Pencil size={13} />
+                                            </button>
+                                            {isConfirm ? (
+                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                    <button onClick={() => handleDelete(tx.id)} disabled={deletingId === tx.id}
+                                                        style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                        {deletingId === tx.id ? '...' : 'Delete'}
+                                                    </button>
+                                                    <button onClick={() => setConfirmId(null)}
+                                                        style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => setConfirmId(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
+                                                    <Trash2 size={13} />
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -299,7 +312,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         animation: `slideInUp 280ms cubic-bezier(0.22,1,0.36,1) ${staggerDelay}ms both`,
                                     }}
                                 >
-                                    {selectMode ? mobileRowInner : (
+                                    {selectMode || (tx as any)._pending ? mobileRowInner : (
                                         <SwipeableRow
                                             onSwipeLeft={() => handleDelete(tx.id)}
                                             onSwipeRight={() => handleRegret(tx.id)}

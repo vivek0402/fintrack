@@ -9,6 +9,18 @@ const withPWA = withPWAInit({
   disable: false,
   workboxOptions: {
     disableDevLogs: true,
+    runtimeCaching: [
+      {
+        urlPattern: /\/api\/(transactions|budgets|goals)/,
+        handler: 'NetworkFirst' as const,
+        options: {
+          cacheName: 'fintrack-api-cache',
+          networkTimeoutSeconds: 10,
+          expiration: { maxEntries: 100, maxAgeSeconds: 86400 },
+          cacheableResponse: { statuses: [0, 200] },
+        },
+      },
+    ],
   },
 });
 

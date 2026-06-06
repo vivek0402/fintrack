@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_finance_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_finance_background"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="12dp"
+    android:paddingBottom="10dp">
+
+    <!-- Header: "TODAY" label -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TODAY"
+        android:textColor="#888888"
+        android:textSize="9sp"
+        android:letterSpacing="0.12" />
+
+    <!-- Large spent amount -->
+    <TextView
+        android:id="@+id/widget_finance_spent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="₹0"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp" />
+
+    <!-- Budget progress bar: spent (red) vs remaining (green) -->
+    <ProgressBar
+        android:id="@+id/widget_finance_progress"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="5dp"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="5dp"
+        android:max="100"
+        android:progress="0" />
+
+    <!-- Remaining / total budget labels -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_finance_remaining"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="₹0 left"
+            android:textColor="#AAAAAA"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/widget_finance_budget"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="of ₹0"
+            android:textColor="#666666"
+            android:textSize="10sp" />
+
+    </LinearLayout>
+
+    <!-- Flex spacer -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Footer: tap hint -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tap to open FinTrack"
+        android:textColor="#555555"
+        android:textSize="9sp"
+        android:gravity="center" />
+
+</LinearLayout>
