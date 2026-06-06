@@ -16,7 +16,10 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
-import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award } from 'lucide-react';
+import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award, ChevronDown, ChevronRight } from 'lucide-react';
+import { SpendingHeatmap } from '@/components/analytics/SpendingHeatmap';
+import { SankeyFlow } from '@/components/analytics/SankeyFlow';
+import { CategoryTrajectory } from '@/components/analytics/CategoryTrajectory';
 import { exportToCSV, formatCurrency } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -82,6 +85,10 @@ export default function AnalyticsPage() {
     const [allocationError, setAllocationError] = useState('');
     const [planGenerated, setPlanGenerated]     = useState(false);
     const [dataLoading, setDataLoading]         = useState(true);
+
+    const [showHeatmap,     setShowHeatmap]     = useState(false);
+    const [showSankey,      setShowSankey]      = useState(false);
+    const [showTrajectory,  setShowTrajectory]  = useState(false);
 
     // Re-read CSS custom properties whenever palette or theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme, palette]);
@@ -631,6 +638,57 @@ export default function AnalyticsPage() {
                                 </>
                             )}
                         </>
+                    )}
+                </div>
+
+                {/* ── SPENDING HEATMAP (collapsible) ── */}
+                <div style={sectionCard}>
+                    <button type="button" onClick={() => setShowHeatmap(v => !v)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            Spending Intensity — Last 12 Months
+                        </h2>
+                        {showHeatmap ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+                    </button>
+                    {!showHeatmap && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>GitHub-style calendar showing daily spending intensity</p>}
+                    {showHeatmap && (
+                        <div style={{ marginTop: 16 }}>
+                            {dataLoading ? <div style={{ height: 100, background: 'var(--bg-alt)', borderRadius: 8 }} /> : <SpendingHeatmap transactions={allTransactions} />}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── MONEY FLOW SANKEY (collapsible) ── */}
+                <div style={sectionCard}>
+                    <button type="button" onClick={() => setShowSankey(v => !v)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            Where Your Money Flows
+                        </h2>
+                        {showSankey ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+                    </button>
+                    {!showSankey && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>Income sources → spending categories (last 3 months)</p>}
+                    {showSankey && (
+                        <div style={{ marginTop: 16 }}>
+                            {dataLoading ? <div style={{ height: 200, background: 'var(--bg-alt)', borderRadius: 8 }} /> : <SankeyFlow transactions={allTransactions} />}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── CATEGORY TRAJECTORY (collapsible) ── */}
+                <div style={sectionCard}>
+                    <button type="button" onClick={() => setShowTrajectory(v => !v)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            Category Trajectory
+                        </h2>
+                        {showTrajectory ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+                    </button>
+                    {!showTrajectory && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>6-month sparklines per category — green = improving, red = rising</p>}
+                    {showTrajectory && (
+                        <div style={{ marginTop: 16 }}>
+                            {dataLoading ? <div style={{ height: 200, background: 'var(--bg-alt)', borderRadius: 8 }} /> : <CategoryTrajectory transactions={allTransactions} isMobile={isMobile} />}
+                        </div>
                     )}
                 </div>
 
