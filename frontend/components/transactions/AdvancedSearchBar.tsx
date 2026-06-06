@@ -453,7 +453,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                                 <input key={key} type="number" placeholder={ph}
                                     value={(panel as any)[key]}
                                     onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
-                                    style={{ flex: 1, padding: '7px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }}
+                                    style={{ width: '110px', flex: 'none', padding: '6px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }}
                                     onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                                     onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
                             ))}

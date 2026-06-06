@@ -210,13 +210,17 @@ function TransactionsPageInner() {
                             )}
                             <button type="button"
                                 onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: selectMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <CheckSquare size={14} /> {selectMode ? 'Cancel' : 'Select'}
+                                title={isMobile ? (selectMode ? 'Cancel' : 'Select') : undefined}
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <CheckSquare size={16} />
+                                {!isMobile && <>{selectMode ? 'Cancel' : 'Select'}</>}
                             </button>
                             <button type="button"
                                 onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <Zap size={14} /> Quick Add
+                                title={isMobile ? 'Quick Add' : undefined}
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <Zap size={16} />
+                                {!isMobile && <>Quick Add</>}
                             </button>
                             <button type="button"
                                 onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
