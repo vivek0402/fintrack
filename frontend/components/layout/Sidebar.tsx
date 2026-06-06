@@ -65,8 +65,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <aside style={{
             width: collapsed ? '64px' : '220px',
             transition: 'width 0.2s ease',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            overflow: 'hidden',
             height: '100vh',
             background: 'var(--bg-card)',
             borderRight: '1px solid var(--border)',
@@ -141,8 +140,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
             {!collapsed && <GlobalSearch />}
 
-            {/* Nav items */}
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px' }}>
+            {/* Nav items — scrollable */}
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px', overflowY: 'auto', overflowX: 'hidden' }}>
                 {navItems.map(({ href, icon: Icon, label }) => {
                     const isActive = pathname === href || pathname.startsWith(href + '/');
                     return (
@@ -189,7 +188,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 })}
             </nav>
 
-            {/* Divider */}
+            {/* Bottom section — fixed, never scrolls */}
+            <div style={{ flexShrink: 0 }}>
             <div style={{
                 height: '1px',
                 background: 'linear-gradient(90deg, transparent, var(--border), transparent)',
@@ -297,6 +297,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     {!collapsed && 'Logout'}
                 </button>
             </div>
+            </div>{/* end bottom fixed section */}
         </aside>
     );
 }

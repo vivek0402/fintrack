@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sparkles, Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -19,6 +19,8 @@ import { toast } from '@/store/toastStore';
 import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
@@ -56,6 +58,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         initPushNotifications();
         runNotificationCheck();
     }, []);
+
+    // Keep a ref so the back-button closure always sees the current pathname
+    const pathnameRef = useRef(pathname);
+    useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
+
+    // Android hardware/gesture back button — go home first, exit from home
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+        let handle: Awaited<ReturnType<typeof CapApp.addListener>> | null = null;
+        CapApp.addListener('backButton', () => {
+            if (pathnameRef.current === '/dashboard') {
+                CapApp.exitApp();
+            } else {
+                router.push('/dashboard');
+            }
+        }).then(h => { handle = h; });
+        return () => { handle?.remove(); };
+    }, [router]);
 
     // Warm up the backend + Supabase on first app load (free-tier cold-start mitigation)
     useEffect(() => {
@@ -110,7 +130,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 display: 'flex',
                 minHeight: '100vh',
                 background: glowBackground,
-                backgroundAttachment: 'fixed',
+                backgroundAttachment: isMobile ? 'scroll' : 'fixed',
                 transition: 'background 0.5s ease',
             }}
         >
@@ -127,8 +147,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <OfflineBanner />
-            {/* Notification bell — top-right, fixed position */}
-            <div style={{ position: 'fixed', top: isMobile ? 'calc(16px + env(safe-area-inset-top, 0px))' : 16, right: isMobile ? 16 : 24, zIndex: 300 }}>
+            {/* Notification bell — pinned to top-right of viewport */}
+            <div style={{
+                position: 'fixed',
+                top: isMobile ? 'calc(16px + env(safe-area-inset-top, 0px))' : 16,
+                right: isMobile ? 16 : 24,
+                zIndex: 9999,
+                transform: 'translateZ(0)',
+            }}>
                 <NotificationCenter />
             </div>
             <Sidebar collapsed={collapsed} onToggle={handleToggle} />
