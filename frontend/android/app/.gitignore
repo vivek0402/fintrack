@@ -1,2 +1,4 @@
 /build/*
 !/build/.npmkeep
+# Firebase — contains API keys, must not be committed
+google-services.json

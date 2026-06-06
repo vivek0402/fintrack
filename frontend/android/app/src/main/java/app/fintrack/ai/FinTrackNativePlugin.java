@@ -3,6 +3,7 @@ package app.fintrack.ai;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -28,6 +29,16 @@ public class FinTrackNativePlugin extends Plugin {
             .apply();
 
         call.resolve();
+    }
+
+    @PluginMethod
+    public void getFCMToken(PluginCall call) {
+        String token = getContext()
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString("fcm_token", null);
+        JSObject ret = new JSObject();
+        ret.put("token", token != null ? token : "");
+        call.resolve(ret);
     }
 
     @PluginMethod

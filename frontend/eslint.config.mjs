@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Android build artifacts — not source code
+    "android/**",
+    // Service worker + workbox build artifacts
+    "public/sw.js",
+    "public/swe-worker-*.js",
+    "public/workbox-*.js",
+    // Icon generation scripts (Node.js, not typed)
+    "scripts/**",
   ]),
 ]);
 

@@ -136,15 +136,36 @@ export default function ProfilePage() {
     const [exporting, setExporting]     = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
     const [coachEnabled, setCoachEnabled]   = useState(true);
+    const [notifPrefs, setNotifPrefs] = useState({
+        budgetAlerts: true,
+        billReminders: true,
+        goalAlerts: true,
+        weeklySummary: true,
+    });
 
     useEffect(() => {
         const val = localStorage.getItem('fintrack-coach-enabled');
         setCoachEnabled(val === null ? true : val === 'true');
     }, []);
 
+    useEffect(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem('fintrack-notif-prefs') || '{}');
+            setNotifPrefs(prev => ({ ...prev, ...Object.fromEntries(
+                Object.keys(prev).map(k => [k, stored[k] !== false])
+            )}));
+        } catch {}
+    }, []);
+
     const toggleCoach = (enabled: boolean) => {
         setCoachEnabled(enabled);
         localStorage.setItem('fintrack-coach-enabled', String(enabled));
+    };
+
+    const toggleNotif = (key: keyof typeof notifPrefs) => {
+        const next = { ...notifPrefs, [key]: !notifPrefs[key] };
+        setNotifPrefs(next);
+        localStorage.setItem('fintrack-notif-prefs', JSON.stringify(next));
     };
 
     useEffect(() => { loadFromStorage(); }, []);
@@ -374,13 +395,44 @@ export default function ProfilePage() {
                     <SettingsRow icon={<Trash2 size={16} />} label="Clear AI Cache" sub="Force-refresh AI analysis results" onClick={clearingCache ? undefined : handleClearCache} />
                 </div>
 
+                {/* ── NOTIFICATIONS SECTION ── */}
+                <div style={sectionCard}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <Bell size={16} color="var(--accent)" />
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Notifications</h2>
+                    </div>
+                    {([
+                        { key: 'budgetAlerts' as const,  label: 'Budget alerts',          sub: 'When a category exceeds 80% of budget' },
+                        { key: 'billReminders' as const, label: 'Bill due reminders',      sub: '3 days before a recurring bill is due' },
+                        { key: 'goalAlerts' as const,    label: 'Goal milestone alerts',   sub: 'At 25%, 50%, 75%, and 100% funded' },
+                        { key: 'weeklySummary' as const, label: 'Weekly spending summary', sub: 'Every Sunday with your week\'s totals' },
+                    ]).map(({ key, label, sub }, i, arr) => (
+                        <div key={key}>
+                            <div style={divider} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{label}</p>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0', fontFamily: 'var(--font-body)' }}>{sub}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={notifPrefs[key]}
+                                    onClick={() => toggleNotif(key)}
+                                    style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: notifPrefs[key] ? 'var(--accent)' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                                >
+                                    <span style={{ position: 'absolute', top: '2px', left: notifPrefs[key] ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {/* ── APP SECTION ── */}
                 <div style={sectionCard}>
                     <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>App</h2>
                     <div style={divider} />
                     <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax-estimate')} />
-                    <div style={divider} />
-                    <SettingsRow icon={<Bell size={16} />} label="Notifications" sub="Budget alerts and reminders" onClick={() => toast.success('Notifications coming soon')} />
                     <div style={divider} />
                     {/* Coach toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
