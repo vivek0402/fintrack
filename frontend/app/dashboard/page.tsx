@@ -13,6 +13,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -265,6 +266,15 @@ export default function DashboardPage() {
                         </div>
                     ))}
                 </div>
+
+                {/* ── HEALTH SCORE WIDGET ── */}
+                <HealthScoreWidget
+                    summary={summary}
+                    budgets={budgets}
+                    goals={goals}
+                    trends={trends}
+                    loading={dataLoading}
+                />
 
                 {/* ── HERO CARD — 3 column ── */}
                 <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>

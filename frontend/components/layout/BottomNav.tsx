@@ -6,7 +6,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     Target, Trophy, X, Settings, Users, FolderOpen, MessageSquare,
     Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
-    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal,
+    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -25,7 +25,8 @@ const moreSections = [
             { href: '/budgets',   icon: Target,        label: 'Budgets'   },
             { href: '/goals',     icon: Trophy,        label: 'Goals'     },
             { href: '/calendar',  icon: CalendarDays,  label: 'Calendar'  },
-            { href: '/reports',   icon: FileText,      label: 'Reports'   },
+            { href: '/reports',       icon: FileText,  label: 'Reports'       },
+            { href: '/health-score',  icon: Heart,     label: 'Health Score'  },
         ],
     },
     {
