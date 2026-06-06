@@ -8,7 +8,7 @@ import {
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Users, Brain, CalendarClock,
     ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
-    Wallet, Heart, Award,
+    Wallet, Heart, Award, PiggyBank,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -25,7 +25,8 @@ const navItems = [
     { href: '/goals',               icon: Flag,            label: 'Goals' },
     { href: '/reports',             icon: FileText,        label: 'Reports' },
     { href: '/health-score',        icon: Heart,           label: 'Health Score' },
-    { href: '/year-review',         icon: Award,           label: 'Year Review' },
+    { href: '/year-review',          icon: Award,           label: 'Year Review' },
+    { href: '/savings-plan',         icon: PiggyBank,       label: 'Savings Plan' },
     { href: '/forecast',            icon: CalendarClock,   label: 'Forecast' },
     { href: '/personality',         icon: Brain,           label: 'Personality' },
     { href: '/tax-estimate',        icon: Receipt,         label: 'Tax Estimate' },
