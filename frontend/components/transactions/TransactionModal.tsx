@@ -152,7 +152,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     }, [calOpen]);
 
     // Populate form
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];

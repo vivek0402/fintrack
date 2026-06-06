@@ -1,0 +1,7 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "eslint.workingDirectories": [
+        { "directory": "./frontend", "changeProcessCWD": true }
+    ],
+    "eslint.useFlatConfig": true
+}

@@ -57,7 +57,7 @@ export function NotificationBell() {
       window.removeEventListener('fintrack-notification', onNew);
       window.removeEventListener('storage', onStorage);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // Close on click outside
