@@ -64,6 +64,8 @@ export function BottomNav() {
     const [visible,  setVisible]  = useState(false);
 
     const sheetRef      = useRef<HTMLDivElement>(null);
+    const backdropRef   = useRef<HTMLDivElement>(null);
+    const handleRef     = useRef<HTMLDivElement>(null);
     const moreButtonRef = useRef<HTMLButtonElement>(null);
     // Prevents the synthesised click event from toggling after a swipe-up gesture
     const swipeOpenedRef = useRef(false);
@@ -102,6 +104,7 @@ export function BottomNav() {
             lastY  = startY;
             lastT  = Date.now();
             vel    = 0;
+            if (handleRef.current) handleRef.current.style.transition = 'none';
         };
 
         const onMove = (e: TouchEvent) => {
@@ -115,21 +118,58 @@ export function BottomNav() {
             // Only intercept downward drag from top of scroll
             if (dy > 0 && sheet.scrollTop === 0) {
                 e.preventDefault();
+                // Rubber-band resistance: sheet moves ~78% of finger travel
+                const resistedDy = dy * 0.78;
                 sheet.style.transition = 'none';
-                sheet.style.transform  = `translateY(${dy}px)`;
+                sheet.style.transform  = `translateY(${resistedDy}px)`;
+
+                // Fade backdrop proportionally to drag distance
+                if (backdropRef.current) {
+                    backdropRef.current.style.transition = 'none';
+                    backdropRef.current.style.opacity = String(Math.max(0, 1 - resistedDy / 280));
+                }
+
+                // Expand handle pill as a drag affordance
+                if (handleRef.current) {
+                    const scale = Math.min(1.6, 1 + resistedDy / 90);
+                    handleRef.current.style.transform = `scaleX(${scale})`;
+                    handleRef.current.style.opacity   = String(Math.max(0.35, 1 - resistedDy / 180));
+                }
             }
         };
 
         const onEnd = () => {
             const dy = lastY - startY;
-            sheet.style.transition = '';
+
+            // Spring-reset the handle
+            if (handleRef.current) {
+                handleRef.current.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease';
+                handleRef.current.style.transform  = '';
+                handleRef.current.style.opacity    = '';
+                setTimeout(() => { if (handleRef.current) handleRef.current.style.transition = ''; }, 400);
+            }
+
             if (dy > 100 || vel > 0.5) {
                 // Animate out then unmount
-                sheet.style.transform = 'translateY(100%)';
+                if (backdropRef.current) {
+                    backdropRef.current.style.transition = 'opacity 0.25s ease-in';
+                    backdropRef.current.style.opacity    = '0';
+                }
+                sheet.style.transition = 'transform 0.28s ease-in';
+                sheet.style.transform  = 'translateY(100%)';
                 setTimeout(() => setMoreOpen(false), 280);
             } else {
-                // Snap back
-                sheet.style.transform = '';
+                // Spring snap-back
+                sheet.style.transition = 'transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                sheet.style.transform  = '';
+                if (backdropRef.current) {
+                    backdropRef.current.style.transition = 'opacity 0.3s ease';
+                    backdropRef.current.style.opacity    = '1';
+                }
+                setTimeout(() => {
+                    sheet.style.transition = '';
+                    if (backdropRef.current) backdropRef.current.style.transition = '';
+                }, 450);
             }
         };
 
@@ -183,6 +223,7 @@ export function BottomNav() {
             {/* Backdrop */}
             {rendered && (
                 <div
+                    ref={backdropRef}
                     onClick={() => setMoreOpen(false)}
                     style={{ position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'rgba(0,0,0,0.35)', opacity: moreOpen ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: moreOpen ? 'all' : 'none' }}
                 />
@@ -193,7 +234,7 @@ export function BottomNav() {
                 <div ref={sheetRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-card)', borderRadius: '20px 20px 0 0', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto', transform: moreOpen ? 'translateY(0)' : 'translateY(100%)', opacity: moreOpen ? 1 : 0, transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease' }}>
 
                     {/* Handle */}
-                    <div style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--border)', margin: '12px auto 8px' }} />
+                    <div ref={handleRef} style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--text-muted)', margin: '12px auto 8px', transformOrigin: 'center' }} />
 
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 12px' }}>

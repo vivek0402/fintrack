@@ -124,7 +124,7 @@ router.post('/report', authMiddleware, async (req, res) => {
 
         const report = (await aiComplete('report', [{
             role: 'user',
-            content: `You are a friendly personal finance advisor. Based on this month's data, write a 3-4 sentence summary in plain English. Be specific with numbers. Mention what went well and what to watch out for. Keep it conversational, not robotic. Use ₹ for amounts. Data: ${context}`,
+            content: `Personal finance advisor. Summarise this month in 3-5 crisp sentences. Lead with income vs expenses. Call out the top spending category. Flag one clear risk or win. End with one actionable tip. Use ₹. No filler. Data: ${context}`,
         }])).trim();
 
         res.json({ report });

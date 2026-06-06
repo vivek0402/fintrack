@@ -25,7 +25,7 @@ const ROUTES = {
     'forecast-insight':   { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 300,  temp: 0.3 },
     'salary-allocation':  { provider: 'gemini',                        maxTokens: 1200, temp: 0.4 },
     'personality':        { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 1000, temp: 0.5 },
-    'report':             { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.5 },
+    'report':             { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 200,  temp: 0.4 },
     'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
     'salary-intelligence':{ provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.4 },
     'parse-sms':          { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
