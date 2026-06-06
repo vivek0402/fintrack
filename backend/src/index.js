@@ -18,6 +18,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = require('./db/pool');
+const { sendToUser } = require('./utils/fcm');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -178,6 +179,7 @@ app.use('/api/accounts',          require('./routes/accounts'));
 app.use('/api/one-time-expenses', require('./routes/oneTimeExpenses'));
 app.use('/api/credit-cards',      require('./routes/creditCards'));
 app.use('/api/wallets',           require('./routes/wallets'));
+app.use('/api/notifications',    require('./routes/notifications'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -250,5 +252,105 @@ cron.schedule('0 0 * * *', async () => {
         console.log(`[Cron] Done — processed ${processed}/${due.rows.length} recurring transactions.`);
     } catch (err) {
         console.error('[Cron] Recurring job failed:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: bill-due reminders — daily at 8am IST ─────────────────────────────
+cron.schedule('0 8 * * *', async () => {
+    console.log('[Cron] Checking bill-due reminders...');
+    try {
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const in3 = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
+
+                const { rows: bills } = await pool.query(
+                    `SELECT id, description, next_due_date FROM recurring_transactions
+                     WHERE user_id = $1 AND is_active = true
+                       AND next_due_date BETWEEN $2 AND $3`,
+                    [user_id, today, in3]
+                );
+
+                for (const bill of bills) {
+                    const alertKey = `bill_due:${bill.id}:${bill.next_due_date}`;
+                    try {
+                        await pool.query(
+                            `INSERT INTO notification_log (user_id, alert_key) VALUES ($1, $2)
+                             ON CONFLICT (user_id, alert_key) DO NOTHING`,
+                            [user_id, alertKey]
+                        );
+                        // If already logged (conflict), rowCount is 0 — skip send
+                        const { rowCount } = await pool.query(
+                            `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                            [user_id, alertKey]
+                        );
+                        if (rowCount) {
+                            const dueDate = new Date(bill.next_due_date);
+                            const dayLabel = dueDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+                            await sendToUser(user_id, {
+                                title: 'Bill Due Soon',
+                                body: `${bill.description} is due on ${dayLabel}`,
+                                data: { type: 'bill_reminder', id: String(bill.id) },
+                            });
+                        }
+                    } catch { /* per-bill errors are silent */ }
+                }
+            } catch (err) {
+                console.error(`[Cron:Bills] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:Bills] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: weekly spending summary — Sunday at 9am IST ───────────────────────
+cron.schedule('0 9 * * 0', async () => {
+    console.log('[Cron] Sending weekly spending summaries...');
+    try {
+        const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `weekly_summary:${today}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const { rows } = await pool.query(
+                    `SELECT COALESCE(SUM(amount),0) AS total
+                     FROM transactions
+                     WHERE user_id=$1 AND type='expense' AND date BETWEEN $2 AND $3`,
+                    [user_id, weekStart, today]
+                );
+                const total = parseFloat(rows[0]?.total || 0);
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+
+                await sendToUser(user_id, {
+                    title: 'Weekly Spending Summary',
+                    body: `You spent ₹${total.toLocaleString('en-IN', { maximumFractionDigits: 0 })} this week.`,
+                    data: { type: 'weekly_summary' },
+                });
+            } catch (err) {
+                console.error(`[Cron:Weekly] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:Weekly] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });

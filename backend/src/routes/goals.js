@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { sendToUser } = require('../utils/fcm');
 const router = express.Router();
 
 router.use(auth);
@@ -47,7 +48,35 @@ router.patch('/:id/funds', async (req, res) => {
             [delta, req.params.id, req.user.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Goal not found.' });
-        res.json({ goal: result.rows[0] });
+        const goal = result.rows[0];
+        res.json({ goal });
+
+        // Fire-and-forget: check for 50%, 100% milestone
+        setImmediate(async () => {
+            try {
+                const pct = goal.target_amount > 0
+                    ? Math.round((goal.saved_amount / goal.target_amount) * 100)
+                    : 0;
+                if (pct < 50) return;
+
+                const milestone = pct >= 100 ? 100 : 50;
+                const alertKey = `goal_milestone:${goal.id}:${milestone}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2)
+                     ON CONFLICT (user_id, alert_key) DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                if (!rowCount) return;
+
+                await sendToUser(req.user.id, {
+                    title: milestone === 100 ? '🎯 Goal Reached!' : '🏃 Halfway There!',
+                    body: milestone === 100
+                        ? `You've fully funded "${goal.name}"! Great work!`
+                        : `You're 50% of the way to your "${goal.name}" goal!`,
+                    data: { type: 'goal_milestone', goal_id: String(goal.id) },
+                });
+            } catch { /* silent */ }
+        });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }

@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { sendToUser } = require('../utils/fcm');
 const router = express.Router();
 
 router.use(auth);
@@ -91,6 +92,48 @@ router.post('/', async (req, res) => {
         }
 
         res.status(201).json({ transaction: tx });
+
+        // Fire-and-forget: check if any budget is now over 80%
+        setImmediate(async () => {
+            try {
+                const month = tx.date.slice(0, 7); // 'YYYY-MM'
+                const { rows: budgets } = await pool.query(
+                    `SELECT b.id, b.category_id, b.amount,
+                            COALESCE(SUM(t.amount),0) AS spent
+                     FROM budgets b
+                     LEFT JOIN transactions t
+                       ON t.user_id = b.user_id
+                      AND t.category_id = b.category_id
+                      AND t.type = 'expense'
+                      AND to_char(t.date, 'YYYY-MM') = $2
+                     WHERE b.user_id = $1
+                     GROUP BY b.id, b.category_id, b.amount
+                     HAVING COALESCE(SUM(t.amount),0) / b.amount >= 0.8`,
+                    [req.user.id, month]
+                );
+
+                for (const b of budgets) {
+                    const pct = Math.round((b.spent / b.amount) * 100);
+                    const alertKey = `budget_breach:${b.id}:${month}:${pct >= 100 ? '100' : '80'}`;
+                    const { rowCount } = await pool.query(
+                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2)
+                         ON CONFLICT (user_id, alert_key) DO NOTHING`,
+                        [req.user.id, alertKey]
+                    );
+                    if (!rowCount) continue;
+
+                    const { rows: cats } = await pool.query(
+                        'SELECT name FROM categories WHERE id=$1', [b.category_id]
+                    );
+                    const catName = cats[0]?.name || 'A category';
+                    await sendToUser(req.user.id, {
+                        title: pct >= 100 ? 'Budget Exceeded' : 'Budget Alert',
+                        body: `${catName}: ${pct}% of your budget used this month.`,
+                        data: { type: 'budget_alert', category_id: String(b.category_id) },
+                    });
+                }
+            } catch { /* silent — never delay response */ }
+        });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }
