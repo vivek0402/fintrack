@@ -65,8 +65,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         <aside style={{
             width: collapsed ? '64px' : '220px',
             transition: 'width 0.2s ease',
-            overflow: 'hidden',
-            minHeight: '100vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            height: '100vh',
             background: 'var(--bg-card)',
             borderRight: '1px solid var(--border)',
             display: 'flex',

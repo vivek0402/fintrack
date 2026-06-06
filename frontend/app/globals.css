@@ -393,6 +393,9 @@ h6 {
   border-radius: 4px;
 }
 
+aside::-webkit-scrollbar { display: none; }
+aside { scrollbar-width: none; }
+
 .fab-btn { transition: transform 120ms ease-out, box-shadow 120ms ease-out; }
 .fab-btn:active { transform: scale(0.93); }
 

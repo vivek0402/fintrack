@@ -128,7 +128,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             `}</style>
             <OfflineBanner />
             {/* Notification bell — top-right, fixed position */}
-            <div style={{ position: 'fixed', top: 16, right: isMobile ? 16 : 24, zIndex: 300 }}>
+            <div style={{ position: 'fixed', top: isMobile ? 'calc(16px + env(safe-area-inset-top, 0px))' : 16, right: isMobile ? 16 : 24, zIndex: 300 }}>
                 <NotificationCenter />
             </div>
             <Sidebar collapsed={collapsed} onToggle={handleToggle} />
