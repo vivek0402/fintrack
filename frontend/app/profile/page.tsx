@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, ChevronDown, Check, Download, Trash2, FileText, Bell, Receipt } from 'lucide-react';
+import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, ChevronDown, Check, Download, Trash2, FileText, Bell, Receipt, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -135,6 +135,17 @@ export default function ProfilePage() {
     const [passMsg, setPassMsg]         = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [exporting, setExporting]     = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
+    const [coachEnabled, setCoachEnabled]   = useState(true);
+
+    useEffect(() => {
+        const val = localStorage.getItem('fintrack-coach-enabled');
+        setCoachEnabled(val === null ? true : val === 'true');
+    }, []);
+
+    const toggleCoach = (enabled: boolean) => {
+        setCoachEnabled(enabled);
+        localStorage.setItem('fintrack-coach-enabled', String(enabled));
+    };
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -370,6 +381,26 @@ export default function ProfilePage() {
                     <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax-estimate')} />
                     <div style={divider} />
                     <SettingsRow icon={<Bell size={16} />} label="Notifications" sub="Budget alerts and reminders" onClick={() => toast.success('Notifications coming soon')} />
+                    <div style={divider} />
+                    {/* Coach toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Zap size={16} color="var(--accent)" />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>Proactive spending alerts</p>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0', fontFamily: 'var(--font-body)' }}>Budget warnings and coaching on dashboard</p>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={coachEnabled}
+                            onClick={() => toggleCoach(!coachEnabled)}
+                            style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: coachEnabled ? 'var(--accent)' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                        >
+                            <span style={{ position: 'absolute', top: '2px', left: coachEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── SIGN OUT ── */}

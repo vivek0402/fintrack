@@ -14,6 +14,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
+import { CoachAlerts } from '@/components/coach/CoachAlerts';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -105,6 +106,7 @@ export default function DashboardPage() {
     const [aiReportLoading, setAiReportLoading] = useState(false);
     const [salaryData, setSalaryData]   = useState<any>(null);
     const [salaryDismissed, setSalaryDismissed] = useState(false);
+    const [coachEnabled, setCoachEnabled] = useState(true);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -139,6 +141,8 @@ export default function DashboardPage() {
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
     useEffect(() => {
         setSalaryDismissed(localStorage.getItem(`salary-banner-dismissed-${month}-${year}`) === 'true');
+        const val = localStorage.getItem('fintrack-coach-enabled');
+        setCoachEnabled(val === null ? true : val === 'true');
     }, [month, year]);
 
     useEffect(() => {
@@ -239,6 +243,16 @@ export default function DashboardPage() {
                         {MONTH_NAMES[month]} {year} — Overview
                     </p>
                 </div>
+
+                {/* ── COACH ALERTS ── */}
+                {coachEnabled && (
+                    <CoachAlerts
+                        summary={summary}
+                        budgets={budgets}
+                        goals={goals}
+                        loading={dataLoading}
+                    />
+                )}
 
                 {/* ── FOUR STAT TILES ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
