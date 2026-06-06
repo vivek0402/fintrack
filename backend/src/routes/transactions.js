@@ -164,6 +164,103 @@ router.post('/', async (req, res) => {
                 }
             } catch { /* silent — never delay response */ }
         });
+
+        // Large transaction alert (>₹5000 expenses)
+        setImmediate(async () => {
+            try {
+                const txAmount = parseFloat(tx.amount);
+                if (txAmount < 5000 || tx.type !== 'expense') return;
+                const alertKey = `large_tx:${tx.id}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                if (!rowCount) return;
+                await sendToUser(req.user.id, {
+                    title: 'Big Spend Alert 💸',
+                    body: `You just logged ₹${txAmount.toLocaleString('en-IN')} for "${tx.description}". Hope it was totally worth it! 😊`,
+                    data: { type: 'large_transaction', tx_id: String(tx.id) },
+                });
+            } catch { }
+        });
+
+        // Category spending spike vs same period last month (≥50% increase)
+        setImmediate(async () => {
+            try {
+                if (!tx.category_id || tx.type !== 'expense') return;
+                const monthStart = tx.date.slice(0, 8) + '01';
+                const lastMonthDate = new Date(tx.date);
+                lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+                const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+                const lastMonthSameDay = lastMonthDate.toISOString().split('T')[0];
+
+                const [{ rows: [thisRow] }, { rows: [lastRow] }] = await Promise.all([
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4`,
+                        [req.user.id, tx.category_id, monthStart, tx.date]
+                    ),
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4`,
+                        [req.user.id, tx.category_id, lastMonthStart, lastMonthSameDay]
+                    ),
+                ]);
+                const thisTotal = parseFloat(thisRow.total);
+                const lastTotal = parseFloat(lastRow.total);
+                if (lastTotal < 500 || thisTotal < lastTotal * 1.5) return;
+
+                const pct = Math.round(((thisTotal - lastTotal) / lastTotal) * 100);
+                const alertKey = `cat_spike:${tx.category_id}:${tx.date.slice(0, 7)}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                if (!rowCount) return;
+
+                const { rows: cats } = await pool.query('SELECT name FROM categories WHERE id=$1', [tx.category_id]);
+                await sendToUser(req.user.id, {
+                    title: 'Spending Spike Spotted 📊',
+                    body: `Your ${cats[0]?.name || 'category'} spending is ${pct}% higher than last month at this point. Just keeping you in the loop! 😊`,
+                    data: { type: 'category_spike', category_id: String(tx.category_id) },
+                });
+            } catch { }
+        });
+
+        // Spending streak (notify at 3, 7, 14, 30 days)
+        setImmediate(async () => {
+            try {
+                const { rows: datRows } = await pool.query(
+                    `SELECT DISTINCT date::text FROM transactions
+                     WHERE user_id=$1 AND date >= CURRENT_DATE - INTERVAL '31 days'
+                     ORDER BY date DESC`,
+                    [req.user.id]
+                );
+                let streak = 0;
+                for (let i = 0; i < datRows.length; i++) {
+                    const expected = new Date(tx.date);
+                    expected.setDate(new Date(tx.date).getDate() - i);
+                    if (datRows[i].date === expected.toISOString().split('T')[0]) streak++;
+                    else break;
+                }
+                if (![3, 7, 14, 30].includes(streak)) return;
+
+                const alertKey = `streak:${streak}:${tx.date.slice(0, 7)}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                if (!rowCount) return;
+
+                await sendToUser(req.user.id, {
+                    title: `${streak}-Day Tracking Streak! 🔥`,
+                    body: streak === 30
+                        ? `30 days straight of logging your finances — you're an absolute rockstar! 🌟`
+                        : `${streak} days in a row of tracking your spending — you're absolutely crushing it! Keep going! 💪`,
+                    data: { type: 'streak', days: String(streak) },
+                });
+            } catch { }
+        });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }
@@ -211,7 +308,35 @@ router.patch('/:id/regret', async (req, res) => {
              WHERE id = $1 AND user_id = $2 RETURNING *`,
             [req.params.id, req.user.id]
         );
-        res.json({ transaction: result.rows[0] });
+        const regretTx = result.rows[0];
+        res.json({ transaction: regretTx });
+
+        if (regretTx.is_regretted) {
+            setImmediate(async () => {
+                try {
+                    const { rows } = await pool.query(
+                        `SELECT COUNT(*) AS cnt FROM transactions
+                         WHERE user_id=$1 AND is_regretted=true AND updated_at >= NOW() - INTERVAL '7 days'`,
+                        [req.user.id]
+                    );
+                    const count = parseInt(rows[0]?.cnt || 0);
+                    if (count < 5) return;
+
+                    const alertKey = `regret_rising:${new Date().toISOString().slice(0, 7)}`;
+                    const { rowCount } = await pool.query(
+                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                        [req.user.id, alertKey]
+                    );
+                    if (!rowCount) return;
+
+                    await sendToUser(req.user.id, {
+                        title: "Feeling Some Regret? 😅",
+                        body: `You've marked ${count} transactions as regrets this week. It might be worth reviewing your habits — we're rooting for you! 💙`,
+                        data: { type: 'regret_rising', count: String(count) },
+                    });
+                } catch { }
+            });
+        }
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }

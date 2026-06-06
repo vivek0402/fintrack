@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { sendToUser } = require('../utils/fcm');
 const router = express.Router();
 
 router.use(auth);
@@ -82,6 +83,11 @@ router.put('/:id', async (req, res) => {
         if (!type || !amount || !description || !frequency)
             return res.status(400).json({ error: 'Type, amount, description and frequency are required.' });
 
+        const { rows: oldRows } = await pool.query(
+            'SELECT amount FROM recurring_transactions WHERE id=$1 AND user_id=$2',
+            [req.params.id, req.user.id]
+        );
+
         const result = await pool.query(
             `UPDATE recurring_transactions
              SET type=$1, amount=$2, description=$3, frequency=$4,
@@ -91,7 +97,30 @@ router.put('/:id', async (req, res) => {
         );
         if (result.rows.length === 0)
             return res.status(404).json({ error: 'Not found.' });
-        res.json({ recurring: result.rows[0] });
+
+        const updated = result.rows[0];
+        res.json({ recurring: updated });
+
+        const oldAmount = parseFloat(oldRows[0]?.amount || 0);
+        const newAmount = parseFloat(amount);
+        if (oldRows.length && Math.abs(oldAmount - newAmount) > 1) {
+            setImmediate(async () => {
+                try {
+                    const alertKey = `bill_changed:${updated.id}:${new Date().toISOString().slice(0, 7)}`;
+                    const { rowCount } = await pool.query(
+                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                        [req.user.id, alertKey]
+                    );
+                    if (!rowCount) return;
+                    const diff = newAmount - oldAmount;
+                    await sendToUser(req.user.id, {
+                        title: 'Recurring Bill Updated 📝',
+                        body: `Your "${description}" bill ${diff > 0 ? 'went up' : 'went down'} from ₹${oldAmount.toLocaleString('en-IN')} to ₹${newAmount.toLocaleString('en-IN')}. Good to keep track of these! 😊`,
+                        data: { type: 'bill_changed', id: String(updated.id) },
+                    });
+                } catch { }
+            });
+        }
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }

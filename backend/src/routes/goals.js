@@ -69,13 +69,43 @@ router.patch('/:id/funds', async (req, res) => {
                 if (!rowCount) return;
 
                 await sendToUser(req.user.id, {
-                    title: milestone === 100 ? '🎯 Goal Reached!' : '🏃 Halfway There!',
+                    title: milestone === 100 ? 'Goal Reached! 🎯' : 'Halfway There! 🏃',
                     body: milestone === 100
-                        ? `You've fully funded "${goal.name}"! Great work!`
-                        : `You're 50% of the way to your "${goal.name}" goal!`,
+                        ? `You've fully funded "${goal.name}"! That's incredible — you actually did it! 🎉`
+                        : `You're halfway to your "${goal.name}" goal! You're doing so well — keep it up! 💪`,
                     data: { type: 'goal_milestone', goal_id: String(goal.id) },
                 });
             } catch { /* silent */ }
+        });
+
+        // Total savings milestone (₹10K, ₹25K, ₹50K, ₹1L, ₹2.5L, ₹5L, ₹10L)
+        setImmediate(async () => {
+            try {
+                const { rows } = await pool.query(
+                    `SELECT COALESCE(SUM(saved_amount),0) AS total FROM savings_goals WHERE user_id=$1`,
+                    [req.user.id]
+                );
+                const total = parseFloat(rows[0]?.total || 0);
+                const milestones = [10000, 25000, 50000, 100000, 250000, 500000, 1000000];
+                const crossed = milestones.find(m => total >= m && (total - delta) < m);
+                if (!crossed) return;
+
+                const alertKey = `savings_total:${crossed}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [req.user.id, alertKey]
+                );
+                if (!rowCount) return;
+
+                const label = crossed >= 100000
+                    ? `₹${(crossed / 100000).toLocaleString('en-IN')}L`
+                    : `₹${crossed.toLocaleString('en-IN')}`;
+                await sendToUser(req.user.id, {
+                    title: 'Savings Milestone! 🎉',
+                    body: `Your total savings just crossed ${label}! That's a massive achievement — you should be so proud of yourself! 🌟`,
+                    data: { type: 'savings_milestone', milestone: String(crossed) },
+                });
+            } catch { }
         });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });

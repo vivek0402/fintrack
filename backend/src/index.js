@@ -445,3 +445,395 @@ cron.schedule('0 12 * * *', async () => {
         console.error('[Cron:Inactivity] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: month-end budget check — daily 8am, last 5 days of month ──────────
+cron.schedule('30 8 * * *', async () => {
+    try {
+        const now = new Date();
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysLeft = lastDay - now.getDate();
+        if (daysLeft > 5) return;
+
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const { rows: budgets } = await pool.query(
+                    `SELECT b.id, b.amount, c.name,
+                            COALESCE(SUM(t.amount),0) AS spent
+                     FROM budgets b
+                     JOIN categories c ON c.id = b.category_id
+                     LEFT JOIN transactions t ON t.user_id=b.user_id AND t.category_id=b.category_id
+                       AND t.type='expense' AND to_char(t.date,'YYYY-MM')=$2
+                     WHERE b.user_id=$1
+                     GROUP BY b.id, b.amount, c.name
+                     HAVING b.amount - COALESCE(SUM(t.amount),0) > 0`,
+                    [user_id, thisMonth]
+                );
+
+                for (const b of budgets) {
+                    const remaining = parseFloat(b.amount) - parseFloat(b.spent);
+                    const alertKey = `month_end_budget:${b.id}:${thisMonth}`;
+                    const { rowCount } = await pool.query(
+                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                        [user_id, alertKey]
+                    );
+                    if (!rowCount) continue;
+                    await sendToUser(user_id, {
+                        title: 'Month-End Budget Update 🗓️',
+                        body: `You've got ₹${remaining.toLocaleString('en-IN', { maximumFractionDigits: 0 })} left in your ${b.name} budget with ${daysLeft} day${daysLeft !== 1 ? 's' : ''} to go. Spend wisely! 😊`,
+                        data: { type: 'month_end_budget' },
+                    });
+                }
+            } catch (err) {
+                console.error(`[Cron:MonthEnd] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:MonthEnd] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: mid-month spending vs last month — 15th at 10am ───────────────────
+cron.schedule('0 10 15 * *', async () => {
+    console.log('[Cron] Sending mid-month spending comparison...');
+    try {
+        const now = new Date();
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const today = now.toISOString().split('T')[0];
+        const lastMonthDate = new Date(now);
+        lastMonthDate.setMonth(now.getMonth() - 1);
+        const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+        const lastMonthSameDay = lastMonthDate.toISOString().split('T')[0];
+        const monthLabel = now.toLocaleDateString('en-IN', { month: 'long' });
+
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `midmonth:${today.slice(0, 7)}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const [{ rows: [thisRow] }, { rows: [lastRow] }, { rows: [incomeRow] }] = await Promise.all([
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND type='expense' AND date BETWEEN $2 AND $3`,
+                        [user_id, monthStart, today]
+                    ),
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND type='expense' AND date BETWEEN $2 AND $3`,
+                        [user_id, lastMonthStart, lastMonthSameDay]
+                    ),
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND type='income' AND date BETWEEN $2 AND $3`,
+                        [user_id, monthStart, today]
+                    ),
+                ]);
+
+                const thisSpend = parseFloat(thisRow.total);
+                const lastSpend = parseFloat(lastRow.total);
+                const income = parseFloat(incomeRow.total);
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+
+                const diff = lastSpend > 0 ? Math.round(((thisSpend - lastSpend) / lastSpend) * 100) : 0;
+                const direction = diff >= 0 ? `${diff}% more` : `${Math.abs(diff)}% less`;
+                const tone = diff > 20 ? '🤔' : diff < -10 ? '🎉' : '😊';
+                await sendToUser(user_id, {
+                    title: `${monthLabel} Mid-Month Check-in 📊`,
+                    body: `You've spent ₹${thisSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} so far — that's ${direction} than last month at this point. Income logged: ₹${income.toLocaleString('en-IN', { maximumFractionDigits: 0 })}. ${tone}`,
+                    data: { type: 'midmonth_summary' },
+                });
+            } catch (err) {
+                console.error(`[Cron:MidMonth] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:MidMonth] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: goal deadline approaching — daily 9am ─────────────────────────────
+cron.schedule('0 9 * * *', async () => {
+    try {
+        const { rows: goals } = await pool.query(
+            `SELECT g.*, u.id AS uid
+             FROM savings_goals g
+             JOIN users u ON u.id = g.user_id
+             JOIN user_fcm_tokens ft ON ft.user_id = g.user_id
+             WHERE g.deadline IS NOT NULL
+               AND g.saved_amount < g.target_amount
+               AND g.deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`
+        );
+
+        for (const g of goals) {
+            try {
+                const daysLeft = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
+                const remaining = parseFloat(g.target_amount) - parseFloat(g.saved_amount);
+                const alertKey = `goal_deadline:${g.id}:${g.deadline}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [g.user_id, alertKey]
+                );
+                if (!rowCount) continue;
+
+                await sendToUser(g.user_id, {
+                    title: 'Goal Deadline Coming Up! ⏰',
+                    body: `Your "${g.name}" deadline is in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}! You're just ₹${remaining.toLocaleString('en-IN', { maximumFractionDigits: 0 })} away — you've absolutely got this! 💪`,
+                    data: { type: 'goal_deadline', goal_id: String(g.id) },
+                });
+            } catch (err) {
+                console.error(`[Cron:GoalDeadline] goal ${g.id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:GoalDeadline] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: no goal contributions in 2+ weeks — daily 10am ────────────────────
+cron.schedule('0 10 * * *', async () => {
+    try {
+        const { rows: goals } = await pool.query(
+            `SELECT g.*
+             FROM savings_goals g
+             JOIN user_fcm_tokens ft ON ft.user_id = g.user_id
+             WHERE g.saved_amount < g.target_amount
+               AND g.updated_at < NOW() - INTERVAL '14 days'`
+        );
+
+        for (const g of goals) {
+            try {
+                const alertKey = `goal_inactive:${g.id}:${new Date().toISOString().slice(0, 7)}`;
+                const { rowCount } = await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [g.user_id, alertKey]
+                );
+                if (!rowCount) continue;
+
+                await sendToUser(g.user_id, {
+                    title: "Your Goal Misses You! 🌱",
+                    body: `Your "${g.name}" goal hasn't had any love in a while. Even a small top-up keeps the momentum going — every rupee counts! 😊`,
+                    data: { type: 'goal_inactive', goal_id: String(g.id) },
+                });
+            } catch (err) {
+                console.error(`[Cron:GoalInactive] goal ${g.id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:GoalInactive] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: salary not received check — daily 9am, sends only 3rd–8th ─────────
+cron.schedule('30 9 * * *', async () => {
+    try {
+        const now = new Date();
+        const dayOfMonth = now.getDate();
+        if (dayOfMonth < 3 || dayOfMonth > 8) return;
+
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const today = now.toISOString().split('T')[0];
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `salary_missing:${today.slice(0, 7)}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                // Check if any large income (>₹5000) logged this month
+                const { rows } = await pool.query(
+                    `SELECT 1 FROM transactions
+                     WHERE user_id=$1 AND type='income' AND amount > 5000 AND date BETWEEN $2 AND $3 LIMIT 1`,
+                    [user_id, monthStart, today]
+                );
+                if (rows.length) continue;
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: "Salary Landed Yet? 👀",
+                    body: "We haven't seen any income logged this month. Just checking — all good? Don't forget to log it when it arrives! 😊",
+                    data: { type: 'salary_reminder' },
+                });
+            } catch (err) {
+                console.error(`[Cron:Salary] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:Salary] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: upcoming bills total — every Monday at 9am ────────────────────────
+cron.schedule('0 9 * * 1', async () => {
+    console.log('[Cron] Sending upcoming bills weekly total...');
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `bills_week:${today}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const { rows } = await pool.query(
+                    `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+                     FROM recurring_transactions
+                     WHERE user_id=$1 AND is_active=true AND next_due_date BETWEEN $2 AND $3`,
+                    [user_id, today, in7]
+                );
+                const total = parseFloat(rows[0]?.total || 0);
+                const cnt = parseInt(rows[0]?.cnt || 0);
+                if (cnt === 0) continue;
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: 'Bills Due This Week 📅',
+                    body: `You've got ${cnt} bill${cnt !== 1 ? 's' : ''} totalling ₹${total.toLocaleString('en-IN', { maximumFractionDigits: 0 })} due this week. Stay ready! 💪`,
+                    data: { type: 'weekly_bills' },
+                });
+            } catch (err) {
+                console.error(`[Cron:WeeklyBills] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:WeeklyBills] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: weekend spending spike — Sunday 8pm ────────────────────────────────
+cron.schedule('0 20 * * 0', async () => {
+    console.log('[Cron] Checking weekend spending spike...');
+    try {
+        const now = new Date();
+        const sunday = now.toISOString().split('T')[0];
+        const saturday = new Date(now - 86400000).toISOString().split('T')[0];
+        const monday = new Date(now - 6 * 86400000).toISOString().split('T')[0];
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const alertKey = `weekend_spike:${sunday}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const [{ rows: [wknd] }, { rows: [wkday] }] = await Promise.all([
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
+                         WHERE user_id=$1 AND type='expense' AND date IN ($2,$3)`,
+                        [user_id, saturday, sunday]
+                    ),
+                    pool.query(
+                        `SELECT COALESCE(SUM(amount),0)/5.0 AS daily_avg FROM transactions
+                         WHERE user_id=$1 AND type='expense' AND date BETWEEN $2 AND $3`,
+                        [user_id, monday, saturday]
+                    ),
+                ]);
+
+                const weekendTotal = parseFloat(wknd.total);
+                const weekdayAvg = parseFloat(wkday.daily_avg);
+                if (weekendTotal < 500 || weekdayAvg === 0) continue;
+                const pct = Math.round((weekendTotal / (weekdayAvg * 2)) * 100);
+                if (pct < 150) continue; // only notify if weekend spend is 50%+ higher than expected
+
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: 'Big Weekend? 🛍️',
+                    body: `You spent ₹${weekendTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })} this weekend — ${pct}% of your typical 2-day spend. No judgment, just keeping you in the loop! 😄`,
+                    data: { type: 'weekend_spike' },
+                });
+            } catch (err) {
+                console.error(`[Cron:WeekendSpike] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:WeekendSpike] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: day-of-week spending pattern — Sunday 7am ─────────────────────────
+cron.schedule('0 7 * * 0', async () => {
+    console.log('[Cron] Analyzing day-of-week spending patterns...');
+    try {
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const alertKey = `day_pattern:${today.slice(0, 7)}`;
+                const { rowCount: alreadySent } = await pool.query(
+                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
+                    [user_id, alertKey]
+                );
+                if (alreadySent) continue;
+
+                const { rows } = await pool.query(
+                    `SELECT EXTRACT(DOW FROM date) AS dow,
+                            AVG(daily_total) AS avg_spend
+                     FROM (
+                       SELECT date, SUM(amount) AS daily_total
+                       FROM transactions
+                       WHERE user_id=$1 AND type='expense'
+                         AND date >= CURRENT_DATE - INTERVAL '56 days'
+                       GROUP BY date
+                     ) daily
+                     GROUP BY dow
+                     ORDER BY avg_spend DESC`,
+                    [user_id]
+                );
+
+                if (rows.length < 4) continue; // not enough data
+                const topDow = parseInt(rows[0].dow);
+                const topAvg = parseFloat(rows[0].avg_spend);
+                const overallAvg = rows.reduce((s, r) => s + parseFloat(r.avg_spend), 0) / rows.length;
+                if (topAvg < overallAvg * 1.4) continue; // not a significant pattern
+
+                const days = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+                await pool.query(
+                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+                    [user_id, alertKey]
+                );
+                await sendToUser(user_id, {
+                    title: 'Spending Pattern Spotted 📈',
+                    body: `Fun fact: you tend to spend the most on ${days[topDow]}! Something to keep in mind this week — a little awareness goes a long way 😊`,
+                    data: { type: 'day_pattern', dow: String(topDow) },
+                });
+            } catch (err) {
+                console.error(`[Cron:DayPattern] user ${user_id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:DayPattern] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
