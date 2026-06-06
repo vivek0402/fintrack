@@ -53,8 +53,10 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading }: 
   const income   = Number(summary?.total_income   ?? 0);
   const expenses = Number(summary?.total_expenses ?? 0);
 
+  const hasData = income > 0 || expenses > 0 || budgets.length > 0 || goals.length > 0 || trends.length > 0;
+
   useEffect(() => {
-    if (loading || !summary) return;
+    if (loading || !summary || !hasData) return;
     creditCardsAPI.getAll()
       .then(res => {
         const cards: any[] = res.data?.credit_cards ?? [];
@@ -77,7 +79,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading }: 
       .catch(() => {
         setResult(calculateHealthScore({ income, expenses, budgets, goals, monthlyExpenses: [], totalCCDebt: 0 }));
       });
-  }, [loading, summary, budgets, goals, trends]);
+  }, [loading, summary, hasData, budgets, goals, trends]);
 
   const displayScore = useCountUp(result?.score ?? 0, 1000, !!result);
 
@@ -87,10 +89,19 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading }: 
 
   const handleClick = () => router.push('/health-score');
 
-  if (loading || !result) {
+  if (loading) {
     return (
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Calculating health score…</span>
+      </div>
+    );
+  }
+
+  if (!hasData || !result) {
+    return (
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <Heart size={20} color="var(--text-muted)" />
+        <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textAlign: 'center' }}>Add transactions to see your financial health score</span>
       </div>
     );
   }
