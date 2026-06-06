@@ -15,9 +15,12 @@ interface Props {
     currency?: string;
     onEdit: (tx: any) => void;
     onRefresh: () => void;
+    selectMode?: boolean;
+    selectedIds?: Set<string>;
+    onToggleSelect?: (id: string) => void;
 }
 
-export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh }: Props) {
+export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh, selectMode, selectedIds, onToggleSelect }: Props) {
     const isMobile = useIsMobile();
     const { user } = useAuthStore();
     const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -120,29 +123,44 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         const isConfirm = confirmId === tx.id;
                         const categoryColor = tx.category_color || getCategoryColor(tx.category_name);
 
+                        const isSelected = selectMode ? (selectedIds?.has(tx.id) ?? false) : false;
+
                         // ── Mobile row ──────────────────────────────────────────────
                         const mobileRowInner = (
                             <div
-                                onClick={() => onEdit(tx)}
+                                onClick={() => selectMode ? onToggleSelect?.(tx.id) : onEdit(tx)}
                                 style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 padding: '12px 16px',
                                 borderBottom: '1px solid var(--bg-border)',
-                                background: 'var(--bg-card)',
+                                background: isSelected ? 'var(--bg-alt)' : 'var(--bg-card)',
                                 minHeight: '64px',
                                 opacity: tx.is_regretted ? 0.7 : 1,
                                 cursor: 'pointer',
+                                transition: 'background var(--transition-fast)',
                             }}>
-                                {/* Category color dot */}
-                                <div style={{
-                                    width: 10,
-                                    height: 10,
-                                    borderRadius: '50%',
-                                    backgroundColor: categoryColor,
-                                    flexShrink: 0,
-                                    marginRight: 12,
-                                }} />
+                                {/* Selection checkbox or category dot */}
+                                {selectMode ? (
+                                    <div style={{
+                                        width: 20, height: 20, borderRadius: '5px', flexShrink: 0, marginRight: 12,
+                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                                        background: isSelected ? 'var(--accent)' : 'transparent',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        transition: 'all 0.15s',
+                                    }}>
+                                        {isSelected && <svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: '50%',
+                                        backgroundColor: categoryColor,
+                                        flexShrink: 0,
+                                        marginRight: 12,
+                                    }} />
+                                )}
 
                                 {/* Left: description + category */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -172,16 +190,30 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         // ── Desktop row ─────────────────────────────────────────────
                         const desktopRowInner = (
                             <div
+                                onClick={selectMode ? () => onToggleSelect?.(tx.id) : undefined}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
-                                    borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
+                                    borderLeft: `3px solid ${isSelected ? 'var(--accent)' : getCategoryColor(tx.category_name)}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
                                     opacity: tx.is_regretted ? 0.7 : 1,
+                                    background: isSelected ? 'var(--bg-alt)' : 'transparent',
+                                    cursor: selectMode ? 'pointer' : 'default',
                                 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'var(--bg-alt)' : 'transparent'; }}
                             >
+                                {selectMode && (
+                                    <div style={{
+                                        width: 18, height: 18, borderRadius: '5px', flexShrink: 0,
+                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                                        background: isSelected ? 'var(--accent)' : 'transparent',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        transition: 'all 0.15s', marginRight: '4px',
+                                    }}>
+                                        {isSelected && <svg width="10" height="8" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                    </div>
+                                )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                                     <div style={{ width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0, background: getCategoryBg(tx.category_name), border: '1px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
@@ -249,13 +281,15 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         animation: `slideInUp 280ms cubic-bezier(0.22,1,0.36,1) ${staggerDelay}ms both`,
                                     }}
                                 >
-                                    <SwipeableRow
-                                        onSwipeLeft={() => handleDelete(tx.id)}
-                                        onSwipeRight={() => handleRegret(tx.id)}
-                                        isRegretted={tx.is_regretted}
-                                    >
-                                        {mobileRowInner}
-                                    </SwipeableRow>
+                                    {selectMode ? mobileRowInner : (
+                                        <SwipeableRow
+                                            onSwipeLeft={() => handleDelete(tx.id)}
+                                            onSwipeRight={() => handleRegret(tx.id)}
+                                            isRegretted={tx.is_regretted}
+                                        >
+                                            {mobileRowInner}
+                                        </SwipeableRow>
+                                    )}
                                 </div>
                             );
                         }
