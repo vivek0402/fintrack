@@ -184,6 +184,24 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         {formatDate((tx.date || '').split('T')[0])}
                                     </div>
                                 </div>
+                                {/* Mobile regret toggle (expenses only, outside select mode) */}
+                                {!isIncome && !selectMode && (
+                                    <button
+                                        type="button"
+                                        onClick={e => { e.stopPropagation(); handleRegret(tx.id); }}
+                                        disabled={regrettingId === tx.id}
+                                        title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
+                                        style={{
+                                            width: 30, height: 30, borderRadius: 8, flexShrink: 0, marginLeft: 6,
+                                            background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent',
+                                            border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent',
+                                            color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '14px', opacity: regrettingId === tx.id ? 0.5 : 1,
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >😬</button>
+                                )}
                             </div>
                         );
 

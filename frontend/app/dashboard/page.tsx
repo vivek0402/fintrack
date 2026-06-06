@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
+import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -253,6 +254,9 @@ export default function DashboardPage() {
                         loading={dataLoading}
                     />
                 )}
+
+                {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
+                <RegretCheckSheet />
 
                 {/* ── FOUR STAT TILES ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>

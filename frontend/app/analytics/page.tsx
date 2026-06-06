@@ -20,6 +20,7 @@ import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calend
 import { SpendingHeatmap } from '@/components/analytics/SpendingHeatmap';
 import { SankeyFlow } from '@/components/analytics/SankeyFlow';
 import { CategoryTrajectory } from '@/components/analytics/CategoryTrajectory';
+import { RegretAnalysis } from '@/components/analytics/RegretAnalysis';
 import { exportToCSV, formatCurrency } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -86,9 +87,10 @@ export default function AnalyticsPage() {
     const [planGenerated, setPlanGenerated]     = useState(false);
     const [dataLoading, setDataLoading]         = useState(true);
 
-    const [showHeatmap,     setShowHeatmap]     = useState(false);
-    const [showSankey,      setShowSankey]      = useState(false);
-    const [showTrajectory,  setShowTrajectory]  = useState(false);
+    const [showHeatmap,       setShowHeatmap]       = useState(false);
+    const [showSankey,        setShowSankey]        = useState(false);
+    const [showTrajectory,    setShowTrajectory]    = useState(false);
+    const [showRegretAnalysis, setShowRegretAnalysis] = useState(false);
 
     // Re-read CSS custom properties whenever palette or theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme, palette]);
@@ -638,6 +640,30 @@ export default function AnalyticsPage() {
                                 </>
                             )}
                         </>
+                    )}
+                </div>
+
+                {/* ── PURCHASE REGRET ANALYSIS (collapsible) ── */}
+                <div style={sectionCard}>
+                    <button type="button" onClick={() => setShowRegretAnalysis(v => !v)}
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                            😬 Purchase Regret Analysis
+                        </h2>
+                        {showRegretAnalysis ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
+                    </button>
+                    {!showRegretAnalysis && (
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
+                            Regret rate, by-category breakdown, amount brackets, and mindful score
+                        </p>
+                    )}
+                    {showRegretAnalysis && (
+                        <div style={{ marginTop: 16 }}>
+                            {dataLoading
+                                ? <div style={{ height: 120, background: 'var(--bg-alt)', borderRadius: 8 }} />
+                                : <RegretAnalysis transactions={allTransactions} />
+                            }
+                        </div>
                     )}
                 </div>
 

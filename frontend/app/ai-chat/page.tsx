@@ -4,15 +4,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { aiAPI } from '@/lib/api';
+import { aiAPI, transactionsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { AIResponseCard } from '@/components/ui/AIResponseCard';
+
+interface RegretWarning {
+    category: string;
+    rate: number;
+}
 
 interface Message {
     role: 'user' | 'assistant';
     content: string;
     timestamp: Date;
+    regretWarning?: RegretWarning;
 }
 
 const QUICK_PROMPTS = [
@@ -20,6 +26,11 @@ const QUICK_PROMPTS = [
     'Can I afford a trip?',
     'Budget advice',
     'Tax estimate',
+];
+
+const AFFORDABILITY_PATTERNS = [
+    'can i afford', 'should i buy', 'is it okay to spend', 'should i spend',
+    'can i spend', 'should i get', 'is it worth buying', 'worth spending',
 ];
 
 function fmtTime(d: Date): string {
@@ -32,6 +43,8 @@ export default function AiChatPage() {
     const isMobile = useIsMobile();
 
     const SESSION_KEY = 'fintrack-chat-history';
+
+    const regretRatesRef = useRef<Record<string, number> | null>(null);
 
     const [messages, setMessages] = useState<Message[]>(() => {
         // Restore from sessionStorage on mount (survives tab switches)
@@ -66,6 +79,40 @@ export default function AiChatPage() {
         inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
     }, [input]);
 
+    const getRegretRates = async (): Promise<Record<string, number>> => {
+        if (regretRatesRef.current) return regretRatesRef.current;
+        try {
+            const res = await transactionsAPI.getAll();
+            const expenses: any[] = (res.data.transactions ?? []).filter((tx: any) => tx.type === 'expense');
+            const catMap: Record<string, { total: number; regretted: number }> = {};
+            expenses.forEach((tx: any) => {
+                const cat = (tx.category_name || 'Uncategorized').toLowerCase();
+                if (!catMap[cat]) catMap[cat] = { total: 0, regretted: 0 };
+                catMap[cat].total++;
+                if (tx.is_regretted) catMap[cat].regretted++;
+            });
+            const rates: Record<string, number> = {};
+            Object.entries(catMap).forEach(([cat, { total, regretted }]) => {
+                rates[cat] = Math.round((regretted / total) * 100);
+            });
+            regretRatesRef.current = rates;
+            return rates;
+        } catch { return {}; }
+    };
+
+    const detectRegretWarning = async (text: string): Promise<RegretWarning | undefined> => {
+        const lower = text.toLowerCase();
+        const isAffordabilityQ = AFFORDABILITY_PATTERNS.some(p => lower.includes(p));
+        if (!isAffordabilityQ) return undefined;
+        const rates = await getRegretRates();
+        const categories = Object.keys(rates);
+        const matched = categories.find(cat => lower.includes(cat));
+        if (!matched) return undefined;
+        const rate = rates[matched];
+        if (rate < 40) return undefined;
+        return { category: matched.charAt(0).toUpperCase() + matched.slice(1), rate };
+    };
+
     const handleSend = async (text: string) => {
         const trimmed = text.trim();
         if (!trimmed || loading) return;
@@ -75,10 +122,13 @@ export default function AiChatPage() {
         setInput('');
         setLoading(true);
         try {
-            const res = await aiAPI.chat(trimmed, messages);
+            const [res, regretWarning] = await Promise.all([
+                aiAPI.chat(trimmed, messages),
+                detectRegretWarning(trimmed),
+            ]);
             const reply = res.data.reply;
             if (!reply) throw new Error('No reply');
-            setMessages([...newMessages, { role: 'assistant', content: reply, timestamp: new Date() }]);
+            setMessages([...newMessages, { role: 'assistant', content: reply, timestamp: new Date(), regretWarning }]);
         } catch (err: any) {
             const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
             setMessages([...newMessages, { role: 'assistant', content: serverMsg || "I'm having trouble connecting right now. Please try again.", timestamp: new Date() }]);
@@ -159,6 +209,14 @@ export default function AiChatPage() {
                                     <div style={{ maxWidth: isMobile ? '88%' : '72%' }}>
                                         <AIResponseCard message={msg.content} type="chat" onAction={route => router.push(route)} style={{ borderRadius: '15px 15px 15px 4px', border: '1px solid var(--border)', borderLeft: 'none' }} />
                                         <p style={{ fontSize: '10px', color: 'var(--text-faint)', margin: '3px 0 0 4px', fontFamily: 'var(--font-body)' }}>{fmtTime(msg.timestamp)}</p>
+                                        {msg.regretWarning && (
+                                            <div style={{ marginTop: '8px', padding: '10px 14px', background: 'color-mix(in srgb, var(--color-warn) 8%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-warn) 25%, transparent)', borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                                <span style={{ fontSize: '16px', flexShrink: 0 }}>📊</span>
+                                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                                    <strong style={{ color: 'var(--color-warn)' }}>FYI:</strong> Your regret rate on <strong>{msg.regretWarning.category}</strong> is {msg.regretWarning.rate}% — worth pausing before buying.
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             ) : (
