@@ -1,4 +1,5 @@
 const Groq = require('groq-sdk');
+const OpenAI = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // ── Groq clients ──
@@ -9,6 +10,9 @@ const groqClient2 = new Groq({ apiKey: process.env.GROQ_API_KEY_2 || process.env
 const geminiAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const geminiFlash = geminiAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
+// ── NIM client (NVIDIA NIM — OpenAI-compatible API) ──
+const nimClient = new OpenAI({ apiKey: process.env.NVIDIA_API_KEY || 'unset', baseURL: 'https://integrate.api.nvidia.com/v1' });
+
 // ── Model constants ──
 const MODELS = {
     LLAMA70B: 'llama-3.3-70b-versatile',
@@ -16,29 +20,34 @@ const MODELS = {
     LLAMA8B:  'llama-3.1-8b-instant',
     QWEN32B:  'qwen/qwen3-32b',
     DEEPSEEK: 'deepseek-r1-distill-llama-70b',
+    DEEPSEEK_V4_FLASH: 'deepseek-ai/deepseek-v4-flash',
+    MINIMAX_M27:       'minimaxai/minimax-m2.7',
+    NEMOTRON_49B:      'nvidia/llama-3.3-nemotron-super-49b-v1.5',
+    LLAMA_3B:          'meta/llama-3.2-3b-instruct',
+    LLAMA_VISION_11B:  'meta/llama-3.2-11b-vision-instruct',
 };
 
 // ── Route config ──
-// provider: 'groq1' | 'groq2' | 'gemini'
+// provider: 'groq1' | 'groq2' | 'gemini' | 'nim'
 const ROUTES = {
     'chat':               { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 1000, temp: 0.3 },
-    'forecast-insight':   { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 300,  temp: 0.3 },
-    'salary-allocation':  { provider: 'gemini',                        maxTokens: 1200, temp: 0.4 },
-    'personality':        { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 1000, temp: 0.5 },
-    'report':             { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 200,  temp: 0.4 },
+    'forecast-insight':   { provider: 'nim',   model: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
+    'salary-allocation':  { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
+    'personality':        { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 1024, temp: 0.7 },
+    'report':             { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 1024, temp: 0.6 },
     'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
-    'salary-intelligence':{ provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 800,  temp: 0.4 },
+    'salary-intelligence':{ provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
     'parse-sms':          { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'quick-add':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'recurring':          { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 700,  temp: 0.3 },
-    'tax-estimate':       { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 900,  temp: 0.3 },
+    'recurring':          { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.3 },
+    'tax-estimate':       { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.2 },
     // Additional routes
-    'afford':             { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 400,  temp: 0.3 },
+    'afford':             { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 512,  temp: 0.3 },
     'parse-split':        { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'regret-patterns':    { provider: 'groq2', model: MODELS.LLAMA8B,  maxTokens: 500,  temp: 0.4 },
-    'life-event':         { provider: 'groq1', model: MODELS.LLAMA4,   maxTokens: 600,  temp: 0.4 },
+    'regret-patterns':    { provider: 'nim',   model: MODELS.LLAMA_3B, maxTokens: 512,  temp: 0.4 },
+    'life-event':         { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'forecast-calendar':  { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
-    'health-report':      { provider: 'groq2', model: MODELS.LLAMA4,   maxTokens: 600,  temp: 0.4 },
+    'health-report':      { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
 };
 
 // ── Fallback chain per provider ──
@@ -46,6 +55,7 @@ const FALLBACK_CHAIN = {
     'groq1':  ['groq2',  'gemini'],
     'groq2':  ['groq1',  'gemini'],
     'gemini': ['groq1',  'groq2'],
+    'nim':    ['groq1',  'gemini'],
 };
 
 // ── Groq completion ──
@@ -96,6 +106,12 @@ const executeOnProvider = async (provider, model, messages, maxTokens, temp) => 
     if (provider === 'gemini') {
         return await geminiComplete(messages, maxTokens, temp);
     }
+    if (provider === 'nim') {
+        if (!process.env.NVIDIA_API_KEY) {
+            throw new Error('NVIDIA_API_KEY not configured');
+        }
+        return await groqComplete(nimClient, model, messages, maxTokens, temp);
+    }
     const client = provider === 'groq1' ? groqClient1 : groqClient2;
     return await groqComplete(client, model, messages, maxTokens, temp);
 };
@@ -127,8 +143,8 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
     for (const p of chain) {
         try {
             const fallbackModel =
-                p === 'groq1' ? (model || MODELS.LLAMA4) :
-                p === 'groq2' ? (model || MODELS.LLAMA4) :
+                p === 'nim' ? model :
+                (p === 'groq1' || p === 'groq2') ? (provider === 'nim' ? MODELS.LLAMA4 : (model || MODELS.LLAMA4)) :
                 null; // gemini doesn't need a model string
 
             const raw = await executeOnProvider(p, fallbackModel, messages, maxTokens, temp);
@@ -138,8 +154,8 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
             }
             return result;
         } catch (err) {
-            if (isRateLimit(err)) {
-                console.warn(`[AI] Rate limit on ${p} for '${routeKey}', trying next...`);
+            if (isRateLimit(err) || err?.message?.includes('NVIDIA_API_KEY')) {
+                console.warn(`[AI] ${p} unavailable for '${routeKey}' (${err.message}), trying next...`);
                 lastError = err;
                 continue;
             }
@@ -153,4 +169,4 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
     throw lastError;
 };
 
-module.exports = { aiComplete, MODELS, ROUTES };
+module.exports = { aiComplete, MODELS, ROUTES, nimClient };
