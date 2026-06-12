@@ -85,4 +85,22 @@ async function userHasTokens(userId) {
     } catch { return false; }
 }
 
-module.exports = { sendToUser, userHasTokens };
+/**
+ * Send a push notification at most once per (user, alertKey) pair.
+ * Relies on the UNIQUE(user_id, alert_key) constraint on notification_log —
+ * the INSERT only succeeds the first time, so concurrent callers can't
+ * both pass the check (no separate SELECT-then-INSERT race).
+ * Returns true if the notification was sent, false if already sent before.
+ */
+async function notifyOnce(userId, alertKey, { title, body, data = {} }) {
+    const { rowCount } = await pool.query(
+        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1, $2)
+         ON CONFLICT (user_id, alert_key) DO NOTHING`,
+        [userId, alertKey]
+    );
+    if (!rowCount) return false;
+    await sendToUser(userId, { title, body, data });
+    return true;
+}
+
+module.exports = { sendToUser, userHasTokens, notifyOnce };

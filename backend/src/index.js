@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
@@ -18,7 +19,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = require('./db/pool');
-const { sendToUser } = require('./utils/fcm');
+const { notifyOnce } = require('./utils/fcm');
+const { ROUTES } = require('./utils/ai');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -45,15 +47,12 @@ console.log('GROQ_API_KEY_2: ', process.env.GROQ_API_KEY_2 ? '✅' : '⚠️  us
 console.log('GEMINI_API_KEY: ', process.env.GEMINI_API_KEY  ? '✅' : '❌ MISSING');
 console.log('=========================');
 console.log('Route distribution:');
-console.log('  chat               → Groq Key1 llama-3.3-70b  (100K TPD)');
-console.log('  salary-allocation  → Gemini Flash             (no token cap)');
-console.log('  personality        → Groq Key1 llama-4-scout  (500K TPD)');
-console.log('  report             → Groq Key2 llama-4-scout  (500K TPD)');
-console.log('  forecast           → Groq Key1 qwen3-32b      (500K TPD)');
-console.log('  salary-intelligence→ Groq Key2 qwen3-32b      (500K TPD)');
-console.log('  parse-sms          → Groq Key1 llama-3.1-8b   (500K TPD)');
-console.log('  quick-add          → Groq Key2 llama-3.1-8b   (500K TPD)');
-console.log('  recurring          → Groq Key1 llama-4-scout  (500K TPD)');
+const PROVIDER_LABELS = { groq1: 'Groq Key1', groq2: 'Groq Key2', gemini: 'Gemini Flash' };
+for (const [routeKey, cfg] of Object.entries(ROUTES)) {
+    const provider = PROVIDER_LABELS[cfg.provider] || cfg.provider;
+    const model = cfg.model || '';
+    console.log(`  ${routeKey.padEnd(20)}→ ${provider}${model ? ' ' + model : ''}`);
+}
 console.log('=========================');
 
 app.use(helmet({
@@ -62,7 +61,7 @@ app.use(helmet({
 }));
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-const allowedOrigins = [
+const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5000',
     'https://fintrack-omega-neon.vercel.app',
@@ -71,6 +70,10 @@ const allowedOrigins = [
     'ionic://localhost',
     'https://localhost',
 ];
+
+const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : DEFAULT_ALLOWED_ORIGINS;
 
 app.use(cors({
     origin: function (origin, callback) {
@@ -131,7 +134,6 @@ const aiLimiter = rateLimit({
         const auth = req.headers['authorization'];
         if (auth && auth.startsWith('Bearer ')) {
             try {
-                const jwt = require('jsonwebtoken');
                 const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
                 return `ai:user:${decoded.id}`;
             } catch { /* fall through to IP */ }
@@ -276,27 +278,15 @@ cron.schedule('0 8 * * *', async () => {
                 );
 
                 for (const bill of bills) {
-                    const alertKey = `bill_due:${bill.id}:${bill.next_due_date}`;
                     try {
-                        await pool.query(
-                            `INSERT INTO notification_log (user_id, alert_key) VALUES ($1, $2)
-                             ON CONFLICT (user_id, alert_key) DO NOTHING`,
-                            [user_id, alertKey]
-                        );
-                        // If already logged (conflict), rowCount is 0 — skip send
-                        const { rowCount } = await pool.query(
-                            `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                            [user_id, alertKey]
-                        );
-                        if (rowCount) {
-                            const dueDate = new Date(bill.next_due_date);
-                            const dayLabel = dueDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
-                            await sendToUser(user_id, {
-                                title: 'Bill Due Soon',
-                                body: `${bill.description} is due on ${dayLabel}`,
-                                data: { type: 'bill_reminder', id: String(bill.id) },
-                            });
-                        }
+                        const alertKey = `bill_due:${bill.id}:${bill.next_due_date}`;
+                        const dueDate = new Date(bill.next_due_date);
+                        const dayLabel = dueDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+                        await notifyOnce(user_id, alertKey, {
+                            title: 'Bill Due Soon',
+                            body: `${bill.description} is due on ${dayLabel}`,
+                            data: { type: 'bill_reminder', id: String(bill.id) },
+                        });
                     } catch { /* per-bill errors are silent */ }
                 }
             } catch (err) {
@@ -322,12 +312,6 @@ cron.schedule('0 9 * * 0', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `weekly_summary:${today}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
-
                 const { rows } = await pool.query(
                     `SELECT COALESCE(SUM(amount),0) AS total
                      FROM transactions
@@ -336,12 +320,7 @@ cron.schedule('0 9 * * 0', async () => {
                 );
                 const total = parseFloat(rows[0]?.total || 0);
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: 'Weekly Spending Summary',
                     body: `You spent ₹${total.toLocaleString('en-IN', { maximumFractionDigits: 0 })} this week.`,
                     data: { type: 'weekly_summary' },
@@ -367,11 +346,6 @@ cron.schedule('0 20 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `daily_reminder:${today}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 // Only send if no transactions logged today
                 const { rows } = await pool.query(
@@ -380,11 +354,7 @@ cron.schedule('0 20 * * *', async () => {
                 );
                 if (rows.length) continue;
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: "Log Today's Expenses",
                     body: "Don't forget to record your transactions for today!",
                     data: { type: 'daily_reminder' },
@@ -410,11 +380,6 @@ cron.schedule('0 12 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `inactivity:${today}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 const { rows } = await pool.query(
                     `SELECT MAX(date) AS last_date FROM transactions WHERE user_id=$1`,
@@ -428,11 +393,7 @@ cron.schedule('0 12 * * *', async () => {
                 );
                 if (daysSince < 2) continue;
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: 'Missing Transactions?',
                     body: `You haven't logged any transactions in ${daysSince} days. Stay on top of your finances!`,
                     data: { type: 'inactivity_reminder' },
@@ -475,12 +436,7 @@ cron.schedule('30 8 * * *', async () => {
                 for (const b of budgets) {
                     const remaining = parseFloat(b.amount) - parseFloat(b.spent);
                     const alertKey = `month_end_budget:${b.id}:${thisMonth}`;
-                    const { rowCount } = await pool.query(
-                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                        [user_id, alertKey]
-                    );
-                    if (!rowCount) continue;
-                    await sendToUser(user_id, {
+                    await notifyOnce(user_id, alertKey, {
                         title: 'Month-End Budget Update 🗓️',
                         body: `You've got ₹${remaining.toLocaleString('en-IN', { maximumFractionDigits: 0 })} left in your ${b.name} budget with ${daysLeft} day${daysLeft !== 1 ? 's' : ''} to go. Spend wisely! 😊`,
                         data: { type: 'month_end_budget' },
@@ -513,11 +469,6 @@ cron.schedule('0 10 15 * *', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `midmonth:${today.slice(0, 7)}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 const [{ rows: [thisRow] }, { rows: [lastRow] }, { rows: [incomeRow] }] = await Promise.all([
                     pool.query(
@@ -541,15 +492,10 @@ cron.schedule('0 10 15 * *', async () => {
                 const lastSpend = parseFloat(lastRow.total);
                 const income = parseFloat(incomeRow.total);
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-
                 const diff = lastSpend > 0 ? Math.round(((thisSpend - lastSpend) / lastSpend) * 100) : 0;
                 const direction = diff >= 0 ? `${diff}% more` : `${Math.abs(diff)}% less`;
                 const tone = diff > 20 ? '🤔' : diff < -10 ? '🎉' : '😊';
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: `${monthLabel} Mid-Month Check-in 📊`,
                     body: `You've spent ₹${thisSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })} so far — that's ${direction} than last month at this point. Income logged: ₹${income.toLocaleString('en-IN', { maximumFractionDigits: 0 })}. ${tone}`,
                     data: { type: 'midmonth_summary' },
@@ -581,13 +527,7 @@ cron.schedule('0 9 * * *', async () => {
                 const daysLeft = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
                 const remaining = parseFloat(g.target_amount) - parseFloat(g.saved_amount);
                 const alertKey = `goal_deadline:${g.id}:${g.deadline}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [g.user_id, alertKey]
-                );
-                if (!rowCount) continue;
-
-                await sendToUser(g.user_id, {
+                await notifyOnce(g.user_id, alertKey, {
                     title: 'Goal Deadline Coming Up! ⏰',
                     body: `Your "${g.name}" deadline is in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}! You're just ₹${remaining.toLocaleString('en-IN', { maximumFractionDigits: 0 })} away — you've absolutely got this! 💪`,
                     data: { type: 'goal_deadline', goal_id: String(g.id) },
@@ -615,13 +555,7 @@ cron.schedule('0 10 * * *', async () => {
         for (const g of goals) {
             try {
                 const alertKey = `goal_inactive:${g.id}:${new Date().toISOString().slice(0, 7)}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [g.user_id, alertKey]
-                );
-                if (!rowCount) continue;
-
-                await sendToUser(g.user_id, {
+                await notifyOnce(g.user_id, alertKey, {
                     title: "Your Goal Misses You! 🌱",
                     body: `Your "${g.name}" goal hasn't had any love in a while. Even a small top-up keeps the momentum going — every rupee counts! 😊`,
                     data: { type: 'goal_inactive', goal_id: String(g.id) },
@@ -649,11 +583,6 @@ cron.schedule('30 9 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `salary_missing:${today.slice(0, 7)}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 // Check if any large income (>₹5000) logged this month
                 const { rows } = await pool.query(
@@ -663,11 +592,7 @@ cron.schedule('30 9 * * *', async () => {
                 );
                 if (rows.length) continue;
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: "Salary Landed Yet? 👀",
                     body: "We haven't seen any income logged this month. Just checking — all good? Don't forget to log it when it arrives! 😊",
                     data: { type: 'salary_reminder' },
@@ -692,11 +617,6 @@ cron.schedule('0 9 * * 1', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `bills_week:${today}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 const { rows } = await pool.query(
                     `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
@@ -708,11 +628,7 @@ cron.schedule('0 9 * * 1', async () => {
                 const cnt = parseInt(rows[0]?.cnt || 0);
                 if (cnt === 0) continue;
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: 'Bills Due This Week 📅',
                     body: `You've got ${cnt} bill${cnt !== 1 ? 's' : ''} totalling ₹${total.toLocaleString('en-IN', { maximumFractionDigits: 0 })} due this week. Stay ready! 💪`,
                     data: { type: 'weekly_bills' },
@@ -739,11 +655,6 @@ cron.schedule('0 20 * * 0', async () => {
         for (const { user_id } of users) {
             try {
                 const alertKey = `weekend_spike:${sunday}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 const [{ rows: [wknd] }, { rows: [wkday] }] = await Promise.all([
                     pool.query(
@@ -764,11 +675,7 @@ cron.schedule('0 20 * * 0', async () => {
                 const pct = Math.round((weekendTotal / (weekdayAvg * 2)) * 100);
                 if (pct < 150) continue; // only notify if weekend spend is 50%+ higher than expected
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: 'Big Weekend? 🛍️',
                     body: `You spent ₹${weekendTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })} this weekend — ${pct}% of your typical 2-day spend. No judgment, just keeping you in the loop! 😄`,
                     data: { type: 'weekend_spike' },
@@ -792,11 +699,6 @@ cron.schedule('0 7 * * 0', async () => {
             try {
                 const today = new Date().toISOString().split('T')[0];
                 const alertKey = `day_pattern:${today.slice(0, 7)}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [user_id, alertKey]
-                );
-                if (alreadySent) continue;
 
                 const { rows } = await pool.query(
                     `SELECT EXTRACT(DOW FROM date) AS dow,
@@ -820,11 +722,7 @@ cron.schedule('0 7 * * 0', async () => {
                 if (topAvg < overallAvg * 1.4) continue; // not a significant pattern
 
                 const days = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [user_id, alertKey]
-                );
-                await sendToUser(user_id, {
+                await notifyOnce(user_id, alertKey, {
                     title: 'Spending Pattern Spotted 📈',
                     body: `Fun fact: you tend to spend the most on ${days[topDow]}! Something to keep in mind this week — a little awareness goes a long way 😊`,
                     data: { type: 'day_pattern', dow: String(topDow) },

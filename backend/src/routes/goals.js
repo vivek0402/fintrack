@@ -1,7 +1,8 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
-const { sendToUser } = require('../utils/fcm');
+const { notifyOnce } = require('../utils/fcm');
+const { isPositiveNumber } = require('../utils/validation');
 const router = express.Router();
 
 router.use(auth);
@@ -14,6 +15,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ goals: result.rows });
     } catch (err) {
+        console.error('[Goals]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -22,6 +24,8 @@ router.post('/', async (req, res) => {
     try {
         const { name, target_amount, deadline, color, icon } = req.body;
         if (!name || !target_amount) return res.status(400).json({ error: 'Name and target amount required.' });
+        if (!isPositiveNumber(target_amount))
+            return res.status(400).json({ error: 'Target amount must be a positive number.' });
 
         const result = await pool.query(
             `INSERT INTO savings_goals (user_id, name, target_amount, deadline, color, icon)
@@ -30,6 +34,7 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json({ goal: result.rows[0] });
     } catch (err) {
+        console.error('[Goals]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -61,14 +66,7 @@ router.patch('/:id/funds', async (req, res) => {
 
                 const milestone = pct >= 100 ? 100 : 50;
                 const alertKey = `goal_milestone:${goal.id}:${milestone}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2)
-                     ON CONFLICT (user_id, alert_key) DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                if (!rowCount) return;
-
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: milestone === 100 ? 'Goal Reached! 🎯' : 'Halfway There! 🏃',
                     body: milestone === 100
                         ? `You've fully funded "${goal.name}"! That's incredible — you actually did it! 🎉`
@@ -91,16 +89,10 @@ router.patch('/:id/funds', async (req, res) => {
                 if (!crossed) return;
 
                 const alertKey = `savings_total:${crossed}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                if (!rowCount) return;
-
                 const label = crossed >= 100000
                     ? `₹${(crossed / 100000).toLocaleString('en-IN')}L`
                     : `₹${crossed.toLocaleString('en-IN')}`;
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: 'Savings Milestone! 🎉',
                     body: `Your total savings just crossed ${label}! That's a massive achievement — you should be so proud of yourself! 🌟`,
                     data: { type: 'savings_milestone', milestone: String(crossed) },
@@ -108,6 +100,7 @@ router.patch('/:id/funds', async (req, res) => {
             } catch { }
         });
     } catch (err) {
+        console.error('[Goals]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -121,6 +114,7 @@ router.delete('/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Not found.' });
         res.json({ message: 'Deleted.' });
     } catch (err) {
+        console.error('[Goals]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -130,6 +124,8 @@ router.put('/:id', async (req, res) => {
         const { name, target_amount, deadline, color } = req.body;
         if (!name || !target_amount)
             return res.status(400).json({ error: 'Name and target amount are required.' });
+        if (!isPositiveNumber(target_amount))
+            return res.status(400).json({ error: 'Target amount must be a positive number.' });
 
         const result = await pool.query(
             `UPDATE savings_goals
@@ -141,6 +137,7 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Not found.' });
         res.json({ goal: result.rows[0] });
     } catch (err) {
+        console.error('[Goals]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

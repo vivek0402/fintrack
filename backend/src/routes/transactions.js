@@ -1,7 +1,8 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
-const { sendToUser } = require('../utils/fcm');
+const { notifyOnce } = require('../utils/fcm');
+const { isPositiveNumber, isValidDateString, isValidTransactionType } = require('../utils/validation');
 const router = express.Router();
 
 router.use(auth);
@@ -14,14 +15,20 @@ router.get('/earliest', async (req, res) => {
         );
         res.json({ date: result.rows[0]?.date || new Date().toISOString() });
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
 
 router.get('/search', async (req, res) => {
     try {
-        const { q } = req.query;
+        const { q, limit } = req.query;
         if (!q || q.trim().length < 2) return res.json({ transactions: [] });
+
+        const parsedLimit = parseInt(limit, 10);
+        const effectiveLimit = Number.isFinite(parsedLimit) && parsedLimit > 0
+            ? Math.min(parsedLimit, 100)
+            : 20;
 
         const result = await pool.query(
             `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color
@@ -29,18 +36,19 @@ router.get('/search', async (req, res) => {
        LEFT JOIN categories c ON t.category_id = c.id
        WHERE t.user_id = $1
          AND (LOWER(t.description) LIKE LOWER($2) OR LOWER(c.name) LIKE LOWER($2) OR LOWER(t.notes) LIKE LOWER($2))
-       ORDER BY t.date DESC LIMIT 20`,
-            [req.user.id, `%${q.trim()}%`]
+       ORDER BY t.date DESC LIMIT $3`,
+            [req.user.id, `%${q.trim()}%`, effectiveLimit]
         );
         res.json({ transactions: result.rows });
     } catch (err) {
+        console.error('[Transactions] search failed:', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
 
 router.get('/', async (req, res) => {
     try {
-        const { type, month, year, category_id } = req.query;
+        const { type, month, year, category_id, limit, offset } = req.query;
         let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
                          g.name AS group_name
                   FROM transactions t
@@ -56,9 +64,21 @@ router.get('/', async (req, res) => {
         if (category_id) { n++; query += ` AND t.category_id = $${n}`; params.push(category_id); }
 
         query += ' ORDER BY t.date DESC, t.created_at DESC';
+
+        const parsedLimit = parseInt(limit, 10);
+        if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
+            n++; query += ` LIMIT $${n}`; params.push(Math.min(parsedLimit, 500));
+
+            const parsedOffset = parseInt(offset, 10);
+            if (Number.isFinite(parsedOffset) && parsedOffset > 0) {
+                n++; query += ` OFFSET $${n}`; params.push(parsedOffset);
+            }
+        }
+
         const result = await pool.query(query, params);
         res.json({ transactions: result.rows });
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -68,6 +88,12 @@ router.post('/', async (req, res) => {
         const { type, amount, description, notes, tags, date, category_id, account_id, payment_method } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
+        if (!isValidTransactionType(type))
+            return res.status(400).json({ error: "Type must be 'income' or 'expense'." });
+        if (!isPositiveNumber(amount))
+            return res.status(400).json({ error: 'Amount must be a positive number.' });
+        if (!isValidDateString(date))
+            return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
 
         const result = await pool.query(
             `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method)
@@ -98,11 +124,6 @@ router.post('/', async (req, res) => {
             try {
                 const today = tx.date;
                 const alertKey = `high_tx_count:${req.user.id}:${today}`;
-                const { rowCount: alreadySent } = await pool.query(
-                    `SELECT 1 FROM notification_log WHERE user_id=$1 AND alert_key=$2`,
-                    [req.user.id, alertKey]
-                );
-                if (alreadySent) return;
 
                 const { rows } = await pool.query(
                     `SELECT COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND date=$2`,
@@ -111,11 +132,7 @@ router.post('/', async (req, res) => {
                 const count = parseInt(rows[0]?.cnt || 0);
                 if (count < 10) return;
 
-                await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: 'High Spending Activity',
                     body: `You've logged ${count} transactions today. Everything going as planned?`,
                     data: { type: 'high_tx_count' },
@@ -145,18 +162,12 @@ router.post('/', async (req, res) => {
                 for (const b of budgets) {
                     const pct = Math.round((b.spent / b.amount) * 100);
                     const alertKey = `budget_breach:${b.id}:${month}:${pct >= 100 ? '100' : '80'}`;
-                    const { rowCount } = await pool.query(
-                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2)
-                         ON CONFLICT (user_id, alert_key) DO NOTHING`,
-                        [req.user.id, alertKey]
-                    );
-                    if (!rowCount) continue;
 
                     const { rows: cats } = await pool.query(
                         'SELECT name FROM categories WHERE id=$1', [b.category_id]
                     );
                     const catName = cats[0]?.name || 'A category';
-                    await sendToUser(req.user.id, {
+                    await notifyOnce(req.user.id, alertKey, {
                         title: pct >= 100 ? 'Budget Exceeded' : 'Budget Alert',
                         body: `${catName}: ${pct}% of your budget used this month.`,
                         data: { type: 'budget_alert', category_id: String(b.category_id) },
@@ -171,12 +182,7 @@ router.post('/', async (req, res) => {
                 const txAmount = parseFloat(tx.amount);
                 if (txAmount < 5000 || tx.type !== 'expense') return;
                 const alertKey = `large_tx:${tx.id}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                if (!rowCount) return;
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: 'Big Spend Alert 💸',
                     body: `You just logged ₹${txAmount.toLocaleString('en-IN')} for "${tx.description}". Hope it was totally worth it! 😊`,
                     data: { type: 'large_transaction', tx_id: String(tx.id) },
@@ -212,14 +218,9 @@ router.post('/', async (req, res) => {
 
                 const pct = Math.round(((thisTotal - lastTotal) / lastTotal) * 100);
                 const alertKey = `cat_spike:${tx.category_id}:${tx.date.slice(0, 7)}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                if (!rowCount) return;
 
                 const { rows: cats } = await pool.query('SELECT name FROM categories WHERE id=$1', [tx.category_id]);
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: 'Spending Spike Spotted 📊',
                     body: `Your ${cats[0]?.name || 'category'} spending is ${pct}% higher than last month at this point. Just keeping you in the loop! 😊`,
                     data: { type: 'category_spike', category_id: String(tx.category_id) },
@@ -246,13 +247,7 @@ router.post('/', async (req, res) => {
                 if (![3, 7, 14, 30].includes(streak)) return;
 
                 const alertKey = `streak:${streak}:${tx.date.slice(0, 7)}`;
-                const { rowCount } = await pool.query(
-                    `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                    [req.user.id, alertKey]
-                );
-                if (!rowCount) return;
-
-                await sendToUser(req.user.id, {
+                await notifyOnce(req.user.id, alertKey, {
                     title: `${streak}-Day Tracking Streak! 🔥`,
                     body: streak === 30
                         ? `30 days straight of logging your finances — you're an absolute rockstar! 🌟`
@@ -262,6 +257,7 @@ router.post('/', async (req, res) => {
             } catch { }
         });
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -269,6 +265,13 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
     try {
         const { type, amount, description, notes, tags, date, category_id, payment_method } = req.body;
+        if (type !== undefined && !isValidTransactionType(type))
+            return res.status(400).json({ error: "Type must be 'income' or 'expense'." });
+        if (amount !== undefined && !isPositiveNumber(amount))
+            return res.status(400).json({ error: 'Amount must be a positive number.' });
+        if (date !== undefined && !isValidDateString(date))
+            return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
+
         const existing = await pool.query(
             'SELECT id FROM transactions WHERE id = $1 AND user_id = $2',
             [req.params.id, req.user.id]
@@ -290,6 +293,7 @@ router.put('/:id', async (req, res) => {
         );
         res.json({ transaction: result.rows[0] });
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -323,13 +327,7 @@ router.patch('/:id/regret', async (req, res) => {
                     if (count < 5) return;
 
                     const alertKey = `regret_rising:${new Date().toISOString().slice(0, 7)}`;
-                    const { rowCount } = await pool.query(
-                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                        [req.user.id, alertKey]
-                    );
-                    if (!rowCount) return;
-
-                    await sendToUser(req.user.id, {
+                    await notifyOnce(req.user.id, alertKey, {
                         title: "Feeling Some Regret? 😅",
                         body: `You've marked ${count} transactions as regrets this week. It might be worth reviewing your habits — we're rooting for you! 💙`,
                         data: { type: 'regret_rising', count: String(count) },
@@ -338,6 +336,7 @@ router.patch('/:id/regret', async (req, res) => {
             });
         }
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -352,6 +351,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Transaction not found.' });
         res.json({ message: 'Deleted.' });
     } catch (err) {
+        console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

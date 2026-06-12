@@ -1,7 +1,8 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
-const { sendToUser } = require('../utils/fcm');
+const { notifyOnce } = require('../utils/fcm');
+const { isPositiveNumber, isValidTransactionType, isValidRecurringFrequency } = require('../utils/validation');
 const router = express.Router();
 
 router.use(auth);
@@ -16,6 +17,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ recurring: result.rows });
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -25,6 +27,12 @@ router.post('/', async (req, res) => {
         const { type, amount, description, notes, category_id, frequency, day_of_month } = req.body;
         if (!type || !amount || !description || !frequency)
             return res.status(400).json({ error: 'Type, amount, description and frequency are required.' });
+        if (!isValidTransactionType(type))
+            return res.status(400).json({ error: "Type must be 'income' or 'expense'." });
+        if (!isPositiveNumber(amount))
+            return res.status(400).json({ error: 'Amount must be a positive number.' });
+        if (!isValidRecurringFrequency(frequency))
+            return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
 
         const today = new Date();
         let nextDue = new Date();
@@ -46,6 +54,7 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json({ recurring: result.rows[0] });
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -60,6 +69,7 @@ router.patch('/:id/toggle', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Not found.' });
         res.json({ recurring: result.rows[0] });
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -73,6 +83,7 @@ router.delete('/:id', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'Not found.' });
         res.json({ message: 'Deleted.' });
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -82,6 +93,12 @@ router.put('/:id', async (req, res) => {
         const { type, amount, description, frequency, day_of_month, category_id } = req.body;
         if (!type || !amount || !description || !frequency)
             return res.status(400).json({ error: 'Type, amount, description and frequency are required.' });
+        if (!isValidTransactionType(type))
+            return res.status(400).json({ error: "Type must be 'income' or 'expense'." });
+        if (!isPositiveNumber(amount))
+            return res.status(400).json({ error: 'Amount must be a positive number.' });
+        if (!isValidRecurringFrequency(frequency))
+            return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
 
         const { rows: oldRows } = await pool.query(
             'SELECT amount FROM recurring_transactions WHERE id=$1 AND user_id=$2',
@@ -107,13 +124,8 @@ router.put('/:id', async (req, res) => {
             setImmediate(async () => {
                 try {
                     const alertKey = `bill_changed:${updated.id}:${new Date().toISOString().slice(0, 7)}`;
-                    const { rowCount } = await pool.query(
-                        `INSERT INTO notification_log (user_id, alert_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-                        [req.user.id, alertKey]
-                    );
-                    if (!rowCount) return;
                     const diff = newAmount - oldAmount;
-                    await sendToUser(req.user.id, {
+                    await notifyOnce(req.user.id, alertKey, {
                         title: 'Recurring Bill Updated 📝',
                         body: `Your "${description}" bill ${diff > 0 ? 'went up' : 'went down'} from ₹${oldAmount.toLocaleString('en-IN')} to ₹${newAmount.toLocaleString('en-IN')}. Good to keep track of these! 😊`,
                         data: { type: 'bill_changed', id: String(updated.id) },
@@ -122,6 +134,7 @@ router.put('/:id', async (req, res) => {
             });
         }
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -161,6 +174,7 @@ router.post('/process', async (req, res) => {
         }
         res.json({ processed: created.length, created });
     } catch (err) {
+        console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
