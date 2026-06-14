@@ -31,6 +31,8 @@ const MODELS = {
 // provider: 'groq1' | 'groq2' | 'gemini' | 'nim'
 const ROUTES = {
     'chat':               { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 1000, temp: 0.3 },
+    'pdf-import':         { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 4000, temp: 0 },
+    'cams-import':        { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 6000, temp: 0 },
     'forecast-insight':   { provider: 'nim',   model: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
     'salary-allocation':  { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
     'personality':        { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 1024, temp: 0.7 },

@@ -205,4 +205,277 @@ router.get('/payment-methods', async (req, res) => {
     }
 });
 
+router.get('/networth', async (req, res) => {
+    try {
+        const [bankRes, investRes, creditRes] = await Promise.all([
+            pool.query(
+                `SELECT COALESCE(SUM(
+                    COALESCE(a.starting_balance, 0)
+                    + COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'income' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+                    - COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'expense' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+                 ), 0) AS total
+                 FROM bank_accounts a WHERE a.user_id = $1`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM credit_cards WHERE user_id = $1`,
+                [req.user.id]
+            ),
+        ]);
+
+        const total_bank_balance = parseFloat(bankRes.rows[0].total);
+        const total_investments = parseFloat(investRes.rows[0].total);
+        const total_credit_outstanding = parseFloat(creditRes.rows[0].total);
+        const total_loans_outstanding = 0;
+
+        const total_assets = total_bank_balance + total_investments;
+        const total_liabilities = total_credit_outstanding + total_loans_outstanding;
+        const net_worth = total_assets - total_liabilities;
+
+        await pool.query(
+            `INSERT INTO net_worth_snapshots
+               (user_id, snapshot_date, total_bank_balance, total_investments, total_assets,
+                total_credit_outstanding, total_loans_outstanding, total_liabilities, net_worth)
+             VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6, $7, $8)
+             ON CONFLICT (user_id, snapshot_date)
+             DO UPDATE SET
+               total_bank_balance = EXCLUDED.total_bank_balance,
+               total_investments = EXCLUDED.total_investments,
+               total_assets = EXCLUDED.total_assets,
+               total_credit_outstanding = EXCLUDED.total_credit_outstanding,
+               total_liabilities = EXCLUDED.total_liabilities,
+               net_worth = EXCLUDED.net_worth`,
+            [req.user.id, total_bank_balance, total_investments, total_assets, total_credit_outstanding, total_loans_outstanding, total_liabilities, net_worth]
+        );
+
+        const historyRes = await pool.query(
+            `SELECT snapshot_date, net_worth, total_assets, total_liabilities
+             FROM net_worth_snapshots
+             WHERE user_id = $1
+             ORDER BY snapshot_date ASC
+             LIMIT 12`,
+            [req.user.id]
+        );
+
+        res.json({
+            current: {
+                total_bank_balance,
+                total_investments,
+                total_assets,
+                total_credit_outstanding,
+                total_loans_outstanding,
+                total_liabilities,
+                net_worth,
+            },
+            history: historyRes.rows,
+        });
+    } catch (err) {
+        console.error('[Analytics]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.get('/investment-ratio', async (req, res) => {
+    try {
+        const [incomeRes, investedRes] = await Promise.all([
+            pool.query(
+                `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
+                 WHERE user_id = $1 AND type = 'income'
+                 AND date >= date_trunc('month', CURRENT_DATE)`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT COALESCE(SUM(it.units * it.price_per_unit), 0) AS total
+                 FROM investment_transactions it
+                 WHERE it.user_id = $1 AND it.transaction_type = 'buy'
+                 AND it.transaction_date >= date_trunc('month', CURRENT_DATE)`,
+                [req.user.id]
+            ),
+        ]);
+
+        const income_this_month = parseFloat(incomeRes.rows[0].total);
+        const invested_this_month = parseFloat(investedRes.rows[0].total);
+        const ratio_pct = income_this_month > 0
+            ? parseFloat(((invested_this_month / income_this_month) * 100).toFixed(1))
+            : 0;
+
+        res.json({ invested_this_month, income_this_month, ratio_pct });
+    } catch (err) {
+        console.error('[Analytics]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.get('/wealth-velocity', async (req, res) => {
+    try {
+        const snapsRes = await pool.query(
+            `SELECT snapshot_date, net_worth
+             FROM net_worth_snapshots
+             WHERE user_id = $1
+             ORDER BY snapshot_date ASC
+             LIMIT 8`,
+            [req.user.id]
+        );
+
+        const snapshots = snapsRes.rows.map(r => ({
+            snapshot_date: r.snapshot_date,
+            net_worth: parseFloat(r.net_worth),
+        }));
+
+        if (snapshots.length < 2) {
+            return res.json({
+                snapshots,
+                mom_changes: [],
+                avg_monthly_growth: 0,
+                avg_monthly_growth_pct: 0,
+                trend: 'insufficient_data',
+                message: 'Track your finances for at least 2 months to see wealth velocity',
+            });
+        }
+
+        const mom_changes = [];
+        for (let i = 1; i < snapshots.length; i++) {
+            const prev = snapshots[i - 1];
+            const curr = snapshots[i];
+            const absolute_change = curr.net_worth - prev.net_worth;
+            const pct_change = prev.net_worth !== 0
+                ? (absolute_change / Math.abs(prev.net_worth)) * 100
+                : 0;
+            mom_changes.push({
+                from_date: prev.snapshot_date,
+                to_date: curr.snapshot_date,
+                absolute_change,
+                pct_change: parseFloat(pct_change.toFixed(2)),
+            });
+        }
+
+        const avg_monthly_growth = mom_changes.reduce((sum, c) => sum + c.absolute_change, 0) / mom_changes.length;
+        const avg_monthly_growth_pct = parseFloat(
+            (mom_changes.reduce((sum, c) => sum + c.pct_change, 0) / mom_changes.length).toFixed(2)
+        );
+
+        let trend = 'insufficient_data';
+        if (snapshots.length >= 6) {
+            const last3 = mom_changes.slice(-3);
+            const prev3 = mom_changes.slice(-6, -3);
+            const recentAvg = last3.reduce((s, c) => s + c.absolute_change, 0) / last3.length;
+            const previousAvg = prev3.reduce((s, c) => s + c.absolute_change, 0) / prev3.length;
+
+            if (previousAvg !== 0 && recentAvg > previousAvg * 1.05) trend = 'accelerating';
+            else if (previousAvg !== 0 && recentAvg < previousAvg * 0.95) trend = 'decelerating';
+            else trend = 'steady';
+        }
+
+        res.json({
+            snapshots,
+            mom_changes,
+            avg_monthly_growth,
+            avg_monthly_growth_pct,
+            trend,
+        });
+    } catch (err) {
+        console.error('[Analytics]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.get('/asset-allocation', async (req, res) => {
+    try {
+        const [bankRes, invRes] = await Promise.all([
+            pool.query(
+                `SELECT COALESCE(SUM(
+                    COALESCE(a.starting_balance, 0)
+                    + COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'income' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+                    - COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'expense' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+                 ), 0) AS total
+                 FROM bank_accounts a WHERE a.user_id = $1`,
+                [req.user.id]
+            ),
+            pool.query(
+                `SELECT type, COALESCE(SUM(units * current_nav_or_price), 0) AS total
+                 FROM investments WHERE user_id = $1
+                 GROUP BY type`,
+                [req.user.id]
+            ),
+        ]);
+
+        const invTotals = {};
+        for (const row of invRes.rows) {
+            invTotals[row.type] = parseFloat(row.total);
+        }
+
+        const categories = {
+            bank: parseFloat(bankRes.rows[0].total),
+            mutual_fund: invTotals.mutual_fund || 0,
+            stock: invTotals.stock || 0,
+            fd: invTotals.fd || 0,
+            ppf: invTotals.ppf || 0,
+            nps: invTotals.nps || 0,
+            gold: invTotals.gold || 0,
+            crypto: invTotals.crypto || 0,
+            other: invTotals.other || 0,
+        };
+
+        const total_assets = Object.values(categories).reduce((sum, v) => sum + v, 0);
+
+        const recommended_pct = {
+            bank: 10,
+            mutual_fund: 30,
+            stock: 30,
+            fd: 8.33,
+            ppf: 8.33,
+            nps: 8.34,
+            gold: 5,
+            crypto: 0,
+            other: 0,
+        };
+
+        const labels = {
+            bank: 'Bank Balance',
+            mutual_fund: 'Mutual Funds',
+            stock: 'Stocks',
+            fd: 'Fixed Deposits',
+            ppf: 'PPF',
+            nps: 'NPS',
+            gold: 'Gold',
+            crypto: 'Crypto',
+            other: 'Other',
+        };
+
+        const allocations = Object.keys(categories).map(category => {
+            const amount = categories[category];
+            const actual_pct = total_assets > 0
+                ? parseFloat(((amount / total_assets) * 100).toFixed(1))
+                : 0;
+            const rec_pct = recommended_pct[category];
+            return {
+                category,
+                label: labels[category],
+                amount,
+                actual_pct,
+                recommended_pct: rec_pct,
+                deviation: parseFloat((actual_pct - rec_pct).toFixed(1)),
+            };
+        });
+
+        const deviation_score = total_assets > 0
+            ? parseFloat((allocations.reduce((sum, a) => sum + Math.abs(a.deviation), 0) / allocations.length).toFixed(1))
+            : 0;
+
+        res.json({
+            allocations,
+            total_assets,
+            deviation_score,
+            recommendation_note: 'Based on a 60/25/5/10 equity-debt-gold-cash model',
+        });
+    } catch (err) {
+        console.error('[Analytics]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 module.exports = router;

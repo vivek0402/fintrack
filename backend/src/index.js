@@ -182,6 +182,10 @@ app.use('/api/one-time-expenses', require('./routes/oneTimeExpenses'));
 app.use('/api/credit-cards',      require('./routes/creditCards'));
 app.use('/api/wallets',           require('./routes/wallets'));
 app.use('/api/notifications',    require('./routes/notifications'));
+app.use('/api/investments',      require('./routes/investments'));
+app.use('/api/import',           require('./routes/pdfImport'));
+app.use('/api/import',           require('./routes/camsImport'));
+app.use('/api/tax',              require('./routes/tax'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
