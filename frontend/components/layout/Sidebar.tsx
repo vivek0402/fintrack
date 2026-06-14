@@ -8,7 +8,7 @@ import {
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Users, Brain, CalendarClock,
     ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
-    Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark,
+    Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -42,6 +42,14 @@ const navItems = [
     { href: '/groups',              icon: FolderOpen,      label: 'Groups' },
     { href: '/profile',             icon: Settings,        label: 'Settings' },
 ];
+
+const debtSection = {
+    label: 'Debt',
+    items: [
+        { href: '/loans', icon: Building2, label: 'Loans' },
+        { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
+    ],
+};
 
 interface SidebarProps {
     collapsed: boolean;
@@ -147,6 +155,57 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             {/* Nav items — scrollable */}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px', overflowY: 'auto', overflowX: 'hidden' }}>
                 {navItems.map(({ href, icon: Icon, label }) => {
+                    const isActive = pathname === href || pathname.startsWith(href + '/');
+                    return (
+                        <Link key={href} href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: collapsed ? '0' : '10px',
+                                    justifyContent: collapsed ? 'center' : undefined,
+                                    padding: collapsed ? '9px 0' : '9px 12px',
+                                    paddingLeft: !collapsed ? (isActive ? '9px' : '12px') : undefined,
+                                    borderRadius: '10px',
+                                    background: isActive ? 'var(--accent-light)' : 'transparent',
+                                    borderLeft: !collapsed
+                                        ? (isActive ? '3px solid var(--accent)' : '3px solid transparent')
+                                        : 'none',
+                                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                                    fontSize: '0.86rem',
+                                    fontWeight: isActive ? 600 : 400,
+                                    transition: 'all var(--transition-fast)',
+                                    cursor: 'pointer',
+                                }}
+                                onMouseEnter={e => {
+                                    if (!isActive) {
+                                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
+                                    }
+                                }}
+                                onMouseLeave={e => {
+                                    if (!isActive) {
+                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
+                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
+                                    }
+                                }}
+                            >
+                                <Icon size={16} color="currentColor" />
+                                {!collapsed && label}
+                            </div>
+                        </Link>
+                    );
+                })}
+
+                {/* Debt section */}
+                {!collapsed && (
+                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 12px 2px', fontFamily: 'var(--font-body)' }}>
+                        {debtSection.label}
+                    </p>
+                )}
+                {debtSection.items.map(({ href, icon: Icon, label }) => {
                     const isActive = pathname === href || pathname.startsWith(href + '/');
                     return (
                         <Link key={href} href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>

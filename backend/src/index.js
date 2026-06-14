@@ -186,6 +186,8 @@ app.use('/api/investments',      require('./routes/investments'));
 app.use('/api/import',           require('./routes/pdfImport'));
 app.use('/api/import',           require('./routes/camsImport'));
 app.use('/api/tax',              require('./routes/tax'));
+app.use('/api/loans',            require('./routes/loans'));
+app.use('/api/debt',             require('./routes/debt'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {

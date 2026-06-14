@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X } from 'lucide-react';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -17,6 +18,8 @@ import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { NetWorthWidget } from '@/components/dashboard/NetWorthWidget';
 import { WealthVelocityWidget } from '@/components/dashboard/WealthVelocityWidget';
 import { AssetAllocationWidget } from '@/components/dashboard/AssetAllocationWidget';
+import { CreditUtilizationWidget } from '@/components/dashboard/CreditUtilizationWidget';
+import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -115,6 +118,11 @@ export default function DashboardPage() {
     const [accounts, setAccounts]       = useState<any[]>([]);
     const [investments, setInvestments] = useState<any[]>([]);
     const [investmentRatio, setInvestmentRatio] = useState<any>(null);
+    const [creditUtilization, setCreditUtilization] = useState<any>(null);
+    const [dti, setDti] = useState<any>(null);
+    const [activeLoanCount, setActiveLoanCount] = useState(0);
+    const [utilAlertDismissed, setUtilAlertDismissed] = useState(false);
+    const [dtiAlertDismissed, setDtiAlertDismissed] = useState(false);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -208,6 +216,9 @@ export default function DashboardPage() {
         analyticsAPI.getInvestmentRatio().then(res => setInvestmentRatio(res.data)).catch(() => {});
         analyticsAPI.getWealthVelocity().catch(() => {});
         analyticsAPI.getAssetAllocation().catch(() => {});
+        debtAPI.getCreditUtilization().then(res => setCreditUtilization(res.data)).catch(() => {});
+        debtAPI.getDti().then(res => setDti(res.data)).catch(() => {});
+        loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
         aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
     }, [user]);
@@ -273,6 +284,40 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
+                {/* ── DEBT ALERTS ── */}
+                {!utilAlertDismissed && creditUtilization && creditUtilization.aggregate.overall_utilization_pct > 50 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)' }}>
+                        <AlertTriangle size={16} color="var(--color-exp)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                Your credit utilization is above 50%. This may affect your credit score and loan eligibility.
+                            </p>
+                            <Link href="/net-worth" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-exp)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+                                Pay down credit →
+                            </Link>
+                        </div>
+                        <button type="button" onClick={() => setUtilAlertDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
+                {!dtiAlertDismissed && dti && dti.dti_ratio > 35 && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 22%, transparent)' }}>
+                        <AlertTriangle size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                Your debt obligations are taking up over 35% of your income. Consider the payoff optimizer to accelerate debt freedom.
+                            </p>
+                            <Link href="/debt-intelligence" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-warn)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+                                View optimizer →
+                            </Link>
+                        </div>
+                        <button type="button" onClick={() => setDtiAlertDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                )}
+
                 {/* ── STAT TILES ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
                     {[
@@ -317,6 +362,14 @@ export default function DashboardPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
                         <WealthVelocityWidget />
                         <AssetAllocationWidget />
+                    </div>
+                )}
+
+                {/* ── DEBT WIDGETS ── */}
+                {(activeLoanCount > 0 || (creditUtilization?.per_card?.length ?? 0) > 0) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
+                        <CreditUtilizationWidget />
+                        <DtiWidget hasLoans={activeLoanCount > 0} hasCards={(creditUtilization?.per_card?.length ?? 0) > 0} />
                     </div>
                 )}
 

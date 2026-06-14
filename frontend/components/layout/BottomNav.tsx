@@ -6,7 +6,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     Target, Trophy, X, Settings, Users, FolderOpen, MessageSquare,
     Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
-    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark,
+    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -52,6 +52,13 @@ const moreSections = [
             { href: '/splits',           icon: SplitSquareHorizontal, label: 'Splits'   },
             { href: '/recurring',        icon: RefreshCw,            label: 'Recurring' },
             { href: '/one-time-expenses', icon: ShoppingCart,        label: 'One-Time'  },
+        ],
+    },
+    {
+        label: 'Debt',
+        items: [
+            { href: '/loans', icon: Building2, label: 'Loans' },
+            { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
         ],
     },
 ];

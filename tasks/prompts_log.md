@@ -51,3 +51,13 @@ Status: Complete.
 ## P7: /tax page created — 80C Tracker (progress bar, stat tiles, entries table, add/edit/delete, auto-add candidates) and Capital Gains Summary (stat tiles, FIFO transactions table, info note, add-transaction page + backend route). "Tax" nav entry added to Sidebar and BottomNav.
 
 ## Phase 2 complete. CAMS import, wealth velocity, asset allocation, 80C tracker, capital gains — all live at v0.12.
+
+## P0: Phase 3 (v0.13) task tracking initialized. Note: spec's migration numbers 028-029 collide with Phase 2 migrations (028/029/030 already used) — Phase 3 will use 031-032 instead.
+
+## P1: Migrations 031-032 created. Tables: loans, loan_prepayments. Applied to DB and verified — correct column types/constraints, CASCADE FK from loan_prepayments.loan_id to loans.id. analytics.js GET /networth updated to sum real loans.outstanding_balance (was hardcoded 0).
+
+## P2: loans.js created — reusable amortization engine (EMI derivation, monthly schedule generation with prepayment application, invalid-config guard against infinite loops), full CRUD (GET/POST/PATCH/DELETE, soft-delete via is_active), GET /:id/amortization, POST/GET /:id/prepayments with before/after schedule diff for months_saved and interest_saved. loanAPI added to frontend api.ts. Tests passing (7 suites/43 tests).
+
+## P3: debt.js created. Extracted amortization engine into utils/amortization.js (shared between loans.js and debt.js). GET /payoff-optimizer runs a true month-by-month cascade simulation for avalanche (highest rate first) and snowball (smallest balance first) strategies, with freed-up EMIs rolling into the next target loan, compared against an independent-loans baseline. GET /prepayment-impact returns months/interest saved, prepayment penalty, and net savings. GET /credit-utilization classifies per-card and aggregate utilization (optimal/moderate/high/critical) with a paydown recommendation. GET /dti computes debt-to-income from 3-month average income, loan EMIs, and 5% card minimums (excellent/good/moderate/risky). debtAPI added to frontend api.ts. Tests passing (7 suites/43 tests).
+
+## P4: /loans page with lazy amortization, prepayment logging, add/edit modals.

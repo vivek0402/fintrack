@@ -16,6 +16,12 @@
 - Sidebar.tsx and BottomNav.tsx have no section/group headers in Sidebar (flat array) but BottomNav's "More" sheet does (`moreSections`) — place new nav entries adjacent to the most related existing entry (e.g. Net Worth next to Accounts) rather than inventing new groups.
 - 308 responses from `curl` on Next.js App Router routes are just the trailing-slash redirect (not an error) — follow with `-L` to confirm the real status.
 
+## Phase 3 (P0-P6) — Debt Intelligence
+- A `recharts` `Pie` with two cells (`value` and `100 - value`, `startAngle={90} endAngle={-270}`, `stroke="none"`) makes a quick circular gauge for a single percentage — overlay the numeric label with an absolutely-positioned div centered over the chart container.
+- Dashboard widgets that depend on "does the user have X" (active loans, credit cards) should fetch their own existence-gating data via a lightweight count fetched in the parent (e.g. `loanAPI.getAll(true).then(... .length)`) rather than duplicating the full debt-summary fetch — the widget itself still does its own full data fetch for rendering.
+- Always double-check API client files (`lib/api.ts`) for literal-vs-escaped path strings before wiring a new page to them — a route defined with backslashes (`'\api\debt\...'`) instead of forward slashes would silently 404 in the browser even though it reads fine in a diff/terminal.
+- When a later phase's prompt asks to "update" a field that an earlier phase's prompt already wired correctly (e.g. net-worth page already rendering `total_loans_outstanding`), verify first — don't make a redundant edit.
+
 ## Phase 2 (P1-P7) — Wealth Intelligence
 - `ProgressBar`'s built-in color logic only turns red when `pct > 100`. For UI needing custom multi-tier coloring (e.g. 80C utilization: green ≥80%, amber 40-79%, red <40%), compute the color in the page and pass it explicitly via the `color` prop rather than relying on the component's defaults.
 - When a manually-logged financial transaction needs a financial year, derive it from the transaction's own date (April-cutover formula), not from "now" — a user may be logging a past-FY transaction. `getCurrentFY()` is only correct for "current" context (defaults, summaries).

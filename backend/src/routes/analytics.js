@@ -207,7 +207,7 @@ router.get('/payment-methods', async (req, res) => {
 
 router.get('/networth', async (req, res) => {
     try {
-        const [bankRes, investRes, creditRes] = await Promise.all([
+        const [bankRes, investRes, creditRes, loanRes] = await Promise.all([
             pool.query(
                 `SELECT COALESCE(SUM(
                     COALESCE(a.starting_balance, 0)
@@ -225,12 +225,16 @@ router.get('/networth', async (req, res) => {
                 `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM credit_cards WHERE user_id = $1`,
                 [req.user.id]
             ),
+            pool.query(
+                `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM loans WHERE user_id = $1 AND is_active = true`,
+                [req.user.id]
+            ),
         ]);
 
         const total_bank_balance = parseFloat(bankRes.rows[0].total);
         const total_investments = parseFloat(investRes.rows[0].total);
         const total_credit_outstanding = parseFloat(creditRes.rows[0].total);
-        const total_loans_outstanding = 0;
+        const total_loans_outstanding = parseFloat(loanRes.rows[0].total);
 
         const total_assets = total_bank_balance + total_investments;
         const total_liabilities = total_credit_outstanding + total_loans_outstanding;

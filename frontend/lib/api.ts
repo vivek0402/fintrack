@@ -261,4 +261,31 @@ export const taxAPI = {
         api.post('/api/tax/capital-transaction', data),
 };
 
+export const loanAPI = {
+    getAll: (active?: boolean) => api.get('/api/loans', { params: active ? { active: 'true' } : {} }),
+    create: (data: {
+        name: string; type: string; principal_amount: number; disbursement_date: string; tenure_months: number;
+        interest_rate_pct: number; outstanding_balance: number; emi_amount?: number; bank_or_lender?: string;
+        account_number_last4?: string; prepayment_penalty_pct?: number; notes?: string;
+    }) => api.post('/api/loans', data),
+    update: (id: string, data: {
+        name?: string; outstanding_balance?: number; interest_rate_pct?: number; emi_amount?: number;
+        bank_or_lender?: string; notes?: string; is_active?: boolean;
+    }) => api.patch(`/api/loans/${id}`, data),
+    delete: (id: string) => api.delete(`/api/loans/${id}`),
+    getAmortization: (id: string) => api.get(`/api/loans/${id}/amortization`),
+    addPrepayment: (id: string, data: { amount: number; prepayment_date: string; notes?: string }) =>
+        api.post(`/api/loans/${id}/prepayments`, data),
+    getPrepayments: (id: string) => api.get(`/api/loans/${id}/prepayments`),
+};
+
+export const debtAPI = {
+    getPayoffOptimizer: (extraPayment?: number) =>
+        api.get('/api/debt/payoff-optimizer', { params: extraPayment ? { extra_monthly_payment: extraPayment } : {} }),
+    getPrepaymentImpact: (loanId: string, amount: number) =>
+        api.get('/api/debt/prepayment-impact', { params: { loan_id: loanId, prepayment_amount: amount } }),
+    getCreditUtilization: () => api.get('/api/debt/credit-utilization'),
+    getDti: () => api.get('/api/debt/dti'),
+};
+
 export default api;
