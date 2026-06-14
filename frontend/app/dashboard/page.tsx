@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -14,6 +14,9 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
+import { NetWorthWidget } from '@/components/dashboard/NetWorthWidget';
+import { WealthVelocityWidget } from '@/components/dashboard/WealthVelocityWidget';
+import { AssetAllocationWidget } from '@/components/dashboard/AssetAllocationWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
@@ -109,6 +112,9 @@ export default function DashboardPage() {
     const [salaryData, setSalaryData]   = useState<any>(null);
     const [salaryDismissed, setSalaryDismissed] = useState(false);
     const [coachEnabled, setCoachEnabled] = useState(true);
+    const [accounts, setAccounts]       = useState<any[]>([]);
+    const [investments, setInvestments] = useState<any[]>([]);
+    const [investmentRatio, setInvestmentRatio] = useState<any>(null);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -197,6 +203,11 @@ export default function DashboardPage() {
         };
 
         fetchData();
+        accountsAPI.getAll().then(res => setAccounts(res.data.accounts ?? res.data ?? [])).catch(() => {});
+        investmentAPI.getAll().then(res => setInvestments(res.data.investments ?? [])).catch(() => {});
+        analyticsAPI.getInvestmentRatio().then(res => setInvestmentRatio(res.data)).catch(() => {});
+        analyticsAPI.getWealthVelocity().catch(() => {});
+        analyticsAPI.getAssetAllocation().catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
         aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
     }, [user]);
@@ -262,13 +273,22 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
-                {/* ── FOUR STAT TILES ── */}
+                {/* ── STAT TILES ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
                     {[
                         { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
                         { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
                         { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-card))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
                         { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
+                        ...(investmentRatio ? [{
+                            label: 'Investing This Month',
+                            value: investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
+                            sub: `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income`,
+                            color: investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)',
+                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-card))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-card))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-card))',
+                            border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
+                            Icon: PiggyBank,
+                        }] : []),
                     ].map(tile => (
                         <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -288,6 +308,17 @@ export default function DashboardPage() {
                         </div>
                     ))}
                 </div>
+
+                {/* ── NET WORTH WIDGET ── */}
+                {(accounts.length > 0 || investments.length > 0) && <NetWorthWidget />}
+
+                {/* ── WEALTH INTELLIGENCE WIDGETS ── */}
+                {investments.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
+                        <WealthVelocityWidget />
+                        <AssetAllocationWidget />
+                    </div>
+                )}
 
                 {/* ── HEALTH SCORE WIDGET ── */}
                 <HealthScoreWidget

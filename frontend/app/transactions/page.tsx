@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Download, Zap, X, CheckSquare } from 'lucide-react';
+import { Plus, Download, Zap, X, CheckSquare, FileUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
@@ -15,6 +15,8 @@ import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { BulkOpsPanel } from '@/components/transactions/BulkOpsPanel';
 import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
+import { BankStatementImporter } from '@/components/transactions/BankStatementImporter';
+import { Modal } from '@/components/ui/Modal';
 import { exportToCSV } from '@/lib/utils';
 
 const NOW_YEAR  = new Date().getFullYear();
@@ -44,6 +46,7 @@ function TransactionsPageInner() {
     const [selectMode, setSelectMode]       = useState(false);
     const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
+    const [importOpen, setImportOpen]       = useState(false);
 
     const loadMoreRef = useRef<HTMLButtonElement>(null);
 
@@ -220,6 +223,13 @@ function TransactionsPageInner() {
                                 </button>
                             )}
                             <button type="button"
+                                onClick={() => setImportOpen(true)}
+                                title={isMobile ? 'Import PDF' : undefined}
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <FileUp size={14} />
+                                {!isMobile && <>Import PDF</>}
+                            </button>
+                            <button type="button"
                                 onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
                                 title={isMobile ? (selectMode ? 'Cancel' : 'Select') : undefined}
                                 style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -333,6 +343,11 @@ function TransactionsPageInner() {
 
             {/* ── TRANSACTION MODAL ── */}
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
+
+            {/* ── IMPORT PDF MODAL ── */}
+            <Modal isOpen={importOpen} onClose={() => setImportOpen(false)} title="Import Bank Statement" maxWidth="560px">
+                <BankStatementImporter onClose={() => setImportOpen(false)} onSuccess={() => fetchTransactions()} />
+            </Modal>
 
             {/* ── BULK OPS PANEL ── */}
             {selectMode && selectedIds.size > 0 && (

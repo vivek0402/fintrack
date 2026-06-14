@@ -77,6 +77,30 @@ export const analyticsAPI = {
         api.get('/api/analytics/report', { params: { from, to } }),
     paymentMethods: (params?: { month?: number; year?: number }) =>
         api.get('/api/analytics/payment-methods', { params }),
+    getNetWorth: () => api.get('/api/analytics/networth'),
+    getInvestmentRatio: () => api.get('/api/analytics/investment-ratio'),
+    getWealthVelocity: () => api.get('/api/analytics/wealth-velocity'),
+    getAssetAllocation: () => api.get('/api/analytics/asset-allocation'),
+};
+
+export interface CreateInvestmentPayload {
+    type: string;
+    name: string;
+    ticker_or_folio?: string;
+    units: number;
+    purchase_price_per_unit: number;
+    current_nav_or_price: number;
+    purchase_date: string;
+    account_label?: string;
+    notes?: string;
+}
+
+export const investmentAPI = {
+    getAll: () => api.get('/api/investments'),
+    getSummary: () => api.get('/api/investments/summary'),
+    create: (data: CreateInvestmentPayload) => api.post('/api/investments', data),
+    update: (id: string, data: Partial<CreateInvestmentPayload>) => api.patch(`/api/investments/${id}`, data),
+    delete: (id: string) => api.delete(`/api/investments/${id}`),
 };
 
 export const profileAPI = {
@@ -193,6 +217,48 @@ export const walletsAPI = {
     update: (id: number, data: { name?: string; emoji?: string; balance?: number }) =>
         api.put(`/api/wallets/${id}`, data),
     delete: (id: number) => api.delete(`/api/wallets/${id}`),
+};
+
+export interface ParsedTransaction {
+    date: string;
+    description: string;
+    amount: number;
+    type: 'income' | 'expense';
+}
+
+export const importAPI = {
+    uploadStatement: (file: File, bankName?: string) => {
+        const form = new FormData();
+        form.append('pdf', file);
+        if (bankName) form.append('bank_name', bankName);
+        return api.post('/api/import/bank-statement', form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    confirmImport: (jobId: string, transactions: ParsedTransaction[]) =>
+        api.post(`/api/import/bank-statement/${jobId}/confirm`, { transactions }),
+    getHistory: () => api.get('/api/import/history'),
+    uploadCams: (file: File) => {
+        const form = new FormData();
+        form.append('pdf', file);
+        return api.post('/api/import/cams-statement', form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    confirmCamsImport: (jobId: string, holdings: any[]) =>
+        api.post(`/api/import/cams-statement/${jobId}/confirm`, { holdings }),
+};
+
+export const taxAPI = {
+    get80CSummary: (fy?: string) => api.get('/api/tax/80c-summary', { params: fy ? { fy } : {} }),
+    add80C: (data: { type: string; name: string; amount: number; investment_id?: string; financial_year?: string; deduction_section?: string }) =>
+        api.post('/api/tax/80c', data),
+    update80C: (id: string, data: { name?: string; amount?: number }) =>
+        api.patch(`/api/tax/80c/${id}`, data),
+    delete80C: (id: string) => api.delete(`/api/tax/80c/${id}`),
+    getCapitalGains: (fy?: string) => api.get('/api/tax/capital-gains', { params: fy ? { fy } : {} }),
+    addCapitalTransaction: (data: { asset_name: string; asset_type: string; transaction_type: string; units: number; price_per_unit: number; transaction_date: string }) =>
+        api.post('/api/tax/capital-transaction', data),
 };
 
 export default api;

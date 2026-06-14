@@ -8,7 +8,7 @@ import {
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Users, Brain, CalendarClock,
     ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
-    Wallet, Heart, Award, PiggyBank,
+    Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -19,10 +19,14 @@ const navItems = [
     { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/transactions',        icon: ArrowLeftRight,  label: 'Transactions' },
     { href: '/accounts',            icon: Wallet,          label: 'Accounts' },
+    { href: '/net-worth',           icon: LineChart,       label: 'Net Worth' },
+    { href: '/wealth-intelligence', icon: Sparkles,        label: 'Wealth Intelligence' },
+    { href: '/tax',                 icon: Landmark,        label: 'Tax' },
     { href: '/calendar',            icon: CalendarDays,    label: 'Calendar' },
     { href: '/analytics',           icon: PieChart,        label: 'Analytics' },
     { href: '/budgets',             icon: Target,          label: 'Budgets' },
     { href: '/goals',               icon: Flag,            label: 'Goals' },
+    { href: '/investments',         icon: Briefcase,       label: 'Investments' },
     { href: '/reports',             icon: FileText,        label: 'Reports' },
     { href: '/health-score',        icon: Heart,           label: 'Health Score' },
     { href: '/year-review',          icon: Award,           label: 'Year Review' },

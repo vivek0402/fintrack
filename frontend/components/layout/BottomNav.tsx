@@ -6,7 +6,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     Target, Trophy, X, Settings, Users, FolderOpen, MessageSquare,
     Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
-    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank,
+    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -22,8 +22,12 @@ const moreSections = [
         label: 'Finance',
         items: [
             { href: '/accounts',  icon: Wallet,        label: 'Accounts'  },
+            { href: '/net-worth', icon: LineChart,     label: 'Net Worth' },
+            { href: '/wealth-intelligence', icon: Sparkles, label: 'Wealth Intelligence' },
+            { href: '/tax',       icon: Landmark,      label: 'Tax'       },
             { href: '/budgets',   icon: Target,        label: 'Budgets'   },
             { href: '/goals',     icon: Trophy,        label: 'Goals'     },
+            { href: '/investments', icon: Briefcase,   label: 'Investments' },
             { href: '/calendar',  icon: CalendarDays,  label: 'Calendar'  },
             { href: '/reports',       icon: FileText,  label: 'Reports'       },
             { href: '/health-score',  icon: Heart,     label: 'Health Score'  },
