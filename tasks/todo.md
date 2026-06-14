@@ -1,14 +1,10 @@
-# FinTrack NIM Migration
-
-## Phase: NVIDIA NIM provider integration
-
-- [x] P0: Read and understand current ai.js and gemini.js structure before touching anything
-- [x] P1: Add NIM OpenAI client (nimClient) using NVIDIA_API_KEY env var
-- [x] P2: Add NIM model constants to MODELS object
-- [x] P3: Add 'nim' branch to provider dispatch (getClient or equivalent switch)
-- [x] P4: Add nim to FALLBACK_CHAIN (nim → groq1 → gemini)
-- [x] P5: Update ROUTES config for 11 routes (see spec below)
-- [x] P6: Update getVisionModel() in gemini.js to use NIM Llama 3.2 11B Vision
-- [x] P7: Add NVIDIA_API_KEY to .env.example (and .env if it exists)
-- [x] P8: Smoke test each provider path manually with a curl or node script
-- [x] P9: Verify fallback chain still works if NVIDIA_API_KEY is missing
+# FinTrack Phase 2: Wealth Intelligence (v0.12)
+## Todo
+- [x] P0: Task tracking setup
+- [x] P1: Database migrations (025-027)
+- [x] P2: Backend — CAMS import route
+- [x] P3: Backend — wealth analytics routes (velocity + allocation)
+- [x] P4: Backend — tax analytics routes (80C + capital gains)
+- [x] P5: Frontend — CamsImporter component
+- [x] P6: Frontend — wealth intelligence widgets + page
+- [x] P7: Frontend — tax hub page (/tax)
