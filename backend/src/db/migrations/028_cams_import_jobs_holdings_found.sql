@@ -1,0 +1,1 @@
+ALTER TABLE cams_import_jobs ADD COLUMN IF NOT EXISTS holdings_found INTEGER DEFAULT 0;
