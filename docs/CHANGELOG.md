@@ -4,6 +4,106 @@ All notable changes are documented here. Each version describes what was built, 
 
 ---
 
+## [0.10.0] — 2026-06-12 — Major Feature Wave: Health Score, Coach, Notifications, Calendar, NIM
+
+A large batch of features (114 commits since v0.9.0), summarized by theme rather than per-commit.
+
+### Financial Wellness
+
+- **Financial Health Score** — a 0–100 composite score from savings rate, budget adherence,
+  goal progress, emergency fund, and credit utilization. New dashboard widget
+  (`HealthScoreWidget`) plus a dedicated `/health-score` page with a gauge, trend
+  chart, and per-metric breakdown (`lib/healthScore.ts`). Hidden on the dashboard
+  for new users with no transaction history.
+- **Proactive Financial Coach** — `CoachAlerts` component on the dashboard surfaces
+  real-time alerts: budget >85% spent, projected monthly overspend pace, recurring
+  bills due within 3 days, low account balances, and goals stalled >30 days.
+- **Smart Budget Auto-Adjust** — budgets page now shows a suggestions banner
+  (`SuggestionsBanner`) offering rollover of unused budget, a zero-based budgeting
+  mode, and recalculation from a 3-month average, plus color-coded per-category
+  health chips.
+- **Savings Automation Planner** (`/savings-plan`) — guided savings challenges
+  (No Eating Out Week, Coffee Challenge, Weekend No-Spend) with auto-savings goal
+  projections and localStorage-backed achievement tracking.
+- **Regret Score system (Parts A–E)** — weekly `RegretCheckSheet` prompts the user
+  to mark transactions >₹200 from the past 7 days as "keep" or "regret"; results
+  feed a new `RegretAnalysis` component on the analytics page and the existing
+  `/api/ai/regret-patterns` insights.
+
+### Analytics & Calendar
+
+- **Year in Review** (`/year-review`) — annual summary with totals, top category,
+  cached spending personality, and three new visualizations:
+  - `SankeyFlow` — category-to-merchant money flow diagram
+  - `SpendingHeatmap` — calendar-grid daily spending intensity
+  - `CategoryTrajectory` — month-by-month trend for top categories
+- **Calendar rewrite** (`/calendar`) — added heatmap, recurring-bill overlay, and
+  AI forecast view modes with a day-detail sheet (172 → 718 lines).
+
+### Transactions
+
+- **Advanced Search** — `AdvancedSearchBar` adds token-based filtering
+  (`amount:`, `category:`, `type:`, `tag:`, `date:`, `notes:`) with date presets
+  and localStorage-saved filter views.
+- **Bulk Operations** — `BulkOpsPanel` enables multi-select bulk recategorize,
+  bulk tag, bulk delete (with confirmation), single-transaction split, and CSV
+  export of the selection.
+
+### Notifications
+
+- **In-app notification center + push notifications** — `NotificationBell` /
+  `NotificationCenter` components (moved to the home header beside the greeting),
+  FCM token registration (`POST/DELETE /api/notifications/register-token`,
+  migration `019_fcm_tokens.sql`), and a `notification_log` table
+  (migration `020_notification_log.sql`) for server-side dedupe.
+- **14 new smart notifications** — inactivity reminders, high-transaction-count
+  alerts, an 8pm daily reminder, and budget/goal/bill-due triggers via cron,
+  all deduplicated through `notifyOnce()`.
+
+### AI
+
+- **NVIDIA NIM as 4th LLM provider** — see `docs/AI_FEATURES.md` for the full
+  provider/model breakdown. 11 AI routes migrated to NIM models; receipt vision
+  now tries NIM Llama 3.2 11B Vision before falling back to Gemini.
+
+### Backend Hardening
+
+- Notification dedupe via `notifyOnce()` (atomic, `notification_log` UNIQUE
+  constraint), consolidating ~9 duplicated dedupe blocks across
+  `index.js`, `transactions.js`, `recurring.js`, and `goals.js`.
+- Input validation (amount, type, date, frequency) added to transactions, goals,
+  and recurring routes.
+- Pagination (`limit`/`offset`) added to `GET /api/transactions` and a
+  configurable limit on `/api/transactions/search`.
+- CORS allowlist moved to `CORS_ALLOWED_ORIGINS` env var (with fallback).
+- New jest + supertest test suite covering auth middleware and core routes.
+
+### Mobile / Android
+
+- Android home-screen widgets (Quick Add + Budget Overview) were built with a
+  Capacitor bridge plugin, WorkManager refresh, and JWT sync — then **fully
+  removed** in a later commit (`f3c988b`) and are not part of the current app.
+- Bottom-nav "More" sheet gained swipe gestures and restored several pages that
+  had gone missing from the sheet.
+- Fixed a Capacitor SSR bundle break via dynamic import on Android builds.
+
+### New Database Migrations
+
+| File | Description |
+|------|-------------|
+| `011_one_time_expenses.sql` | One-time expense planning table |
+| `012_one_time_expense_items.sql` | Line items for one-time expenses |
+| `013_transaction_payment_method.sql` | Payment method column on transactions |
+| `014_one_time_expense_transaction_link.sql` | Links one-time expenses to transactions |
+| `015_bank_account_balance_as_of.sql` | "Balance as of" tracking for bank accounts |
+| `016_credit_cards.sql` | Credit card accounts |
+| `017_wallets.sql` | UPI wallet accounts |
+| `018_bank_accounts_type_lastfour.sql` | Account type + last-4-digits columns |
+| `019_fcm_tokens.sql` | `user_fcm_tokens` table for push notifications |
+| `020_notification_log.sql` | `notification_log` table for dedupe |
+
+---
+
 ## [0.9.0] — 2026-04-07 — Security Audit, AI Hardening & Missing Routes
 
 This version was a comprehensive audit-and-repair session. Every backend route, auth flow, AI router, and frontend API method was read, cross-referenced against the spec, and either confirmed correct or fixed. The goal was production-readiness: no information leakage, no rate-limit gaps, no missing routes.

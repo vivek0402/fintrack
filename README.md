@@ -56,6 +56,8 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Recurring** | Schedule bills, subscriptions, EMIs with daily/weekly/monthly/yearly cadence |
 | **One-Time Expenses** | Plan large upcoming purchases separately from recurring flow |
 | **Regret Tracking** | Mark a transaction as regret — AI identifies your regret spending patterns |
+| **Advanced Search** | Token-based search (`amount:`, `category:`, `type:`, `tag:`, `date:`, `notes:`) with saved filter views |
+| **Bulk Operations** | Multi-select transactions to bulk recategorize, tag, delete, split, or export to CSV |
 
 ### Accounts & Net Worth
 
@@ -71,8 +73,12 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | Feature | Description |
 |---|---|
 | **Monthly Budgets** | Set category-level spend limits; progress bars update in real-time |
+| **Smart Budget Auto-Adjust** | Suggestions to roll over unused budget, switch to zero-based mode, or recalculate from a 3-month average, plus per-category health chips |
 | **Savings Goals** | Create goals with target amounts and deadlines; add funds manually |
+| **Savings Automation Planner** | Guided savings challenges (No Eating Out Week, Coffee Challenge, Weekend No-Spend) with goal projections and achievement tracking |
 | **Budget Health** | AI monthly health report — budget vs actual, recommendations |
+| **Financial Health Score** | 0–100 composite score from savings rate, budget adherence, goal progress, emergency fund, and credit utilization, with month-over-month trend |
+| **Proactive Financial Coach** | Dashboard alerts for budget breaches, projected overspend pace, upcoming bills, low balances, and stalled goals |
 
 ### Analytics
 
@@ -83,8 +89,12 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Yearly View** | Month-by-month income/expense bar chart for the full year |
 | **Payment Methods** | Breakdown by UPI / Cash / Card / Netbanking |
 | **Category Breakdown** | Ranked by spend; percentage of total |
-| **Regret Score** | % of spending you later regretted |
+| **Regret Score** | % of spending you later regretted, with category-level regret breakdown and a weekly regret-check prompt |
 | **Custom Reports** | Date-range PDF-style analytics export |
+| **Year in Review** | Annual summary — totals, top category, spending personality, and full-year visualizations |
+| **Sankey Flow** | Category-to-merchant money flow diagram |
+| **Spending Heatmap** | Calendar-grid view of daily spending intensity |
+| **Category Trajectory** | Month-by-month trend line for your top spending categories |
 
 ### Groups & Splits
 
@@ -115,9 +125,18 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 
 | Feature | Description |
 |---|---|
-| **Calendar View** | Monthly calendar with transactions plotted on their dates |
+| **Calendar View** | Monthly calendar with transactions plotted on their dates, with a day-detail sheet |
+| **Spending Heatmap View** | Color-coded daily spending intensity overlaid on the calendar |
 | **Recurring on Calendar** | Upcoming recurring payments shown as future calendar entries |
 | **AI Forecast Overlay** | AI-predicted spending days overlaid on the calendar |
+
+### Notifications
+
+| Feature | Description |
+|---|---|
+| **In-App Notification Center** | Bell icon in the home header with unread count; stores up to 50 notifications |
+| **Push Notifications** | FCM-based push delivery to the Android app for budgets, goals, and bill reminders |
+| **Smart Reminders** | 14 proactive notifications — inactivity nudges, high transaction count alerts, daily evening reminder, budget/goal triggers, and bill-due cron reminders, deduplicated server-side |
 
 ---
 
@@ -156,13 +175,13 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                             │
-         ┌──────────────────┼──────────────────┐
-         │                  │                  │
-┌────────▼────┐    ┌────────▼────┐    ┌────────▼────────┐
-│  PostgreSQL │    │   Groq API  │    │  Gemini API     │
-│  (Supabase  │    │  (Primary   │    │  (Vision +      │
-│   Pooler)   │    │    LLM)     │    │   Fallback LLM) │
-└─────────────┘    └─────────────┘    └─────────────────┘
+      ┌──────────────────┼──────────────────┬──────────────────┐
+      │                  │                  │                  │
+┌─────▼───────┐  ┌───────▼─────┐  ┌─────────▼───────┐  ┌───────▼─────────┐
+│  PostgreSQL │  │   Groq API  │  │  NVIDIA NIM     │  │  Gemini API     │
+│  (Supabase  │  │  (Primary   │  │  (Primary LLM   │  │  (Vision +      │
+│   Pooler)   │  │    LLM)     │  │   for 11 routes)│  │   Fallback LLM) │
+└─────────────┘  └─────────────┘  └─────────────────┘  └─────────────────┘
 ```
 
 ### Request Flow
@@ -214,9 +233,10 @@ Check ai_cache in users table
           ▼
         Route to correct model (see AI System)
           │
-          ├── Groq Key 1 ────► primary
+          ├── NVIDIA NIM  ────► primary for 11 routes (groq1 → gemini fallback)
+          ├── Groq Key 1 ────► primary for remaining routes
           ├── Groq Key 2 ────► fallback / load share
-          └── Gemini     ────► vision + salary allocation fallback
+          └── Gemini     ────► vision fallback + non-NIM fallback chain
           │
           ▼
         Strip ```json wrapper (if JSON response)
@@ -238,22 +258,34 @@ Check ai_cache in users table
 FinTrack routes each AI feature to the optimal model based on complexity, token budget, and cost:
 
 ```
-┌─────────────────────────┬──────────────────────────┬────────────────┐
-│ Feature                 │ Model                    │ Provider       │
-├─────────────────────────┼──────────────────────────┼────────────────┤
-│ AI Chat                 │ llama-3.3-70b-versatile  │ Groq Key 1     │
-│ Personality Analysis    │ llama-4-scout            │ Groq Key 1     │
-│ Monthly Report          │ llama-4-scout            │ Groq Key 2     │
-│ Recurring Suggestions   │ llama-4-scout            │ Groq Key 1     │
-│ Forecast / Cash Flow    │ qwen3-32b                │ Groq Key 1     │
-│ Salary Intelligence     │ qwen3-32b                │ Groq Key 2     │
-│ SMS Parser              │ llama-3.1-8b             │ Groq Key 1     │
-│ Quick Add               │ llama-3.1-8b             │ Groq Key 2     │
-│ Salary Allocation       │ Gemini Flash             │ Google         │
-│ Receipt Scanner         │ Gemini Vision            │ Google         │
-└─────────────────────────┴──────────────────────────┴────────────────┘
+┌─────────────────────────┬──────────────────────────────┬────────────────┐
+│ Feature                 │ Model                        │ Provider       │
+├─────────────────────────┼──────────────────────────────┼────────────────┤
+│ AI Chat                 │ llama-3.3-70b-versatile      │ Groq Key 1     │
+│ Personality Analysis    │ nemotron-super-49b           │ NVIDIA NIM     │
+│ Monthly Report          │ minimax-m2.7                 │ NVIDIA NIM     │
+│ Recurring Suggestions   │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Forecast / Cash Flow    │ llama-3.2-3b-instruct        │ NVIDIA NIM     │
+│ Salary Intelligence     │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Tax Estimate            │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Afford / Predictor      │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Regret Patterns         │ llama-3.2-3b-instruct        │ NVIDIA NIM     │
+│ Life Event Planning     │ minimax-m2.7                 │ NVIDIA NIM     │
+│ Health Report           │ minimax-m2.7                 │ NVIDIA NIM     │
+│ SMS Parser              │ llama-3.1-8b                 │ Groq Key 1     │
+│ Quick Add               │ llama-3.1-8b                 │ Groq Key 2     │
+│ Split Expense Parser    │ llama-3.1-8b                 │ Groq Key 1     │
+│ Salary Allocation       │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Receipt Scanner         │ llama-3.2-11b-vision         │ NVIDIA NIM     │
+└─────────────────────────┴──────────────────────────────┴────────────────┘
 
-Fallback chain:  Groq Key 1  →  Groq Key 2  →  Gemini Flash
+Fallback chains:
+  groq1  → groq2  → gemini
+  groq2  → groq1  → gemini
+  gemini → groq1  → groq2
+  nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
+
+Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key.
 ```
 
 **Key AI constraints enforced in code:**
@@ -293,8 +325,8 @@ Fallback chain:  Groq Key 1  →  Groq Key 2  →  Gemini Flash
 | File Upload | Multer (memory storage, 10MB limit) |
 | Security | Helmet, CORS whitelist, express-rate-limit |
 | Cron | node-cron (recurring transaction processor) |
-| AI Primary | Groq SDK |
-| AI Vision | Google Generative AI (Gemini) |
+| AI Primary | Groq SDK + NVIDIA NIM (via OpenAI SDK) |
+| AI Vision | NVIDIA NIM Llama 3.2 11B Vision (Gemini fallback) |
 
 ---
 
@@ -544,7 +576,8 @@ Supported origins:
 - Node.js 18+
 - PostgreSQL (or Supabase project)
 - Groq API key (free tier available)
-- Google Gemini API key (for receipt scanning + salary allocation)
+- Google Gemini API key (vision/fallback)
+- NVIDIA NIM API key (primary LLM for most AI features; optional — falls back to Groq/Gemini if unset)
 
 ### 1. Clone
 
@@ -590,7 +623,8 @@ JWT_SECRET=your-secret-key-min-32-chars
 
 GROQ_API_KEY=gsk_...          # Primary LLM key
 GROQ_API_KEY_2=gsk_...        # Secondary (load sharing + fallback)
-GEMINI_API_KEY=AIza...        # Vision + salary allocation
+GEMINI_API_KEY=AIza...        # Vision + non-NIM fallback
+NVIDIA_API_KEY=nvapi-...      # NIM — primary LLM for most AI routes + receipt vision
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -683,9 +717,9 @@ fintrack/
 │       │   ├── pool.js             # pg connection pool (port 6543)
 │       │   └── migrations/         # SQL migration files (auto-run)
 │       └── utils/
-│           ├── ai.js               # aiComplete() with model routing
+│           ├── ai.js               # aiComplete() with model routing (Groq/NIM/Gemini)
 │           ├── groq.js             # Groq client + fallback logic
-│           ├── gemini.js           # Gemini Vision client
+│           ├── gemini.js           # Gemini Vision client + NIM vision fallback
 │           └── email.js            # OTP email sender
 │
 ├── docs/
