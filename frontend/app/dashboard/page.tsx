@@ -307,6 +307,42 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
+                {/* ── STAT TILES ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
+                    {[
+                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
+                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
+                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-surface-1))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
+                        { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
+                        ...(investmentRatio ? [{
+                            label: 'Investing This Month',
+                            value: investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
+                            sub: `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income`,
+                            color: investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)',
+                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',
+                            border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
+                            Icon: PiggyBank,
+                        }] : []),
+                    ].map(tile => (
+                        <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
+                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <tile.Icon size={14} color={tile.color} />
+                                </div>
+                            </div>
+                            {dataLoading ? (
+                                <Skeleton width="70%" height={28} borderRadius={4} />
+                            ) : (
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                    {tile.value}
+                                </p>
+                            )}
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{tile.sub}</p>
+                        </div>
+                    ))}
+                </div>
+
                 {/* ── HERO — Net Position (dominant) ── */}
                 <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
                     <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
@@ -485,42 +521,6 @@ export default function DashboardPage() {
                         </button>
                     </div>
                 )}
-
-                {/* ── STAT TILES ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
-                    {[
-                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
-                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
-                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-surface-1))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
-                        { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
-                        ...(investmentRatio ? [{
-                            label: 'Investing This Month',
-                            value: investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
-                            sub: `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income`,
-                            color: investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)',
-                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',
-                            border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
-                            Icon: PiggyBank,
-                        }] : []),
-                    ].map(tile => (
-                        <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
-                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <tile.Icon size={14} color={tile.color} />
-                                </div>
-                            </div>
-                            {dataLoading ? (
-                                <Skeleton width="70%" height={28} borderRadius={4} />
-                            ) : (
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                    {tile.value}
-                                </p>
-                            )}
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{tile.sub}</p>
-                        </div>
-                    ))}
-                </div>
 
                 {/* ── FINANCIAL HEALTH DETAILS (collapsed by default) ── */}
                 <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
