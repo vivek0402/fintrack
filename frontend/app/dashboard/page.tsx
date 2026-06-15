@@ -39,57 +39,43 @@ function getDateLabel(dateStr: string): string {
     return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-// ── Sparkline SVG chart ───────────────────────────────────────────────────────
-function SparklineChart({ data, incColor, expColor }: {
+// ── 6-bar sparkline (grouped income/expense bars per month) ──────────────────
+function SixBarSparkline({ data, incColor, expColor }: {
     data: { month: string; income: number; expenses: number }[];
     incColor: string; expColor: string;
 }) {
-    if (!data.length) return <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
-    </div>;
+    if (!data.length) return (
+        <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
+        </div>
+    );
 
-    const W = 600, H = 100, PL = 8, PR = 8, PT = 8, PB = 20;
-    const plotW = W - PL - PR, plotH = H - PT - PB;
+    const W = 600, H = 110, PB = 20;
+    const plotH = H - PB;
     const maxVal = Math.max(...data.flatMap(d => [d.income, d.expenses]), 1);
-    const xPos = (i: number) => PL + (i / (data.length - 1)) * plotW;
-    const yPos = (v: number) => PT + (1 - Math.min(v / maxVal, 1)) * plotH;
-
-    const incPts: [number, number][] = data.map((d, i) => [xPos(i), yPos(d.income)]);
-    const expPts: [number, number][] = data.map((d, i) => [xPos(i), yPos(d.expenses)]);
-
-    const smoothPath = (pts: [number, number][]) => {
-        if (pts.length < 2) return '';
-        let path = `M${pts[0][0]},${pts[0][1]}`;
-        for (let i = 0; i < pts.length - 1; i++) {
-            const cpx = pts[i][0] + (pts[i + 1][0] - pts[i][0]) * 0.5;
-            path += ` C${cpx},${pts[i][1]} ${cpx},${pts[i + 1][1]} ${pts[i + 1][0]},${pts[i + 1][1]}`;
-        }
-        return path;
-    };
-
-    const incPath = smoothPath(incPts);
-    const expPath = smoothPath(expPts);
-    const lastInc = incPts[incPts.length - 1];
-    const lastExp = expPts[expPts.length - 1];
+    const groupGap = 10;
+    const groupW = (W - groupGap * (data.length - 1)) / data.length;
+    const barGap = 4;
+    const barW = (groupW - barGap) / 2;
 
     return (
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
-            {/* Area fills */}
-            <path d={`${incPath} L${lastInc[0]},${PT + plotH} L${PL},${PT + plotH} Z`} fill={incColor} fillOpacity="0.08" />
-            <path d={`${expPath} L${lastExp[0]},${PT + plotH} L${PL},${PT + plotH} Z`} fill={expColor} fillOpacity="0.06" />
-            {/* Lines */}
-            <path d={incPath} fill="none" stroke={incColor} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-            <path d={expPath} fill="none" stroke={expColor} strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-            {/* End dots */}
-            <circle cx={lastInc[0]} cy={lastInc[1]} r="4" fill={incColor} vectorEffect="non-scaling-stroke" />
-            <circle cx={lastExp[0]} cy={lastExp[1]} r="4" fill={expColor} vectorEffect="non-scaling-stroke" />
-            {/* Month labels */}
-            {data.map((d, i) => (
-                <text key={i} x={xPos(i)} y={H - 4} textAnchor="middle" fontSize="9"
-                    fill={i === data.length - 1 ? 'var(--text-secondary)' : 'var(--text-faint)'}
-                    fontWeight={i === data.length - 1 ? '600' : '400'}
-                    fontFamily="DM Mono, monospace">{d.month}</text>
-            ))}
+            {data.map((d, i) => {
+                const groupX = i * (groupW + groupGap);
+                const incH = Math.max(2, (d.income / maxVal) * plotH);
+                const expH = Math.max(2, (d.expenses / maxVal) * plotH);
+                const isLast = i === data.length - 1;
+                return (
+                    <g key={i}>
+                        <rect x={groupX} y={plotH - incH} width={barW} height={incH} rx={2} fill={incColor} opacity={isLast ? 1 : 0.55} />
+                        <rect x={groupX + barW + barGap} y={plotH - expH} width={barW} height={expH} rx={2} fill={expColor} opacity={isLast ? 1 : 0.55} />
+                        <text x={groupX + groupW / 2} y={H - 4} textAnchor="middle" fontSize="9"
+                            fill={isLast ? 'var(--text-secondary)' : 'var(--text-muted)'}
+                            fontWeight={isLast ? '600' : '400'}
+                            fontFamily="DM Mono, monospace">{d.month}</text>
+                    </g>
+                );
+            })}
         </svg>
     );
 }
@@ -266,6 +252,14 @@ export default function DashboardPage() {
             .map(([, v]) => v);
     }, [trends]);
 
+    // Top categories by spend (for the categories column)
+    const topCategories = useMemo(() => {
+        return [...budgets]
+            .filter((b: any) => parseFloat(b.spent) > 0)
+            .sort((a: any, b: any) => parseFloat(b.spent) - parseFloat(a.spent))
+            .slice(0, 5);
+    }, [budgets]);
+
     // Over-budget count
     const overBudget = budgets.filter((b: any) => parseFloat(b.spent) > parseFloat(b.amount)).length;
 
@@ -289,7 +283,7 @@ export default function DashboardPage() {
                 {/* ── PAGE HEADER (no card) ── */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <div>
-                        <h1 style={{ fontFamily: 'var(--font-head)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                             {greeting} 👋
                         </h1>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -312,12 +306,54 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
+                {/* ── HERO — Net Position (dominant) ── */}
+                <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
+                        Net position · {MONTH_NAMES[month]}
+                    </p>
+                    {dataLoading ? (
+                        <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
+                    ) : (
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? 'var(--text-display)' : '56px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                            {heroNet >= 0 ? '' : '−'}{fmt(Math.abs(heroNet))}
+                        </p>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--color-exp) 12%, transparent)' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
+                                {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
+                            </span>
+                        </div>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                            {fmt(heroIncome)} in · {fmt(heroExpenses)} out
+                        </p>
+                    </div>
+
+                    {/* 6-month trend */}
+                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
+                        6-month trend
+                    </p>
+                    {dataLoading ? (
+                        <Skeleton width="100%" height={90} borderRadius={6} />
+                    ) : (
+                        <SixBarSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
+                    )}
+                    <div style={{ display: 'flex', gap: '14px', marginTop: '8px' }}>
+                        {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
+                            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* ── WEEKLY BRIEFING WIDGET ── */}
                 {showBriefing && (
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                             <div>
-                                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Your Weekly Brief</h2>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Your Weekly Brief</h2>
                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
                                     Week of {new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}
                                 </p>
@@ -338,7 +374,7 @@ export default function DashboardPage() {
                         {Array.isArray(briefing.points) && briefing.points.length > 0 && (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
                                 {briefing.points.map((pt: any) => (
-                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-alt)', border: '1px solid var(--border)' }}>
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
                                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
                                     </div>
@@ -366,8 +402,8 @@ export default function DashboardPage() {
                     <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Opportunities</h2>
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-light)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
+                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Opportunities</h2>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-subtle)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
                                     {opportunities.length}
                                 </span>
                             </div>
@@ -379,11 +415,11 @@ export default function DashboardPage() {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {opportunities.slice(0, 3).map((opp: any) => {
-                                const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-faint)';
+                                const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
                                 const isDismissing = dismissingIds.has(opp.id);
                                 return (
                                     <div key={opp.id} style={{
-                                        background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `3px solid ${borderColor}`,
+                                        background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
                                         borderRadius: 'var(--radius-lg)', padding: '14px 16px',
                                         opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
                                         transition: 'opacity 250ms ease, transform 250ms ease',
@@ -452,16 +488,16 @@ export default function DashboardPage() {
                 {/* ── STAT TILES ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
                     {[
-                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
-                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-card))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
-                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-card))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
+                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
+                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
+                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-surface-1))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
                         { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
                         ...(investmentRatio ? [{
                             label: 'Investing This Month',
                             value: investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
                             sub: `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income`,
                             color: investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)',
-                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-card))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-card))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-card))',
+                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',
                             border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
                             Icon: PiggyBank,
                         }] : []),
@@ -513,178 +549,143 @@ export default function DashboardPage() {
                     loading={dataLoading}
                 />
 
-                {/* ── HERO CARD — 3 column ── */}
-                <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
-
-                    {/* Left: This Month balance */}
-                    <div style={{ padding: '20px 24px', borderRight: isMobile ? 'none' : '1px solid var(--accent-border)', borderBottom: isMobile ? '1px solid var(--accent-border)' : 'none', flexShrink: 0, width: isMobile ? 'auto' : '200px', minWidth: isMobile ? 'auto' : '200px' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
-                            This month
-                        </p>
-                        {dataLoading ? (
-                            <Skeleton width="90%" height={32} borderRadius={4} style={{ marginBottom: '8px' }} />
-                        ) : (
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '28px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 8px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                {fmt(heroNet)}
-                            </p>
-                        )}
-                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', marginBottom: '8px' }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
-                                {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
-                            </span>
+                {/* ── AI INSIGHT ── */}
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            <Sparkles size={14} color="var(--accent)" />
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
                         </div>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {fmt(heroIncome)} in · {fmt(heroExpenses)} out
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
+                            {aiLoading ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
                         </p>
                     </div>
+                    <Button
+                        onClick={async () => {
+                            setAiReportLoading(true);
+                            try { const res = await aiAPI.report(); setAiInsight(res.data?.report ?? ''); }
+                            catch { }
+                            finally { setAiReportLoading(false); }
+                        }}
+                        isLoading={aiReportLoading}
+                        size="sm"
+                        style={{ alignSelf: isMobile ? 'flex-start' : 'center', flexShrink: 0 }}
+                    >
+                        <RefreshCw size={12} /> Generate Report
+                    </Button>
+                </div>
 
-                    {/* Middle: 6-month trend */}
-                    <div style={{ flex: 1, padding: '20px 20px 16px', minWidth: 0, borderRight: isMobile ? 'none' : '1px solid var(--accent-border)', borderBottom: isMobile ? '1px solid var(--accent-border)' : 'none' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                            6-month trend
-                        </p>
-                        {dataLoading ? (
-                            <Skeleton width="100%" height={80} borderRadius={6} />
-                        ) : (
-                            <SparklineChart data={sparklineData} incColor={incColor} expColor={expColor} />
-                        )}
-                        <div style={{ display: 'flex', gap: '14px', marginTop: '8px' }}>
-                            {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
-                                <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    <div style={{ width: 16, height: 2, background: l.color, borderRadius: 1 }} />
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
-                                </div>
-                            ))}
+                {/* ── 3-COLUMN: BUDGETS / CATEGORIES / RECENT TRANSACTIONS ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
+
+                    {/* Budgets */}
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: budgets.length > 0 ? '14px' : '0' }}>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Budgets</h2>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {overBudget > 0 && (
+                                    <span style={{ fontSize: '11px', color: 'var(--color-exp)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', padding: '2px 8px', borderRadius: '20px', fontFamily: 'var(--font-body)' }}>
+                                        {overBudget} over
+                                    </span>
+                                )}
+                                <button type="button" onClick={() => router.push('/budgets')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
+                                    See all →
+                                </button>
+                            </div>
                         </div>
-
-                        {/* Top spending */}
-                        {!dataLoading && (
-                            <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--accent-border)' }}>
-                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
-                                    Top spending
-                                </p>
-                                {budgets.length === 0 ? (
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No spending data yet</p>
-                                ) : (() => {
-                                    const top = [...budgets].sort((a: any, b: any) => parseFloat(b.spent) - parseFloat(a.spent))[0];
-                                    const pct  = top && parseFloat(top.amount) > 0 ? Math.round((parseFloat(top.spent) / parseFloat(top.amount)) * 100) : 0;
+                        {dataLoading ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {[1,2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
+                            </div>
+                        ) : budgets.length === 0 ? (
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>All budgets on track ✅</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {budgets.slice(0, 4).map((b: any) => {
+                                    const pct = parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0;
+                                    const over = pct > 100;
                                     return (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                                                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: top.category_color || expColor, flexShrink: 0 }} />
-                                                    <span style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{top.category_name}</span>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, fontFamily: 'var(--font-body)' }}>{pct}% of budget</span>
-                                                </div>
-                                                <ProgressBar pct={pct} height={3} color={top.category_color || expColor} />
+                                        <div key={b.id ?? b.category_id}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
+                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: over ? 'var(--color-exp)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                                                    {fmt(parseFloat(b.spent))} / {fmt(parseFloat(b.amount))}
+                                                </span>
                                             </div>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-exp)', fontWeight: 600, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(top.spent))}</span>
+                                            <ProgressBar pct={pct} height={4} />
                                         </div>
                                     );
-                                })()}
+                                })}
                             </div>
                         )}
                     </div>
 
-                    {/* Right: AI Insight */}
-                    <div style={{ padding: '20px 24px', flexShrink: 0, width: isMobile ? 'auto' : '260px', minWidth: isMobile ? 'auto' : '260px', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                            <Sparkles size={14} color="var(--accent)" />
-                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
+                    {/* Categories (top spending breakdown) */}
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: topCategories.length > 0 ? '14px' : '0' }}>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Top Categories</h2>
+                            <button type="button" onClick={() => router.push('/analytics')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
+                                See all →
+                            </button>
                         </div>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', flex: 1, fontFamily: 'var(--font-body)' }}>
-                            {aiLoading ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
-                        </p>
-                        <Button
-                            onClick={async () => {
-                                setAiReportLoading(true);
-                                try { const res = await aiAPI.report(); setAiInsight(res.data?.report ?? ''); }
-                                catch { }
-                                finally { setAiReportLoading(false); }
-                            }}
-                            isLoading={aiReportLoading}
-                            size="sm"
-                            style={{ alignSelf: 'flex-start' }}
-                        >
-                            <RefreshCw size={12} /> Generate Report
-                        </Button>
-                    </div>
-                </div>
-
-                {/* ── BUDGETS ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: budgets.length > 0 ? '14px' : '0' }}>
-                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Budgets</h2>
-                        {overBudget > 0 && (
-                            <span style={{ fontSize: '11px', color: 'var(--color-exp)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', padding: '2px 8px', borderRadius: '20px', fontFamily: 'var(--font-body)' }}>
-                                {overBudget} over budget
-                            </span>
-                        )}
-                        <button type="button" onClick={() => router.push('/budgets')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
-                            See all →
-                        </button>
-                    </div>
-                    {dataLoading ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {[1,2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
-                        </div>
-                    ) : budgets.length === 0 ? (
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>All budgets on track ✅</p>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {budgets.slice(0, 4).map((b: any) => {
-                                const pct = parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0;
-                                const over = pct > 100;
-                                return (
-                                    <div key={b.id ?? b.category_id}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                            <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: over ? 'var(--color-exp)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                                                {fmt(parseFloat(b.spent))} / {fmt(parseFloat(b.amount))}
-                                            </span>
+                        {dataLoading ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {[1,2,3].map(i => <div key={i}><Skeleton width="60%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
+                            </div>
+                        ) : topCategories.length === 0 ? (
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No spending data yet</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {topCategories.map((b: any) => {
+                                    const pct = parseFloat(b.amount) > 0 ? Math.round((parseFloat(b.spent) / parseFloat(b.amount)) * 100) : 0;
+                                    return (
+                                        <div key={b.id ?? b.category_id}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
+                                                <div style={{ width: 7, height: 7, borderRadius: '50%', background: b.category_color || expColor, flexShrink: 0 }} />
+                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
+                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{fmt(parseFloat(b.spent))}</span>
+                                            </div>
+                                            <ProgressBar pct={pct} height={4} color={b.category_color || expColor} />
                                         </div>
-                                        <ProgressBar pct={pct} height={4} />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                {/* ── RECENT TRANSACTIONS ── */}
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Recent Transactions</h2>
-                        <button type="button" onClick={() => router.push('/transactions')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)' }}>
-                            View all →
-                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+
+                    {/* Recent Transactions */}
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', paddingBottom: transactions.length === 0 && !dataLoading ? '18px' : '14px' }}>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Recent Transactions</h2>
+                            <button type="button" onClick={() => router.push('/transactions')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
+                                View all →
+                            </button>
+                        </div>
                         {dataLoading ? (
                             [1,2,3,4,5].map(i => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: i < 5 ? '1px solid var(--border)' : 'none' }}>
-                                    <Skeleton width={36} height={36} borderRadius={999} />
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderTop: '1px solid var(--border-subtle)' }}>
+                                    <Skeleton width={32} height={32} borderRadius={999} />
                                     <div style={{ flex: 1 }}>
                                         <Skeleton width="55%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} />
                                         <Skeleton width="35%" height={10} borderRadius={4} />
                                     </div>
-                                    <Skeleton width={70} height={14} borderRadius={4} />
+                                    <Skeleton width={60} height={14} borderRadius={4} />
                                 </div>
                             ))
                         ) : transactions.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '28px', textAlign: 'center', margin: 0, fontFamily: 'var(--font-body)' }}>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '0 20px 18px', textAlign: 'center', margin: 0, fontFamily: 'var(--font-body)' }}>
                                 No transactions yet — add your first one!
                             </p>
                         ) : (
-                            transactions.slice(0, 5).map((tx: any, idx: number) => {
+                            transactions.slice(0, 5).map((tx: any) => {
                                 const amount   = parseFloat(String(tx.amount));
                                 const isIncome = tx.type === 'income';
                                 return (
                                     <div key={tx.id} onClick={() => router.push('/transactions')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: idx < Math.min(transactions.length, 5) - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderTop: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '17px' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '15px' }}>
                                             {tx.category_icon || '💳'}
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -700,6 +701,7 @@ export default function DashboardPage() {
                                 );
                             })
                         )}
+                        {transactions.length > 0 && <div style={{ paddingBottom: '8px' }} />}
                     </div>
                 </div>
 

@@ -21,9 +21,9 @@ const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
 const fmt = (n: number) => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
 export default function BudgetsPage() {
     const router = useRouter();
@@ -212,7 +212,7 @@ export default function BudgetsPage() {
     const chipStyle = (active: boolean): React.CSSProperties => ({
         fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: 'none',
         cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: active ? 600 : 400,
-        background: active ? 'var(--accent)' : 'var(--bg-alt)',
+        background: active ? 'var(--accent)' : 'var(--bg-surface-2)',
         color: active ? 'white' : 'var(--text-secondary)',
         transition: 'all var(--transition-fast)',
     });
@@ -222,7 +222,7 @@ export default function BudgetsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Budgets</h1>
@@ -232,11 +232,11 @@ export default function BudgetsPage() {
                         </div>
                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                             <button type="button" onClick={() => setZeroBasedMode(v => !v)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${zeroBasedMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${zeroBasedMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <BarChart2 size={12} /> {isMobile ? '0-base' : 'Zero-based'}
                             </button>
                             <button type="button" onClick={openAdd}
-                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> {isMobile ? 'Add' : 'Add Budget'}
                             </button>
                         </div>
@@ -244,7 +244,7 @@ export default function BudgetsPage() {
 
                     {/* ── BUDGET HEALTH CHIPS ── */}
                     {!loading && budgets.length > 0 && (
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
                             {([
                                 { id: 'all',        label: 'All',           count: budgets.length },
                                 { id: 'on-track',   label: '✅ On track',   count: onTrackCount },
@@ -275,9 +275,9 @@ export default function BudgetsPage() {
 
                 {/* ── OVERALL PROGRESS CARD ── */}
                 {budgets.length > 0 && (
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                                 {Math.round(Math.min(overallRawPct, 100))}%
                             </p>
@@ -294,7 +294,7 @@ export default function BudgetsPage() {
 
                 {/* ── ZERO-BASED MODE BANNER ── */}
                 {zeroBasedMode && monthlyIncome > 0 && (
-                    <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                    <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Zero-based Budget</p>
                         <p style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
                             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmt(monthlyIncome)}</span> income allocated: {' '}
@@ -317,7 +317,7 @@ export default function BudgetsPage() {
                     <div style={{ background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 28%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                         <AlertCircle size={18} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
                         <div>
-                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 700, color: 'var(--color-warn)', margin: '0 0 3px' }}>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--color-warn)', margin: '0 0 3px' }}>
                                 {overBudgetList.length} {overBudgetList.length === 1 ? 'category is' : 'categories are'} over budget
                             </p>
                             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -335,11 +335,11 @@ export default function BudgetsPage() {
                 {/* ── BUDGET CATEGORY CARDS ── */}
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                             Budget Categories {healthFilter !== 'all' && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>({filteredBudgets.length} shown)</span>}
                         </h2>
                         <button type="button" onClick={openAdd}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                             <Plus size={12} /> Add Budget
                         </button>
                     </div>
@@ -351,18 +351,18 @@ export default function BudgetsPage() {
                     ) : budgets.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '40px 24px' }}>
                             <p style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</p>
-                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No budgets set</p>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No budgets set</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Set monthly limits to stay on track</p>
                             <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Set your first budget
                             </button>
                         </div>
                     ) : filteredBudgets.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+                        <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No budgets match this filter</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '12px' }}>
                             {filteredBudgets.map(budget => {
                                 const spent    = parseFloat(budget.spent);
                                 const limit    = parseFloat(budget.amount);
@@ -370,21 +370,21 @@ export default function BudgetsPage() {
                                 const isOver   = spent > limit;
                                 const overAmt  = isOver ? spent - limit : 0;
                                 const leftAmt  = isOver ? 0 : limit - spent;
-                                const barColor = isOver ? 'var(--color-exp)' : 'var(--accent-2)';
-                                const emojiBg  = isOver ? 'color-mix(in srgb, var(--color-exp) 12%, transparent)' : 'var(--accent-light)';
+                                const barColor = isOver ? 'var(--color-exp)' : 'var(--accent)';
+                                const emojiBg  = isOver ? 'color-mix(in srgb, var(--color-exp) 12%, transparent)' : 'var(--accent-subtle)';
                                 const rollover = rolloverEnabled[budget.category_id];
                                 const prevB    = prevMonthBudgets.find(p => p.category_id === budget.category_id);
                                 const rolloverAmt = prevB ? Math.max(0, parseFloat(prevB.amount) - parseFloat(prevB.spent)) : 0;
 
                                 return (
-                                    <div key={budget.id} style={{ background: 'var(--bg-card)', border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                                    <div key={budget.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                                                 <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: emojiBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>
                                                     {budget.category_icon || budget.category_emoji || '📊'}
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {budget.category_name}
                                                     </p>
                                                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
@@ -416,14 +416,14 @@ export default function BudgetsPage() {
                                                             {deletingId === budget.id ? '…' : 'Delete'}
                                                         </button>
                                                         <button type="button" onClick={() => setConfirmDeleteId(null)}
-                                                            style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                            style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                             Cancel
                                                         </button>
                                                     </div>
                                                 ) : (
                                                     <div style={{ display: 'flex', gap: '4px' }}>
                                                         <button type="button" onClick={() => { setEditingId(budget.id); setEditAmount(String(parseFloat(budget.amount))); setEditError(''); }} style={iconBtn}
-                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-light)'; el.style.color = 'var(--accent)'; }}
+                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Pencil size={13} />
                                                         </button>
@@ -442,7 +442,7 @@ export default function BudgetsPage() {
                                         {/* Rollover toggle + amount */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '7px' }}>
                                             <button type="button" onClick={() => toggleRollover(budget.category_id)}
-                                                style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${rollover ? 'var(--accent-border)' : 'var(--border)'}`, background: rollover ? 'var(--accent-light)' : 'transparent', color: rollover ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all var(--transition-fast)' }}>
+                                                style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${rollover ? 'var(--accent-border)' : 'var(--border-subtle)'}`, background: rollover ? 'var(--accent-subtle)' : 'transparent', color: rollover ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all var(--transition-fast)' }}>
                                                 ↩ Rollover
                                             </button>
                                             {rollover && rolloverAmt > 0 && (
@@ -458,7 +458,7 @@ export default function BudgetsPage() {
                                                 <div style={{ position: 'relative', flexShrink: 0 }}>
                                                     <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 13 }}>₹</span>
                                                     <input type="number" min="1" value={editAmount} onChange={e => setEditAmount(e.target.value)} autoFocus
-                                                        style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+                                                        style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
                                                 </div>
                                                 <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save</Button>
                                                 <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>Cancel</button>
@@ -478,8 +478,8 @@ export default function BudgetsPage() {
             <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); }} title={`Set Budget — ${MONTH_NAMES[currentMonth]}`} maxWidth="440px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="add-budget-form" disabled={formLoading || !formCategory || !formAmount} style={{ padding: 10, background: formLoading || !formCategory || !formAmount ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="add-budget-form" disabled={formLoading || !formCategory || !formAmount} style={{ padding: 10, background: formLoading || !formCategory || !formAmount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {formLoading ? 'Saving…' : 'Set Budget'}
                         </button>
                     </div>

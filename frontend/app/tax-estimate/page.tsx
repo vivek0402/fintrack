@@ -14,8 +14,8 @@ import { Receipt, Loader2, AlertTriangle, PiggyBank, Calculator } from 'lucide-r
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 const card: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'var(--bg-surface-1)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: 'var(--radius-lg)',
     padding: '20px 24px',
 };
@@ -63,7 +63,7 @@ export default function TaxEstimatePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Tax Estimate</h1>
@@ -79,7 +79,7 @@ export default function TaxEstimatePage() {
                 {!generated && !loading && !error && (
                     <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                         <p style={{ fontSize: '48px', marginBottom: '12px' }}>🧾</p>
-                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No estimate yet</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No estimate yet</p>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Add income transactions first, then calculate your tax estimate</p>
                         <Button variant="primary" size="md" onClick={() => generate(false)}><Receipt size={15} /> Calculate My Tax</Button>
                     </div>
@@ -98,7 +98,7 @@ export default function TaxEstimatePage() {
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
                         <AlertTriangle size={28} color="var(--color-exp)" />
                         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
-                        <button type="button" onClick={() => generate(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
+                        <button type="button" onClick={() => generate(false)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
                     </div>
                 )}
 
@@ -125,7 +125,7 @@ export default function TaxEstimatePage() {
                                     </div>
                                     <div style={{ ...card, flex: '1 1 220px', borderLeft: `4px solid ${isNewBetter ? 'var(--color-inc)' : 'var(--accent)'}` }}>
                                         <p style={labelSt}>Recommended Regime</p>
-                                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '20px', fontWeight: 700, color: isNewBetter ? 'var(--color-inc)' : 'var(--accent)', margin: '0 0 4px' }}>{isNewBetter ? 'New Regime' : 'Old Regime'}</p>
+                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: isNewBetter ? 'var(--color-inc)' : 'var(--accent)', margin: '0 0 4px' }}>{isNewBetter ? 'New Regime' : 'Old Regime'}</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: 'var(--text-secondary)', margin: '0 0 4px', fontVariantNumeric: 'tabular-nums' }}>{fmt(recTax ?? 0)} tax due</p>
                                         {(data.savings ?? 0) > 0 && <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--color-inc)', margin: 0, fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>You save {fmt(data.savings)} vs other regime</p>}
                                     </div>
@@ -139,15 +139,15 @@ export default function TaxEstimatePage() {
                                     ].map(({ label, regime, isRec, note }) => {
                                         if (!regime) return null;
                                         return (
-                                            <div key={label} style={{ ...card, flex: '1 1 220px', position: 'relative', border: `1px solid ${isRec ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'var(--border)'}` }}>
+                                            <div key={label} style={{ ...card, flex: '1 1 220px', position: 'relative', border: `1px solid ${isRec ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'var(--border-subtle)'}` }}>
                                                 {isRec && (
                                                     <div style={{ position: 'absolute', top: '-10px', right: '16px', background: 'var(--color-inc)', color: 'white', fontSize: '10px', fontWeight: 700, padding: '2px 10px', borderRadius: '10px', fontFamily: 'var(--font-body)' }}>✓ RECOMMENDED</div>
                                                 )}
-                                                <p style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>{label}</p>
+                                                <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>{label}</p>
                                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontVariantNumeric: 'tabular-nums' }}>{fmt(regime.total ?? 0)}</p>
                                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Effective rate: {regime.total && data.grossIncome ? ((regime.total / data.grossIncome) * 100).toFixed(1) : '0'}%</p>
                                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{note}</p>
-                                                <div style={{ height: '1px', background: 'var(--border)', margin: '14px 0' }} />
+                                                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '14px 0' }} />
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
                                                     {[
                                                         { label: 'Standard Deduction', val: fmt(regime.standardDeduction ?? 0), color: 'var(--color-inc)' },
@@ -156,13 +156,13 @@ export default function TaxEstimatePage() {
                                                         { label: 'Income Tax', val: fmt(regime.tax ?? 0), color: 'var(--color-exp)' },
                                                         { label: 'Cess (4%)', val: fmt(regime.cess ?? 0), color: 'var(--color-warn)' },
                                                     ].map(row => (
-                                                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border)' }}>
+                                                        <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
                                                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{row.label}</span>
                                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: row.color, fontVariantNumeric: 'tabular-nums' }}>{row.val}</span>
                                                         </div>
                                                     ))}
                                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>Total Liability</span>
+                                                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Total Liability</span>
                                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: (regime.total ?? 0) === 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(regime.total ?? 0)}</span>
                                                     </div>
                                                 </div>
@@ -176,7 +176,7 @@ export default function TaxEstimatePage() {
                                     <div style={card}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                                             <Receipt size={15} color="var(--accent)" />
-                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Tax slab breakdown (New Regime)</span>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Tax slab breakdown (New Regime)</span>
                                         </div>
                                         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', padding: '8px 12px', marginBottom: '4px' }}>
                                             {['Slab', 'Taxable Amt', 'Rate', 'Tax'].map(h => (
@@ -184,15 +184,15 @@ export default function TaxEstimatePage() {
                                             ))}
                                         </div>
                                         {data.breakdown.map((row: any, i: number) => (
-                                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: i % 2 === 0 ? 'var(--bg-alt)' : 'transparent' }}>
+                                            <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: i % 2 === 0 ? 'var(--bg-surface-2)' : 'transparent' }}>
                                                 <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{row.slab}</span>
                                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'right', fontFamily: 'var(--font-body)' }}>—</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--accent)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.rate}</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.tax > 0 ? fmt(row.tax) : 'Nil'}</span>
                                             </div>
                                         ))}
-                                        <div style={{ borderTop: '1px solid var(--border)', marginTop: '8px', padding: '10px 12px 0', display: 'flex', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>Total Tax Due</span>
+                                        <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '8px', padding: '10px 12px 0', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Total Tax Due</span>
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(data.newRegime?.tax ?? data.oldRegime?.tax ?? 0)}</span>
                                         </div>
                                     </div>
@@ -203,7 +203,7 @@ export default function TaxEstimatePage() {
                                     <div style={card}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                             <PiggyBank size={15} color="var(--color-inc)" />
-                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Tax saving tips</span>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Tax saving tips</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {data.tips.map((tip: string, i: number) => (

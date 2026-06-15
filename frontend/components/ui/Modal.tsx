@@ -52,7 +52,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 left: 0,
                 width: '100vw',
                 height: '100vh',
-                backgroundColor: 'rgba(0,0,0,0.55)',
+                backgroundColor: 'rgba(0,0,0,0.7)',
                 backdropFilter: 'blur(2px)',
                 WebkitBackdropFilter: 'blur(2px)',
                 zIndex: 9999,
@@ -71,12 +71,13 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-xl)',
+                    background: 'var(--bg-surface-1)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-modal)',
                     overflow: 'hidden',
                     zIndex: 10000,
-                    animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both',
+                    animation: 'scaleIn 150ms ease both',
                 }}
             >
                 {/* Header */}
@@ -86,11 +87,11 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         padding: '20px 24px',
-                        borderBottom: '1px solid var(--border)',
+                        borderBottom: '1px solid var(--border-subtle)',
                         flexShrink: 0,
                     }}>
                         <span style={{
-                            fontSize: '1rem',
+                            fontSize: 'var(--text-h2)',
                             fontWeight: 700,
                             color: 'var(--text-primary)',
                             fontFamily: 'var(--font-display)',
@@ -101,7 +102,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                             type="button"
                             onClick={onClose}
                             style={{
-                                background: 'var(--bg-alt)',
+                                background: 'var(--bg-surface-2)',
                                 border: 'none',
                                 cursor: 'pointer',
                                 color: 'var(--text-muted)',
@@ -116,7 +117,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 )}
 
                 {/* Scrollable body */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
                     {children}
                 </div>
 
@@ -125,7 +126,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     <div style={{
                         flexShrink: 0,
                         padding: '16px 24px',
-                        borderTop: '1px solid var(--border)',
+                        borderTop: '1px solid var(--border-subtle)',
                     }}>
                         {footer}
                     </div>

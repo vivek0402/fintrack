@@ -10,6 +10,8 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
 
+const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+
 interface Props {
     transactions: any[];
     currency?: string;
@@ -113,9 +115,9 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                 if (visibleTxs.length === 0) return null;
                 return (
                 <div key={date}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-6) 6px', background: 'var(--surface-1)' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{getDateLabel(date)}</span>
-                        <div style={{ flex: 1, height: '1px', background: 'var(--bg-border)' }} />
+                    <div style={{ position: 'sticky', top: 0, zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-5) 6px', background: 'var(--bg-surface-1)' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{getDateLabel(date)}</span>
+                        <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                     </div>
                     {visibleTxs.map(tx => {
                         const staggerDelay = Math.min(rowIndex++ * 28, 280);
@@ -133,8 +135,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 display: 'flex',
                                 alignItems: 'center',
                                 padding: '12px 16px',
-                                borderBottom: '1px solid var(--bg-border)',
-                                background: isSelected ? 'var(--bg-alt)' : 'var(--bg-card)',
+                                borderBottom: '1px solid var(--border-subtle)',
+                                background: isSelected ? 'var(--bg-surface-2)' : 'var(--bg-surface-1)',
                                 minHeight: '64px',
                                 opacity: tx.is_regretted ? 0.7 : 1,
                                 cursor: 'pointer',
@@ -144,7 +146,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 {selectMode ? (
                                     <div style={{
                                         width: 20, height: 20, borderRadius: '5px', flexShrink: 0, marginRight: 12,
-                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border-subtle)'}`,
                                         background: isSelected ? 'var(--accent)' : 'transparent',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         transition: 'all 0.15s',
@@ -164,12 +166,12 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                                 {/* Left: description + category */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>
                                         {tx.description}
                                     </div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
                                         {tx.is_regretted && (
-                                            <span style={{ color: 'var(--accent-yellow)' }}>⚠️ </span>
+                                            <span style={{ color: 'var(--color-warn)' }}>⚠️ </span>
                                         )}
                                         {tx.category_name || 'Uncategorized'}
                                     </div>
@@ -177,17 +179,17 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                                 {/* Right: amount + date */}
                                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', fontFamily: "'DM Mono', monospace" }}>
-                                        {isIncome ? '+' : '-'}₹{parseFloat(tx.amount).toLocaleString('en-IN')}
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                                        {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
                                     </div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
                                         {formatDate((tx.date || '').split('T')[0])}
                                     </div>
                                 </div>
                                 {/* Mobile regret toggle or pending indicator */}
                                 {(tx as any)._pending ? (
                                     <span style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
-                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn, #f59e0b)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
+                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
                                     </span>
                                 ) : !isIncome && !selectMode && (
                                     <button
@@ -197,9 +199,9 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
                                         style={{
                                             width: 30, height: 30, borderRadius: 8, flexShrink: 0, marginLeft: 6,
-                                            background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent',
-                                            border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent',
-                                            color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)',
+                                            background: tx.is_regretted ? 'var(--color-exp-subtle)' : 'transparent',
+                                            border: tx.is_regretted ? '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)' : '1px solid transparent',
+                                            color: tx.is_regretted ? 'var(--color-exp)' : 'var(--text-muted)',
                                             cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             fontSize: '14px', opacity: regrettingId === tx.id ? 0.5 : 1,
                                             transition: 'all 0.15s',
@@ -215,20 +217,20 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 onClick={selectMode ? () => onToggleSelect?.(tx.id) : undefined}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
-                                    borderLeft: `3px solid ${isSelected ? 'var(--accent)' : getCategoryColor(tx.category_name)}`,
+                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--border-subtle)',
+                                    borderLeft: `3px solid ${isSelected ? 'var(--accent)' : categoryColor}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
                                     opacity: tx.is_regretted ? 0.7 : 1,
-                                    background: isSelected ? 'var(--bg-alt)' : 'transparent',
+                                    background: isSelected ? 'var(--bg-surface-2)' : 'transparent',
                                     cursor: selectMode ? 'pointer' : 'default',
                                 }}
-                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'var(--bg-alt)' : 'transparent'; }}
+                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'var(--bg-surface-2)' : 'transparent'; }}
                             >
                                 {selectMode && (
                                     <div style={{
                                         width: 18, height: 18, borderRadius: '5px', flexShrink: 0,
-                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                                        border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border-subtle)'}`,
                                         background: isSelected ? 'var(--accent)' : 'transparent',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         transition: 'all 0.15s', marginRight: '4px',
@@ -237,30 +239,30 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     </div>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', flexShrink: 0, background: getCategoryBg(tx.category_name), border: '1px solid transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
+                                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: getCategoryBg(tx.category_name), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {isIncome ? <TrendingUp size={15} color="var(--color-inc)" /> : <TrendingDown size={15} color="var(--color-exp)" />}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
-                                        <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</p>
+                                        <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-                                            {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color}22`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500 }}>{tx.category_name}</span>}
+                                            {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `color-mix(in srgb, ${tx.category_color || 'var(--text-muted)'} 15%, transparent)`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
                                             {!isIncome && tx.payment_method && tx.payment_method !== 'Cash' && (
-                                                <span style={{ fontSize: '0.65rem', fontWeight: 500, background: 'rgba(99,102,241,0.08)', color: 'var(--accent-blue)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.payment_method}</span>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 500, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.payment_method}</span>
                                             )}
-                                            {tx.group_name && <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'rgba(99,102,241,0.12)', color: '#818cf8', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>{tx.group_name}</span>}
+                                            {tx.group_name && <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.group_name}</span>}
                                             {(tx.tags || []).map((tag: string) => (
-                                                <span key={tag} style={{ fontSize: '0.68rem', color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px' }}>#{tag}</span>
+                                                <span key={tag} style={{ fontSize: '0.68rem', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', border: '1px solid var(--accent-border)', padding: '1px 6px', borderRadius: '10px', fontFamily: 'var(--font-body)' }}>#{tag}</span>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                    <p style={{ fontFamily: "'DM Mono', monospace", fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0 }}>
-                                        {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                                        {isIncome ? '+' : '−'}{formatCurrency(parseFloat(tx.amount), currency)}
                                     </p>
                                     {(tx as any)._pending ? (
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>
-                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn, #f59e0b)', display: 'inline-block', animation: 'pulseDot 1.2s ease-in-out infinite', flexShrink: 0 }} />
+                                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', display: 'inline-block', animation: 'pulseDot 1.2s ease-in-out infinite', flexShrink: 0 }} />
                                             Pending
                                         </span>
                                     ) : (
@@ -269,31 +271,31 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                                 onClick={() => handleRegret(tx.id)}
                                                 disabled={regrettingId === tx.id}
                                                 title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
-                                                style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: tx.is_regretted ? 'rgba(244,63,94,0.1)' : 'transparent', border: tx.is_regretted ? '1px solid rgba(244,63,94,0.25)' : '1px solid transparent', color: tx.is_regretted ? '#f43f5e' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
-                                                onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'rgba(244,63,94,0.08)'; (e.currentTarget as HTMLElement).style.color = '#f43f5e'; } }}
+                                                style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: tx.is_regretted ? 'var(--color-exp-subtle)' : 'transparent', border: tx.is_regretted ? '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)' : '1px solid transparent', color: tx.is_regretted ? 'var(--color-exp)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
+                                                onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'var(--color-exp-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'; } }}
                                                 onMouseLeave={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; } }}
                                             >
                                                 🤦
                                             </button>
-                                            <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
-                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-blue-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-blue)'; }}
+                                            <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
                                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
                                                 <Pencil size={13} />
                                             </button>
                                             {isConfirm ? (
                                                 <div style={{ display: 'flex', gap: '4px' }}>
                                                     <button onClick={() => handleDelete(tx.id)} disabled={deletingId === tx.id}
-                                                        style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--accent-red-bg)', border: '1px solid var(--accent-red-border)', color: 'var(--accent-red)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}>
+                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         {deletingId === tx.id ? '...' : 'Delete'}
                                                     </button>
                                                     <button onClick={() => setConfirmId(null)}
-                                                        style={{ padding: '4px 8px', borderRadius: '6px', background: 'var(--bg-card)', border: '1px solid var(--bg-border)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}>
+                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         Cancel
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => setConfirmId(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
-                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-red-bg)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-red)'; }}
+                                                <button onClick={() => setConfirmId(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
+                                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-exp-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'; }}
                                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
                                                     <Trash2 size={13} />
                                                 </button>

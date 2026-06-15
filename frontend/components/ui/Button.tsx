@@ -9,6 +9,11 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     children: React.ReactNode;
 }
 
+const HEIGHTS: Record<string, number> = { sm: 32, md: 40, lg: 48 };
+const PADDINGS: Record<string, string> = { sm: '0 12px', md: '0 20px', lg: '0 24px' };
+const FONT_SIZES: Record<string, string> = { sm: '13px', md: '14px', lg: '15px' };
+const SPINNER_SIZES: Record<string, number> = { sm: 14, md: 16, lg: 16 };
+
 export function Button({
     variant = 'primary',
     size = 'md',
@@ -29,70 +34,63 @@ export function Button({
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px',
+        gap: '8px',
         fontFamily: 'var(--font-body)',
         fontWeight: 600,
-        fontSize: '14px',
+        fontSize: FONT_SIZES[size],
+        height: HEIGHTS[size],
         borderRadius: 'var(--radius-md)',
         border: 'none',
         cursor: disabled || isLoading ? 'not-allowed' : 'pointer',
-        opacity: disabled || isLoading ? 0.4 : 1,
         transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), opacity 150ms ease, background 150ms ease',
         whiteSpace: 'nowrap' as const,
         outline: 'none',
         flexShrink: 0,
     };
 
-    const sizes: Record<string, React.CSSProperties> = {
-        sm: { padding: '6px 12px',  fontSize: '12px' },
-        md: { padding: '10px 20px', fontSize: '14px' },
-        lg: { padding: '12px 24px', fontSize: '15px' },
-    };
-
     const variants: Record<string, React.CSSProperties> = {
         primary: {
+            padding: PADDINGS[size],
             background: 'var(--accent)',
             color: '#fff',
             border: 'none',
-            opacity: hovered && !disabled ? 0.88 : disabled || isLoading ? 0.4 : 1,
         },
         secondary: {
-            background: hovered && !disabled ? 'var(--bg-hover)' : 'var(--bg-alt)',
+            padding: PADDINGS[size],
+            background: hovered && !disabled ? 'var(--bg-surface-3)' : 'var(--bg-surface-2)',
             color: 'var(--text-primary)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-subtle)',
         },
         ghost: {
-            background: hovered && !disabled ? 'var(--accent-light)' : 'transparent',
+            padding: PADDINGS[size],
+            background: hovered && !disabled ? 'var(--accent-subtle)' : 'transparent',
             color: 'var(--accent)',
             border: 'none',
-            padding: '8px 12px',
         },
         danger: {
-            background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)',
+            padding: PADDINGS[size],
+            background: 'var(--color-exp-subtle)',
             color: 'var(--color-exp)',
             border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)',
         },
         icon: {
-            width: '36px',
-            height: '36px',
+            width: HEIGHTS[size],
             padding: '0',
-            background: hovered && !disabled ? 'var(--bg-hover)' : 'var(--bg-alt)',
+            background: hovered && !disabled ? 'var(--bg-surface-3)' : 'var(--bg-surface-2)',
             color: 'var(--text-secondary)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
         },
     };
 
     const transform = pressed && !disabled && !isLoading ? 'scale(0.93)' : 'scale(1)';
     const variantStyle = variants[variant] || variants.primary;
-    const finalOpacity = variant === 'primary'
-        ? (disabled || isLoading ? 0.4 : hovered && !disabled ? 0.88 : 1)
-        : (disabled || isLoading ? 0.4 : 1);
+    const finalOpacity = disabled || isLoading ? 0.4 : hovered && !disabled && (variant === 'primary') ? 0.88 : 1;
 
     return (
         <button
             disabled={disabled || isLoading}
-            style={{ ...base, ...(variant !== 'icon' ? sizes[size] : {}), ...variantStyle, transform, opacity: finalOpacity, ...style }}
+            style={{ ...base, ...variantStyle, transform, opacity: finalOpacity, ...style }}
             onMouseEnter={e => { setHovered(true);  onMouseEnter?.(e); }}
             onMouseLeave={e => { setHovered(false); setPressed(false); onMouseLeave?.(e); }}
             onMouseDown={e  => { setPressed(true);  onMouseDown?.(e); }}
@@ -100,10 +98,14 @@ export function Button({
             {...props}
         >
             {isLoading ? (
-                <>
-                    <div style={{ width: '14px', height: '14px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                    Loading...
-                </>
+                <div style={{
+                    width: SPINNER_SIZES[size],
+                    height: SPINNER_SIZES[size],
+                    border: '2px solid currentColor',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 0.7s linear infinite',
+                }} />
             ) : children}
         </button>
     );

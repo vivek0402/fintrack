@@ -18,7 +18,7 @@ const DIMENSION_META: Record<string, { color: string; icon: string }> = {
     discipline:    { color: 'var(--accent)',      icon: '🎯' },
     goal_focus:    { color: 'var(--color-warn)',  icon: '🏆' },
     risk_appetite: { color: 'var(--color-exp)',   icon: '⚡' },
-    savings_habit: { color: 'var(--accent-2)',    icon: '💰' },
+    savings_habit: { color: 'var(--accent)',    icon: '💰' },
 };
 
 const DIMENSION_LABELS: Record<string, string> = {
@@ -42,8 +42,8 @@ function scoreLabel(score: number) {
 }
 
 const card: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'var(--bg-surface-1)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: 'var(--radius-lg)',
     padding: '20px 24px',
 };
@@ -86,7 +86,7 @@ export default function PersonalityPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Personality</h1>
@@ -102,7 +102,7 @@ export default function PersonalityPage() {
                 {!generated && !loading && !error && (
                     <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                         <p style={{ fontSize: '48px', marginBottom: '12px' }}>🧠</p>
-                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No analysis yet</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No analysis yet</p>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Add some transactions first, then generate your personality report</p>
                         <Button variant="primary" size="md" onClick={generate}><Brain size={15} /> Analyse My Personality</Button>
                     </div>
@@ -121,7 +121,7 @@ export default function PersonalityPage() {
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
                         <AlertTriangle size={28} color="var(--color-exp)" />
                         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
-                        <button type="button" onClick={generate} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
+                        <button type="button" onClick={generate} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
                     </div>
                 )}
 
@@ -131,7 +131,7 @@ export default function PersonalityPage() {
                         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                             {/* LEFT: Hero card */}
                             <div style={{ flex: '1.2 1 300px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ background: 'color-mix(in srgb, var(--accent-3) 8%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--accent-3) 25%, transparent)', borderRadius: 'var(--radius-lg)', padding: '28px 24px' }}>
+                                <div style={{ background: 'color-mix(in srgb, var(--accent-3) 8%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent-3) 25%, transparent)', borderRadius: 'var(--radius-lg)', padding: '28px 24px' }}>
                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                         <Badge color="var(--accent-3)" bg="color-mix(in srgb, var(--accent-3) 15%, transparent)">✦ FINANCIAL PROFILE</Badge>
                                         {data.from_cache && <Badge>Cached</Badge>}
@@ -149,7 +149,7 @@ export default function PersonalityPage() {
                                         </div>
                                         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{scoreLabel(data.overall_score)}</span>
                                     </div>
-                                    <div style={{ height: '1px', background: 'var(--border)', margin: '20px 0' }} />
+                                    <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '20px 0' }} />
                                     <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-body)' }}>{data.summary}</p>
                                 </div>
 
@@ -169,7 +169,7 @@ export default function PersonalityPage() {
                                                         </div>
                                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: scoreColor(dim.score), fontVariantNumeric: 'tabular-nums' }}>{dim.score}</span>
                                                     </div>
-                                                    <div style={{ height: '6px', background: 'var(--bg-hover)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '6px', background: 'var(--bg-surface-3)', borderRadius: '3px', overflow: 'hidden' }}>
                                                         <div style={{ height: '100%', width: `${dim.score}%`, background: meta.color, borderRadius: '3px', transition: 'width 0.8s ease' }} />
                                                     </div>
                                                 </div>
@@ -188,13 +188,13 @@ export default function PersonalityPage() {
                             <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={card}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                        <Sparkles size={16} color="var(--accent-2)" />
-                                        <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Traits</span>
+                                        <Sparkles size={16} color="var(--accent)" />
+                                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Traits</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                         {dims.map(([key, dim]: [string, any]) => (
                                             <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--accent-2)', flexShrink: 0, marginTop: '5px' }} />
+                                                <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--accent)', flexShrink: 0, marginTop: '5px' }} />
                                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>{dim.description}</span>
                                             </div>
                                         ))}
@@ -205,7 +205,7 @@ export default function PersonalityPage() {
                                     <div style={card}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                             <TrendingUp size={16} color="var(--color-inc)" />
-                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Strengths</span>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Strengths</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {strengths.map(([key, dim]: [string, any]) => (
@@ -224,7 +224,7 @@ export default function PersonalityPage() {
                                     <div style={card}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                             <AlertCircle size={16} color="var(--color-warn)" />
-                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Watch Outs</span>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Watch Outs</span>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {watchOuts.map(([key, dim]: [string, any]) => (
@@ -242,19 +242,19 @@ export default function PersonalityPage() {
                         </div>
 
                         {/* Tips */}
-                        <GCard style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)' }}>
+                        <GCard style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                                 <Lightbulb size={16} color="var(--accent)" />
-                                <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>What to focus on</span>
+                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>What to focus on</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {dims.map(([key, dim]: [string, any], i: number) => (
                                     <div key={key} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                        <div style={{ width: '24px', height: '24px', flexShrink: 0, borderRadius: '12px', background: 'var(--accent-light)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-mono)' }}>
+                                        <div style={{ width: '24px', height: '24px', flexShrink: 0, borderRadius: '12px', background: 'var(--accent-subtle)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-mono)' }}>
                                             {i + 1}
                                         </div>
                                         <div>
-                                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-head)' }}>{DIMENSION_LABELS[key] || key}</p>
+                                            <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-display)' }}>{DIMENSION_LABELS[key] || key}</p>
                                             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
                                                 {dim.score >= 70 ? `You're doing well here. Maintain your ${dim.label.toLowerCase()} habits.` : dim.score >= 50 ? `Good foundation — push to improve ${DIMENSION_LABELS[key]?.toLowerCase()} toward 70+.` : `Focus area: ${dim.description}`}
                                             </p>

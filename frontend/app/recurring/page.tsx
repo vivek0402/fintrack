@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
-const inputSt: React.CSSProperties = { padding: '10px 14px', background: 'var(--bg-alt)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
+const inputSt: React.CSSProperties = { padding: '10px 14px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
 const iconBt: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' };
 
 export default function RecurringPage() {
@@ -116,7 +116,7 @@ export default function RecurringPage() {
         <AppLayout>
             <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[1,2,3].map(i => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+                {[1,2,3].map(i => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
                     <SkeletonCircle size={40} />
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <Skeleton width="50%" height={14} borderRadius={4} />
@@ -131,7 +131,7 @@ export default function RecurringPage() {
     const TypeToggle = ({ value, onChange }: { value: string; onChange: (v: 'income' | 'expense') => void }) => (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
             {(['expense', 'income'] as const).map(t => (
-                <button key={t} type="button" onClick={() => onChange(t)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)') : 'var(--border)'}`, background: value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : 'var(--bg-card)', color: value === t ? (t === 'income' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>
+                <button key={t} type="button" onClick={() => onChange(t)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)') : 'var(--border-subtle)'}`, background: value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : 'var(--bg-surface-1)', color: value === t ? (t === 'income' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>
                     {t}
                 </button>
             ))}
@@ -143,7 +143,7 @@ export default function RecurringPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Recurring</h1>
@@ -157,7 +157,7 @@ export default function RecurringPage() {
 
                 {/* AI Detect Patterns strip */}
                 {(patternsLoading || visiblePatterns.length > 0) && (
-                    <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-card))', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                    <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-surface-1))', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                         {patternsLoading ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Brain size={16} color="var(--color-info)" />
@@ -168,7 +168,7 @@ export default function RecurringPage() {
                             <>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                                     <Sparkles size={16} color="var(--color-info)" />
-                                    <span style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
                                         AI found {visiblePatterns.length} potential recurring transaction{visiblePatterns.length !== 1 ? 's' : ''}
                                     </span>
                                 </div>
@@ -176,7 +176,7 @@ export default function RecurringPage() {
                                     {visiblePatterns.map((p, i) => {
                                         const realIdx = patterns.indexOf(p);
                                         return (
-                                            <div key={realIdx} style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                            <div key={realIdx} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                         <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.merchant || p.description}</span>
@@ -191,10 +191,10 @@ export default function RecurringPage() {
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                                     <button type="button" onClick={() => handleAddPattern(p, realIdx)} disabled={addingPattern === realIdx}
-                                                        style={{ padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>
+                                                        style={{ padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>
                                                         {addingPattern === realIdx ? 'Adding…' : '+ Add'}
                                                     </button>
-                                                    <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} style={{ ...iconBt, border: '1px solid var(--border)' }}><X size={13} /></button>
+                                                    <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} style={{ ...iconBt, border: '1px solid var(--border-subtle)' }}><X size={13} /></button>
                                                 </div>
                                             </div>
                                         );
@@ -207,8 +207,8 @@ export default function RecurringPage() {
 
                 {/* Add form */}
                 {showForm && (
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
-                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>New Recurring Transaction</h3>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>New Recurring Transaction</h3>
                         <form onSubmit={handleSubmit}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -251,7 +251,7 @@ export default function RecurringPage() {
                 ) : recurring.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                         <p style={{ fontSize: '40px', marginBottom: '10px' }}>🔄</p>
-                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No recurring transactions</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No recurring transactions</p>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Schedule bills, subscriptions, and EMIs to track them automatically</p>
                         <button type="button" onClick={() => setShowForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Add your first one</button>
                     </div>
@@ -261,7 +261,7 @@ export default function RecurringPage() {
                             const isIncome = r.type === 'income';
                             return (
                                 <div key={r.id}>
-                                    <div style={{ background: 'var(--bg-card)', border: `1px solid ${r.is_active ? 'var(--border)' : 'var(--bg-alt)'}`, borderRadius: editingId === r.id ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)', padding: '14px 18px', opacity: r.is_active ? 1 : 0.55, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                    <div style={{ background: 'var(--bg-surface-1)', border: `1px solid ${r.is_active ? 'var(--border-subtle)' : 'var(--bg-surface-2)'}`, borderRadius: editingId === r.id ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)', padding: '14px 18px', opacity: r.is_active ? 1 : 0.55, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                             <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 {isIncome ? <TrendingUp size={16} color="var(--color-inc)" /> : <TrendingDown size={16} color="var(--color-exp)" />}
@@ -270,7 +270,7 @@ export default function RecurringPage() {
                                                 <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{r.description}</p>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
                                                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{freqLabel(r)}</span>
-                                                    {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={`${r.category_color || 'var(--bg-alt)'}20`}>{r.category_name}</Badge>}
+                                                    {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={`${r.category_color || 'var(--bg-surface-2)'}20`}>{r.category_name}</Badge>}
                                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Next: {formatNextDate(r.next_due_date)}</span>
                                                 </div>
                                             </div>
@@ -282,7 +282,7 @@ export default function RecurringPage() {
                                                 {r.is_active ? <Pause size={13} /> : <Play size={13} />}
                                             </button>
                                             <button type="button" onClick={() => { setEditingId(r.id); setEditForm({ type: r.type, amount: String(r.amount), description: r.description, frequency: r.frequency, day_of_month: r.day_of_month ? String(r.day_of_month) : '', category_id: r.category_id || '' }); setEditError(''); }} style={iconBt}
-                                                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-light)'; el.style.color = 'var(--accent)'; }}
+                                                onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                 onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                 <Pencil size={14} />
                                             </button>
@@ -294,8 +294,8 @@ export default function RecurringPage() {
                                         </div>
                                     </div>
                                     {editingId === r.id && (
-                                        <div style={{ background: 'var(--bg-card)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', padding: '20px' }}>
-                                            <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Edit Recurring Transaction</h3>
+                                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', padding: '20px' }}>
+                                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Edit Recurring Transaction</h3>
                                             <form onSubmit={handleEditSubmit}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -3,5 +3,9 @@
     "eslint.workingDirectories": [
         { "directory": "./frontend", "changeProcessCWD": true }
     ],
-    "eslint.useFlatConfig": true
+    "eslint.useFlatConfig": true,
+    "gradle.javaHome": "E:/Projects/Finance Tracker/jdk21/jdk-21.0.7+6",
+    "java.import.gradle.java.home": "E:/Projects/Finance Tracker/jdk21/jdk-21.0.7+6",
+    "java.import.gradle.enabled": true,
+    "java.import.gradle.wrapper.enabled": true
 }

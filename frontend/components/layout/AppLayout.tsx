@@ -22,28 +22,11 @@ import { runNotificationCheck } from '@/lib/notificationTrigger';
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
 
-// --bg-glow is already a full rgba(...) value in the token system so it can be
-// dropped directly into a gradient stop — no getComputedStyle needed.
-function buildGlowBackground(theme: string): string {
-    if (theme === 'dark') {
-        return [
-            'radial-gradient(ellipse 70% 55% at 95% 0%,  var(--bg-glow), transparent 52%)',
-            'radial-gradient(ellipse 55% 45% at 5% 100%, var(--bg-glow), transparent 52%)',
-            '#000000',
-        ].join(', ');
-    }
-    return [
-        'radial-gradient(ellipse 100% 50% at 50% -5%, var(--bg-glow), transparent 50%)',
-        'var(--bg-page)',
-    ].join(', ');
-}
-
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
-    const { loadTheme, theme, setSidebarWidth } = useThemeStore();
+    const { loadTheme } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
-    const [collapsed, setCollapsed] = useState(false);
     const [aiFabHover, setAiFabHover] = useState(false);
     const [addFabHover, setAddFabHover] = useState(false);
     const [showTour, setShowTour] = useState(false);
@@ -111,11 +94,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }, [user?.id]);
 
     useEffect(() => {
-        const stored = localStorage.getItem('sidebar-collapsed');
-        if (stored === 'true') setCollapsed(true);
-    }, []);
-
-    useEffect(() => {
         const handleOnline = async () => {
             try {
                 const count = await processQueue();
@@ -126,60 +104,42 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         return () => window.removeEventListener('online', handleOnline);
     }, []);
 
-    const handleToggle = () => {
-        setCollapsed(v => {
-            const next = !v;
-            localStorage.setItem('sidebar-collapsed', String(next));
-            setSidebarWidth(next ? 64 : 220);
-            return next;
-        });
-    };
-
-    const sidebarWidth = collapsed ? '64px' : '220px';
-    const glowBackground = buildGlowBackground(theme);
-
     return (
         <div
-            className="page-glow"
             style={{
                 display: 'flex',
                 minHeight: '100vh',
-                background: glowBackground,
-                backgroundAttachment: isMobile ? 'scroll' : 'fixed',
-                transition: 'background 0.5s ease',
+                background: 'var(--bg-base)',
             }}
         >
             <style>{`
-                .fintrack-card {
-                    transition: transform 150ms ease-out, box-shadow 150ms ease-out;
-                }
-                .fintrack-card:hover {
-                    transform: translateY(-2px);
-                }
                 @keyframes pulseDot {
                     0%,100% { opacity:1; transform:scale(1); }
                     50% { opacity:0.5; transform:scale(1.5); }
                 }
             `}</style>
             <OfflineBanner />
-            <Sidebar collapsed={collapsed} onToggle={handleToggle} />
+            <Sidebar />
             <main
                 key={pathname}
                 style={{
-                    marginLeft: isMobile ? '0' : sidebarWidth,
-                    transition: 'margin-left 0.2s ease',
+                    marginLeft: isMobile ? '0' : '240px',
                     flex: 1,
-                    paddingTop: isMobile ? '16px' : '28px',
-                    paddingRight: isMobile ? '16px' : '32px',
-                    paddingBottom: isMobile ? 'calc(160px + env(safe-area-inset-bottom))' : '28px',
-                    paddingLeft: isMobile ? '16px' : '32px',
                     minHeight: '100vh',
                     overflowX: 'hidden',
                     color: 'var(--text-primary)',
                     animation: 'pageEnter 0.2s ease-out forwards',
                 }}
             >
-                <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
+                <div style={{
+                    maxWidth: isMobile ? undefined : '1280px',
+                    margin: isMobile ? undefined : '0 auto',
+                    padding: isMobile
+                        ? '16px 16px calc(160px + env(safe-area-inset-bottom))'
+                        : '32px 40px',
+                }}>
+                    <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
+                </div>
             </main>
             {isMobile && <BottomNav />}
 
@@ -201,7 +161,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 20px var(--accent-tint)',
+                        boxShadow: '0 4px 20px var(--accent-subtle)',
                         animation: 'springIn 400ms cubic-bezier(0.34,1.56,0.64,1) both',
                     }}
                 >
@@ -216,7 +176,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
                             transform: 'translateX(-50%)', marginBottom: '8px',
-                            backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)',
+                            backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
                             borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
                             color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
                         }}>
@@ -232,7 +192,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             background: 'var(--accent)',
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: addFabHover ? '0 6px 28px var(--accent-tint)' : '0 4px 20px var(--accent-border)',
+                            boxShadow: addFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
                             transform: addFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                         }}
@@ -249,7 +209,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
                             transform: 'translateX(-50%)', marginBottom: '8px',
-                            backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)',
+                            backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
                             borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
                             color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
                         }}>
@@ -262,10 +222,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         onMouseLeave={() => setAiFabHover(false)}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
-                            background: 'linear-gradient(135deg, var(--accent-2), var(--accent-3))',
+                            background: 'var(--accent)',
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: aiFabHover ? '0 6px 28px var(--accent-tint)' : '0 4px 20px var(--accent-border)',
+                            boxShadow: aiFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
                             transform: aiFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                             animation: 'softPulse 3s ease-in-out infinite',

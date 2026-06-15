@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   interactiveWidget: 'resizes-visual',
   themeColor: [
-    { media: '(prefers-color-scheme: dark)',  color: '#0a0f1e' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0f1e' },
     { media: '(prefers-color-scheme: light)', color: '#f0f4f8' },
   ],
 };
@@ -45,14 +45,11 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              try {
-                var t = localStorage.getItem('fintrack-theme');
-                var p = localStorage.getItem('fintrack-palette');
-                var validPalettes = ['ember','ocean','violet','forest','rose'];
-                document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
-                document.documentElement.setAttribute('data-palette', validPalettes.indexOf(p) !== -1 ? p : 'ocean');
-              } catch(e) {}
-            `,
+      try {
+        var t = localStorage.getItem('fintrack-theme');
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+      } catch(e) {}
+    `,
           }}
         />
         <link rel="preconnect" href="https://api.fontshare.com" />

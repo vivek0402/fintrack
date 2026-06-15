@@ -201,7 +201,7 @@ function TransactionsPageInner() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>
@@ -218,28 +218,28 @@ function TransactionsPageInner() {
                             {!isMobile && (
                                 <button type="button"
                                     onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? NOW_MONTH).padStart(2, '0')}.csv`)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                     <Download size={14} /> Export
                                 </button>
                             )}
                             <button type="button"
                                 onClick={() => setImportOpen(true)}
                                 title={isMobile ? 'Import PDF' : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <FileUp size={14} />
                                 {!isMobile && <>Import PDF</>}
                             </button>
                             <button type="button"
                                 onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
                                 title={isMobile ? (selectMode ? 'Cancel' : 'Select') : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-light)' : 'var(--bg-alt)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <CheckSquare size={16} />
                                 {!isMobile && <>{selectMode ? 'Cancel' : 'Select'}</>}
                             </button>
                             <button type="button"
                                 onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
                                 title={isMobile ? 'Quick Add' : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <Zap size={16} />
                                 {!isMobile && <>Quick Add</>}
                             </button>
@@ -286,7 +286,7 @@ function TransactionsPageInner() {
 
                 {/* ── SELECT ALL BAR ── */}
                 {selectMode && !loading && filtered.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)' }}>
                         <span style={{ fontSize: '13px', color: 'var(--accent)', fontFamily: 'var(--font-body)', fontWeight: 500 }}>
                             Select mode — tap rows to select
                         </span>
@@ -299,7 +299,7 @@ function TransactionsPageInner() {
                 )}
 
                 {/* ── TRANSACTION LIST ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', maxHeight: '70vh', overflowY: 'auto' }}>
                     {loading ? (
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {[1, 2, 3, 4, 5].map(i => (
@@ -333,7 +333,7 @@ function TransactionsPageInner() {
                     )}
                     {hasMore && !loading && (
                         <button ref={loadMoreRef} type="button" onClick={() => setDisplayCount(c => c + 50)}
-                            style={{ width: '100%', padding: '10px', background: 'none', border: 'none', borderTop: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', opacity: 0.6 }}>
+                            style={{ width: '100%', padding: '10px', background: 'none', border: 'none', borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', opacity: 0.6 }}>
                             ↓ {filtered.length - displayCount} more
                         </button>
                     )}
@@ -368,10 +368,10 @@ function TransactionsPageInner() {
             {quickAddOpen && createPortal(
                 <div onClick={e => { if (e.target === e.currentTarget) setQuickAddOpen(false); }}
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow-modal)' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow-modal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--accent-tint)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Zap size={18} color="var(--accent)" />
                                 </div>
                                 <div>
@@ -391,14 +391,14 @@ function TransactionsPageInner() {
                             placeholder={QUICK_ADD_PLACEHOLDERS[placeholderIdx]}
                             rows={3}
                             autoFocus
-                            style={{ width: '100%', padding: '14px', background: 'var(--bg-alt)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
+                            style={{ width: '100%', padding: '14px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
                             onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                            onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
                         />
                         {quickAddError && <p style={{ fontSize: '0.8rem', color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>{quickAddError}</p>}
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
                             <button type="button" onClick={() => setQuickAddOpen(false)}
-                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-alt)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Cancel
                             </button>
                             <button type="button" onClick={handleQuickAdd} disabled={!quickAddText.trim() || quickAddLoading}
