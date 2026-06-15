@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -9,28 +9,37 @@ import {
     Repeat, Split, Receipt, Waves, Lightbulb, FileText, Award, HeartPulse,
     Landmark, Gem, Flame, GitBranch, Percent, Calculator, Wallet, PiggyBank,
     TrendingUp, Milestone, MessageSquare, Sparkles, CreditCard, FolderOpen, Users,
+    MoreHorizontal, ChevronUp,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
 
-const navGroups = [
+// Always-visible daily-driver set — keeps the primary nav short
+const coreItems = [
+    { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+    { href: '/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
+    { href: '/budgets',      icon: Target,          label: 'Budgets' },
+    { href: '/analytics',    icon: PieChart,        label: 'Analytics' },
+    { href: '/goals',        icon: Flag,            label: 'Goals' },
+    { href: '/accounts',     icon: CreditCard,      label: 'Accounts' },
+    { href: '/profile',      icon: Settings,        label: 'Settings' },
+];
+
+// Everything else — tucked behind "More", grouped for scannability
+const moreGroups = [
     {
         label: 'Track',
         items: [
-            { href: '/dashboard',         icon: LayoutDashboard, label: 'Dashboard' },
-            { href: '/transactions',      icon: ArrowLeftRight,  label: 'Transactions' },
-            { href: '/budgets',           icon: Target,          label: 'Budgets' },
-            { href: '/recurring',         icon: Repeat,          label: 'Recurring' },
-            { href: '/splits',            icon: Split,           label: 'Splits' },
-            { href: '/one-time-expenses', icon: Receipt,         label: 'One-Time Expenses' },
+            { href: '/recurring',         icon: Repeat,  label: 'Recurring' },
+            { href: '/splits',            icon: Split,   label: 'Splits' },
+            { href: '/one-time-expenses', icon: Receipt, label: 'One-Time Expenses' },
         ],
     },
     {
         label: 'Understand',
         items: [
-            { href: '/analytics',   icon: PieChart,     label: 'Analytics' },
             { href: '/net-worth',   icon: LineChart,    label: 'Net Worth' },
             { href: '/calendar',    icon: CalendarDays, label: 'Calendar' },
             { href: '/cash-flow',   icon: Waves,        label: 'Cash Flow' },
@@ -43,7 +52,6 @@ const navGroups = [
     {
         label: 'Grow',
         items: [
-            { href: '/goals',               icon: Flag,      label: 'Goals' },
             { href: '/investments',         icon: Briefcase, label: 'Investments' },
             { href: '/debt-intelligence',   icon: Gauge,     label: 'Debt' },
             { href: '/loans',               icon: Landmark,  label: 'Loans' },
@@ -66,16 +74,16 @@ const navGroups = [
     {
         label: 'Tools',
         items: [
-            { href: '/ai-advisor', icon: Bot,           label: 'AI Advisor' },
-            { href: '/ai-chat',    icon: MessageSquare, label: 'AI Chat' },
-            { href: '/personality', icon: Sparkles,     label: 'Personality' },
-            { href: '/accounts',   icon: CreditCard,    label: 'Accounts' },
-            { href: '/documents',  icon: FolderOpen,    label: 'Documents' },
-            { href: '/groups',     icon: Users,         label: 'Groups' },
-            { href: '/profile',    icon: Settings,      label: 'Settings' },
+            { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
+            { href: '/ai-chat',     icon: MessageSquare, label: 'AI Chat' },
+            { href: '/personality', icon: Sparkles,      label: 'Personality' },
+            { href: '/documents',   icon: FolderOpen,    label: 'Documents' },
+            { href: '/groups',      icon: Users,         label: 'Groups' },
         ],
     },
 ];
+
+const moreItems = moreGroups.flatMap(g => g.items);
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -84,11 +92,58 @@ export function Sidebar() {
     const { loadTheme } = useThemeStore();
     const isMobile = useIsMobile();
 
+    const [moreOpen, setMoreOpen] = useState(false);
+
     useEffect(() => { loadTheme(); }, []);
+
+    // Auto-expand "More" if the active page lives in one of its groups
+    useEffect(() => {
+        if (moreItems.some(({ href }) => pathname === href || pathname.startsWith(href + '/'))) {
+            setMoreOpen(true);
+        }
+    }, [pathname]);
 
     if (isMobile) return null;
 
     const handleLogout = () => { logout(); router.push('/login'); };
+
+    const renderLink = ({ href, icon: Icon, label }: { href: string; icon: typeof LayoutDashboard; label: string }) => {
+        const isActive = pathname === href || pathname.startsWith(href + '/');
+        return (
+            <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-3)',
+                        padding: '9px var(--space-3)',
+                        borderRadius: 'var(--radius-md)',
+                        background: isActive ? 'var(--accent-subtle)' : 'transparent',
+                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                        fontSize: 'var(--text-body)',
+                        fontWeight: isActive ? 600 : 400,
+                        transition: 'all var(--transition-fast)',
+                        cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => {
+                        if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)';
+                            (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                        }
+                    }}
+                    onMouseLeave={e => {
+                        if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.background = 'transparent';
+                            (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                        }
+                    }}
+                >
+                    <Icon size={17} color="currentColor" />
+                    {label}
+                </div>
+            </Link>
+        );
+    };
 
     const initials = user?.full_name
         ? user.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -138,10 +193,42 @@ export function Sidebar() {
 
             <GlobalSearch />
 
-            {/* Nav groups — scrollable */}
+            {/* Nav — scrollable */}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: 'var(--space-4)', overflowY: 'auto', overflowX: 'hidden' }}>
-                {navGroups.map(group => (
-                    <div key={group.label} style={{ marginBottom: 'var(--space-2)' }}>
+                {coreItems.map(renderLink)}
+
+                {/* More toggle */}
+                <button
+                    type="button"
+                    onClick={() => setMoreOpen(v => !v)}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 'var(--space-3)',
+                        padding: '9px var(--space-3)',
+                        marginTop: 'var(--space-1)',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        fontSize: 'var(--text-body)',
+                        fontFamily: 'var(--font-body)',
+                        cursor: 'pointer',
+                        transition: 'all var(--transition-fast)',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
+                >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        <MoreHorizontal size={17} color="currentColor" />
+                        More
+                    </span>
+                    <ChevronUp size={15} color="currentColor" style={{ transform: moreOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform var(--transition-fast)' }} />
+                </button>
+
+                {moreOpen && moreGroups.map(group => (
+                    <div key={group.label} style={{ marginTop: 'var(--space-2)' }}>
                         <p style={{
                             fontSize: 'var(--text-label)',
                             fontWeight: 700,
@@ -153,43 +240,7 @@ export function Sidebar() {
                         }}>
                             {group.label}
                         </p>
-                        {group.items.map(({ href, icon: Icon, label }) => {
-                            const isActive = pathname === href || pathname.startsWith(href + '/');
-                            return (
-                                <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-                                    <div
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 'var(--space-3)',
-                                            padding: '9px var(--space-3)',
-                                            borderRadius: 'var(--radius-md)',
-                                            background: isActive ? 'var(--accent-subtle)' : 'transparent',
-                                            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                                            fontSize: 'var(--text-body)',
-                                            fontWeight: isActive ? 600 : 400,
-                                            transition: 'all var(--transition-fast)',
-                                            cursor: 'pointer',
-                                        }}
-                                        onMouseEnter={e => {
-                                            if (!isActive) {
-                                                (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)';
-                                                (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                                            }
-                                        }}
-                                        onMouseLeave={e => {
-                                            if (!isActive) {
-                                                (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                                (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-                                            }
-                                        }}
-                                    >
-                                        <Icon size={17} color="currentColor" />
-                                        {label}
-                                    </div>
-                                </Link>
-                            );
-                        })}
+                        {group.items.map(renderLink)}
                     </div>
                 ))}
             </nav>

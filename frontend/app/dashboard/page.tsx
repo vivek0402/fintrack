@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
@@ -113,6 +113,7 @@ export default function DashboardPage() {
     const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
     const [briefing, setBriefing] = useState<any>(null);
     const [briefingExpanded, setBriefingExpanded] = useState(false);
+    const [healthDetailsOpen, setHealthDetailsOpen] = useState(false);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -521,33 +522,48 @@ export default function DashboardPage() {
                     ))}
                 </div>
 
-                {/* ── NET WORTH WIDGET ── */}
-                {(accounts.length > 0 || investments.length > 0) && <NetWorthWidget />}
+                {/* ── FINANCIAL HEALTH DETAILS (collapsed by default) ── */}
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                    <button
+                        type="button"
+                        onClick={() => setHealthDetailsOpen(v => !v)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
+                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Financial Health Details</span>
+                        <ChevronDown size={16} color="var(--text-muted)" style={{ transform: healthDetailsOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} />
+                    </button>
+                    {healthDetailsOpen && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px 20px' }}>
+                            {/* ── NET WORTH WIDGET ── */}
+                            {(accounts.length > 0 || investments.length > 0) && <NetWorthWidget />}
 
-                {/* ── WEALTH INTELLIGENCE WIDGETS ── */}
-                {investments.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
-                        <WealthVelocityWidget />
-                        <AssetAllocationWidget />
-                    </div>
-                )}
+                            {/* ── WEALTH INTELLIGENCE WIDGETS ── */}
+                            {investments.length > 0 && (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
+                                    <WealthVelocityWidget />
+                                    <AssetAllocationWidget />
+                                </div>
+                            )}
 
-                {/* ── DEBT WIDGETS ── */}
-                {(activeLoanCount > 0 || (creditUtilization?.per_card?.length ?? 0) > 0) && (
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
-                        <CreditUtilizationWidget />
-                        <DtiWidget hasLoans={activeLoanCount > 0} hasCards={(creditUtilization?.per_card?.length ?? 0) > 0} />
-                    </div>
-                )}
+                            {/* ── DEBT WIDGETS ── */}
+                            {(activeLoanCount > 0 || (creditUtilization?.per_card?.length ?? 0) > 0) && (
+                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
+                                    <CreditUtilizationWidget />
+                                    <DtiWidget hasLoans={activeLoanCount > 0} hasCards={(creditUtilization?.per_card?.length ?? 0) > 0} />
+                                </div>
+                            )}
 
-                {/* ── HEALTH SCORE WIDGET ── */}
-                <HealthScoreWidget
-                    summary={summary}
-                    budgets={budgets}
-                    goals={goals}
-                    trends={trends}
-                    loading={dataLoading}
-                />
+                            {/* ── HEALTH SCORE WIDGET ── */}
+                            <HealthScoreWidget
+                                summary={summary}
+                                budgets={budgets}
+                                goals={goals}
+                                trends={trends}
+                                loading={dataLoading}
+                            />
+                        </div>
+                    )}
+                </div>
 
                 {/* ── AI INSIGHT ── */}
                 <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
