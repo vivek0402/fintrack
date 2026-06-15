@@ -36,7 +36,7 @@ const ROUTES = {
     'forecast-insight':   { provider: 'nim',   model: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
     'salary-allocation':  { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
     'personality':        { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
-    'report':             { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 1024, temp: 0.6 },
+    'report':             { provider: 'groq1', model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.6 },
     'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
     'salary-intelligence':{ provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
     'parse-sms':          { provider: 'groq1', model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
