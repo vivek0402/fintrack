@@ -5,6 +5,14 @@ const TAX_INVESTMENT_TYPES = ['ppf', 'elss', 'epf', 'life_insurance', 'nsc', 'ta
 const CAPITAL_ASSET_TYPES = ['equity', 'debt', 'gold', 'real_estate', 'other'];
 const CAPITAL_TRANSACTION_TYPES = ['buy', 'sell'];
 const LOAN_TYPES = ['home_loan', 'car_loan', 'personal_loan', 'education_loan', 'gold_loan', 'business_loan', 'other'];
+const SCENARIO_TYPES = ['investment_growth', 'loan_impact', 'expense_reduction', 'income_change'];
+const MILESTONE_STATUSES = ['not_started', 'in_progress', 'achieved', 'missed'];
+const CITY_TYPES = ['metro', 'non_metro'];
+const TAX_REGIMES = ['old', 'new', 'not_decided'];
+const DOCUMENT_TYPES = [
+    'form_16', 'itr_copy', 'salary_slip', 'bank_statement', 'insurance_policy',
+    'investment_proof', 'advance_tax_challan', 'rent_receipt', 'other',
+];
 
 const isPositiveNumber = (value) => {
     const n = parseFloat(value);
@@ -35,10 +43,20 @@ const isValidCapitalTransactionType = (value) => CAPITAL_TRANSACTION_TYPES.inclu
 
 const isValidLoanType = (value) => LOAN_TYPES.includes(value);
 
+const isValidScenarioType = (value) => SCENARIO_TYPES.includes(value);
+
+const isValidMilestoneStatus = (value) => MILESTONE_STATUSES.includes(value);
+
 const isValidFinancialYear = (value) => {
     if (typeof value !== 'string') return false;
     return /^\d{4}-\d{2}$/.test(value);
 };
+
+const isValidCityType = (value) => CITY_TYPES.includes(value);
+
+const isValidTaxRegime = (value) => TAX_REGIMES.includes(value);
+
+const isValidDocumentType = (value) => DOCUMENT_TYPES.includes(value);
 
 module.exports = {
     TRANSACTION_TYPES,
@@ -48,6 +66,16 @@ module.exports = {
     CAPITAL_ASSET_TYPES,
     CAPITAL_TRANSACTION_TYPES,
     LOAN_TYPES,
+    SCENARIO_TYPES,
+    MILESTONE_STATUSES,
+    CITY_TYPES,
+    TAX_REGIMES,
+    DOCUMENT_TYPES,
+    isValidScenarioType,
+    isValidMilestoneStatus,
+    isValidCityType,
+    isValidTaxRegime,
+    isValidDocumentType,
     isPositiveNumber,
     isNonNegativeNumber,
     isValidDateString,
@@ -60,3 +88,4 @@ module.exports = {
     isValidCapitalTransactionType,
     isValidLoanType,
 };
+

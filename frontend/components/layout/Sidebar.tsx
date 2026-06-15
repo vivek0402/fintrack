@@ -9,6 +9,7 @@ import {
     Settings, Flag, FileText, Users, Brain, CalendarClock,
     ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
     Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
+    Flame, Calculator, CalendarRange, Lightbulb, Archive,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -22,6 +23,7 @@ const navItems = [
     { href: '/net-worth',           icon: LineChart,       label: 'Net Worth' },
     { href: '/wealth-intelligence', icon: Sparkles,        label: 'Wealth Intelligence' },
     { href: '/tax',                 icon: Landmark,        label: 'Tax' },
+    { href: '/documents',           icon: Archive,         label: 'Documents' },
     { href: '/calendar',            icon: CalendarDays,    label: 'Calendar' },
     { href: '/analytics',           icon: PieChart,        label: 'Analytics' },
     { href: '/budgets',             icon: Target,          label: 'Budgets' },
@@ -48,6 +50,17 @@ const debtSection = {
     items: [
         { href: '/loans', icon: Building2, label: 'Loans' },
         { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
+    ],
+};
+
+const planningSection = {
+    label: 'Planning',
+    items: [
+        { href: '/fire',       icon: Flame,        label: 'FIRE Calculator' },
+        { href: '/fire',       icon: Calculator,   label: 'SIP Optimizer' },
+        { href: '/cash-flow',  icon: CalendarRange, label: 'Cash Flow' },
+        { href: '/scenarios',  icon: Lightbulb,    label: 'Scenarios' },
+        { href: '/milestones', icon: Flag,         label: 'Milestones' },
     ],
 };
 
@@ -205,50 +218,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         {debtSection.label}
                     </p>
                 )}
-                {debtSection.items.map(({ href, icon: Icon, label }) => {
-                    const isActive = pathname === href || pathname.startsWith(href + '/');
-                    return (
-                        <Link key={href} href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: collapsed ? '0' : '10px',
-                                    justifyContent: collapsed ? 'center' : undefined,
-                                    padding: collapsed ? '9px 0' : '9px 12px',
-                                    paddingLeft: !collapsed ? (isActive ? '9px' : '12px') : undefined,
-                                    borderRadius: '10px',
-                                    background: isActive ? 'var(--accent-light)' : 'transparent',
-                                    borderLeft: !collapsed
-                                        ? (isActive ? '3px solid var(--accent)' : '3px solid transparent')
-                                        : 'none',
-                                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                                    fontSize: '0.86rem',
-                                    fontWeight: isActive ? 600 : 400,
-                                    transition: 'all var(--transition-fast)',
-                                    cursor: 'pointer',
-                                }}
-                                onMouseEnter={e => {
-                                    if (!isActive) {
-                                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
-                                    }
-                                }}
-                                onMouseLeave={e => {
-                                    if (!isActive) {
-                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
-                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
-                                    }
-                                }}
-                            >
-                                <Icon size={16} color="currentColor" />
-                                {!collapsed && label}
-                            </div>
-                        </Link>
-                    );
-                })}
+                {debtSection.items.map(item => (
+                    <NavSectionLink key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
+                ))}
+
+                {/* Planning section */}
+                {!collapsed && (
+                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 12px 2px', fontFamily: 'var(--font-body)' }}>
+                        {planningSection.label}
+                    </p>
+                )}
+                {planningSection.items.map(item => (
+                    <NavSectionLink key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
+                ))}
             </nav>
 
             {/* Bottom section — fixed, never scrolls */}
@@ -362,5 +344,56 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
             </div>{/* end bottom fixed section */}
         </aside>
+    );
+}
+
+interface NavSectionLinkProps {
+    item: { href: string; icon: typeof TrendingUp; label: string };
+    pathname: string;
+    collapsed: boolean;
+}
+
+function NavSectionLink({ item: { href, icon: Icon, label }, pathname, collapsed }: NavSectionLinkProps) {
+    const isActive = pathname === href || pathname.startsWith(href + '/');
+    return (
+        <Link href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: collapsed ? '0' : '10px',
+                    justifyContent: collapsed ? 'center' : undefined,
+                    padding: collapsed ? '9px 0' : '9px 12px',
+                    paddingLeft: !collapsed ? (isActive ? '9px' : '12px') : undefined,
+                    borderRadius: '10px',
+                    background: isActive ? 'var(--accent-light)' : 'transparent',
+                    borderLeft: !collapsed
+                        ? (isActive ? '3px solid var(--accent)' : '3px solid transparent')
+                        : 'none',
+                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: '0.86rem',
+                    fontWeight: isActive ? 600 : 400,
+                    transition: 'all var(--transition-fast)',
+                    cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                    if (!isActive) {
+                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
+                    }
+                }}
+                onMouseLeave={e => {
+                    if (!isActive) {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent';
+                        (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
+                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
+                    }
+                }}
+            >
+                <Icon size={16} color="currentColor" />
+                {!collapsed && label}
+            </div>
+        </Link>
     );
 }

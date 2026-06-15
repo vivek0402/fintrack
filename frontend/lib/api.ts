@@ -250,6 +250,19 @@ export const importAPI = {
 };
 
 export const taxAPI = {
+    getProfile: () => api.get('/api/tax/profile'),
+    saveProfile: (data: {
+        financial_year?: string; employer_name?: string; basic_salary_monthly: number;
+        hra_component_monthly?: number; lta_component_annual?: number; special_allowance_monthly?: number;
+        rent_paid_monthly?: number; city_type?: string; lta_claims_used_in_block?: number; preferred_regime?: string;
+    }) => api.post('/api/tax/profile', data),
+    getHra: () => api.get('/api/tax/hra'),
+    getLta: () => api.get('/api/tax/lta'),
+    getAdvanceTax: () => api.get('/api/tax/advance-tax'),
+    logAdvanceTaxPayment: (data: { installment_number: number; amount_paid: number; paid_on_date: string; financial_year?: string; payment_reference?: string }) =>
+        api.post('/api/tax/advance-tax/payment', data),
+    getItrReadiness: () => api.get('/api/tax/itr-readiness'),
+    updateItrReadiness: (key: string, value: boolean) => api.patch('/api/tax/itr-readiness', { key, value }),
     get80CSummary: (fy?: string) => api.get('/api/tax/80c-summary', { params: fy ? { fy } : {} }),
     add80C: (data: { type: string; name: string; amount: number; investment_id?: string; financial_year?: string; deduction_section?: string }) =>
         api.post('/api/tax/80c', data),
@@ -286,6 +299,59 @@ export const debtAPI = {
         api.get('/api/debt/prepayment-impact', { params: { loan_id: loanId, prepayment_amount: amount } }),
     getCreditUtilization: () => api.get('/api/debt/credit-utilization'),
     getDti: () => api.get('/api/debt/dti'),
+};
+
+export const planningAPI = {
+    computeFire: (params: {
+        monthly_expenses?: number; expected_annual_return_pct?: number; inflation_pct?: number;
+        swr_pct?: number; extra_monthly_savings?: number;
+    }) => api.post('/api/planning/fire', params),
+    computeSip: (params: {
+        mode: 'goal_based' | 'growth_based'; target_years: number; expected_annual_return_pct?: number;
+        goal_amount?: number; monthly_sip?: number;
+    }) => api.post('/api/planning/sip', params),
+    getCashflow: () => api.get('/api/planning/cashflow'),
+    getScenarios: () => api.get('/api/planning/scenarios'),
+    getScenario: (id: string) => api.get(`/api/planning/scenarios/${id}`),
+    createScenario: (data: { title: string; type: string; inputs_json: object; result_json?: object }) =>
+        api.post('/api/planning/scenarios', data),
+    updateScenario: (id: string, data: { title?: string; inputs_json?: object; result_json?: object }) =>
+        api.patch(`/api/planning/scenarios/${id}`, data),
+    deleteScenario: (id: string) => api.delete(`/api/planning/scenarios/${id}`),
+    simulate: (type: string, inputs: object) => api.post('/api/planning/scenarios/simulate', { type, inputs }),
+};
+
+export const milestoneAPI = {
+    getAll: () => api.get('/api/milestones'),
+    create: (data: {
+        name: string; description?: string; target_date: string; target_amount?: number;
+        current_amount?: number; parent_id?: string; priority?: number; notes?: string;
+    }) => api.post('/api/milestones', data),
+    update: (id: string, data: {
+        name?: string; description?: string; target_date?: string; target_amount?: number;
+        current_amount?: number; parent_id?: string | null; priority?: number; notes?: string; status?: string;
+    }) => api.patch(`/api/milestones/${id}`, data),
+    updateProgress: (id: string, data: { current_amount?: number; status?: string }) =>
+        api.patch(`/api/milestones/${id}/progress`, data),
+    delete: (id: string) => api.delete(`/api/milestones/${id}`),
+};
+
+export const documentAPI = {
+    upload: (file: File, metadata: { name: string; type: string; financial_year?: string; description?: string }) => {
+        const form = new FormData();
+        form.append('file', file);
+        form.append('name', metadata.name);
+        form.append('type', metadata.type);
+        if (metadata.financial_year) form.append('financial_year', metadata.financial_year);
+        if (metadata.description) form.append('description', metadata.description);
+        return api.post('/api/documents', form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    getAll: (filters?: { type?: string; financial_year?: string }) =>
+        api.get('/api/documents', { params: filters }),
+    getDownloadUrl: (id: string) => api.get(`/api/documents/${id}/download-url`),
+    delete: (id: string) => api.delete(`/api/documents/${id}`),
 };
 
 export default api;

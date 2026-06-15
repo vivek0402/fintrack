@@ -7,6 +7,7 @@ import {
     Target, Trophy, X, Settings, Users, FolderOpen, MessageSquare,
     Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
     Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
+    Flame, Calculator, CalendarRange, Lightbulb, Flag, Archive,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -24,7 +25,6 @@ const moreSections = [
             { href: '/accounts',  icon: Wallet,        label: 'Accounts'  },
             { href: '/net-worth', icon: LineChart,     label: 'Net Worth' },
             { href: '/wealth-intelligence', icon: Sparkles, label: 'Wealth Intelligence' },
-            { href: '/tax',       icon: Landmark,      label: 'Tax'       },
             { href: '/budgets',   icon: Target,        label: 'Budgets'   },
             { href: '/goals',     icon: Trophy,        label: 'Goals'     },
             { href: '/investments', icon: Briefcase,   label: 'Investments' },
@@ -59,6 +59,23 @@ const moreSections = [
         items: [
             { href: '/loans', icon: Building2, label: 'Loans' },
             { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
+        ],
+    },
+    {
+        label: 'Planning',
+        items: [
+            { href: '/fire',       icon: Flame,        label: 'FIRE Calculator' },
+            { href: '/fire',       icon: Calculator,   label: 'SIP Optimizer' },
+            { href: '/cash-flow',  icon: CalendarRange, label: 'Cash Flow' },
+            { href: '/scenarios',  icon: Lightbulb,    label: 'Scenarios' },
+            { href: '/milestones', icon: Flag,         label: 'Milestones' },
+        ],
+    },
+    {
+        label: 'Tax & Documents',
+        items: [
+            { href: '/tax',       icon: Landmark, label: 'Tax'       },
+            { href: '/documents', icon: Archive,  label: 'Documents' },
         ],
     },
 ];
@@ -267,7 +284,7 @@ export function BottomNav() {
                             {section.items.map(({ href, icon: Icon, label }) => {
                                 const active = isActive(href);
                                 return (
-                                    <button key={href} type="button" onClick={() => handleNavigate(href)}
+                                    <button key={`${section.label}-${label}`} type="button" onClick={() => handleNavigate(href)}
                                         style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 20px', width: '100%', border: 'none', background: active ? 'var(--accent-light)' : 'transparent', cursor: 'pointer', transition: 'background 0.12s' }}
                                         onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
                                         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>

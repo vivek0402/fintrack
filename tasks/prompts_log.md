@@ -61,3 +61,39 @@ Status: Complete.
 ## P3: debt.js created. Extracted amortization engine into utils/amortization.js (shared between loans.js and debt.js). GET /payoff-optimizer runs a true month-by-month cascade simulation for avalanche (highest rate first) and snowball (smallest balance first) strategies, with freed-up EMIs rolling into the next target loan, compared against an independent-loans baseline. GET /prepayment-impact returns months/interest saved, prepayment penalty, and net savings. GET /credit-utilization classifies per-card and aggregate utilization (optimal/moderate/high/critical) with a paydown recommendation. GET /dti computes debt-to-income from 3-month average income, loan EMIs, and 5% card minimums (excellent/good/moderate/risky). debtAPI added to frontend api.ts. Tests passing (7 suites/43 tests).
 
 ## P4: /loans page with lazy amortization, prepayment logging, add/edit modals.
+
+## P0: Phase 4 (v0.14) task tracking initialized. Note: spec's migration numbers 030-031 collide with Phase 2/3 migrations (030_capital_transactions, 031_loans already exist) — Phase 4 will use 033-034 instead.
+
+## P1: Migrations 030-031. Tables: scenarios, milestones with self-referential parent_id FK.
+
+## P2: planning.js with FIRE, SIP, and cash flow projection endpoints. Shared compound growth utility function.
+
+## P3: Scenarios CRUD + 4-type simulation engine (investment_growth, loan_impact, expense_reduction, income_change).
+
+## P4: milestones.js with CRUD, self-referential parent chain, circular dependency guard, feasibility computation.
+
+## P5: /fire page with FIRE calculator (chart + 3 scenario tiles) and SIP optimizer (2 modes, stacked bar chart).
+
+## P6: /cash-flow page with 12-month projection table, waterfall bar chart, running balance chart, fixed obligations breakdown.
+
+## P7: /scenarios page with 4-type scenario builder, simulation results, save-to-list flow.
+
+## P8: /milestones page with dependency-tree view, progress logging, and Add/Edit/Delete modals; Planning nav section added to Sidebar and BottomNav.
+
+## Phase 4 complete. FIRE calculator, SIP optimizer, 12-month cash flow, 4-type scenario engine, milestone dependency planner — all live at v0.14.
+
+## P0: Phase 5 (v0.15) task tracking initialized. Note: spec's migration numbers 032-034 collide with Phase 3/4 migrations (032_loan_prepayments, 033_scenarios, 034_milestones already exist) — Phase 5 will use 035-037 instead.
+
+## P1: Migrations 032-034 (applied as 035-037). Tables: tax_profiles, advance_tax_payments, documents.
+
+## P2: tax.js extended with profile CRUD, HRA exemption computation (3-value minimum rule), LTA block tracker.
+
+## P3: Advance tax with regime comparison and installment schedule. ITR readiness score with auto and manual items.
+
+## P4: documents.js with Supabase Storage upload, metadata persistence, signed download URL, ownership-verified delete.
+
+## P5: /tax page extended to 5 tabs. HRA optimizer, LTA tracker, advance tax schedule, ITR readiness score checklist.
+
+## P6: /documents page (vault) — upload/download/delete, type+FY filters, Documents nav entry in Sidebar and BottomNav "Tax & Documents" group.
+
+## Phase 5 complete. HRA/LTA optimizer, advance tax schedule, ITR readiness score, document vault — all live at v0.15.

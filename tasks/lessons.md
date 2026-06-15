@@ -22,6 +22,19 @@
 - Always double-check API client files (`lib/api.ts`) for literal-vs-escaped path strings before wiring a new page to them — a route defined with backslashes (`'\api\debt\...'`) instead of forward slashes would silently 404 in the browser even though it reads fine in a diff/terminal.
 - When a later phase's prompt asks to "update" a field that an earlier phase's prompt already wired correctly (e.g. net-worth page already rendering `total_loans_outstanding`), verify first — don't make a redundant edit.
 
+## Phase 4 (P0-P8) — Planning Engine
+- When a spec asks for a list-card "preview" derived from a field that a CRUD list endpoint deliberately omits for payload-size reasons (e.g. `GET /scenarios` excluding `result_json`), adding that field back to the list query is the simplest fix — check first whether any test asserts the slimmer shape (none did here).
+- Reused the `Modal` component (with a wider `maxWidth`) for a "right-side panel on desktop / full-page on mobile" builder spec instead of building a custom slide-in panel — `Modal` already auto-switches to `BottomSheet` on mobile via `useIsMobile()`, so this satisfies the spec with zero new components.
+- For nav items in Sidebar/BottomNav where the spec requires two distinct labels routing to the same href (FIRE Calculator + SIP Optimizer both → `/fire`), `key={href}` collides — key by `label` (or `${section.label}-${label}`) instead.
+- Recursive dependency-tree UIs (milestones with self-referential `parent_id`) render cleanly as a self-recursive component (`MilestoneNode` renders its own children via `childrenOf(id)`) — no graph library needed; a `borderLeft` on the children container plus an absolutely-positioned short horizontal connector per child gives a convincing tree without SVG.
+- For delete-with-cascade-unlink confirmations, the child count can be computed client-side from the already-fetched list (`milestones.filter(m => m.parent_id === id).length`) before calling the delete endpoint — no need to round-trip just to show the confirmation message.
+
+## Phase 5 (P0-P6) — Tax Intelligence
+- When a spec gives a VARCHAR(N) length alongside a default/enum value, count the characters — `'not_decided'` is 11 chars and overflowed a spec'd `VARCHAR(10)`, causing a silent insert failure. Widen the column (and fix the migration source) before wiring the route.
+- Found a pre-existing `documentAPI.getAll` using a backslash path string `'\api\documents'` (the exact silent-404 pitfall noted in the Phase 3 lessons) — always re-check newly-added `lib/api.ts` entries with forward slashes, not just newly-written page code.
+- When a spec asks to add a nav group (e.g. "Tax & Documents" in BottomNav's More sheet) for an entry that already lives in another group (Tax was in "Finance"), move it rather than duplicate — duplicate hrefs across `moreSections` would both render and risk `key` collisions per the Phase 4 lesson on `key={href}`.
+- Tabler `ti-*` icon names in specs (`ti-file-text`, `ti-certificate`, `ti-building-bank`, `ti-folder`/`ti-archive`) map to lucide `FileText`/`Award`/`Landmark`/`Archive` — same translation pattern as Phase 1/2 lessons, just a recurring reminder to check `lucide-react.d.ts` before assuming an icon name exists.
+
 ## Phase 2 (P1-P7) — Wealth Intelligence
 - `ProgressBar`'s built-in color logic only turns red when `pct > 100`. For UI needing custom multi-tier coloring (e.g. 80C utilization: green ≥80%, amber 40-79%, red <40%), compute the color in the page and pass it explicitly via the `color` prop rather than relying on the component's defaults.
 - When a manually-logged financial transaction needs a financial year, derive it from the transaction's own date (April-cutover formula), not from "now" — a user may be logging a past-FY transaction. `getCurrentFY()` is only correct for "current" context (defaults, summaries).
