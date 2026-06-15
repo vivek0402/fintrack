@@ -5,6 +5,7 @@ const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
 const { getVisionModel } = require('../utils/gemini');
 const { aiComplete } = require('../utils/ai');
+const { sendToUser, userHasTokens } = require('../utils/fcm');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -1385,6 +1386,280 @@ Make all amounts realistic and add up to exactly the salary amount. Use their ac
     }
 });
 
+// ─── FEATURE: Weekly Briefing ────────────────────────────────────────
+const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
+
+// Normalize any date to the Monday of its week (date-only, local time)
+const mondayOf = (d = new Date()) => {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0, 0, 0, 0);
+    return date.toISOString().split('T')[0];
+};
+
+async function getBriefingData(userId) {
+    const today = new Date().toISOString().split('T')[0];
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+    const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastMonthEnd = monthStart;
+
+    const [
+        latestNW,
+        weekAgoNW,
+        topSpend,
+        upcomingBills,
+        thisMonthFlow,
+        lastMonthFlow,
+        topOpportunity,
+        invActivity,
+        prepayActivity,
+    ] = await Promise.all([
+        pool.query(
+            `SELECT net_worth, snapshot_date FROM net_worth_snapshots
+             WHERE user_id=$1 ORDER BY snapshot_date DESC LIMIT 1`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT net_worth, snapshot_date FROM net_worth_snapshots
+             WHERE user_id=$1 AND snapshot_date <= $2 ORDER BY snapshot_date DESC LIMIT 1`,
+            [userId, weekAgo]
+        ),
+        pool.query(
+            `SELECT COALESCE(c.name, 'Uncategorized') AS category_name, COALESCE(SUM(t.amount),0) AS total
+             FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
+             WHERE t.user_id=$1 AND t.type='expense' AND t.date >= $2
+             GROUP BY category_name ORDER BY total DESC LIMIT 1`,
+            [userId, monthStart]
+        ),
+        pool.query(
+            `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+             FROM recurring_transactions
+             WHERE user_id=$1 AND is_active=true AND next_due_date BETWEEN $2 AND $3`,
+            [userId, today, in7]
+        ),
+        pool.query(
+            `SELECT
+                COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
+                COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
+             FROM transactions WHERE user_id=$1 AND date >= $2`,
+            [userId, monthStart]
+        ),
+        pool.query(
+            `SELECT
+                COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
+                COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
+             FROM transactions WHERE user_id=$1 AND date >= $2 AND date < $3`,
+            [userId, lastMonthStart, lastMonthEnd]
+        ),
+        pool.query(
+            `SELECT title, description, amount_saved, action_label, action_route
+             FROM opportunities WHERE user_id=$1 AND status='active'
+             ORDER BY (priority = 1) DESC, priority ASC, detected_at ASC LIMIT 1`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT COUNT(*) AS cnt, COALESCE(SUM(units * price_per_unit),0) AS total
+             FROM investment_transactions
+             WHERE user_id=$1 AND transaction_type='buy' AND transaction_date >= $2`,
+            [userId, weekAgo]
+        ),
+        pool.query(
+            `SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total
+             FROM loan_prepayments WHERE user_id=$1 AND prepayment_date >= $2`,
+            [userId, weekAgo]
+        ),
+    ]);
+
+    const netWorthNow = parseFloat(latestNW.rows[0]?.net_worth || 0);
+    const netWorthBefore = parseFloat(weekAgoNW.rows[0]?.net_worth ?? netWorthNow);
+    const netWorthChange = netWorthNow - netWorthBefore;
+
+    const income = parseFloat(thisMonthFlow.rows[0]?.income || 0);
+    const expense = parseFloat(thisMonthFlow.rows[0]?.expense || 0);
+    const savingsRate = income > 0 ? ((income - expense) / income) * 100 : 0;
+
+    const lastIncome = parseFloat(lastMonthFlow.rows[0]?.income || 0);
+    const lastExpense = parseFloat(lastMonthFlow.rows[0]?.expense || 0);
+    const lastSavingsRate = lastIncome > 0 ? ((lastIncome - lastExpense) / lastIncome) * 100 : 0;
+
+    return {
+        net_worth_this_week: { current: netWorthNow, previous: netWorthBefore, change: netWorthChange },
+        top_spending_category_this_month: {
+            category: topSpend.rows[0]?.category_name || null,
+            total: parseFloat(topSpend.rows[0]?.total || 0),
+        },
+        upcoming_bills: {
+            count: parseInt(upcomingBills.rows[0]?.cnt || 0),
+            total: parseFloat(upcomingBills.rows[0]?.total || 0),
+        },
+        savings_rate_this_month: savingsRate,
+        savings_rate_last_month: lastSavingsRate,
+        top_opportunity: topOpportunity.rows[0] || null,
+        investment_activity_this_week: {
+            investment_count: parseInt(invActivity.rows[0]?.cnt || 0),
+            investment_total: parseFloat(invActivity.rows[0]?.total || 0),
+            prepayment_count: parseInt(prepayActivity.rows[0]?.cnt || 0),
+            prepayment_total: parseFloat(prepayActivity.rows[0]?.total || 0),
+        },
+    };
+}
+
+function buildBriefingPoints(data) {
+    const { net_worth_this_week, top_spending_category_this_month, upcoming_bills,
+        savings_rate_this_month, savings_rate_last_month, top_opportunity } = data;
+
+    const nwChange = net_worth_this_week.change;
+    const nwDirection = nwChange >= 0 ? 'up' : 'down';
+
+    const savingsDelta = savings_rate_this_month - savings_rate_last_month;
+    const savingsDirection = savingsDelta >= 0 ? 'up' : 'down';
+
+    const points = [
+        {
+            key: 'net_worth',
+            label: 'Net Worth',
+            value: inr(net_worth_this_week.current),
+            insight: `${nwDirection === 'up' ? '+' : '-'}${inr(Math.abs(nwChange))} compared to last week`,
+        },
+        {
+            key: 'top_spend',
+            label: 'Top Spending Category',
+            value: top_spending_category_this_month.category
+                ? `${top_spending_category_this_month.category} (${inr(top_spending_category_this_month.total)})`
+                : 'No expenses recorded yet',
+            insight: top_spending_category_this_month.category
+                ? `Your biggest spend this month went to ${top_spending_category_this_month.category}`
+                : 'Log some expenses to see your spending breakdown',
+        },
+        {
+            key: 'upcoming_bills',
+            label: 'Upcoming Bills',
+            value: upcoming_bills.count > 0 ? inr(upcoming_bills.total) : 'None due',
+            insight: upcoming_bills.count > 0
+                ? `${upcoming_bills.count} bill${upcoming_bills.count !== 1 ? 's' : ''} due in the next 7 days`
+                : 'No recurring bills due in the next 7 days',
+        },
+        {
+            key: 'savings_rate',
+            label: 'Savings Rate',
+            value: `${savings_rate_this_month.toFixed(1)}%`,
+            insight: `${savingsDirection === 'up' ? 'Up' : 'Down'} from ${savings_rate_last_month.toFixed(1)}% last month`,
+        },
+        {
+            key: 'opportunity',
+            label: 'Top Opportunity',
+            value: top_opportunity ? top_opportunity.title : 'All caught up',
+            insight: top_opportunity ? top_opportunity.description : "We didn't find any new opportunities this week — keep it up!",
+        },
+    ];
+
+    return points;
+}
+
+async function generateWeeklyBriefing(userId) {
+    const weekOf = mondayOf();
+    const data = await getBriefingData(userId);
+    const points = buildBriefingPoints(data);
+
+    const prompt = `You are a friendly financial advisor writing a short weekly briefing for an Indian personal finance app user.
+Based on the following data points, write a warm, encouraging 3-4 sentence narrative summarizing their week.
+Be specific and reference the numbers naturally. No markdown, no headings, no bullet points — just plain prose.
+
+${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
+
+    let narrative;
+    try {
+        narrative = (await aiComplete('briefing', [{ role: 'user', content: prompt }])).trim();
+    } catch (err) {
+        console.error('[Briefing] AI narrative failed:', err.message);
+        narrative = `Here's your weekly money brief: your net worth is ${points[0].value} (${points[0].insight}), and your savings rate this month is ${points[3].value}.`;
+    }
+
+    const actionOfTheWeek = data.top_opportunity?.action_label
+        || "You're on track this week — keep up the great work!";
+
+    const { rows } = await pool.query(
+        `INSERT INTO briefings (user_id, week_of, points, narrative, action_of_the_week)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id, week_of)
+         DO UPDATE SET points=$3, narrative=$4, action_of_the_week=$5
+         RETURNING *`,
+        [userId, weekOf, JSON.stringify(points), narrative, actionOfTheWeek]
+    );
+
+    const briefing = rows[0];
+
+    const hasTokens = await userHasTokens(userId);
+    if (hasTokens) {
+        const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
+        await sendToUser(userId, {
+            title: 'Your Weekly Money Brief',
+            body: firstSentence,
+            data: { type: 'weekly_briefing', briefing_id: briefing.id },
+        });
+        await pool.query(`UPDATE briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
+        briefing.push_sent_at = new Date().toISOString();
+    }
+
+    return briefing;
+}
+
+// POST /briefing/generate — idempotent, regenerates this week's briefing
+router.post('/briefing/generate', authMiddleware, async (req, res) => {
+    try {
+        const briefing = await generateWeeklyBriefing(req.user.id);
+        res.json(briefing);
+    } catch (err) {
+        console.error('[Briefing] generate error:', err);
+        res.status(500).json({ error: 'Failed to generate weekly briefing.' });
+    }
+});
+
+// GET /briefing/latest — most recent briefing
+router.get('/briefing/latest', authMiddleware, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT * FROM briefings WHERE user_id=$1 ORDER BY week_of DESC LIMIT 1`,
+            [req.user.id]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'No briefing found.' });
+
+        let briefing = rows[0];
+        if (!briefing.opened_at) {
+            const updated = await pool.query(
+                `UPDATE briefings SET opened_at=NOW() WHERE id=$1 RETURNING *`,
+                [briefing.id]
+            );
+            briefing = updated.rows[0];
+        }
+        res.json(briefing);
+    } catch (err) {
+        console.error('[Briefing] latest error:', err);
+        res.status(500).json({ error: 'Failed to fetch latest briefing.' });
+    }
+});
+
+// GET /briefing/history — last 12 briefings (summary only)
+router.get('/briefing/history', authMiddleware, async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, week_of, action_of_the_week, opened_at FROM briefings
+             WHERE user_id=$1 ORDER BY week_of DESC LIMIT 12`,
+            [req.user.id]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('[Briefing] history error:', err);
+        res.status(500).json({ error: 'Failed to fetch briefing history.' });
+    }
+});
+
 // ─── Cache-bust endpoint ─────────────────────────────────────────────
 const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence']);
 
@@ -1407,3 +1682,5 @@ router.delete('/cache/:key', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.generateWeeklyBriefing = generateWeeklyBriefing;
+module.exports.mondayOf = mondayOf;

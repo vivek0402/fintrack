@@ -174,7 +174,8 @@ app.use('/api/analytics',    require('./routes/analytics'));
 app.use('/api/profile',      require('./routes/profile'));
 app.use('/api/recurring',    require('./routes/recurring'));
 app.use('/api/goals',        require('./routes/goals'));
-app.use('/api/ai',           aiLimiter, require('./routes/ai'));
+const aiRoutes = require('./routes/ai');
+app.use('/api/ai',           aiLimiter, aiRoutes);
 app.use('/api/splits',       require('./routes/splits'));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/accounts',          require('./routes/accounts'));
@@ -191,6 +192,9 @@ app.use('/api/debt',             require('./routes/debt'));
 app.use('/api/planning',         require('./routes/planning'));
 app.use('/api/milestones',       require('./routes/milestones'));
 app.use('/api/documents',        require('./routes/documents'));
+app.use('/api/ai/agent',         require('./routes/agents'));
+app.use('/api/ai/opportunities', require('./routes/opportunities'));
+app.use('/api/insights',     require('./routes/insights'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
@@ -648,6 +652,36 @@ cron.schedule('0 9 * * 1', async () => {
         }
     } catch (err) {
         console.error('[Cron:WeeklyBills] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: weekly AI briefing — every Monday at 8am IST ──────────────────────
+cron.schedule('0 8 * * 1', async () => {
+    console.log('[Cron] Generating weekly briefings...');
+    let success = 0, failed = 0, skipped = 0;
+    try {
+        const weekOf = aiRoutes.mondayOf();
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const { rows: existing } = await pool.query(
+                    `SELECT 1 FROM briefings WHERE user_id=$1 AND week_of=$2`,
+                    [user_id, weekOf]
+                );
+                if (existing.length) { skipped++; continue; }
+
+                await aiRoutes.generateWeeklyBriefing(user_id);
+                success++;
+            } catch (err) {
+                failed++;
+                console.error(`[Cron:Briefing] user ${user_id}:`, err.message);
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        console.log(`[Cron:Briefing] done — success: ${success}, skipped: ${skipped}, failed: ${failed}`);
+    } catch (err) {
+        console.error('[Cron:Briefing] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 

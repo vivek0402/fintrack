@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
-    Target, Trophy, X, Settings, Users, FolderOpen, MessageSquare,
+    Target, Trophy, X, Settings, Users, FolderOpen,
     Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
     Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
-    Flame, Calculator, CalendarRange, Lightbulb, Flag, Archive,
+    Flame, Calculator, CalendarRange, Lightbulb, Flag, Archive, Bot,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
@@ -38,7 +38,8 @@ const moreSections = [
     {
         label: 'AI & Insights',
         items: [
-            { href: '/ai-chat',              icon: MessageSquare, label: 'AI Chat'       },
+            { href: '/ai-advisor',           icon: Bot,           label: 'AI Advisor'    },
+            { href: '/insights',             icon: Brain,         label: 'Insights'      },
             { href: '/forecast',             icon: TrendingUp,    label: 'Forecast'      },
             { href: '/personality',          icon: Brain,         label: 'Personality'   },
             { href: '/tax-estimate',         icon: Receipt,       label: 'Tax Estimate'  },

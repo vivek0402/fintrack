@@ -97,3 +97,21 @@ Status: Complete.
 ## P6: /documents page (vault) — upload/download/delete, type+FY filters, Documents nav entry in Sidebar and BottomNav "Tax & Documents" group.
 
 ## Phase 5 complete. HRA/LTA optimizer, advance tax schedule, ITR readiness score, document vault — all live at v0.15.
+
+## P0: Phase 6 (v0.16) task tracking initialized. Note: spec's migration numbers 035-037 collide with Phase 5 migrations (035_tax_profiles, 036_advance_tax_payments, 037_documents already exist) — Phase 6 will use 038-040 instead.
+
+## P1: Migrations 035-037 (applied as 038-040). Tables: agent_conversations, opportunities, briefings.
+
+## P2: agents.js with 4 specialized agents. Dynamic data injection per agent type. Conversation history persistence.
+
+## P3: Opportunity detection engine with 8 parallel detectors. CRUD with dismiss and acted-on status tracking.
+
+## P4: Weekly briefing generation with 5 structured points, AI narrative, FCM push notification. Monday cron job for all active users.
+
+## P5: insights.js with peer benchmarking (8 category groups vs hardcoded brackets) and 5-pattern behavioral finance analyzer.
+
+## P6: /ai-advisor page with 4-agent selector, conversation history sidebar, typing indicator, agent-specific accent colors.
+
+## P7: Dashboard opportunity cards (priority-colored borders, amount-saved chips, act-on/dismiss with fade-out) and weekly briefing widget (current-week gating, narrative truncation, point chips, action-of-week callout). New /insights page with Peer Benchmarks (8 category bars vs benchmark ranges, status badges) and Behavioral Patterns (AI insight, 5-pattern list, refresh) tabs. Insights nav entry added to Sidebar and BottomNav.
+
+Phase 6 complete. 4 specialized AI agents with data injection, opportunity detection engine (8 detectors), weekly briefing with cron job, peer benchmarking, behavioral finance layer — all live at v0.16.

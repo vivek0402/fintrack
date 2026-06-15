@@ -354,4 +354,31 @@ export const documentAPI = {
     delete: (id: string) => api.delete(`/api/documents/${id}`),
 };
 
+export const agentAPI = {
+    sendMessage: (agent_type: string, message: string, conversation_id?: string) =>
+        api.post('/api/ai/agent/message', { agent_type, message, conversation_id }),
+    getConversations: (agent_type?: string) =>
+        api.get('/api/ai/agent/conversations', { params: agent_type ? { agent_type } : undefined }),
+    getConversation: (id: string) => api.get(`/api/ai/agent/conversations/${id}`),
+    deleteConversation: (id: string) => api.delete(`/api/ai/agent/conversations/${id}`),
+};
+
+export const opportunityAPI = {
+    detect: () => api.post('/api/ai/opportunities/detect'),
+    getAll: () => api.get('/api/ai/opportunities'),
+    dismiss: (id: string) => api.patch(`/api/ai/opportunities/${id}/dismiss`),
+    markActedOn: (id: string) => api.patch(`/api/ai/opportunities/${id}/acted-on`),
+};
+
+export const briefingAPI = {
+    generate: () => api.post('/api/ai/briefing/generate'),
+    getLatest: () => api.get('/api/ai/briefing/latest'),
+    getHistory: () => api.get('/api/ai/briefing/history'),
+};
+
+export const insightsAPI = {
+    getPeerBenchmarks: () => api.get('/api/insights/peer-benchmarks'),
+    getBehavioralPatterns: () => api.get('/api/insights/behavioral-patterns'),
+};
+
 export default api;

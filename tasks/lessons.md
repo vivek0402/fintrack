@@ -35,6 +35,11 @@
 - When a spec asks to add a nav group (e.g. "Tax & Documents" in BottomNav's More sheet) for an entry that already lives in another group (Tax was in "Finance"), move it rather than duplicate — duplicate hrefs across `moreSections` would both render and risk `key` collisions per the Phase 4 lesson on `key={href}`.
 - Tabler `ti-*` icon names in specs (`ti-file-text`, `ti-certificate`, `ti-building-bank`, `ti-folder`/`ti-archive`) map to lucide `FileText`/`Award`/`Landmark`/`Archive` — same translation pattern as Phase 1/2 lessons, just a recurring reminder to check `lucide-react.d.ts` before assuming an icon name exists.
 
+## Phase 6 (P0-P7) — AI Financial OS
+- When a frontend widget must gate on "is this the current week" against a backend `week_of` column computed via a Monday-anchored helper (`mondayOf()`), replicate the exact same offset formula client-side (`day === 0 ? -6 : 1 - day`) rather than approximating with `startOf('week')`-style libraries — off-by-one week boundaries would hide/show the briefing widget incorrectly around Sunday/Monday transitions.
+- The `-webkit-box` / `WebkitLineClamp` / `WebkitBoxOrient: 'vertical'` CSS-in-JS trio is the standard pattern in this codebase for N-line text truncation in cards (used for opportunity card descriptions) — works without JS string-slicing and degrades gracefully.
+- When adding a second nav entry that is semantically related to an existing one (Insights ↔ Personality, both "AI brain" concepts), reuse the already-imported icon (`Brain`) instead of importing a new lucide icon — avoids duplicate imports and keeps related entries visually consistent.
+
 ## Phase 2 (P1-P7) — Wealth Intelligence
 - `ProgressBar`'s built-in color logic only turns red when `pct > 100`. For UI needing custom multi-tier coloring (e.g. 80C utilization: green ≥80%, amber 40-79%, red <40%), compute the color in the page and pass it explicitly via the `color` prop rather than relying on the component's defaults.
 - When a manually-logged financial transaction needs a financial year, derive it from the transaction's own date (April-cutover formula), not from "now" — a user may be logging a past-FY transaction. `getCurrentFY()` is only correct for "current" context (defaults, summaries).

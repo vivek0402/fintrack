@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
 import { getCurrentMonthYear } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -123,6 +123,10 @@ export default function DashboardPage() {
     const [activeLoanCount, setActiveLoanCount] = useState(0);
     const [utilAlertDismissed, setUtilAlertDismissed] = useState(false);
     const [dtiAlertDismissed, setDtiAlertDismissed] = useState(false);
+    const [opportunities, setOpportunities] = useState<any[]>([]);
+    const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
+    const [briefing, setBriefing] = useState<any>(null);
+    const [briefingExpanded, setBriefingExpanded] = useState(false);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -221,7 +225,31 @@ export default function DashboardPage() {
         loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
         aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
+        opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
+        briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user]);
+
+    // Current week's Monday (matches backend mondayOf())
+    const currentWeekOf = useMemo(() => {
+        const d = new Date();
+        const day = d.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        d.setDate(d.getDate() + diff);
+        return d.toISOString().split('T')[0];
+    }, []);
+
+    const showBriefing = briefing && (briefing.week_of || '').split('T')[0] === currentWeekOf;
+
+    const handleDismissOpportunity = async (id: string) => {
+        setDismissingIds(prev => new Set(prev).add(id));
+        try { await opportunityAPI.dismiss(id); } catch {}
+        setTimeout(() => setOpportunities(prev => prev.filter((o: any) => o.id !== id)), 250);
+    };
+
+    const handleActOnOpportunity = async (opp: any) => {
+        try { await opportunityAPI.markActedOn(opp.id); } catch {}
+        if (opp.action_route) router.push(opp.action_route);
+    };
 
     // Sparkline data (last 6 months)
     const sparklineData = useMemo(() => {
@@ -283,6 +311,109 @@ export default function DashboardPage() {
 
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
+
+                {/* ── WEEKLY BRIEFING WIDGET ── */}
+                {showBriefing && (
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <div>
+                                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Your Weekly Brief</h2>
+                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                    Week of {new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}
+                                </p>
+                            </div>
+                            <Sparkles size={16} color="var(--accent)" />
+                        </div>
+
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', fontFamily: 'var(--font-body)' }}>
+                            {(() => {
+                                const narrative: string = briefing.narrative || '';
+                                if (briefingExpanded) return narrative;
+                                const sentences = narrative.match(/[^.!?]+[.!?]+/g) || [narrative];
+                                const truncated = sentences.slice(0, 2).join(' ').trim();
+                                return sentences.length > 2 ? `${truncated}...` : truncated;
+                            })()}
+                        </p>
+
+                        {Array.isArray(briefing.points) && briefing.points.length > 0 && (
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                                {briefing.points.map((pt: any) => (
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-alt)', border: '1px solid var(--border)' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {briefing.action_of_the_week && (
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 22%, transparent)', marginBottom: '10px' }}>
+                                <Lightbulb size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
+                                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                    <strong>This week:</strong> {briefing.action_of_the_week}
+                                </p>
+                            </div>
+                        )}
+
+                        <button type="button" onClick={() => setBriefingExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
+                            {briefingExpanded ? 'Show less' : 'View full brief'}
+                        </button>
+                    </div>
+                )}
+
+                {/* ── OPPORTUNITIES ── */}
+                {opportunities.length > 0 && (
+                    <div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Opportunities</h2>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-light)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
+                                    {opportunities.length}
+                                </span>
+                            </div>
+                            {opportunities.length > 3 && (
+                                <Link href="/insights" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '2px', fontFamily: 'var(--font-body)' }}>
+                                    See all <ChevronRight size={12} />
+                                </Link>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {opportunities.slice(0, 3).map((opp: any) => {
+                                const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-faint)';
+                                const isDismissing = dismissingIds.has(opp.id);
+                                return (
+                                    <div key={opp.id} style={{
+                                        background: 'var(--bg-card)', border: '1px solid var(--border)', borderLeft: `3px solid ${borderColor}`,
+                                        borderRadius: 'var(--radius-lg)', padding: '14px 16px',
+                                        opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
+                                        transition: 'opacity 250ms ease, transform 250ms ease',
+                                    }}>
+                                        <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                            {opp.title}
+                                        </p>
+                                        <p style={{
+                                            fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)',
+                                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                        }}>
+                                            {opp.description}
+                                        </p>
+                                        {opp.amount_saved != null && (
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
+                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
+                                                    Save {fmt(parseFloat(opp.amount_saved))}/year
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
+                                            <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
+                                            <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* ── DEBT ALERTS ── */}
                 {!utilAlertDismissed && creditUtilization && creditUtilization.aggregate.overall_utilization_pct > 50 && (

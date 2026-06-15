@@ -7,9 +7,9 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     TrendingUp, LogOut, CalendarDays, RefreshCw,
     Settings, Flag, FileText, Users, Brain, CalendarClock,
-    ChevronLeft, ChevronRight, FolderOpen, MessageSquare, Receipt, Banknote,
+    ChevronLeft, ChevronRight, FolderOpen, Receipt, Banknote,
     Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
-    Flame, Calculator, CalendarRange, Lightbulb, Archive,
+    Flame, Calculator, CalendarRange, Lightbulb, Archive, Bot,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -37,7 +37,8 @@ const navItems = [
     { href: '/personality',         icon: Brain,           label: 'Personality' },
     { href: '/tax-estimate',        icon: Receipt,         label: 'Tax Estimate' },
     { href: '/salary-intelligence', icon: Banknote,        label: 'Salary AI' },
-    { href: '/ai-chat',             icon: MessageSquare,   label: 'AI Chat' },
+    { href: '/ai-advisor',          icon: Bot,             label: 'AI Advisor' },
+    { href: '/insights',            icon: Brain,           label: 'Insights' },
     { href: '/recurring',           icon: RefreshCw,       label: 'Recurring' },
     { href: '/one-time-expenses',   icon: Receipt,         label: 'One-Time' },
     { href: '/splits',              icon: Users,           label: 'Splits' },

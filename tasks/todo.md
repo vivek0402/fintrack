@@ -1,27 +1,25 @@
-# FinTrack Phase 5: Tax Intelligence (v0.15)
+# FinTrack Phase 6: AI Financial OS (v0.16)
 ## Todo
 - [x] P0: Task tracking setup
-- [x] P1: Database migrations (035-037)
-- [x] P2: Backend — tax profile + HRA/LTA optimizer routes
-- [x] P3: Backend — advance tax calculator + ITR readiness score routes
-- [x] P4: Backend — document vault routes (Supabase Storage)
-- [x] P5: Frontend — extend /tax page with 3 new sections
-- [x] P6: Frontend — /documents page (vault)
+- [x] P1: Database migrations (038-040)
+- [x] P2: Backend — 4 specialized AI agents with data injection
+- [x] P3: Backend — opportunity detection engine
+- [x] P4: Backend — weekly briefing generation + cron job
+- [x] P5: Backend — peer benchmarking + behavioral finance analytics
+- [x] P6: Frontend — /ai-advisor page (4-agent chat interface)
+- [x] P7: Frontend — opportunity + briefing dashboard widgets + /insights page
 
 ## Note
-Spec said migrations "032-034" but those numbers are already used
-(032_loan_prepayments.sql from Phase 3, 033_scenarios.sql / 034_milestones.sql from Phase 4).
-Using 035-037 for Phase 5 instead.
+Spec says migrations "035-037" but those numbers are already used
+(035_tax_profiles.sql / 036_advance_tax_payments.sql / 037_documents.sql from Phase 5).
+Used 038-040 for Phase 6 instead.
 
 ## Features
-HRA and LTA optimizer (F20), advance tax calculator (F18), ITR filing readiness
-score (F19), financial document vault (F29).
-New routes: extensions to /api/tax + new /api/documents.
-New pages: /documents + major expansion of existing /tax page.
-Depends on: Phase 2 (tax_investments, capital_transactions, /api/tax routes, /tax
-page already exist and must remain intact).
-
-## Manual setup required (not done by Claude Code)
-In the Supabase dashboard, create a private Storage bucket named
-`fintrack-documents` with an RLS policy restricting access to
-`documents/{user_id}/*` for the authenticated user. Must be done before P4.
+Specialized AI agents (F21) — 4 agents, opportunity detection engine (F24), weekly
+AI financial briefing (F22), peer benchmarking insights (F23), behavioral finance
+layer (F25).
+New routes: /api/ai/agent, /api/ai/opportunities, /api/ai/briefing, /api/insights.
+New pages: /ai-advisor (upgrade of existing chat), /insights.
+Depends on: All previous phases. The agents work best with complete data —
+investments (Phase 1), loans (Phase 3), tax profile (Phase 5), and planning
+scenarios (Phase 4) all feed agent context.

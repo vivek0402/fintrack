@@ -50,6 +50,9 @@ const ROUTES = {
     'life-event':         { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'forecast-calendar':  { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
     'health-report':      { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
+    'agent-chat':         { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 1000, temp: 0.7 },
+    'briefing':           { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
+    'behavioral-insight': { provider: 'groq1', model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.7 },
 };
 
 // ── Fallback chain per provider ──
