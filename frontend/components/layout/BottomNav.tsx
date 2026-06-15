@@ -5,7 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
     Target, Trophy, X, Settings, CalendarDays, LineChart,
-    Briefcase, RefreshCw, SplitSquareHorizontal, Landmark, Bot,
+    Briefcase, RefreshCw, SplitSquareHorizontal, Landmark, Bot, Gauge,
+    Receipt, Waves, Lightbulb, FileText, Award, HeartPulse,
+    Gem, Flame, GitBranch, Percent, Calculator, Wallet, PiggyBank,
+    TrendingUp, Milestone, MessageSquare, Sparkles, CreditCard, FolderOpen, Users,
 } from 'lucide-react';
 
 const mainTabs = [
@@ -14,19 +17,67 @@ const mainTabs = [
     { href: '/analytics',    icon: PieChart,        label: 'Insights' },
 ];
 
-// 2-column grid of items shown in the More sheet
-const moreItems = [
-    { href: '/budgets',      icon: Target,                label: 'Budgets' },
-    { href: '/calendar',     icon: CalendarDays,          label: 'Calendar' },
-    { href: '/goals',        icon: Trophy,                label: 'Goals' },
-    { href: '/net-worth',    icon: LineChart,             label: 'Net Worth' },
-    { href: '/investments',  icon: Briefcase,             label: 'Investments' },
-    { href: '/recurring',    icon: RefreshCw,             label: 'Recurring' },
-    { href: '/ai-advisor',   icon: Bot,                   label: 'AI Advisor' },
-    { href: '/splits',       icon: SplitSquareHorizontal, label: 'Splits' },
-    { href: '/tax',          icon: Landmark,              label: 'Tax' },
-    { href: '/profile',      icon: Settings,              label: 'Profile' },
+// Grouped 2-column grids shown in the More sheet
+const moreGroups = [
+    {
+        label: 'Track',
+        items: [
+            { href: '/budgets',           icon: Target,                label: 'Budgets' },
+            { href: '/recurring',         icon: RefreshCw,             label: 'Recurring' },
+            { href: '/splits',            icon: SplitSquareHorizontal, label: 'Splits' },
+            { href: '/one-time-expenses', icon: Receipt,               label: 'One-Time Expenses' },
+        ],
+    },
+    {
+        label: 'Understand',
+        items: [
+            { href: '/calendar',     icon: CalendarDays, label: 'Calendar' },
+            { href: '/net-worth',    icon: LineChart,    label: 'Net Worth' },
+            { href: '/cash-flow',    icon: Waves,        label: 'Cash Flow' },
+            { href: '/insights',     icon: Lightbulb,    label: 'Insights' },
+            { href: '/reports',      icon: FileText,     label: 'Reports' },
+            { href: '/year-review',  icon: Award,        label: 'Year Review' },
+            { href: '/health-score', icon: HeartPulse,   label: 'Health Score' },
+        ],
+    },
+    {
+        label: 'Grow',
+        items: [
+            { href: '/goals',               icon: Trophy,    label: 'Goals' },
+            { href: '/investments',         icon: Briefcase, label: 'Investments' },
+            { href: '/debt-intelligence',   icon: Gauge,     label: 'Debt' },
+            { href: '/loans',               icon: Landmark,  label: 'Loans' },
+            { href: '/wealth-intelligence', icon: Gem,       label: 'Wealth Intelligence' },
+            { href: '/fire',                icon: Flame,     label: 'FIRE' },
+            { href: '/scenarios',           icon: GitBranch, label: 'Scenarios' },
+        ],
+    },
+    {
+        label: 'Plan',
+        items: [
+            { href: '/tax',                 icon: Percent,    label: 'Tax' },
+            { href: '/tax-estimate',        icon: Calculator, label: 'Tax Estimate' },
+            { href: '/salary-intelligence', icon: Wallet,     label: 'Salary Intelligence' },
+            { href: '/savings-plan',        icon: PiggyBank,  label: 'Savings Plan' },
+            { href: '/forecast',            icon: TrendingUp, label: 'Forecast' },
+            { href: '/milestones',          icon: Milestone,  label: 'Milestones' },
+        ],
+    },
+    {
+        label: 'Tools',
+        items: [
+            { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
+            { href: '/ai-chat',     icon: MessageSquare, label: 'AI Chat' },
+            { href: '/personality', icon: Sparkles,      label: 'Personality' },
+            { href: '/accounts',    icon: CreditCard,    label: 'Accounts' },
+            { href: '/documents',   icon: FolderOpen,    label: 'Documents' },
+            { href: '/groups',      icon: Users,         label: 'Groups' },
+            { href: '/profile',     icon: Settings,      label: 'Profile' },
+        ],
+    },
 ];
+
+const moreItems = moreGroups.flatMap(g => g.items);
 
 export function BottomNav() {
     const pathname  = usePathname();
@@ -217,27 +268,42 @@ export function BottomNav() {
                         </button>
                     </div>
 
-                    {/* 2-column grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', padding: '0 20px 20px' }}>
-                        {moreItems.map(({ href, icon: Icon, label }) => {
-                            const active = isActive(href);
-                            return (
-                                <button key={href} type="button" onClick={() => handleNavigate(href)}
-                                    style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)',
-                                        padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
-                                        background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
-                                        border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
-                                        cursor: 'pointer', textAlign: 'left',
-                                    }}>
-                                    <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-secondary)'} />
-                                    <span style={{ fontSize: 'var(--text-body)', fontWeight: active ? 600 : 500, color: active ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                                        {label}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    {/* Grouped 2-column grids */}
+                    {moreGroups.map(group => (
+                        <div key={group.label} style={{ padding: '0 20px 20px' }}>
+                            <p style={{
+                                fontSize: 'var(--text-label)',
+                                fontWeight: 700,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                                margin: '0 0 var(--space-2)',
+                                fontFamily: 'var(--font-body)',
+                            }}>
+                                {group.label}
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                {group.items.map(({ href, icon: Icon, label }) => {
+                                    const active = isActive(href);
+                                    return (
+                                        <button key={href} type="button" onClick={() => handleNavigate(href)}
+                                            style={{
+                                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)',
+                                                padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
+                                                background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
+                                                border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
+                                                cursor: 'pointer', textAlign: 'left',
+                                            }}>
+                                            <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-secondary)'} />
+                                            <span style={{ fontSize: 'var(--text-body)', fontWeight: active ? 600 : 500, color: active ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                                {label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
