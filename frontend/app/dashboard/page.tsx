@@ -50,7 +50,7 @@ function SixBarSparkline({ data, incColor, expColor }: {
         </div>
     );
 
-    const W = 600, H = 110, PB = 20;
+    const W = 600, H = 64, PB = 14;
     const plotH = H - PB;
     const maxVal = Math.max(...data.flatMap(d => [d.income, d.expenses]), 1);
     const groupGap = 10;
@@ -371,18 +371,10 @@ export default function DashboardPage() {
                         6-month trend
                     </p>
                     {dataLoading ? (
-                        <Skeleton width="100%" height={90} borderRadius={6} />
+                        <Skeleton width="100%" height={50} borderRadius={6} />
                     ) : (
                         <SixBarSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
                     )}
-                    <div style={{ display: 'flex', gap: '14px', marginTop: '8px' }}>
-                        {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
-                            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color }} />
-                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
                 {/* ── WEEKLY BRIEFING WIDGET ── */}

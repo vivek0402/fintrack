@@ -35,7 +35,7 @@ const ROUTES = {
     'cams-import':        { provider: 'groq1', model: MODELS.LLAMA70B, maxTokens: 6000, temp: 0 },
     'forecast-insight':   { provider: 'nim',   model: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
     'salary-allocation':  { provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
-    'personality':        { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 1024, temp: 0.7 },
+    'personality':        { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'report':             { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 1024, temp: 0.6 },
     'forecast':           { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
     'salary-intelligence':{ provider: 'nim',   model: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
@@ -50,7 +50,7 @@ const ROUTES = {
     'life-event':         { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'forecast-calendar':  { provider: 'groq1', model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
     'health-report':      { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
-    'agent-chat':         { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 1000, temp: 0.7 },
+    'agent-chat':         { provider: 'nim',   model: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'briefing':           { provider: 'nim',   model: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
     'behavioral-insight': { provider: 'groq1', model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.7 },
 };
@@ -73,7 +73,13 @@ const groqComplete = async (client, model, messages, maxTokens, temp) => {
         max_tokens: maxTokens,
         temperature: temp,
     });
-    return res.choices[0].message.content;
+    const content = res.choices[0].message.content;
+    if (content == null) {
+        // Reasoning models (e.g. NVIDIA Nemotron) can exhaust max_tokens on
+        // <think> reasoning and return a null content field with finish_reason 'length'.
+        throw new Error('Empty completion content (likely truncated reasoning output)');
+    }
+    return content;
 };
 
 // ── Gemini completion ──
@@ -159,7 +165,7 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
             }
             return result;
         } catch (err) {
-            if (isRateLimit(err) || err?.message?.includes('NVIDIA_API_KEY')) {
+            if (isRateLimit(err) || err?.message?.includes('NVIDIA_API_KEY') || err?.message?.includes('Empty completion content')) {
                 console.warn(`[AI] ${p} unavailable for '${routeKey}' (${err.message}), trying next...`);
                 lastError = err;
                 continue;
