@@ -342,24 +342,24 @@ export default function OneTimeExpensesPage() {
 
   const modalStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', bottom: 0, left: 0, right: 0,
-    background: 'var(--bg-card)',
+    background: 'var(--bg-surface-1)',
     borderRadius: '20px 20px 0 0',
-    borderTop: '1px solid var(--border)',
+    borderTop: '1px solid var(--border-subtle)',
     padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
     zIndex: 10000, maxHeight: '92vh', overflowY: 'auto',
   } : {
     position: 'fixed', top: '50%', left: '50%',
     transform: 'translate(-50%, -50%)',
-    background: 'var(--bg-card)',
+    background: 'var(--bg-surface-1)',
     borderRadius: '16px',
-    border: '1px solid var(--border)',
+    border: '1px solid var(--border-subtle)',
     padding: '28px', zIndex: 10000,
     width: '480px', maxHeight: '90vh', overflowY: 'auto',
   };
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', background: 'var(--bg-alt)',
-    border: '1px solid var(--border)', borderRadius: '8px',
+    width: '100%', background: 'var(--bg-surface-2)',
+    border: '1px solid var(--border-subtle)', borderRadius: '8px',
     padding: '10px 12px', color: 'var(--text-primary)',
     fontSize: '14px', outline: 'none', boxSizing: 'border-box',
   };
@@ -371,7 +371,7 @@ export default function OneTimeExpensesPage() {
   };
 
   const itemInputStyle: React.CSSProperties = {
-    background: 'var(--bg-hover)', border: '1px solid var(--border)',
+    background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)',
     borderRadius: 8, padding: '8px 12px', color: 'var(--text-primary)',
     fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box',
   };
@@ -383,7 +383,7 @@ export default function OneTimeExpensesPage() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
       {/* Header */}
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+      <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>One-Time Expenses</h1>
@@ -411,11 +411,11 @@ export default function OneTimeExpensesPage() {
         {/* Summary tiles */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
           {[
-            { label: 'TOTAL SPENT', value: fmt(totalSpent), color: 'var(--accent-2)' },
+            { label: 'TOTAL SPENT', value: fmt(totalSpent), color: 'var(--accent)' },
             { label: 'THIS YEAR',   value: fmt(thisYear),   color: 'var(--accent)'   },
             { label: 'ENTRIES',     value: String(expenses.length), color: 'var(--text-primary)' },
           ].map(tile => (
-            <div key={tile.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
+            <div key={tile.label} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px' }}>
               <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', margin: '0 0 6px', fontWeight: 600 }}>{tile.label}</p>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: tile.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{tile.value}</p>
             </div>
@@ -428,7 +428,7 @@ export default function OneTimeExpensesPage() {
         ) : expenses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px' }}>
             <p style={{ fontSize: '40px', marginBottom: '10px' }}>🧾</p>
-            <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No one-time expenses yet</p>
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No one-time expenses yet</p>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Log trips, events, or big purchases separately. Add items day by day and watch the total build up.</p>
             <Button onClick={openAddExpense} size="md"><Calendar size={16} /> Create Your First Expense</Button>
           </div>
@@ -440,7 +440,7 @@ export default function OneTimeExpensesPage() {
             const dateRange    = formatDateRange(exp);
 
             const PAY_COLORS: Record<string, string> = {
-              'UPI': 'var(--accent-2)',
+              'UPI': 'var(--accent)',
               'Credit Card': 'var(--accent)',
               'Debit Card': 'var(--accent)',
               'Net Banking': 'var(--accent)',
@@ -454,7 +454,7 @@ export default function OneTimeExpensesPage() {
             };
             const fieldInput: React.CSSProperties = {
               width: '100%', height: 36, borderRadius: 8,
-              border: '1px solid var(--border)', background: 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)',
               color: 'var(--text-primary)', fontSize: 13, padding: '0 10px',
               outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
             };
@@ -463,8 +463,8 @@ export default function OneTimeExpensesPage() {
               <div
                 key={exp.id}
                 style={{
-                  background: 'var(--bg-card)',
-                  border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--accent-2) 40%, transparent)' : 'var(--border)'}`,
+                  background: 'var(--bg-surface-1)',
+                  border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--accent) 40%, transparent)' : 'var(--border-subtle)'}`,
                   borderRadius: 14, marginBottom: 12, overflow: 'hidden',
                   transition: 'border-color 0.15s',
                 }}
@@ -475,7 +475,7 @@ export default function OneTimeExpensesPage() {
                   style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
                 >
                   {/* Emoji badge */}
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'color-mix(in srgb, var(--accent-2) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
                     {CATEGORY_EMOJI[exp.category] || '🧾'}
                   </div>
 
@@ -485,7 +485,7 @@ export default function OneTimeExpensesPage() {
                       {exp.title}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'color-mix(in srgb, var(--accent-2) 12%, transparent)', color: 'var(--accent-2)', fontWeight: 500 }}>
+                      <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', fontWeight: 500 }}>
                         {exp.category}
                       </span>
                       {dateRange && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateRange}</span>}
@@ -495,7 +495,7 @@ export default function OneTimeExpensesPage() {
 
                   {/* Total + count + action buttons */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--accent-2)', fontVariantNumeric: 'tabular-nums' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
                       {fmt(Number(exp.total_amount))}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -506,7 +506,7 @@ export default function OneTimeExpensesPage() {
                         type="button"
                         onClick={e => openEditExpense(exp, e)}
                         title="Edit"
-                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
+                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
                       >✏️</button>
                       <button
                         type="button"
@@ -522,7 +522,7 @@ export default function OneTimeExpensesPage() {
                 {isExpanded && (
                   <>
                     {/* Divider */}
-                    <div style={{ height: 1, background: 'var(--border)' }} />
+                    <div style={{ height: 1, background: 'var(--border-subtle)' }} />
 
                     <div style={{ padding: '0 20px 4px' }}>
 
@@ -530,7 +530,7 @@ export default function OneTimeExpensesPage() {
                       {exp.items.length > 0 && (
                         <div style={{ overflowX: 'auto' }}>
                           {/* Table header */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--border)', minWidth: 460 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', minWidth: 460 }}>
                             <span>Date</span>
                             <span>What</span>
                             <span>How Paid</span>
@@ -540,7 +540,7 @@ export default function OneTimeExpensesPage() {
 
                           {/* Item rows */}
                           {exp.items.map(item => (
-                            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--border)', minWidth: 460 }}>
+                            <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', minWidth: 460 }}>
                               {/* Date */}
                               <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                                 {new Date((item.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -551,7 +551,7 @@ export default function OneTimeExpensesPage() {
                                   {item.description}
                                 </span>
                                 {item.category && item.category !== 'Other' && (
-                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                     {item.category}
                                   </span>
                                 )}
@@ -588,9 +588,9 @@ export default function OneTimeExpensesPage() {
                           ))}
 
                           {/* Total row */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--border)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--border-subtle)' }}>
                             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Total spent</span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--accent-2)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(exp.total_amount))}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(exp.total_amount))}</span>
                           </div>
                         </div>
                       )}
@@ -609,7 +609,7 @@ export default function OneTimeExpensesPage() {
 
                       {/* Expanded add item form */}
                       {isAddingItem && (
-                        <div style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                        <div style={{ background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
 
                           {/* Row 1: description */}
                           <div style={{ marginBottom: 12 }}>
@@ -690,7 +690,7 @@ export default function OneTimeExpensesPage() {
                             <button
                               type="button"
                               onClick={() => { setAddingItemFor(null); setEditingItem(null); setItemForm(emptyItemForm()); }}
-                              style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
+                              style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
                             >
                               Cancel
                             </button>
@@ -698,7 +698,7 @@ export default function OneTimeExpensesPage() {
                               type="button"
                               onClick={() => editingItem ? handleUpdateItem(exp.id, editingItem.item.id) : handleAddItem(exp.id)}
                               disabled={addingItem || !itemForm.description || !itemForm.amount}
-                              style={{ height: 34, padding: '0 20px', borderRadius: 8, border: 'none', background: addingItem ? 'var(--border)' : 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addingItem ? 'not-allowed' : 'pointer' }}
+                              style={{ height: 34, padding: '0 20px', borderRadius: 8, border: 'none', background: addingItem ? 'var(--border-subtle)' : 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: addingItem ? 'not-allowed' : 'pointer' }}
                             >
                               {addingItem ? '…' : editingItem ? 'Update item' : '+ Add item'}
                             </button>
@@ -719,7 +719,7 @@ export default function OneTimeExpensesPage() {
       {deleteConfirm && mounted && createPortal(
         <>
           <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
-          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-card)', borderRadius: 14, border: '1px solid var(--border)', padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
+          <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-surface-1)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
             <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>
               Delete {deleteConfirm.title}?
             </p>
@@ -729,7 +729,7 @@ export default function OneTimeExpensesPage() {
                 : 'This action cannot be undone.'}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => handleDeleteExpense(deleteConfirm)} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>Delete</button>
             </div>
           </div>
@@ -740,7 +740,7 @@ export default function OneTimeExpensesPage() {
       {/* Add/Edit modal */}
       {showModal && mounted && createPortal(
         <div onClick={e => e.stopPropagation()} style={modalStyle}>
-          {isMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 16px' }} />}
+          {isMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-subtle)', margin: '0 auto 16px' }} />}
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>
             {editingExp ? 'Edit Expense' : 'New One-Time Expense'}
           </h2>
@@ -785,8 +785,8 @@ export default function OneTimeExpensesPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" disabled={savingExp} style={{ flex: 2, background: savingExp ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: savingExp ? 'not-allowed' : 'pointer' }}>
+                <button type="button" onClick={() => setShowModal(false)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+                <button type="submit" disabled={savingExp} style={{ flex: 2, background: savingExp ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: savingExp ? 'not-allowed' : 'pointer' }}>
                   {savingExp ? 'Saving…' : editingExp ? 'Save Changes' : 'Create Expense'}
                 </button>
               </div>

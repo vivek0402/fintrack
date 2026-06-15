@@ -61,10 +61,10 @@ function SectionHead({ title, total, totalColor, onAdd }: { title: string; total
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <div>
-                <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px' }}>{title}</h2>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px' }}>{title}</h2>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: totalColor, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
             </div>
-            <button type="button" onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+            <button type="button" onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                 <Plus size={14} /> Add
             </button>
         </div>
@@ -74,7 +74,7 @@ function SectionHead({ title, total, totalColor, onAdd }: { title: string; total
 // ── Shared modal style helpers ────────────────────────────────────────────────
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)',
+    width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
     borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14,
     outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
@@ -84,7 +84,7 @@ const labelSt: React.CSSProperties = {
 };
 const outlineBtn: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
-    background: 'transparent', border: '1px solid var(--border)',
+    background: 'transparent', border: '1px solid var(--border-subtle)',
     borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)',
     fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
     transition: 'all var(--transition-fast)',
@@ -233,14 +233,14 @@ export default function AccountsPage() {
 
                 {/* ── Toast ── */}
                 {toast && mounted && createPortal(
-                    <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)' }}>
+                    <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)' }}>
                         {toast}
                     </div>,
                     document.body
                 )}
 
                 {/* ── NET WORTH HEADER ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'var(--bg-glow)', borderRadius: '50%', pointerEvents: 'none', opacity: 0.4 }} />
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Net Worth</p>
@@ -267,8 +267,8 @@ export default function AccountsPage() {
                     <SectionHead title="Bank Accounts" total={fmt(totalBanks)} totalColor="var(--color-inc)" onAdd={openAddBank} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {dataLoading ? [1, 2].map(i => (
-                            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div style={{ background: 'var(--bg-alt)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div key={i} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div style={{ background: 'var(--bg-surface-2)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         <Skeleton width="120px" height={14} borderRadius={4} />
                                         <Skeleton width="80px" height={11} borderRadius={4} />
@@ -278,13 +278,13 @@ export default function AccountsPage() {
                                 <div style={{ padding: '10px 16px' }}><Skeleton width="120px" height={10} borderRadius={4} /></div>
                             </div>
                         )) : banks.map(b => (
-                            <div key={b.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                            <div key={b.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                 {/* Coloured band */}
                                 <div style={{ background: b.color || 'var(--accent)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
                                             <span style={{ fontSize: '16px' }}>{b.icon || '🏦'}</span>
-                                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-head)' }}>{b.name}</span>
+                                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)' }}>{b.name}</span>
                                             {b.is_default && <Badge bg="rgba(255,255,255,0.22)" color="white">Default</Badge>}
                                         </div>
                                         {b.last_four && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-mono)', margin: '0 0 2px' }}>••••&nbsp;&nbsp;{b.last_four}</p>}
@@ -295,7 +295,7 @@ export default function AccountsPage() {
                                     </p>
                                 </div>
                                 {/* Action row */}
-                                <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
+                                <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--border-subtle)' }}>
                                     <button type="button" onClick={() => router.push('/transactions')} style={outlineBtn}>History</button>
                                     <button type="button" onClick={() => openEditBank(b)} style={outlineBtn}><Pencil size={12} /> Edit</button>
                                     {!b.is_default && (
@@ -310,7 +310,7 @@ export default function AccountsPage() {
                             </div>
                         ))}
                         {!dataLoading && (
-                            <button type="button" onClick={openAddBank} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={openAddBank} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> Add Bank Account
                             </button>
                         )}
@@ -322,8 +322,8 @@ export default function AccountsPage() {
                     <SectionHead title="Credit Cards" total={fmt(totalCards)} totalColor="var(--color-exp)" onAdd={openAddCard} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {dataLoading ? [1, 2].map(i => (
-                            <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div style={{ background: 'var(--bg-alt)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div key={i} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div style={{ background: 'var(--bg-surface-2)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
                                     <Skeleton width="120px" height={14} borderRadius={4} />
                                     <Skeleton width={70} height={20} borderRadius={4} />
                                 </div>
@@ -332,17 +332,17 @@ export default function AccountsPage() {
                         )) : cards.map(c => {
                             const dueDays = getDueDays(c.billing_date, c.due_days);
                             const utilPct = c.credit_limit > 0 ? Math.min(100, (Number(c.outstanding_balance) / Number(c.credit_limit)) * 100) : 0;
-                            const utilColor = utilPct > 30 ? 'var(--color-warn)' : 'var(--accent-2)';
+                            const utilColor = utilPct > 30 ? 'var(--color-warn)' : 'var(--accent)';
                             const dueUrgent = dueDays !== null && dueDays <= 7;
                             const dueLabel  = dueDays === null ? null : dueDays < 0 ? 'Overdue' : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`;
 
                             return (
-                                <div key={c.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div key={c.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                     {/* Coloured panel */}
                                     <div style={{ background: c.color, padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-head)' }}>
+                                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)' }}>
                                                     {c.bank_name} {c.card_name}
                                                 </span>
                                                 <Badge bg="rgba(255,255,255,0.22)" color="white">{Math.round(utilPct)}% used</Badge>
@@ -382,7 +382,7 @@ export default function AccountsPage() {
                             );
                         })}
                         {!dataLoading && (
-                            <button type="button" onClick={openAddCard} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={openAddCard} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> Add Credit Card
                             </button>
                         )}
@@ -394,7 +394,7 @@ export default function AccountsPage() {
                     <SectionHead title="Wallets & UPI" total={fmt(totalWallets)} totalColor="var(--color-inc)" onAdd={openAddWallet} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {dataLoading ? [1, 2, 3, 4].map(i => (
-                            <div key={i} style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
+                            <div key={i} style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
                         )) : wallets.map(w => (
                             <GCard key={w.id} padding="var(--space-4)">
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
@@ -404,13 +404,13 @@ export default function AccountsPage() {
                                         <button type="button" style={iconBtn} onClick={() => confirmDelete('wallet', w.id, w.name)}><Trash2 size={13} color="var(--color-exp)" /></button>
                                     </div>
                                 </div>
-                                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-head)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</p>
+                                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</p>
                                 {editingWalletBalanceId === w.id ? (
                                     <input autoFocus type="number" value={walletBalanceInput}
                                         onChange={e => setWalletBalanceInput(e.target.value)}
                                         onBlur={() => saveWalletBalance(w)}
                                         onKeyDown={e => { if (e.key === 'Enter') saveWalletBalance(w); if (e.key === 'Escape') setEditingWalletBalanceId(null); }}
-                                        style={{ width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 ) : (
                                     <p onClick={() => startWalletBalanceEdit(w)} title="Tap to edit"
@@ -422,7 +422,7 @@ export default function AccountsPage() {
                         ))}
                     </div>
                     {!dataLoading && (
-                        <button type="button" onClick={openAddWallet} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)', marginTop: '10px' }}>
+                        <button type="button" onClick={openAddWallet} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)', marginTop: '10px' }}>
                             <Plus size={14} /> Add Wallet
                         </button>
                     )}
@@ -435,10 +435,10 @@ export default function AccountsPage() {
             {/* Bank Account Modal */}
             {showBankModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowBankModal(false)}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingBank ? 'Edit Account' : 'Add Bank Account'}</span>
-                            <button type="button" style={{ background: 'var(--bg-alt)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div><label style={labelSt}>Account Name *</label><input style={inputSt} value={bankForm.name} onChange={e => setBankForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Savings" /></div>
@@ -447,9 +447,9 @@ export default function AccountsPage() {
                             <div><label style={labelSt}>Current Balance (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={bankForm.starting_balance} onChange={e => setBankForm(f => ({ ...f, starting_balance: e.target.value }))} placeholder="0" /></div>
                             <div><label style={labelSt}>Balance As Of (optional)</label><input style={inputSt} type="date" value={bankForm.balance_as_of} onChange={e => setBankForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
                         </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowBankModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveBank} disabled={saving || !bankForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
+                            <button type="button" onClick={() => setShowBankModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={saveBank} disabled={saving || !bankForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingBank ? 'Save Changes' : 'Add Account'}
                             </button>
                         </div>
@@ -461,10 +461,10 @@ export default function AccountsPage() {
             {/* Credit Card Modal */}
             {showCardModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowCardModal(false)}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingCard ? 'Edit Card' : 'Add Credit Card'}</span>
-                            <button type="button" style={{ background: 'var(--bg-alt)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -492,9 +492,9 @@ export default function AccountsPage() {
                                 </div>
                             </div>
                         </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowCardModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveCard} disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()} style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
+                            <button type="button" onClick={() => setShowCardModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={saveCard} disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()} style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingCard ? 'Save Changes' : 'Add Card'}
                             </button>
                         </div>
@@ -506,17 +506,17 @@ export default function AccountsPage() {
             {/* Wallet Modal */}
             {showWalletModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowWalletModal(false)}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingWallet ? 'Edit Wallet' : 'Add Wallet'}</span>
-                            <button type="button" style={{ background: 'var(--bg-alt)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>
                                 <label style={labelSt}>Emoji</label>
                                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
                                     {WALLET_EMOJIS.map(em => (
-                                        <button type="button" key={em} onClick={() => setWalletForm(f => ({ ...f, emoji: em }))} style={{ fontSize: 22, background: walletForm.emoji === em ? 'var(--accent-light)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--accent)' : 'transparent'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer' }}>
+                                        <button type="button" key={em} onClick={() => setWalletForm(f => ({ ...f, emoji: em }))} style={{ fontSize: 22, background: walletForm.emoji === em ? 'var(--accent-subtle)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--accent)' : 'transparent'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer' }}>
                                             {em}
                                         </button>
                                     ))}
@@ -525,9 +525,9 @@ export default function AccountsPage() {
                             <div><label style={labelSt}>Wallet Name *</label><input style={inputSt} value={walletForm.name} onChange={e => setWalletForm(f => ({ ...f, name: e.target.value }))} placeholder="PhonePe, Paytm, Cash…" /></div>
                             <div><label style={labelSt}>Balance (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={walletForm.balance} onChange={e => setWalletForm(f => ({ ...f, balance: e.target.value }))} placeholder="0" /></div>
                         </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowWalletModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveWallet} disabled={saving || !walletForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
+                            <button type="button" onClick={() => setShowWalletModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={saveWallet} disabled={saving || !walletForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingWallet ? 'Save Changes' : 'Add Wallet'}
                             </button>
                         </div>
@@ -540,11 +540,11 @@ export default function AccountsPage() {
             {deleteConfirm && mounted && createPortal(
                 <>
                     <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: 28, zIndex: 10000, width: 340, maxWidth: '90vw', boxShadow: 'var(--shadow-modal)' }}>
+                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: 28, zIndex: 10000, width: 340, maxWidth: '90vw', boxShadow: 'var(--shadow-modal)' }}>
                         <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>Delete {deleteConfirm.name}?</p>
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>This action cannot be undone.</p>
                         <div style={{ display: 'flex', gap: 10 }}>
-                            <button type="button" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
+                            <button type="button" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
                             <button type="button" onClick={executeDelete} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Delete</button>
                         </div>
                     </div>

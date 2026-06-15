@@ -227,7 +227,7 @@ export default function DocumentsPage() {
                 {/* ── PAGE HEADER ── */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                     <div>
-                        <h1 style={{ fontFamily: 'var(--font-head)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                             Document Vault
                         </h1>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -247,8 +247,8 @@ export default function DocumentsPage() {
                                 type="button"
                                 onClick={() => setTypeFilter('all')}
                                 style={{
-                                    padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border)',
-                                    background: typeFilter === 'all' ? 'var(--accent)' : 'var(--bg-card)',
+                                    padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border-subtle)',
+                                    background: typeFilter === 'all' ? 'var(--accent)' : 'var(--bg-surface-1)',
                                     color: typeFilter === 'all' ? '#fff' : 'var(--text-secondary)',
                                     fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap',
                                 }}
@@ -261,8 +261,8 @@ export default function DocumentsPage() {
                                     type="button"
                                     onClick={() => setTypeFilter(t)}
                                     style={{
-                                        padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border)',
-                                        background: typeFilter === t ? 'var(--accent)' : 'var(--bg-card)',
+                                        padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border-subtle)',
+                                        background: typeFilter === t ? 'var(--accent)' : 'var(--bg-surface-1)',
                                         color: typeFilter === t ? '#fff' : 'var(--text-secondary)',
                                         fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap',
                                     }}
@@ -278,8 +278,8 @@ export default function DocumentsPage() {
                                 onChange={e => setFyFilter(e.target.value)}
                                 style={{
                                     alignSelf: 'flex-start',
-                                    padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
-                                    background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600,
+                                    padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)',
+                                    background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600,
                                     fontFamily: 'var(--font-body)', cursor: 'pointer',
                                 }}
                             >
@@ -319,7 +319,7 @@ export default function DocumentsPage() {
                                             <Icon size={18} color={meta.color} />
                                         </div>
                                         <div style={{ display: 'flex', gap: 6 }}>
-                                            <button type="button" onClick={() => handleDownload(doc)} title="Download" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                            <button type="button" onClick={() => handleDownload(doc)} title="Download" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-secondary)' }}>
                                                 <Download size={14} />
                                             </button>
                                             <button type="button" onClick={() => handleDelete(doc)} disabled={deletingId === doc.id} title="Delete" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)', borderRadius: 8, cursor: deletingId === doc.id ? 'not-allowed' : 'pointer', color: 'var(--color-exp)', opacity: deletingId === doc.id ? 0.5 : 1 }}>
@@ -337,7 +337,7 @@ export default function DocumentsPage() {
                                             {meta.label}
                                         </span>
                                         {doc.financial_year && (
-                                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                 FY {doc.financial_year}
                                             </span>
                                         )}
@@ -374,8 +374,8 @@ export default function DocumentsPage() {
                             onDragOver={e => e.preventDefault()}
                             onDrop={e => { e.preventDefault(); handleFileSelect(e.dataTransfer.files[0] || null); }}
                             style={{
-                                border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)', padding: '24px 16px',
-                                textAlign: 'center', cursor: 'pointer', background: 'var(--bg-alt)',
+                                border: '2px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '24px 16px',
+                                textAlign: 'center', cursor: 'pointer', background: 'var(--bg-surface-2)',
                             }}
                         >
                             <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
@@ -399,7 +399,7 @@ export default function DocumentsPage() {
                             value={uploadForm.name}
                             onChange={e => setUploadForm(f => ({ ...f, name: e.target.value }))}
                             placeholder="e.g. Form 16 - FY 2024-25"
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
                         />
                     </div>
 
@@ -408,7 +408,7 @@ export default function DocumentsPage() {
                         <select
                             value={uploadForm.type}
                             onChange={e => setUploadForm(f => ({ ...f, type: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
                         >
                             {DOCUMENT_TYPES.map(t => (
                                 <option key={t} value={t}>{DOCUMENT_TYPE_META[t].label}</option>
@@ -421,7 +421,7 @@ export default function DocumentsPage() {
                         <select
                             value={uploadForm.financial_year}
                             onChange={e => setUploadForm(f => ({ ...f, financial_year: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
                         >
                             {getFYOptions(5).map(fy => <option key={fy} value={fy}>FY {fy}</option>)}
                             <option value="none">Not applicable</option>
@@ -434,7 +434,7 @@ export default function DocumentsPage() {
                             type="text"
                             value={uploadForm.description}
                             onChange={e => setUploadForm(f => ({ ...f, description: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
                         />
                     </div>
 

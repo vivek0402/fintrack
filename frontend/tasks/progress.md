@@ -247,3 +247,21 @@ Every file touched across all 12 phases + Final review:
 - `frontend/app/ai-chat/page.tsx` (verified, no changes needed)
 
 No backend files were modified. Nothing was committed or pushed — all changes are staged in the working tree for user review.
+
+## Phase 13 — Remaining app pages — DONE
+
+Token migration pass across the 17 app pages that existed outside the original 12-phase scope, so the whole app is consistently on the v2 token system (no page left on the pre-redesign compat-alias-only styling):
+
+`accounts`, `insights`, `net-worth`, `cash-flow`, `fire`, `investments`, `loans`, `scenarios`, `wealth-intelligence`, `debt-intelligence`, `ai-advisor`, `salary-intelligence`, `milestones`, `documents`, `groups`, `health-score`, `one-time-expenses`, `year-review`.
+
+- Bulk sed migration applied to all 17: `--bg-card`→`--bg-surface-1`, `--bg-alt`→`--bg-surface-2`, `--bg-hover`→`--bg-surface-3`, `--border`→`--border-subtle`, `--accent-light`/`--accent-tint`→`--accent-subtle`, `--font-head`→`--font-display`, `--text-faint`→`--text-muted`, `--accent-2`→`--accent`.
+- Verified via Grep: no remaining legacy var references in any of the 17 files.
+- Checked for the dead `palette`/`useThemeStore` palette system: none of these pages reference it.
+- Spot-checked hardcoded hex values (`accounts`, `fire`, `salary-intelligence`, `documents`, `one-time-expenses`): all are intentional semantic exceptions — per-category/per-card color palettes (same pattern as `--cat-0..7` and goal colors), `#fff` text-on-accent for active tab pills, and `var(--accent-mint, #00e5a0)`/`var(--accent-amber, #f59e0b)` SVG chart fallbacks (existing Phase 8 Analytics pattern). No changes needed.
+- Re-ran the full CSS-var audit across `app/` + `components/`: zero undefined variables remain.
+- `npx tsc --noEmit` passes cleanly.
+
+### Files touched in Phase 13
+- `frontend/app/{accounts,insights,net-worth,cash-flow,fire,investments,loans,scenarios,wealth-intelligence,debt-intelligence,ai-advisor,salary-intelligence,milestones,documents,groups,health-score,one-time-expenses,year-review}/page.tsx` (token migration only)
+
+## REDESIGN COMPLETE (all pages)

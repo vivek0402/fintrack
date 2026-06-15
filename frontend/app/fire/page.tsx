@@ -26,8 +26,8 @@ const fmtAbbrev = (n: number) => {
 };
 
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)' };
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-mono)' };
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-mono)' };
+const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
 
 interface YearsToFire {
@@ -95,7 +95,7 @@ function Slider({ label, value, min, max, step, unit = '%', onChange, info }: {
 function ChartTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontSize: 12, fontFamily: 'var(--font-body)' }}>Year {label}</p>
             {payload.map((p: any, i: number) => (
                 <p key={i} style={{ color: p.color, margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 13 }}>
@@ -260,7 +260,7 @@ export default function FirePage() {
                 </div>
 
                 {/* ── TAB TOGGLE ── */}
-                <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content' }}>
+                <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content' }}>
                     <button
                         onClick={() => setTab('fire')}
                         style={{
@@ -340,7 +340,7 @@ export default function FirePage() {
                             </Card>
 
                             {/* ── HERO RESULT ── */}
-                            <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
+                            <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
                                     Corpus needed to retire
                                 </p>
@@ -364,8 +364,8 @@ export default function FirePage() {
                                         <div
                                             key={tile.key}
                                             style={{
-                                                background: 'var(--bg-card)',
-                                                border: isEarliest ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                                                background: 'var(--bg-surface-1)',
+                                                border: isEarliest ? '1.5px solid var(--accent)' : '1px solid var(--border-subtle)',
                                                 borderRadius: 'var(--radius-lg)',
                                                 padding: '16px',
                                             }}
@@ -395,15 +395,15 @@ export default function FirePage() {
                                 <p style={sectionTitleSt}>Monthly Savings Targets</p>
                                 <p style={sectionSubSt}>How much you'd need to save monthly to FIRE within a fixed horizon</p>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Retire in 10 years</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(fireResult.savings_targets.target_10yr)}/mo</p>
                                     </div>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Retire in 15 years</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(fireResult.savings_targets.target_15yr)}/mo</p>
                                     </div>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Retire in 20 years</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(fireResult.savings_targets.target_20yr)}/mo</p>
                                     </div>
@@ -434,7 +434,7 @@ export default function FirePage() {
                                             <Area type="monotone" dataKey="portfolio_value" name="Portfolio" stroke="var(--color-inc)" strokeWidth={1.5} fill="url(#fireGrowth)" animationDuration={600} />
                                             <ReferenceLine y={fireResult.corpus_needed_real} stroke="var(--accent-amber, #f59e0b)" strokeDasharray="4 4" label={{ value: 'FIRE number', position: 'insideTopRight', fontSize: 11, fill: 'var(--accent-amber, #f59e0b)' }} />
                                             {crossingYear !== null && (
-                                                <ReferenceDot x={crossingYear} y={fireResult.corpus_needed_real} r={5} fill="var(--accent-amber, #f59e0b)" stroke="var(--bg-card)" strokeWidth={2} />
+                                                <ReferenceDot x={crossingYear} y={fireResult.corpus_needed_real} r={5} fill="var(--accent-amber, #f59e0b)" stroke="var(--bg-surface-1)" strokeWidth={2} />
                                             )}
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -452,7 +452,7 @@ export default function FirePage() {
                             <p style={sectionTitleSt}><TrendingUp size={16} /> SIP Optimizer</p>
                             <p style={sectionSubSt}>Find the SIP that gets you to your goal, or project where your current SIP lands</p>
 
-                            <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content', marginBottom: '16px' }}>
                                 <button
                                     onClick={() => setSipMode('goal_based')}
                                     style={{
@@ -499,7 +499,7 @@ export default function FirePage() {
                         ) : sipResult ? (
                             <>
                                 {/* ── HERO RESULT ── */}
-                                <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
+                                <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
                                     {sipResult.mode === 'goal_based' ? (
                                         <>
                                             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
@@ -531,15 +531,15 @@ export default function FirePage() {
 
                                 {/* ── INVESTED / RETURNS / WEALTH RATIO ── */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Invested</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(sipResult.total_invested)}</p>
                                     </div>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Returns</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(sipResult.total_returns)}</p>
                                     </div>
-                                    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                         <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Wealth Ratio</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{sipResult.wealth_ratio}x</p>
                                         <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0', fontFamily: 'var(--font-body)' }}>Your money multiplies {sipResult.wealth_ratio} times</p>

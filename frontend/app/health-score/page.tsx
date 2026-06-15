@@ -29,7 +29,7 @@ function ScoreArc({ score, color, size = 140 }: { score: number; color: string; 
   return (
     <svg viewBox="0 0 130 130" width={size} height={size} style={{ display: 'block' }}>
       <circle cx="65" cy="65" r={R_LG}
-        fill="none" stroke="var(--border)" strokeWidth="10" strokeLinecap="round"
+        fill="none" stroke="var(--border-subtle)" strokeWidth="10" strokeLinecap="round"
         strokeDasharray={`${GAUGE_LG} ${CIRC_LG - GAUGE_LG}`}
         transform="rotate(135 65 65)"
       />
@@ -46,7 +46,7 @@ function ScoreArc({ score, color, size = 140 }: { score: number; color: string; 
 function DeltaChip({ delta }: { delta: number | null }) {
   if (delta === null) return null;
   if (delta === 0) return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 10px', borderRadius: '20px', background: 'var(--bg-alt)', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 10px', borderRadius: '20px', background: 'var(--bg-surface-2)', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
       <Minus size={11} /> No change
     </span>
   );
@@ -146,18 +146,18 @@ export default function HealthScorePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button type="button" onClick={() => router.back()}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', padding: '4px', borderRadius: '8px' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}>
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 style={{ fontFamily: 'var(--font-head)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Financial Health</h1>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Financial Health</h1>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>Score breakdown &amp; trend</p>
           </div>
         </div>
 
         {/* Score hero */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
           {loading ? (
             <Skeleton width={140} height={140} borderRadius={999} />
           ) : result ? (
@@ -186,7 +186,7 @@ export default function HealthScorePage() {
 
         {/* Sparkline */}
         {sparkData.length >= 2 && (
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+          <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
             <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 14px', fontFamily: 'var(--font-body)' }}>Score history</p>
             <ResponsiveContainer width="100%" height={90}>
               <LineChart data={sparkData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
@@ -196,7 +196,7 @@ export default function HealthScorePage() {
                     if (!active || !payload?.length) return null;
                     const val = payload[0].value as number;
                     return (
-                      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-primary)' }}>
+                      <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-primary)' }}>
                         <p style={{ margin: '0 0 2px', color: 'var(--text-muted)' }}>{label}</p>
                         <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700, color: scoreColor }}>{val}/100</p>
                       </div>
@@ -215,14 +215,14 @@ export default function HealthScorePage() {
         )}
 
         {/* Factor breakdown */}
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
             <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: 0, fontFamily: 'var(--font-body)' }}>Factor breakdown</p>
           </div>
 
           {loading
             ? [1,2,3,4,5].map(i => (
-                <div key={i} style={{ padding: '14px 20px', borderBottom: i < 5 ? '1px solid var(--border)' : 'none' }}>
+                <div key={i} style={{ padding: '14px 20px', borderBottom: i < 5 ? '1px solid var(--border-subtle)' : 'none' }}>
                   <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '8px' }} />
                   <Skeleton width="100%" height={5} borderRadius={99} />
                 </div>
@@ -230,12 +230,12 @@ export default function HealthScorePage() {
             : result?.breakdown.map((f, i) => {
                 const barColor = f.pct >= 70 ? 'var(--color-inc)' : f.pct >= 40 ? 'var(--color-warn)' : 'var(--color-exp)';
                 return (
-                  <div key={f.id} style={{ padding: '14px 20px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                  <div key={f.id} style={{ padding: '14px 20px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{f.name}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: barColor }}>{f.score}<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/{f.max}</span></span>
                     </div>
-                    <div style={{ height: '5px', borderRadius: '3px', background: 'var(--border)', overflow: 'hidden', marginBottom: '6px' }}>
+                    <div style={{ height: '5px', borderRadius: '3px', background: 'var(--border-subtle)', overflow: 'hidden', marginBottom: '6px' }}>
                       <div style={{ height: '100%', width: `${f.pct}%`, borderRadius: '3px', background: barColor, transition: 'width 1.2s ease' }} />
                     </div>
                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>{f.tip}</p>

@@ -115,7 +115,7 @@ export default function YearReviewPage() {
         setTimeout(() => alert('Take a screenshot of the summary card to share your year! 📸'), 350);
     };
 
-    const sCard: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
+    const sCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
 
     if (isLoading || !user) return <AppLayout><SkeletonCard height={400} /></AppLayout>;
 
@@ -133,7 +133,7 @@ export default function YearReviewPage() {
                         <div style={{ display: 'flex', gap: '6px' }}>
                             {[cy - 2, cy - 1, cy].map(y => (
                                 <button key={y} type="button" onClick={() => setSelectedYear(y)}
-                                    style={{ padding: '6px 12px', borderRadius: '999px', border: `1px solid ${selectedYear === y ? 'var(--accent)' : 'var(--border)'}`, background: selectedYear === y ? 'var(--accent)' : 'var(--bg-alt)', color: selectedYear === y ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: selectedYear === y ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
+                                    style={{ padding: '6px 12px', borderRadius: '999px', border: `1px solid ${selectedYear === y ? 'var(--accent)' : 'var(--border-subtle)'}`, background: selectedYear === y ? 'var(--accent)' : 'var(--bg-surface-2)', color: selectedYear === y ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: selectedYear === y ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
                                     {y}
                                 </button>
                             ))}
@@ -146,17 +146,17 @@ export default function YearReviewPage() {
                 ) : !stats ? (
                     <div style={{ ...sCard, textAlign: 'center', padding: '48px 24px' }}>
                         <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📊</p>
-                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No data for {selectedYear}</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No data for {selectedYear}</p>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Add transactions for this year to see your review.</p>
                     </div>
                 ) : (
                     <>
                         {/* Big animated count */}
-                        <div style={{ ...sCard, textAlign: 'center', padding: '36px 24px', background: 'var(--bg-card)' }}>
+                        <div style={{ ...sCard, textAlign: 'center', padding: '36px 24px', background: 'var(--bg-surface-1)' }}>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 12vw, 72px)', fontWeight: 800, color: 'var(--accent)', margin: '0 0 6px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                                 {animCount.toLocaleString('en-IN')}
                             </p>
-                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>transactions in {selectedYear}</p>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>transactions in {selectedYear}</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>Every rupee tracked — great financial discipline!</p>
                         </div>
 
@@ -168,7 +168,7 @@ export default function YearReviewPage() {
                                 { emoji: '🏦', label: 'Total Saved',    value: fmt(stats.saved),    color: 'var(--accent)'    },
                                 { emoji: '📈', label: 'Savings Rate',   value: `${stats.rate}%`,    color: 'var(--accent)'    },
                             ].map(s => (
-                                <div key={s.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                                <div key={s.label} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
                                     <div style={{ fontSize: 22, marginBottom: 6 }}>{s.emoji}</div>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{s.label}</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: s.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
@@ -178,10 +178,10 @@ export default function YearReviewPage() {
 
                         {/* Highlights */}
                         <div style={sCard}>
-                            <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Highlights</h2>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Highlights</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {stats.topCategory && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-exp)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-exp)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🏆</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Top Spending Category</p>
@@ -193,7 +193,7 @@ export default function YearReviewPage() {
                                 )}
 
                                 {stats.worstMonth && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-warn)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-warn)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>📅</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Most Expensive Month</p>
@@ -205,7 +205,7 @@ export default function YearReviewPage() {
                                 )}
 
                                 {stats.bestSavings && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-inc)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-inc)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🌟</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Best Savings Month</p>
@@ -217,7 +217,7 @@ export default function YearReviewPage() {
                                 )}
 
                                 {personality && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--accent)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--accent)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🧠</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Your Money Personality</p>
@@ -230,9 +230,9 @@ export default function YearReviewPage() {
 
                         {/* Shareable card */}
                         <div style={sCard}>
-                            <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Share Your Story</h2>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Share Your Story</h2>
 
-                            <div ref={cardRef} style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)', borderRadius: 'var(--radius-xl)', padding: '28px 24px', color: 'white', marginBottom: '14px' }}>
+                            <div ref={cardRef} style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%)', borderRadius: 'var(--radius-xl)', padding: '28px 24px', color: 'white', marginBottom: '14px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                                     <div>
                                         <p style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 800, margin: '0 0 2px', letterSpacing: '-0.01em' }}>FinTrack {selectedYear}</p>
@@ -263,7 +263,7 @@ export default function YearReviewPage() {
                             </div>
 
                             <button type="button" onClick={handleScreenshot}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 20px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', width: '100%' }}>
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', width: '100%' }}>
                                 <Camera size={15} /> Screenshot this card to share
                             </button>
                         </div>

@@ -19,7 +19,7 @@ import { Plus, Pencil, Trash2, Flag, AlertTriangle, CheckCircle2 } from 'lucide-
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 const labelSt: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'block', marginBottom: '6px' };
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-alt)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
 
 interface Feasibility {
     days_remaining: number;
@@ -45,7 +45,7 @@ interface Milestone {
 }
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'var(--bg-alt)' },
+    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'var(--bg-surface-2)' },
     in_progress: { label: 'In Progress', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
     achieved: { label: 'Achieved', color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 10%, transparent)' },
     missed: { label: 'Missed', color: 'var(--color-exp)', bg: 'color-mix(in srgb, var(--color-exp) 10%, transparent)' },
@@ -402,7 +402,7 @@ function MilestoneNode({
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{milestone.name}</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{milestone.name}</span>
                             <Badge color={statusMeta.color} bg={statusMeta.bg}>{statusMeta.label}</Badge>
                             {feasibilityChip}
                         </div>
@@ -437,7 +437,7 @@ function MilestoneNode({
                 )}
 
                 {isExpanded && (
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {milestone.description && (
                             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
                                 {milestone.description}
@@ -450,7 +450,7 @@ function MilestoneNode({
                         )}
 
                         {progressEditId === milestone.id ? (
-                            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
                                     <div>
                                         <label style={labelSt}>Current amount (₹)</label>
@@ -478,10 +478,10 @@ function MilestoneNode({
             </Card>
 
             {children.length > 0 && (
-                <div style={{ marginLeft: '28px', paddingLeft: '20px', borderLeft: '2px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                <div style={{ marginLeft: '28px', paddingLeft: '20px', borderLeft: '2px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
                     {children.map(child => (
                         <div key={child.id} style={{ position: 'relative' }}>
-                            <div style={{ position: 'absolute', left: '-20px', top: '24px', width: '20px', height: '2px', background: 'var(--border)' }} />
+                            <div style={{ position: 'absolute', left: '-20px', top: '24px', width: '20px', height: '2px', background: 'var(--border-subtle)' }} />
                             <MilestoneNode
                                 milestone={child}
                                 childrenOf={childrenOf}

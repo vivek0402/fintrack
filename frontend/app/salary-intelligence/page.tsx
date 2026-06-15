@@ -17,8 +17,8 @@ import {
 const fmt = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 const card: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
+    background: 'var(--bg-surface-1)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: 'var(--radius-lg)',
     padding: '20px 24px',
 };
@@ -70,7 +70,7 @@ export default function SalaryIntelligencePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Salary Intelligence</h1>
@@ -86,7 +86,7 @@ export default function SalaryIntelligencePage() {
                 {!generated && !loading && !error && (
                     <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                         <p style={{ fontSize: '48px', marginBottom: '12px' }}>💰</p>
-                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No data yet</p>
+                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No data yet</p>
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Add income transactions so we can detect your salary and generate a personalised allocation plan</p>
                         <Button variant="primary" size="md" onClick={() => analyse()}><Banknote size={15} /> Analyse Salary Pattern</Button>
                     </div>
@@ -105,7 +105,7 @@ export default function SalaryIntelligencePage() {
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
                         <AlertTriangle size={28} color="var(--color-exp)" />
                         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
-                        <button type="button" onClick={() => analyse()} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
+                        <button type="button" onClick={() => analyse()} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
                     </div>
                 )}
 
@@ -113,7 +113,7 @@ export default function SalaryIntelligencePage() {
                 {generated && data && !data.detected && !loading && (
                     <div style={{ ...card, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '50px 40px', textAlign: 'center' }}>
                         <Banknote size={36} color="var(--text-muted)" />
-                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No salary pattern detected</h3>
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No salary pattern detected</h3>
                         <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, maxWidth: '360px', fontFamily: 'var(--font-body)' }}>
                             We need at least one income transaction to detect your salary. Add your salary or income transactions to unlock this feature.
                         </p>
@@ -127,7 +127,7 @@ export default function SalaryIntelligencePage() {
                 {generated && data && data.detected && !loading && (
                     <>
                         {/* Salary hero */}
-                        <GCard style={{ background: 'color-mix(in srgb, var(--color-inc) 6%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)' }}>
+                        <GCard style={{ background: 'color-mix(in srgb, var(--color-inc) 6%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
                                 <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-inc) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <Banknote size={26} color="var(--color-inc)" />
@@ -148,7 +148,7 @@ export default function SalaryIntelligencePage() {
                             <div style={card}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
                                     <TrendingUp size={16} color="var(--accent)" />
-                                    <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>AI Salary Allocation Plan</span>
+                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>AI Salary Allocation Plan</span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '4px', fontFamily: 'var(--font-body)' }}>Based on your spending</span>
                                 </div>
 
@@ -185,7 +185,7 @@ export default function SalaryIntelligencePage() {
                                                     <IconCmp size={18} color={meta.color} />
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-head)' }}>{meta.label}</p>
+                                                    <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-display)' }}>{meta.label}</p>
                                                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{val?.reason || ''}</p>
                                                 </div>
                                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -193,7 +193,7 @@ export default function SalaryIntelligencePage() {
                                                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{pct}%</p>
                                                 </div>
                                                 <div style={{ width: '60px', flexShrink: 0 }}>
-                                                    <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '6px', background: 'var(--border-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
                                                         <div style={{ height: '100%', width: totalPct > 0 ? `${(pct / Math.max(totalPct, 100)) * 100}%` : '0%', background: meta.color, borderRadius: '3px' }} />
                                                     </div>
                                                 </div>
@@ -202,7 +202,7 @@ export default function SalaryIntelligencePage() {
                                     })}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
                                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Total allocated</span>
                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: totalPct >= 98 ? 'var(--color-inc)' : 'var(--color-warn)', fontVariantNumeric: 'tabular-nums' }}>
                                         {fmt(planEntries.reduce((s, [, v]) => s + (v?.amount ?? 0), 0))} · {totalPct}%
@@ -212,10 +212,10 @@ export default function SalaryIntelligencePage() {
                         )}
 
                         {/* How to use */}
-                        <GCard style={{ background: 'color-mix(in srgb, var(--color-inc) 4%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-inc) 15%, transparent)' }}>
+                        <GCard style={{ background: 'color-mix(in srgb, var(--color-inc) 4%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--color-inc) 15%, transparent)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                 <Lightbulb size={16} color="var(--accent)" />
-                                <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>How to use this plan</span>
+                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>How to use this plan</span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {[
@@ -225,7 +225,7 @@ export default function SalaryIntelligencePage() {
                                     'Review this plan every 3 months as your income or lifestyle changes.',
                                 ].map((tip, i) => (
                                     <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                        <div style={{ width: '24px', height: '24px', flexShrink: 0, borderRadius: '12px', background: 'var(--accent-light)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', fontFamily: 'var(--font-mono)' }}>{i + 1}</div>
+                                        <div style={{ width: '24px', height: '24px', flexShrink: 0, borderRadius: '12px', background: 'var(--accent-subtle)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', fontFamily: 'var(--font-mono)' }}>{i + 1}</div>
                                         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{tip}</p>
                                     </div>
                                 ))}

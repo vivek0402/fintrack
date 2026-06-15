@@ -32,10 +32,10 @@ const fmtAbbrev = (n: number) => {
     return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
 };
 
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' };
+const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' };
 const heroSt: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontWeight: 700, fontSize: '40px', color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em', margin: '4px 0' };
 const labelSt: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'block', marginBottom: '6px' };
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', background: 'var(--bg-alt)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '14px', boxSizing: 'border-box' as const };
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '14px', boxSizing: 'border-box' as const };
 
 interface ScenarioType {
     key: string;
@@ -69,15 +69,15 @@ const SCENARIO_TYPES: ScenarioType[] = [
         description: 'Cut a recurring monthly expense and see the savings — or what it could grow to if invested.',
         icon: Scissors,
         color: 'var(--accent)',
-        bg: 'var(--accent-light)',
+        bg: 'var(--accent-subtle)',
     },
     {
         key: 'income_change',
         label: 'Income Change',
         description: 'Model a salary increase and how much extra wealth it builds if part of it is invested.',
         icon: Wallet,
-        color: 'var(--accent-2)',
-        bg: 'color-mix(in srgb, var(--accent-2) 10%, transparent)',
+        color: 'var(--accent)',
+        bg: 'color-mix(in srgb, var(--accent) 10%, transparent)',
     },
 ];
 
@@ -106,14 +106,14 @@ function ProjectionChart({ data }: { data: ProjectionPoint[] }) {
                             <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
                         </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="var(--border)" vertical={false} />
+                    <CartesianGrid stroke="var(--border-subtle)" vertical={false} />
                     <XAxis dataKey="year" tickFormatter={(v) => `Y${v}`} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                     <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} width={56} />
                     <Tooltip
                         content={({ active, payload, label }: any) => {
                             if (!active || !payload?.length) return null;
                             return (
-                                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
+                                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
                                     <p style={{ margin: '0 0 4px', fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Year {label}</p>
                                     <p style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(payload[0].value)}</p>
                                 </div>
@@ -313,7 +313,7 @@ export default function ScenariosPage() {
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{scenario.title}</span>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{scenario.title}</span>
                                             <Badge color={meta?.color} bg={meta?.bg}>{meta?.label}</Badge>
                                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                                 {new Date(scenario.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -362,7 +362,7 @@ export default function ScenariosPage() {
                                         <Icon size={18} />
                                     </div>
                                     <div>
-                                        <p style={{ margin: '0 0 4px', fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{type.label}</p>
+                                        <p style={{ margin: '0 0 4px', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>{type.label}</p>
                                         <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>{type.description}</p>
                                     </div>
                                 </Card>
@@ -389,9 +389,9 @@ export default function ScenariosPage() {
 
                         {result && !result.error && (
                             <>
-                                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                                <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
                                 <ScenarioResult type={selectedType} result={result} />
-                                <Card style={{ background: 'var(--accent-light)', border: '1px solid var(--accent-border)' }}>
+                                <Card style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)' }}>
                                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
                                         {result.summary_text}
                                     </p>
@@ -521,7 +521,7 @@ function ScenarioResult({ type, result }: { type: string; result: any }) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-head)', fontWeight: 600 }}>Corpus at End</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>Corpus at End</span>
                     <div style={heroSt}>{fmt(result.corpus_at_end)}</div>
                 </div>
                 <div style={grid}>
@@ -538,7 +538,7 @@ function ScenarioResult({ type, result }: { type: string; result: any }) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-head)', fontWeight: 600 }}>Monthly EMI</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>Monthly EMI</span>
                     <div style={heroSt}>{fmt(result.emi_amount)}</div>
                 </div>
                 <div style={grid}>
@@ -548,7 +548,7 @@ function ScenarioResult({ type, result }: { type: string; result: any }) {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>DTI:</span>
-                    <Badge bg="var(--bg-alt)" color="var(--text-secondary)">Before {result.current_dti_pct.toFixed(1)}%</Badge>
+                    <Badge bg="var(--bg-surface-2)" color="var(--text-secondary)">Before {result.current_dti_pct.toFixed(1)}%</Badge>
                     <span style={{ color: 'var(--text-muted)' }}>→</span>
                     <Badge bg="color-mix(in srgb, var(--color-warn) 12%, transparent)" color="var(--color-warn)">After {result.new_dti_pct.toFixed(1)}%</Badge>
                     {result.dti_status_change && (
@@ -564,7 +564,7 @@ function ScenarioResult({ type, result }: { type: string; result: any }) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-head)', fontWeight: 600 }}>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>
                         {hasCorpus ? 'Corpus if Invested' : 'Monthly Savings'}
                     </span>
                     <div style={heroSt}>{fmt(hasCorpus ? result.corpus_if_invested : result.monthly_savings)}</div>
@@ -584,7 +584,7 @@ function ScenarioResult({ type, result }: { type: string; result: any }) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-head)', fontWeight: 600 }}>Additional Monthly Savings</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>Additional Monthly Savings</span>
                     <div style={heroSt}>{fmt(result.monthly_additional_savings)}</div>
                 </div>
                 <div style={grid}>

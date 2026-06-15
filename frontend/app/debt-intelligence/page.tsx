@@ -18,9 +18,9 @@ import { Loan } from '@/types/loans';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
+const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
 
 const UTIL_STATUS_COLORS: Record<string, string> = {
@@ -206,7 +206,7 @@ export default function DebtIntelligencePage() {
                                     />
                                 </div>
                                 {(dti.breakdown_loans.length > 0 || dti.breakdown_cards.length > 0) && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
                                         {dti.breakdown_loans.map(l => (
                                             <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                 <span>{l.name} (EMI)</span>
@@ -263,7 +263,7 @@ export default function DebtIntelligencePage() {
                                             ))}
                                         </div>
                                         {utilization.recommendation && (
-                                            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                                 <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
                                                 {utilization.recommendation}
                                             </div>
@@ -309,7 +309,7 @@ export default function DebtIntelligencePage() {
                                             </div>
 
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                                <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                                     <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Mountain size={14} /> Avalanche</p>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.avalanche.months}</span></div>
@@ -317,7 +317,7 @@ export default function DebtIntelligencePage() {
                                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.avalanche.interest_saved)}</span></div>
                                                     </div>
                                                     {payoff.avalanche.payoff_sequence.length > 0 && (
-                                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                             {payoff.avalanche.payoff_sequence.map(p => (
                                                                 <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                                     <span>{p.name}</span>
@@ -328,7 +328,7 @@ export default function DebtIntelligencePage() {
                                                     )}
                                                 </div>
 
-                                                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-alt)' }}>
+                                                <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
                                                     <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Snowflake size={14} /> Snowball</p>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.snowball.months}</span></div>
@@ -336,7 +336,7 @@ export default function DebtIntelligencePage() {
                                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.snowball.interest_saved)}</span></div>
                                                     </div>
                                                     {payoff.snowball.payoff_sequence.length > 0 && (
-                                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                             {payoff.snowball.payoff_sequence.map(p => (
                                                                 <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                                     <span>{p.name}</span>
@@ -349,7 +349,7 @@ export default function DebtIntelligencePage() {
                                             </div>
 
                                             {payoff.recommendation && (
-                                                <div style={{ padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                                <div style={{ padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                                     <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
                                                     {payoff.recommendation}
                                                 </div>
@@ -407,7 +407,7 @@ export default function DebtIntelligencePage() {
                                                 <span>New payoff date: <strong style={{ color: 'var(--text-primary)' }}>{prepayResult.new_payoff_date}</strong></span>
                                             </div>
                                             {prepayResult.recommendation && (
-                                                <div style={{ padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                                <div style={{ padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                                     <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
                                                     {prepayResult.recommendation}
                                                 </div>

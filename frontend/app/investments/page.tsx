@@ -20,7 +20,7 @@ import { Investment, InvestmentSummary, INVESTMENT_TYPES, GROUP_LABELS } from '@
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 
@@ -252,10 +252,10 @@ export default function InvestmentsPage() {
                                 <div key={group.type}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '0 4px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                                 {group.label}
                                             </span>
-                                            <Badge color="var(--text-muted)" bg="var(--bg-alt)">{group.holdings.length}</Badge>
+                                            <Badge color="var(--text-muted)" bg="var(--bg-surface-2)">{group.holdings.length}</Badge>
                                         </div>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                                             {fmt(groupTotal)}
@@ -271,12 +271,12 @@ export default function InvestmentsPage() {
                                                     style={{
                                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
                                                         padding: '12px 16px',
-                                                        borderBottom: idx < group.holdings.length - 1 ? '1px solid var(--border)' : 'none',
+                                                        borderBottom: idx < group.holdings.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
                                                     <div style={{ minWidth: 0, flex: '1 1 140px' }}>
-                                                        <p style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                             {inv.name}
                                                         </p>
                                                         {inv.ticker_or_folio && (
@@ -330,8 +330,8 @@ export default function InvestmentsPage() {
             <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setFormErrors({}); }} title="Add Investment" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setFormErrors({}); }} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="add-investment-form" disabled={formLoading} style={{ padding: 10, background: formLoading ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => { setShowAdd(false); setFormErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="add-investment-form" disabled={formLoading} style={{ padding: 10, background: formLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {formLoading ? 'Adding…' : 'Add Investment'}
                         </button>
                     </div>
@@ -392,8 +392,8 @@ export default function InvestmentsPage() {
             <Modal isOpen={!!activeInvestment} onClose={() => setActiveInvestment(null)} title={activeInvestment?.name || 'Update Investment'} maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setActiveInvestment(null)} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="update-price-form" disabled={priceLoading} style={{ padding: 10, background: priceLoading ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: priceLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => setActiveInvestment(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="update-price-form" disabled={priceLoading} style={{ padding: 10, background: priceLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: priceLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {priceLoading ? 'Saving…' : 'Save'}
                         </button>
                     </div>
@@ -407,14 +407,14 @@ export default function InvestmentsPage() {
                     </div>
                 </form>
 
-                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
                     {confirmDelete ? (
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button type="button" onClick={handleDelete} disabled={deleteLoading}
                                 style={{ flex: 1, padding: 10, borderRadius: 10, background: 'color-mix(in srgb, var(--color-exp) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 {deleteLoading ? 'Deleting…' : 'Confirm Delete'}
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Cancel
                             </button>
                         </div>

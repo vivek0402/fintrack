@@ -59,11 +59,11 @@ function BenchmarkBar({ userPct, min, max }: { userPct: number; min: number; max
     const userPos = Math.min(100, (userPct / scaleMax) * 100);
 
     return (
-        <div style={{ position: 'relative', height: '8px', background: 'var(--bg-alt)', borderRadius: '999px', marginTop: '6px' }}>
+        <div style={{ position: 'relative', height: '8px', background: 'var(--bg-surface-2)', borderRadius: '999px', marginTop: '6px' }}>
             <div style={{
                 position: 'absolute', top: 0, bottom: 0,
                 left: `${minPos}%`, width: `${Math.max(maxPos - minPos, 1)}%`,
-                background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: '999px',
+                background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: '999px',
             }} />
             <div style={{
                 position: 'absolute', top: '-3px', left: `calc(${userPos}% - 2px)`,
@@ -111,7 +111,7 @@ export default function InsightsPage() {
         <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px' }}>
                 <div>
-                    <h1 style={{ fontFamily: 'var(--font-head)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                         Insights
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -120,7 +120,7 @@ export default function InsightsPage() {
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
                     {[
                         { key: 'benchmarks', label: 'Peer Benchmarks' },
                         { key: 'behavioral', label: 'Behavioral Patterns' },
@@ -151,23 +151,23 @@ export default function InsightsPage() {
                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Could not load peer benchmarks.</p>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                            <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)' }}>
+                            <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'var(--font-body)' }}>
                                     Based on your income bracket: {INCOME_BRACKET_LABELS[benchmarks.income_bracket] || benchmarks.income_bracket}
                                 </span>
                             </div>
 
-                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
+                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
                                 <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{benchmarks.summary}</p>
                             </div>
 
-                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                 {benchmarks.benchmark_groups.map((g: any, idx: number) => {
                                     const Icon = GROUP_ICONS[g.group] || PiggyBank;
                                     const badge = statusBadge(g.status, false);
                                     return (
-                                        <div key={g.group} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', borderBottom: idx < benchmarks.benchmark_groups.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                            <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <div key={g.group} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', borderBottom: idx < benchmarks.benchmark_groups.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                                            <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <Icon size={16} color="var(--text-secondary)" />
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -194,10 +194,10 @@ export default function InsightsPage() {
                                 const badge = statusBadge(s.status, true);
                                 return (
                                     <div>
-                                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Savings Rate</h2>
-                                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
+                                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Savings Rate</h2>
+                                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                     <PiggyBank size={16} color="var(--text-secondary)" />
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -231,7 +231,7 @@ export default function InsightsPage() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             {/* AI insight card */}
-                            <div style={{ background: 'var(--accent-light)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                            <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
                                 <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <Brain size={18} color="white" />
                                 </div>
@@ -245,15 +245,15 @@ export default function InsightsPage() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--bg-alt)', border: '1px solid var(--border)' }}>
+                            <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
                                 <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                     {patterns.detected_count} of 5 patterns detected in your spending
                                 </span>
                             </div>
 
-                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                 {patterns.patterns.map((p: any, idx: number) => (
-                                    <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                    <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                         <div style={{ width: 32, height: 32, borderRadius: '50%', background: p.detected ? 'color-mix(in srgb, var(--color-warn) 12%, transparent)' : 'color-mix(in srgb, var(--color-inc) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             {p.detected
                                                 ? <AlertTriangle size={15} color="var(--color-warn)" />

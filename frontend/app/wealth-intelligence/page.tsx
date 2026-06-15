@@ -15,7 +15,7 @@ const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.
 const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
 
 const CHART_COLORS = [
-    'var(--accent)', 'var(--color-inc)', 'var(--color-info)', 'var(--accent-2)',
+    'var(--accent)', 'var(--color-inc)', 'var(--color-info)', 'var(--accent)',
     'var(--color-warn)', 'var(--accent-3)', 'var(--color-exp)', 'var(--text-muted)',
 ];
 
@@ -57,14 +57,14 @@ const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Ico
     accelerating:      { label: 'Accelerating',     color: 'var(--color-inc)',  bg: 'color-mix(in srgb, var(--color-inc) 12%, transparent)',  Icon: ArrowUp },
     decelerating:      { label: 'Decelerating',     color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)',  Icon: ArrowDown },
     steady:            { label: 'Steady',           color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', Icon: Minus },
-    insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--bg-alt)', Icon: Minus },
+    insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--bg-surface-2)', Icon: Minus },
 };
 
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     const date = new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     return (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{date}</p>
             <p style={{ color: payload[0].value >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{fmtSigned(payload[0].value)}</p>
         </div>
@@ -113,7 +113,7 @@ export default function WealthIntelligencePage() {
 
                 {/* ── PAGE HEADER ── */}
                 <div>
-                    <h1 style={{ fontFamily: 'var(--font-head)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                         Wealth Intelligence
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -123,7 +123,7 @@ export default function WealthIntelligencePage() {
 
                 {/* ══ SECTION 1: WEALTH VELOCITY ══ */}
                 <div>
-                    <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>
                         Wealth Velocity
                     </h2>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
@@ -174,7 +174,7 @@ export default function WealthIntelligencePage() {
                             </Card>
 
                             <Card>
-                                <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Net Worth History</h3>
+                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Net Worth History</h3>
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)' }}>
                                         <thead>
@@ -189,7 +189,7 @@ export default function WealthIntelligencePage() {
                                             {velocity.snapshots.map((s, idx) => {
                                                 const mom = allMomChanges.find(m => m.to_date === s.snapshot_date);
                                                 return (
-                                                    <tr key={s.snapshot_date} style={{ borderTop: idx > 0 ? '1px solid var(--border)' : 'none' }}>
+                                                    <tr key={s.snapshot_date} style={{ borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                                                         <td style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '8px 8px 8px 0' }}>
                                                             {new Date(s.snapshot_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                                                         </td>
@@ -213,7 +213,7 @@ export default function WealthIntelligencePage() {
 
                 {/* ══ SECTION 2: ASSET ALLOCATION ══ */}
                 <div>
-                    <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>
                         Asset Allocation
                     </h2>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
@@ -266,7 +266,7 @@ export default function WealthIntelligencePage() {
                                         {allocations.map((a, idx) => {
                                             const flagged = Math.abs(a.deviation) > 10;
                                             return (
-                                                <tr key={a.category} style={{ borderTop: idx > 0 ? '1px solid var(--border)' : 'none', fontWeight: flagged ? 700 : 400 }}>
+                                                <tr key={a.category} style={{ borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none', fontWeight: flagged ? 700 : 400 }}>
                                                     <td style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '8px 8px 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
                                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[idx % CHART_COLORS.length], flexShrink: 0 }} />
                                                         {a.label}
@@ -285,7 +285,7 @@ export default function WealthIntelligencePage() {
                             </div>
 
                             {allocation.recommendation_note && (
-                                <div style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, marginTop: 16 }}>
+                                <div style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, marginTop: 16 }}>
                                     <Info size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 1 }} />
                                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
                                         {allocation.recommendation_note}

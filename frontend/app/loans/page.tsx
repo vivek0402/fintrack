@@ -22,7 +22,7 @@ const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const today = () => new Date().toISOString().split('T')[0];
 const PAGE_SIZE = 12;
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const noteSt: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
@@ -400,7 +400,7 @@ export default function LoansPage() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                                             <div style={{ minWidth: 0 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{loan.name}</span>
+                                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{loan.name}</span>
                                                     <Badge>{LOAN_TYPE_LABELS[loan.type] || loan.type}</Badge>
                                                 </div>
                                                 {loan.bank_or_lender && (
@@ -409,11 +409,11 @@ export default function LoansPage() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                                                 <button type="button" onClick={e => { e.stopPropagation(); openEdit(loan); }} title="Edit loan"
-                                                    style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                                    style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}>
                                                     <Pencil size={14} />
                                                 </button>
                                                 <button type="button" onClick={e => { e.stopPropagation(); handleMarkRepaid(loan); }} title="Mark as repaid"
-                                                    style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--color-inc)', cursor: 'pointer' }}>
+                                                    style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--color-inc)', cursor: 'pointer' }}>
                                                     <CheckCircle size={14} />
                                                 </button>
                                                 <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -452,7 +452,7 @@ export default function LoansPage() {
 
                                     {/* Expanded section */}
                                     {isExpanded && (
-                                        <div style={{ borderTop: '1px solid var(--border)', padding: '16px' }}>
+                                        <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '16px' }}>
                                             {amortLoading[loan.id] ? (
                                                 <SkeletonCard height={160} />
                                             ) : !data ? (
@@ -463,7 +463,7 @@ export default function LoansPage() {
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                     {/* Cumulative interest chart */}
                                                     <div>
-                                                        <h4 style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Cumulative Interest</h4>
+                                                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Cumulative Interest</h4>
                                                         <ResponsiveContainer width="100%" height={160}>
                                                             <LineChart data={chartData}>
                                                                 <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -471,7 +471,7 @@ export default function LoansPage() {
                                                                 <Tooltip
                                                                     formatter={(value: any) => fmt(Number(value))}
                                                                     labelFormatter={(label: any) => `Month ${label}`}
-                                                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, fontFamily: 'var(--font-body)' }}
+                                                                    contentStyle={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12, fontFamily: 'var(--font-body)' }}
                                                                 />
                                                                 <Line type="monotone" dataKey="cumulative_interest" stroke="var(--accent)" strokeWidth={2} dot={false} />
                                                             </LineChart>
@@ -479,7 +479,7 @@ export default function LoansPage() {
                                                     </div>
 
                                                     {/* Summary row */}
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px', background: 'var(--bg-alt)', borderRadius: 10 }}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px', background: 'var(--bg-surface-2)', borderRadius: 10 }}>
                                                         <div>
                                                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Total Interest</p>
                                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{fmt(data.summary.total_interest)}</p>
@@ -496,11 +496,11 @@ export default function LoansPage() {
 
                                                     {/* Amortization table */}
                                                     <div>
-                                                        <h4 style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Amortization Schedule</h4>
+                                                        <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Amortization Schedule</h4>
                                                         <div style={{ overflowX: 'auto' }}>
                                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                                 <thead>
-                                                                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                    <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                                         {['#', 'Opening', 'EMI', 'Interest', 'Principal', 'Closing'].map(h => (
                                                                             <th key={h} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                                                                         ))}
@@ -508,7 +508,7 @@ export default function LoansPage() {
                                                                 </thead>
                                                                 <tbody>
                                                                     {pageRows.map(row => (
-                                                                        <tr key={row.month} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                        <tr key={row.month} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                                                             <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{row.month}</td>
                                                                             <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.opening_balance)}</td>
                                                                             <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.emi)}</td>
@@ -523,12 +523,12 @@ export default function LoansPage() {
                                                         {totalPages > 1 && (
                                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '10px' }}>
                                                                 <button type="button" disabled={page === 0} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.max(0, page - 1) }))}
-                                                                    style={{ padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+                                                                    style={{ padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
                                                                     Previous
                                                                 </button>
                                                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Page {page + 1} of {totalPages}</span>
                                                                 <button type="button" disabled={page >= totalPages - 1} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.min(totalPages - 1, page + 1) }))}
-                                                                    style={{ padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, color: page >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+                                                                    style={{ padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: page >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
                                                                     Next
                                                                 </button>
                                                             </div>
@@ -538,7 +538,7 @@ export default function LoansPage() {
                                                     {/* Prepayments */}
                                                     <div>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                            <h4 style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Prepayments</h4>
+                                                            <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Prepayments</h4>
                                                             <Button size="sm" variant="secondary" onClick={() => openPrepay(loan.id)}>
                                                                 <Plus size={12} /> Log Prepayment
                                                             </Button>
@@ -548,7 +548,7 @@ export default function LoansPage() {
                                                         ) : (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                                 {loanPrepayments.map(p => (
-                                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-alt)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)' }}>
+                                                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-surface-2)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                                         <span style={{ color: 'var(--text-secondary)' }}>{new Date(p.prepayment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                                                         <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(p.amount)}</span>
                                                                         <span style={{ color: 'var(--color-inc)' }}>{p.months_saved} mo saved</span>
@@ -573,8 +573,8 @@ export default function LoansPage() {
             <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddErrors({}); }} title="Add Loan" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setAddErrors({}); }} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="add-loan-form" disabled={addLoading} style={{ padding: 10, background: addLoading ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: addLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => { setShowAdd(false); setAddErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="add-loan-form" disabled={addLoading} style={{ padding: 10, background: addLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: addLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {addLoading ? 'Adding…' : 'Add Loan'}
                         </button>
                     </div>
@@ -647,8 +647,8 @@ export default function LoansPage() {
             <Modal isOpen={!!editLoan} onClose={() => setEditLoan(null)} title={editLoan ? `Edit ${editLoan.name}` : 'Edit Loan'} maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setEditLoan(null)} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="edit-loan-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => setEditLoan(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="edit-loan-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {editLoading ? 'Saving…' : 'Save'}
                         </button>
                     </div>
@@ -691,8 +691,8 @@ export default function LoansPage() {
             <Modal isOpen={!!prepayLoanId} onClose={() => setPrepayLoanId(null)} title="Log Prepayment" maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setPrepayLoanId(null)} style={{ padding: 10, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="prepayment-form" disabled={prepayLoading} style={{ padding: 10, background: prepayLoading ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: prepayLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                        <button type="button" onClick={() => setPrepayLoanId(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="submit" form="prepayment-form" disabled={prepayLoading} style={{ padding: 10, background: prepayLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: prepayLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {prepayLoading ? 'Saving…' : 'Log Prepayment'}
                         </button>
                     </div>

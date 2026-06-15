@@ -27,7 +27,7 @@ interface Settlement { from: string; to: string; amount: number }
 const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','🛒','💊','📚','🌿'];
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
-const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
 const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
 const iconBt: React.CSSProperties  = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' };
 
@@ -134,7 +134,7 @@ export default function GroupsPage() {
     const linkTx = async (tx: Transaction) => { if (!selectedGroup) return; setLinkingTx(true); try { await groupsAPI.linkTransaction(String(selectedGroup.id), String(tx.id)); setShowTxModal(false); setTxSearch(''); setTxResults([]); await openGroup(selectedGroup); } finally { setLinkingTx(false); } };
     const unlinkTx = async (tx: Transaction) => { if (!selectedGroup) return; await groupsAPI.unlinkTransaction(String(selectedGroup.id), String(tx.id)); await openGroup(selectedGroup); };
 
-    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: active ? 600 : 400, border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, background: active ? 'var(--accent)' : 'var(--bg-card)', color: active ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
+    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: active ? 600 : 400, border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent)' : 'var(--bg-surface-1)', color: active ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
 
     // ── LIST VIEW ─────────────────────────────────────────────────────────────
     if (!selectedGroup) {
@@ -143,7 +143,7 @@ export default function GroupsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                     {/* Header */}
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <div>
                                 <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Groups</h1>
@@ -151,7 +151,7 @@ export default function GroupsPage() {
                                     {groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Track shared expenses with friends & family'}
                                 </p>
                             </div>
-                            <button type="button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> New Group
                             </button>
                         </div>
@@ -165,7 +165,7 @@ export default function GroupsPage() {
                     ) : groups.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                             <p style={{ fontSize: '40px', marginBottom: '10px' }}>👥</p>
-                            <p style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No groups yet</p>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No groups yet</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Create a group to split expenses with friends or family</p>
                             <button type="button" onClick={openCreate} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>New Group</button>
                         </div>
@@ -174,13 +174,13 @@ export default function GroupsPage() {
                             {groups.map(g => {
                                 const budgetPct = g.budget ? (Number(g.total_spent) / Number(g.budget)) * 100 : null;
                                 return (
-                                    <div key={g.id} onClick={() => openGroup(g)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'border-color var(--transition-fast)' }}
+                                    <div key={g.id} onClick={() => openGroup(g)} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'border-color var(--transition-fast)' }}
                                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
-                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'}>
+                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'}>
                                         <div style={{ fontSize: '2rem', lineHeight: 1, flexShrink: 0 }}>{g.emoji}</div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                <span style={{ fontFamily: 'var(--font-head)', fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{g.name}</span>
+                                                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{g.name}</span>
                                                 <Badge>{g.member_count} member{Number(g.member_count) !== 1 ? 's' : ''}</Badge>
                                             </div>
                                             {budgetPct !== null ? (
@@ -197,8 +197,8 @@ export default function GroupsPage() {
                                             )}
                                         </div>
                                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-                                            <button type="button" onClick={e => openEdit(g, e)} style={{ padding: '5px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>Edit</button>
-                                            <button type="button" onClick={e => deleteGroup(g, e)} style={{ padding: '5px 7px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
+                                            <button type="button" onClick={e => openEdit(g, e)} style={{ padding: '5px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>Edit</button>
+                                            <button type="button" onClick={e => deleteGroup(g, e)} style={{ padding: '5px 7px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
                                             <ChevronRight size={16} color="var(--text-muted)" />
                                         </div>
                                     </div>
@@ -233,9 +233,9 @@ export default function GroupsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Back + header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button type="button" onClick={() => setSelectedGroup(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                        <button type="button" onClick={() => setSelectedGroup(null)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
                             <ArrowLeft size={14} /> Groups
                         </button>
                         <span style={{ fontSize: '1.8rem', lineHeight: 1 }}>{selectedGroup.emoji}</span>
@@ -246,7 +246,7 @@ export default function GroupsPage() {
                                 {selectedGroup.budget && <span> · Budget {fmt(Number(selectedGroup.budget))}</span>}
                             </p>
                         </div>
-                        <button type="button" onClick={e => openEdit(selectedGroup, e)} style={{ padding: '6px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>Edit</button>
+                        <button type="button" onClick={e => openEdit(selectedGroup, e)} style={{ padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>Edit</button>
                     </div>
                 </div>
 
@@ -268,7 +268,7 @@ export default function GroupsPage() {
 
                 {/* Budget bar */}
                 {budgetPct !== null && (
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Group Budget</span>
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(selectedGroup.total_spent))} / {fmt(Number(selectedGroup.budget))}</span>
@@ -296,14 +296,14 @@ export default function GroupsPage() {
                         {activeTab === 'transactions' && (
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                                    <button type="button" onClick={() => setShowTxModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                    <button type="button" onClick={() => setShowTxModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                         <PlusCircle size={13} /> Add Existing
                                     </button>
                                 </div>
                                 {transactions.length === 0 ? (
-                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No transactions linked. Add one above.</div>
+                                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No transactions linked. Add one above.</div>
                                 ) : transactions.map(tx => (
-                                    <div key={tx.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+                                    <div key={tx.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
                                         <div style={{ flex: 1 }}>
                                             <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                             <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
@@ -327,15 +327,15 @@ export default function GroupsPage() {
                                     </button>
                                 </div>
                                 {splits.length === 0 ? (
-                                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No splits yet.</div>
+                                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No splits yet.</div>
                                 ) : splits.map(sp => {
                                     const isSettled = sp.shares.every(sh => sh.settled);
                                     const perPerson = sp.shares.length > 0 ? sp.total_amount / sp.shares.length : 0;
                                     return (
-                                        <div key={sp.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginBottom: '10px', overflow: 'hidden' }}>
+                                        <div key={sp.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', marginBottom: '10px', overflow: 'hidden' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '14px 16px 10px' }}>
                                                 <div>
-                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{sp.description}</p>
+                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{sp.description}</p>
                                                     <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                                         Paid by {sp.paid_by} · {fmt(perPerson)}/person
                                                     </p>
@@ -345,13 +345,13 @@ export default function GroupsPage() {
                                                     <Badge color={isSettled ? 'var(--color-inc)' : 'var(--color-warn)'} bg={isSettled ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
                                                         {isSettled ? 'Settled' : 'Pending'}
                                                     </Badge>
-                                                    <button type="button" onClick={() => openEditSplit(sp)} style={{ padding: '4px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Edit</button>
+                                                    <button type="button" onClick={() => openEditSplit(sp)} style={{ padding: '4px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Edit</button>
                                                 </div>
                                             </div>
-                                            <div style={{ borderTop: '1px solid var(--border)', padding: '8px 16px 12px' }}>
+                                            <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '8px 16px 12px' }}>
                                                 {sp.shares.map(sh => (
-                                                    <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-head)' }}>
+                                                    <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
                                                             {sh.member[0]?.toUpperCase() || '?'}
                                                         </div>
                                                         <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{sh.member}</span>
@@ -376,15 +376,15 @@ export default function GroupsPage() {
                         {activeTab === 'settle' && (
                             <div>
                                 {settlements.length === 0 ? (
-                                    <div style={{ background: 'var(--bg-card)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center' }}>
+                                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center' }}>
                                         <Check size={28} color="var(--color-inc)" style={{ marginBottom: '8px' }} />
-                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-inc)', fontFamily: 'var(--font-head)' }}>All settled up!</p>
+                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-inc)', fontFamily: 'var(--font-display)' }}>All settled up!</p>
                                     </div>
                                 ) : settlements.map((s, i) => (
-                                    <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px' }}>
-                                        <span style={{ fontWeight: 600, color: 'var(--color-exp)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{s.from}</span>
+                                    <div key={i} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px' }}>
+                                        <span style={{ fontWeight: 600, color: 'var(--color-exp)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{s.from}</span>
                                         <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>owes</span>
-                                        <span style={{ fontWeight: 600, color: 'var(--color-inc)', fontSize: '14px', fontFamily: 'var(--font-head)' }}>{s.to}</span>
+                                        <span style={{ fontWeight: 600, color: 'var(--color-inc)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{s.to}</span>
                                         <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(s.amount)}</span>
                                     </div>
                                 ))}
@@ -401,7 +401,7 @@ export default function GroupsPage() {
             {showSplitModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false); }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingSplit ? 'Edit Split' : 'Add Split'}</h3>
                             <button type="button" onClick={() => { setShowSplitModal(false); setEditingSplit(null); }} style={iconBt}><X size={18} /></button>
@@ -427,7 +427,7 @@ export default function GroupsPage() {
                             <label style={{ ...labelSt, marginBottom: 6 }}>Split Mode</label>
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 {(['equal', 'custom'] as const).map(m => (
-                                    <button key={m} type="button" onClick={() => setSplitMode(m)} style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', border: `1px solid ${splitMode === m ? 'var(--accent)' : 'var(--border)'}`, background: splitMode === m ? 'var(--accent)' : 'var(--bg-card)', color: splitMode === m ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                    <button key={m} type="button" onClick={() => setSplitMode(m)} style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', border: `1px solid ${splitMode === m ? 'var(--accent)' : 'var(--border-subtle)'}`, background: splitMode === m ? 'var(--accent)' : 'var(--bg-surface-1)', color: splitMode === m ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                         {m === 'equal' ? 'Equal' : 'Custom'}
                                     </button>
                                 ))}
@@ -439,10 +439,10 @@ export default function GroupsPage() {
                                 {allMemberNames.map(n => (
                                     <div key={n} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                         <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{n}</span>
-                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
+                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
                                     </div>
                                 ))}
-                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'var(--bg-alt)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--border)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'var(--bg-surface-2)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--border-subtle)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Sum of shares</span>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: customTallyOk ? 'var(--color-inc)' : customTotal > 0 ? 'var(--color-exp)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(customTotal)}{splitTotalNum > 0 && ` / ${fmt(splitTotalNum)}`}</span>
@@ -465,7 +465,7 @@ export default function GroupsPage() {
             {showTxModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
                     onClick={e => { if (e.target === e.currentTarget) { setShowTxModal(false); setTxSearch(''); setTxResults([]); } }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Link Transaction</h3>
                             <button type="button" onClick={() => { setShowTxModal(false); setTxSearch(''); setTxResults([]); }} style={iconBt}><X size={18} /></button>
@@ -473,9 +473,9 @@ export default function GroupsPage() {
                         <input value={txSearch} onChange={e => searchTx(e.target.value)} placeholder="Search transactions…" style={{ ...inputSt, marginBottom: '12px' }} />
                         <div style={{ overflowY: 'auto', flex: 1 }}>
                             {txResults.map(tx => (
-                                <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)} style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: '4px', background: 'var(--bg-alt)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-alt)'}>
+                                <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)} style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: '4px', background: 'var(--bg-surface-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'}>
                                     <div>
                                         <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
@@ -502,13 +502,13 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
     const addMember    = () => setFormMembers([...formMembers, { name: '' }]);
     const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
     const updateMember = (i: number, field: keyof Member, val: string) => { const updated = [...formMembers]; updated[i] = { ...updated[i], [field]: val }; setFormMembers(updated); };
-    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
     const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
     if (!mounted) return null;
     return createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
             onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editing ? 'Edit Group' : 'New Group'}</h3>
                     <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
@@ -516,7 +516,7 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
                 <div style={{ marginBottom: '14px' }}>
                     <label style={labelSt}>Emoji</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {EMOJIS.map(em => (<button key={em} type="button" onClick={() => setFormEmoji(em)} style={{ width: 36, height: 36, borderRadius: 8, fontSize: '1.1rem', border: formEmoji === em ? '2px solid var(--accent)' : '1px solid var(--border)', background: formEmoji === em ? 'var(--accent-light)' : 'var(--bg-alt)', cursor: 'pointer' }}>{em}</button>))}
+                        {EMOJIS.map(em => (<button key={em} type="button" onClick={() => setFormEmoji(em)} style={{ width: 36, height: 36, borderRadius: 8, fontSize: '1.1rem', border: formEmoji === em ? '2px solid var(--accent)' : '1px solid var(--border-subtle)', background: formEmoji === em ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', cursor: 'pointer' }}>{em}</button>))}
                     </div>
                 </div>
                 <div style={{ marginBottom: 14 }}><label style={labelSt}>Name *</label><input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Trip to Goa, Flat Expenses…" style={inputSt} /></div>
@@ -526,8 +526,8 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
                     <label style={labelSt}>Members</label>
                     {formMembers.map((m, i) => (
                         <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
-                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
                             {formMembers.length > 1 && (<button type="button" onClick={() => removeMember(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><X size={14} /></button>)}
                         </div>
                     ))}
@@ -535,7 +535,7 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
                         <Plus size={13} /> Add member
                     </button>
                 </div>
-                <button type="button" onClick={onSave} disabled={saving || !formName.trim()} style={{ width: '100%', padding: '11px', background: saving || !formName.trim() ? 'var(--border)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                <button type="button" onClick={onSave} disabled={saving || !formName.trim()} style={{ width: '100%', padding: '11px', background: saving || !formName.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
                     {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Group'}
                 </button>
             </div>

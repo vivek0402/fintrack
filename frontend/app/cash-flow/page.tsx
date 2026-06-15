@@ -25,7 +25,7 @@ const fmtAbbrev = (n: number) => {
     return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
 };
 
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
+const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
 
 const STATUS_ROW_BG: Record<string, string> = {
@@ -75,7 +75,7 @@ function WaterfallTooltip({ active, payload }: any) {
     if (!active || !payload?.length) return null;
     const d: CashflowMonth = payload[0].payload;
     return (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '10px 12px' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '10px 12px' }}>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 6px', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)' }}>{d.month}</p>
             <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Income: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_income)}</span></p>
             <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Expenses: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_expenses)}</span></p>
@@ -90,7 +90,7 @@ function WaterfallTooltip({ active, payload }: any) {
 function BalanceTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontSize: 12, fontFamily: 'var(--font-body)' }}>{label}</p>
             <p style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(payload[0].value)}</p>
         </div>
@@ -215,7 +215,7 @@ export default function CashFlowPage() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)', fontSize: 13 }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                                     {['Month', 'Income', 'Expenses', 'Fixed Outflows', 'Net Cash Flow', 'Status'].map(h => (
                                         <th key={h} style={{ textAlign: h === 'Month' ? 'left' : 'right', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             {h}
@@ -225,7 +225,7 @@ export default function CashFlowPage() {
                             </thead>
                             <tbody>
                                 {months.map((m, i) => (
-                                    <tr key={i} style={{ background: STATUS_ROW_BG[m.status] || 'transparent', borderBottom: i < months.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                                    <tr key={i} style={{ background: STATUS_ROW_BG[m.status] || 'transparent', borderBottom: i < months.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                         <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>{m.month}</td>
                                         <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_income)}</td>
                                         <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_expenses)}</td>
@@ -237,7 +237,7 @@ export default function CashFlowPage() {
                                             <span style={{
                                                 display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
                                                 color: m.status === 'surplus' ? 'var(--color-inc)' : m.status === 'at_risk' ? 'var(--color-exp)' : m.status === 'tight' ? 'var(--color-warn)' : 'var(--text-secondary)',
-                                                background: m.status === 'healthy' ? 'var(--bg-alt)' : STATUS_ROW_BG[m.status],
+                                                background: m.status === 'healthy' ? 'var(--bg-surface-2)' : STATUS_ROW_BG[m.status],
                                             }}>
                                                 {STATUS_LABELS[m.status] || m.status}
                                             </span>
@@ -258,7 +258,7 @@ export default function CashFlowPage() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {loan_breakdown.map(loan => (
-                                <div key={loan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                                <div key={loan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
                                     <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{loan.name}</span>
                                     <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(loan.emi)}/mo</span>
                                 </div>
@@ -280,7 +280,7 @@ export default function CashFlowPage() {
                         style={{
                             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             background: 'transparent', border: 'none', cursor: 'pointer', padding: 'var(--space-6)',
-                            fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
+                            fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
                         }}
                     >
                         Assumptions

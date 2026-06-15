@@ -210,8 +210,8 @@ export default function AiAdvisorPage() {
                         position: isMobile ? 'absolute' : 'static',
                         inset: isMobile ? 0 : undefined,
                         zIndex: isMobile ? 10 : undefined,
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
+                        background: 'var(--bg-surface-1)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-xl)',
                         padding: '16px',
                         display: 'flex',
@@ -220,7 +220,7 @@ export default function AiAdvisorPage() {
                         overflowY: 'auto',
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <h2 style={{ margin: 0, fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                 AI Advisor
                             </h2>
                             {isMobile && (
@@ -241,13 +241,13 @@ export default function AiAdvisorPage() {
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px',
                                             borderRadius: '12px', textAlign: 'left', cursor: 'pointer',
-                                            border: active ? `1px solid color-mix(in srgb, ${agent.color} 35%, transparent)` : '1px solid var(--border)',
-                                            background: active ? `color-mix(in srgb, ${agent.color} 10%, var(--bg-card))` : 'var(--bg-alt)',
+                                            border: active ? `1px solid color-mix(in srgb, ${agent.color} 35%, transparent)` : '1px solid var(--border-subtle)',
+                                            background: active ? `color-mix(in srgb, ${agent.color} 10%, var(--bg-surface-1))` : 'var(--bg-surface-2)',
                                             transition: 'all var(--transition-fast)',
                                         }}>
                                         <div style={{
                                             width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                                            background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-card))`,
+                                            background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
                                             border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
@@ -269,13 +269,13 @@ export default function AiAdvisorPage() {
                         {/* Conversation history */}
                         {selectedAgent && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0 8px' }} />
+                                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0 8px' }} />
                                 <button type="button" onClick={handleNewConversation}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '4px 2px', fontFamily: 'var(--font-body)' }}>
                                     <Plus size={14} /> New conversation
                                 </button>
                                 {conversations.length === 0 ? (
-                                    <p style={{ fontSize: '12px', color: 'var(--text-faint)', margin: '6px 2px', fontFamily: 'var(--font-body)' }}>
+                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 2px', fontFamily: 'var(--font-body)' }}>
                                         No conversations yet.
                                     </p>
                                 ) : conversations.map(conv => {
@@ -286,10 +286,10 @@ export default function AiAdvisorPage() {
                                                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px',
                                                 padding: '8px 10px', borderRadius: '8px', textAlign: 'left', cursor: 'pointer',
                                                 border: 'none',
-                                                background: active ? 'var(--accent-light)' : 'transparent',
+                                                background: active ? 'var(--accent-subtle)' : 'transparent',
                                                 width: '100%',
                                             }}
-                                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
                                             onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                                             <span style={{
                                                 fontSize: '12px', fontWeight: active ? 600 : 500,
@@ -299,7 +299,7 @@ export default function AiAdvisorPage() {
                                             }}>
                                                 {conv.title || 'Untitled conversation'}
                                             </span>
-                                            <span style={{ fontSize: '10px', color: 'var(--text-faint)', fontFamily: 'var(--font-body)' }}>
+                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                                 {timeAgo(conv.updated_at)}
                                             </span>
                                         </button>
@@ -313,7 +313,7 @@ export default function AiAdvisorPage() {
                 {/* ── RIGHT PANEL ── */}
                 <div style={{
                     flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-                    background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)',
+                    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)',
                     overflow: 'hidden',
                 }}>
 
@@ -321,7 +321,7 @@ export default function AiAdvisorPage() {
                     {!selectedAgent && (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '20px', overflowY: 'auto' }}>
                             <div style={{ textAlign: 'center' }}>
-                                <h2 style={{ margin: 0, fontFamily: 'var(--font-head)', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                     Choose an advisor to get started
                                 </h2>
                                 <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
@@ -342,21 +342,21 @@ export default function AiAdvisorPage() {
                                             style={{
                                                 display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px',
                                                 padding: '18px', borderRadius: '14px', textAlign: 'left', cursor: 'pointer',
-                                                border: '1px solid var(--border)', background: 'var(--bg-alt)',
+                                                border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)',
                                                 transition: 'all var(--transition-fast)',
                                             }}
                                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `color-mix(in srgb, ${agent.color} 35%, transparent)`; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'; }}>
                                             <div style={{
                                                 width: 44, height: 44, borderRadius: 12,
-                                                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-card))`,
+                                                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
                                                 border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             }}>
                                                 <Icon size={22} color={agent.color} />
                                             </div>
                                             <div>
-                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>
+                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
                                                     {agent.name}
                                                 </p>
                                                 <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
@@ -377,14 +377,14 @@ export default function AiAdvisorPage() {
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '18px', overflowY: 'auto' }}>
                                 <div style={{
                                     width: 56, height: 56, borderRadius: '50%',
-                                    background: `color-mix(in srgb, ${agentDef.color} 12%, var(--bg-card))`,
+                                    background: `color-mix(in srgb, ${agentDef.color} 12%, var(--bg-surface-1))`,
                                     border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 }}>
                                     <agentDef.icon size={26} color={agentDef.color} />
                                 </div>
                                 <div style={{ textAlign: 'center', maxWidth: '380px' }}>
-                                    <h3 style={{ margin: 0, fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                         {agentDef.name}
                                     </h3>
                                     <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
@@ -396,8 +396,8 @@ export default function AiAdvisorPage() {
                                         <button key={q} type="button" onClick={() => handleSend(q)}
                                             style={{
                                                 padding: '10px 14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
-                                                border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, var(--border))`,
-                                                background: `color-mix(in srgb, ${agentDef.color} 6%, var(--bg-card))`,
+                                                border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, var(--border-subtle))`,
+                                                background: `color-mix(in srgb, ${agentDef.color} 6%, var(--bg-surface-1))`,
                                                 color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)',
                                                 transition: 'all var(--transition-fast)',
                                             }}>
@@ -421,7 +421,7 @@ export default function AiAdvisorPage() {
                                             <>
                                                 <div style={{
                                                     width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginBottom: 2,
-                                                    background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-card))`,
+                                                    background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-surface-1))`,
                                                     border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
                                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 }}>
@@ -429,8 +429,8 @@ export default function AiAdvisorPage() {
                                                 </div>
                                                 <div style={{
                                                     maxWidth: isMobile ? '88%' : '72%', padding: '10px 14px', borderRadius: '15px 15px 15px 4px',
-                                                    background: `color-mix(in srgb, ${agentDef.color} 8%, var(--bg-card))`,
-                                                    border: `1px solid color-mix(in srgb, ${agentDef.color} 18%, var(--border))`,
+                                                    background: `color-mix(in srgb, ${agentDef.color} 8%, var(--bg-surface-1))`,
+                                                    border: `1px solid color-mix(in srgb, ${agentDef.color} 18%, var(--border-subtle))`,
                                                     color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6,
                                                     whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)',
                                                 }}>
@@ -454,13 +454,13 @@ export default function AiAdvisorPage() {
                                     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
                                         <div style={{
                                             width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                                            background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-card))`,
+                                            background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-surface-1))`,
                                             border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         }}>
                                             <agentDef.icon size={14} color={agentDef.color} />
                                         </div>
-                                        <div style={{ background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {[0, 1, 2].map(j => (
                                                 <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: agentDef.color, animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
                                             ))}
@@ -483,8 +483,8 @@ function ChatHeader({ agent, isMobile, onMenu }: { agent: AgentDef; isMobile: bo
     return (
         <div style={{
             display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', flexShrink: 0,
-            borderBottom: '1px solid var(--border)',
-            background: `color-mix(in srgb, ${agent.color} 6%, var(--bg-card))`,
+            borderBottom: '1px solid var(--border-subtle)',
+            background: `color-mix(in srgb, ${agent.color} 6%, var(--bg-surface-1))`,
         }}>
             {isMobile && (
                 <button type="button" onClick={onMenu}
@@ -494,14 +494,14 @@ function ChatHeader({ agent, isMobile, onMenu }: { agent: AgentDef; isMobile: bo
             )}
             <div style={{
                 width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-card))`,
+                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
                 border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
                 <Icon size={16} color={agent.color} />
             </div>
             <div>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-head)' }}>
+                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
                     {agent.name}
                 </p>
                 <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
@@ -520,7 +520,7 @@ function ChatInput({ input, setInput, sending, canSend, onSend }: {
     onSend: (text: string) => void;
 }) {
     return (
-        <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+        <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-subtle)', padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
             <textarea
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -530,19 +530,19 @@ function ChatInput({ input, setInput, sending, canSend, onSend }: {
                 placeholder="Type your message…"
                 rows={1}
                 style={{
-                    flex: 1, padding: '8px 12px', background: 'var(--bg-alt)', color: 'var(--text-primary)',
-                    border: '1px solid var(--border)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
+                    flex: 1, padding: '8px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)',
+                    border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
                     outline: 'none', resize: 'none', lineHeight: 1.5, maxHeight: '120px', overflowY: 'auto',
                     transition: 'border-color var(--transition-fast)',
                 }}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
             />
             <button type="button" onClick={() => onSend(input)} disabled={!canSend}
                 style={{
                     width: 38, height: 38, borderRadius: '50%',
-                    background: canSend ? 'var(--accent)' : 'var(--bg-alt)',
-                    border: canSend ? 'none' : '1px solid var(--border)',
+                    background: canSend ? 'var(--accent)' : 'var(--bg-surface-2)',
+                    border: canSend ? 'none' : '1px solid var(--border-subtle)',
                     color: canSend ? 'white' : 'var(--text-muted)',
                     cursor: canSend ? 'pointer' : 'not-allowed',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
