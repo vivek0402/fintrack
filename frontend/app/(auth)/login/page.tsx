@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -12,9 +14,6 @@ export default function LoginPage() {
     const [form, setForm] = useState({ email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // UI-only state
-    const [focusedField, setFocusedField] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
@@ -35,109 +34,77 @@ export default function LoginPage() {
         }
     };
 
-    const inputStyle = (field: string): React.CSSProperties => ({
-        width: '100%',
-        background: 'var(--surface-1)',
-        border: focusedField === field ? '1px solid #6366f1' : '1px solid #1e2d4a',
-        borderRadius: 8,
-        padding: '10px 12px',
-        fontSize: 14,
-        color: 'var(--text-primary)',
-        outline: 'none',
-        boxSizing: 'border-box',
-        boxShadow: focusedField === field ? '0 0 0 2px rgba(99,102,241,0.12)' : 'none',
-    });
-
     return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#060b18 0%,#0a0f1e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: "'Satoshi', 'DM Sans', sans-serif", position: 'relative', overflow: 'hidden' }}>
-            {/* Ambient glows */}
-            <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 250, height: 250, background: 'radial-gradient(circle,rgba(99,102,241,0.11),transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: -50, left: -30, width: 180, height: 180, background: 'radial-gradient(circle,rgba(0,229,160,0.08),transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+        <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)' }}>
+            <div style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 'var(--space-8) var(--space-7)' }}>
 
-            <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 420, background: 'rgba(12,18,36,0.95)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: '32px 28px' }}>
-
-                {/* Brand wordmark */}
-                <div style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 24 }}>
-                    Fin<span style={{ color: 'var(--accent-blue)' }}>Track</span>
+                {/* Wordmark */}
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 'var(--space-6)' }}>
+                    Fin<span style={{ fontWeight: 500, color: 'var(--accent)' }}>Track</span>
                 </div>
 
-                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", marginBottom: 4 }}>Welcome back</div>
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>Sign in to your account</div>
+                <div style={{ fontSize: 'var(--text-h1)', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 'var(--space-1)' }}>Welcome back</div>
+                <div style={{ fontSize: 'var(--text-body)', color: 'var(--text-muted)', marginBottom: 'var(--space-6)' }}>Sign in to your account</div>
 
-                <form onSubmit={handleSubmit} autoComplete="off">
-                    {/* Email */}
-                    <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>EMAIL</div>
-                        <input
-                            type="email"
-                            value={form.email}
-                            onChange={e => setForm({ ...form, email: e.target.value })}
-                            onFocus={() => setFocusedField('email')}
-                            onBlur={() => setFocusedField(null)}
-                            autoComplete="off"
+                <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <Input
+                        label="Email"
+                        type="email"
+                        placeholder="you@example.com"
+                        icon={<Mail size={15} />}
+                        value={form.email}
+                        onChange={e => setForm({ ...form, email: e.target.value })}
+                        autoComplete="off"
+                        required
+                    />
+
+                    <div>
+                        <Input
+                            label="Password"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Your password"
+                            icon={<Lock size={15} />}
+                            suffix={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(v => !v)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}
+                                >
+                                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                                </button>
+                            }
+                            value={form.password}
+                            onChange={e => setForm({ ...form, password: e.target.value })}
+                            autoComplete="new-password"
                             required
-                            placeholder="email"
-                            style={inputStyle('email')}
                         />
-                    </div>
-
-                    {/* Password */}
-                    <div style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>PASSWORD</div>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type={showPassword ? 'text' : 'password'}
-                                value={form.password}
-                                onChange={e => setForm({ ...form, password: e.target.value })}
-                                onFocus={() => setFocusedField('password')}
-                                onBlur={() => setFocusedField(null)}
-                                autoComplete="new-password"
-                                required
-                                placeholder="Your password"
-                                style={{ ...inputStyle('password'), paddingRight: 40 }}
-                            />
+                        <div style={{ textAlign: 'right', marginTop: 'var(--space-2)' }}>
                             <button
                                 type="button"
-                                onClick={() => setShowPassword(v => !v)}
-                                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}
+                                onClick={() => router.push('/forgot-password')}
+                                style={{ background: 'none', border: 'none', fontSize: 'var(--text-caption)', color: 'var(--accent)', fontWeight: 500, cursor: 'pointer', padding: 0 }}
                             >
-                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                Forgot password?
                             </button>
                         </div>
                     </div>
 
-                    {/* Forgot password */}
-                    <div style={{ textAlign: 'right', marginBottom: 20, marginTop: -4 }}>
-                        <button
-                            type="button"
-                            onClick={() => router.push('/forgot-password')}
-                            style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--accent-blue)', fontWeight: 500, cursor: 'pointer', padding: 0 }}
-                        >
-                            Forgot password?
-                        </button>
-                    </div>
-
                     {error && (
-                        <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--accent-red)' }}>{error}</div>
+                        <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-caption)', color: 'var(--color-exp)' }}>
+                            {error}
+                        </div>
                     )}
 
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', borderRadius: 10, padding: 12, fontSize: 14, fontWeight: 600, width: '100%', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                    >
-                        {loading
-                            ? <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid white', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-                            : 'Sign In'}
-                    </button>
+                    <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%' }}>
+                        Sign In
+                    </Button>
                 </form>
 
-                <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-muted)', marginTop: 16 }}>
+                <div style={{ textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-muted)', marginTop: 'var(--space-5)' }}>
                     New to FinTrack?{' '}
-                    <span style={{ color: 'var(--accent-blue)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>Create account</span>
+                    <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>Create account</span>
                 </div>
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
     );
 }

@@ -5,23 +5,35 @@ import { useState } from 'react';
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
     label?: string;
     error?: string;
+    hint?: string;
     icon?: React.ReactNode;
+    prefix?: React.ReactNode;
+    suffix?: React.ReactNode;
 }
 
-export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus, onBlur, ...props }: InputProps) {
     const [focused, setFocused] = useState(false);
 
+    const leading = icon ?? prefix;
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }}>
             {label && (
-                <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                <label style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 'var(--text-label)',
+                    fontWeight: 600,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-secondary)',
+                }}>
                     {label}
                 </label>
             )}
             <div style={{ position: 'relative' }}>
-                {icon && (
-                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: focused ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color var(--transition-fast)' }}>
-                        {icon}
+                {leading && (
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: focused ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color var(--transition-fast)', pointerEvents: 'none' }}>
+                        {leading}
                     </div>
                 )}
                 <input
@@ -29,12 +41,13 @@ export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: 
                     onBlur={e  => { setFocused(false); onBlur?.(e);  }}
                     style={{
                         width: '100%',
-                        padding: icon ? '10px 16px 10px 38px' : '10px 16px',
-                        background: 'var(--bg-alt)',
+                        height: '40px',
+                        padding: `0 ${suffix ? '38px' : '14px'} 0 ${leading ? '38px' : '14px'}`,
+                        background: 'var(--bg-surface-2)',
                         color: 'var(--text-primary)',
-                        border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : 'var(--border)'}`,
-                        borderRadius: '10px',
-                        fontSize: '0.875rem',
+                        border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: 'var(--text-body)',
                         fontFamily: 'var(--font-body)',
                         outline: 'none',
                         boxSizing: 'border-box',
@@ -48,8 +61,14 @@ export function Input({ label, error, icon, style, onFocus, onBlur, ...props }: 
                     }}
                     {...props}
                 />
+                {suffix && (
+                    <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
+                        {suffix}
+                    </div>
+                )}
             </div>
-            {error && <p style={{ fontSize: '0.75rem', color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+            {error && <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+            {!error && hint && <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{hint}</p>}
         </div>
     );
 }

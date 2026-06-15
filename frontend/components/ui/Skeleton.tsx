@@ -16,7 +16,7 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
             width,
             height,
             borderRadius,
-            background: 'linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%)',
+            background: 'linear-gradient(90deg, var(--bg-surface-1) 25%, var(--bg-surface-3) 50%, var(--bg-surface-1) 75%)',
             backgroundSize: '200% 100%',
             animation: 'shimmer 1.5s infinite',
             flexShrink: 0,
@@ -31,6 +31,10 @@ export function SkeletonText({ style }: { style?: React.CSSProperties }) {
 
 export function SkeletonTitle({ style }: { style?: React.CSSProperties }) {
     return <Skeleton width="60%" height={20} borderRadius={4} style={style} />;
+}
+
+export function SkeletonNumber({ style }: { style?: React.CSSProperties }) {
+    return <Skeleton width={120} height={32} borderRadius={6} style={style} />;
 }
 
 export function SkeletonCard({ height, style }: { height?: string | number; style?: React.CSSProperties }) {

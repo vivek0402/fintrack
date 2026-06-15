@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, ChevronDown, Check, Download, Trash2, FileText, Bell, Receipt, Zap } from 'lucide-react';
+import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, Download, Trash2, FileText, Bell, Receipt, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -12,7 +12,6 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useThemeStore } from '@/store/themeStore';
-import type { PaletteName } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
 
@@ -25,15 +24,7 @@ const CURRENCIES = [
     { code: 'SGD', label: 'Singapore Dollar' },
 ];
 
-const PALETTE_DEFS: { name: PaletteName; color: string; label: string; desc: string }[] = [
-    { name: 'ember',  color: '#ea580c', label: 'Ember',  desc: 'Warm orange' },
-    { name: 'ocean',  color: '#0284c7', label: 'Ocean',  desc: 'Sky blue' },
-    { name: 'violet', color: '#7c3aed', label: 'Violet', desc: 'Rich purple' },
-    { name: 'forest', color: '#059669', label: 'Forest', desc: 'Emerald green' },
-    { name: 'rose',   color: '#e11d48', label: 'Rose',   desc: 'Rose red' },
-];
-
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 
 function Msg({ msg }: { msg: { type: 'success' | 'error'; text: string } }) {
@@ -48,7 +39,7 @@ function Msg({ msg }: { msg: { type: 'success' | 'error'; text: string } }) {
 function SettingsRow({ icon, label, sub, onClick, destructive }: { icon: React.ReactNode; label: string; sub?: string; onClick?: () => void; destructive?: boolean }) {
     return (
         <button type="button" onClick={onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: onClick ? 'pointer' : 'default', textAlign: 'left' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: destructive ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: destructive ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ color: destructive ? 'var(--color-exp)' : 'var(--accent)' }}>{icon}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -60,70 +51,10 @@ function SettingsRow({ icon, label, sub, onClick, destructive }: { icon: React.R
     );
 }
 
-// ── Palette Dropdown ──────────────────────────────────────────────────────────
-function PaletteDropdown({ value, onChange }: { value: PaletteName; onChange: (p: PaletteName) => void }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!open) return;
-        const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, [open]);
-
-    const current = PALETTE_DEFS.find(p => p.name === value);
-
-    return (
-        <div ref={ref} style={{ position: 'relative', marginBottom: '4px' }}>
-            {/* Trigger */}
-            <button
-                type="button"
-                onClick={() => setOpen(v => !v)}
-                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', cursor: 'pointer', width: '100%', transition: 'border-color var(--transition-fast)' }}
-                onFocus={e  => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                onBlur={e   => (e.currentTarget.style.borderColor = open ? 'var(--accent)' : 'var(--border)')}
-            >
-                <div style={{ width: 18, height: 18, borderRadius: '50%', background: current?.color, flexShrink: 0, border: '2px solid rgba(255,255,255,0.15)' }} />
-                <span style={{ flex: 1, textAlign: 'left', fontSize: '14px', color: 'var(--text-primary)', textTransform: 'capitalize', fontFamily: 'var(--font-body)', fontWeight: 500 }}>
-                    {current?.label}
-                </span>
-                <ChevronDown size={14} color="var(--text-muted)" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
-            </button>
-
-            {/* Dropdown panel */}
-            {open && (
-                <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-elevated)', zIndex: 200, overflow: 'hidden', animation: 'fadeUp 120ms ease forwards' }}>
-                    {PALETTE_DEFS.map(p => {
-                        const isActive = value === p.name;
-                        return (
-                            <button key={p.name} type="button"
-                                onClick={() => { onChange(p.name); setOpen(false); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', width: '100%', background: isActive ? 'var(--accent-light)' : 'transparent', border: 'none', cursor: 'pointer', transition: 'background var(--transition-fast)', borderBottom: '1px solid var(--border)' }}
-                                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                {/* Swatch */}
-                                <div style={{ width: 20, height: 20, borderRadius: '50%', background: p.color, flexShrink: 0, border: '2px solid rgba(255,255,255,0.15)', boxShadow: isActive ? `0 0 6px ${p.color}80` : 'none' }} />
-                                {/* Label + description */}
-                                <div style={{ flex: 1, textAlign: 'left' }}>
-                                    <p style={{ fontSize: '13px', fontWeight: isActive ? 600 : 500, color: isActive ? 'var(--accent)' : 'var(--text-primary)', margin: '0 0 1px', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>{p.label}</p>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{p.desc}</p>
-                                </div>
-                                {/* Check */}
-                                {isActive && <Check size={15} color="var(--accent)" style={{ flexShrink: 0 }} />}
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-}
-
 export default function ProfilePage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage, setAuth, token, logout } = useAuthStore();
-    const { theme, palette, setTheme, setPalette } = useThemeStore();
+    const { theme, setTheme } = useThemeStore();
 
     const [profile, setProfile]         = useState<any>(null);
     const [loading, setLoading]         = useState(true);
@@ -252,15 +183,15 @@ export default function ProfilePage() {
     const passColor    = passStrength === 'weak' ? 'var(--color-exp)' : passStrength === 'good' ? 'var(--color-warn)' : 'var(--color-inc)';
     const passWidth    = passStrength === 'weak' ? '25%' : passStrength === 'good' ? '60%' : '100%';
 
-    const sectionCard: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '12px' };
-    const divider: React.CSSProperties = { height: '1px', background: 'var(--border)', margin: '8px 0' };
+    const sectionCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '12px' };
+    const divider: React.CSSProperties = { height: '1px', background: 'var(--border-subtle)', margin: '8px 0' };
 
     return (
         <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '32px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', top: -30, right: -30, width: 100, height: 100, background: 'var(--bg-glow)', borderRadius: '50%', opacity: 0.35, pointerEvents: 'none' }} />
                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -302,17 +233,12 @@ export default function ProfilePage() {
                 <div style={sectionCard}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
                         <Palette size={16} color="var(--accent)" />
-                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Appearance</h2>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Appearance</h2>
                     </div>
-
-                    {/* Colour dropdown */}
-                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Colour</p>
-                    <PaletteDropdown value={palette} onChange={setPalette} />
-                    <div style={{ height: '18px' }} />
 
                     {/* Mode toggle */}
                     <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Mode</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
                         {([
                             { key: 'light' as const, label: '☀️ Light' },
                             { key: 'dark'  as const, label: '🌙 Dark'  },
@@ -324,7 +250,7 @@ export default function ProfilePage() {
                                 style={{
                                     padding: '9px 8px',
                                     borderRadius: 'var(--radius-sm)',
-                                    background: theme === m.key ? 'var(--bg-card)' : 'transparent',
+                                    background: theme === m.key ? 'var(--bg-surface-1)' : 'transparent',
                                     boxShadow: theme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
                                     border: 'none', cursor: 'pointer',
                                     fontSize: '13px', color: 'var(--text-primary)',
@@ -341,7 +267,7 @@ export default function ProfilePage() {
 
                 {/* ── ACCOUNT SECTION ── */}
                 <div style={sectionCard}>
-                    <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Account</h2>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Account</h2>
 
                     {/* Edit Profile form */}
                     <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>Personal Info</p>
@@ -376,7 +302,7 @@ export default function ProfilePage() {
                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Password strength</span>
                                     <span style={{ fontSize: '11px', color: passColor, fontFamily: 'var(--font-body)', textTransform: 'capitalize' }}>{passStrength}</span>
                                 </div>
-                                <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+                                <div style={{ height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', overflow: 'hidden' }}>
                                     <div style={{ height: '100%', width: passWidth, background: passColor, borderRadius: '2px', transition: 'all 0.3s ease' }} />
                                 </div>
                             </div>
@@ -388,7 +314,7 @@ export default function ProfilePage() {
 
                 {/* ── DATA SECTION ── */}
                 <div style={sectionCard}>
-                    <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>Data</h2>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>Data</h2>
                     <div style={divider} />
                     <SettingsRow icon={<Download size={16} />} label="Export Data" sub="Download all transactions as CSV" onClick={exporting ? undefined : handleExport} />
                     <div style={divider} />
@@ -399,7 +325,7 @@ export default function ProfilePage() {
                 <div style={sectionCard}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                         <Bell size={16} color="var(--accent)" />
-                        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Notifications</h2>
+                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Notifications</h2>
                     </div>
                     {([
                         { key: 'budgetAlerts' as const,  label: 'Budget alerts',          sub: 'When a category exceeds 80% of budget' },
@@ -419,7 +345,7 @@ export default function ProfilePage() {
                                     role="switch"
                                     aria-checked={notifPrefs[key]}
                                     onClick={() => toggleNotif(key)}
-                                    style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: notifPrefs[key] ? 'var(--accent)' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                                    style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: notifPrefs[key] ? 'var(--accent)' : 'var(--border-subtle)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
                                 >
                                     <span style={{ position: 'absolute', top: '2px', left: notifPrefs[key] ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
                                 </button>
@@ -430,13 +356,13 @@ export default function ProfilePage() {
 
                 {/* ── APP SECTION ── */}
                 <div style={sectionCard}>
-                    <h2 style={{ fontFamily: 'var(--font-head)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>App</h2>
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>App</h2>
                     <div style={divider} />
                     <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax-estimate')} />
                     <div style={divider} />
                     {/* Coach toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <Zap size={16} color="var(--accent)" />
                         </div>
                         <div style={{ flex: 1 }}>
@@ -448,7 +374,7 @@ export default function ProfilePage() {
                             role="switch"
                             aria-checked={coachEnabled}
                             onClick={() => toggleCoach(!coachEnabled)}
-                            style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: coachEnabled ? 'var(--accent)' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                            style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: coachEnabled ? 'var(--accent)' : 'var(--border-subtle)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
                         >
                             <span style={{ position: 'absolute', top: '2px', left: coachEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
                         </button>
@@ -459,9 +385,9 @@ export default function ProfilePage() {
                 <button
                     type="button"
                     onClick={() => { logout(); router.push('/login'); }}
-                    style={{ width: '100%', padding: '14px', background: 'color-mix(in srgb, var(--color-exp) 8%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-lg)', color: 'var(--color-exp)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 14%, var(--bg-card))'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 8%, var(--bg-card))'; }}
+                    style={{ width: '100%', padding: '14px', background: 'color-mix(in srgb, var(--color-exp) 8%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-lg)', color: 'var(--color-exp)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 14%, var(--bg-surface-1))'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 8%, var(--bg-surface-1))'; }}
                 >
                     Sign Out
                 </button>

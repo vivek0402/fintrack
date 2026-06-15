@@ -80,8 +80,8 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     maxHeight,
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-card)',
-                    borderRadius: '20px 20px 0 0',
+                    background: 'var(--bg-surface-1)',
+                    borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
                     zIndex: 10000,
                     transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
                     transition: dragY > 0 ? 'none' : 'transform 200ms ease-out',
@@ -98,7 +98,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     <div style={{
                         width: '40px',
                         height: '4px',
-                        background: 'var(--border)',
+                        background: 'var(--border-visible)',
                         borderRadius: '2px',
                         margin: '12px auto 0',
                     }} />
@@ -108,7 +108,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '14px 20px 12px',
-                            borderBottom: '1px solid var(--border)',
+                            borderBottom: '1px solid var(--border-subtle)',
                         }}>
                             <span style={{
                                 fontSize: '16px',
@@ -122,7 +122,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                                 type="button"
                                 onClick={handleClose}
                                 style={{
-                                    background: 'var(--bg-alt)',
+                                    background: 'var(--bg-surface-2)',
                                     border: 'none',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',
@@ -147,8 +147,8 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     <div style={{
                         flexShrink: 0,
                         padding: 'calc(16px + env(safe-area-inset-bottom, 0px)) 20px 16px',
-                        borderTop: '1px solid var(--border)',
-                        background: 'var(--bg-card)',
+                        borderTop: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-surface-1)',
                     }}>
                         {footer}
                     </div>

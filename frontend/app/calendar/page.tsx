@@ -66,7 +66,7 @@ function DayDetail({
                     </p>
                 </div>
                 <button type="button" onClick={onAdd}
-                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 13px', borderRadius: 'var(--radius-md)', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 13px', borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
                     <Plus size={13} /> Add
                 </button>
             </div>
@@ -91,7 +91,7 @@ function DayDetail({
                             return (
                                 <div key={tx.id} onClick={() => onEdit(tx)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, background: isInc ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {tx.category_icon
@@ -131,7 +131,7 @@ function DayDetail({
                         {[...recIncome, ...recExpense].map((item: any, i: number) => {
                             const isInc = item.type === 'income';
                             return (
-                                <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', border: '1px solid var(--border)' }}>
+                                <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: isInc ? 'var(--color-info)' : '#f97316' }} />
                                     <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {item.description}
@@ -390,7 +390,7 @@ function CalendarPageInner() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER ── */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>
@@ -402,14 +402,14 @@ function CalendarPageInner() {
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <button type="button" onClick={prevMonth}
-                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronLeft size={16} />
                             </button>
-                            <span style={{ fontFamily: 'var(--font-head)', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, color: 'var(--text-primary)', minWidth: isMobile ? '88px' : '130px', textAlign: 'center' }}>
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, color: 'var(--text-primary)', minWidth: isMobile ? '88px' : '130px', textAlign: 'center' }}>
                                 {isMobile ? MONTH_NAMES[currentMonth].slice(0, 3) : MONTH_NAMES[currentMonth]} {currentYear}
                             </span>
                             <button type="button" onClick={nextMonth}
-                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronRight size={16} />
                             </button>
                         </div>
@@ -418,19 +418,19 @@ function CalendarPageInner() {
 
                 {/* ── STAT CHIPS ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Total Spent</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {loading ? '—' : fmtAmt(totalSpent)}
                         </p>
                     </div>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Income Days</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {loading ? '—' : `${incomeDays} day${incomeDays !== 1 ? 's' : ''}`}
                         </p>
                     </div>
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '12px 14px', gridColumn: isMobile ? '1 / -1' : undefined }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px', gridColumn: isMobile ? '1 / -1' : undefined }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Busiest Day</p>
                         <p style={{ fontFamily: 'var(--font-body)', fontSize: isMobile ? '13px' : '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {loading ? '—' : busiestLabel}
@@ -439,7 +439,7 @@ function CalendarPageInner() {
                 </div>
 
                 {/* ── LEGEND ── */}
-                <div style={{ display: 'flex', gap: isMobile ? '12px' : '20px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '10px 16px' }}>
+                <div style={{ display: 'flex', gap: isMobile ? '12px' : '20px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 16px' }}>
                     {[
                         { color: 'var(--color-inc)',  label: 'Income'    },
                         { color: 'var(--color-exp)',  label: 'Expense'   },
@@ -457,10 +457,10 @@ function CalendarPageInner() {
                 <div
                     onTouchStart={handleTouchStart}
                     onTouchEnd={handleTouchEnd}
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
+                    style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
                 >
                     {/* Day-of-week header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-alt)', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>
                         {DAY_LABELS.map(d => (
                             <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>
                                 {d}
@@ -482,9 +482,9 @@ function CalendarPageInner() {
                                     return (
                                         <div key={`e-${idx}`} style={{
                                             minHeight: isMobile ? '60px' : '90px',
-                                            borderRight:  !isLastInRow ? '1px solid var(--border)' : 'none',
-                                            borderBottom: '1px solid var(--border)',
-                                            background: 'var(--bg-alt)',
+                                            borderRight:  !isLastInRow ? '1px solid var(--border-subtle)' : 'none',
+                                            borderBottom: '1px solid var(--border-subtle)',
+                                            background: 'var(--bg-surface-2)',
                                             opacity: 0.5,
                                         }} />
                                     );
@@ -506,18 +506,18 @@ function CalendarPageInner() {
                                     <div key={dateStr} onClick={() => handleDayClick(dateStr)}
                                         style={{
                                             minHeight: isMobile ? '60px' : '90px',
-                                            borderRight:  !isLastInRow ? '1px solid var(--border)' : 'none',
-                                            borderBottom: '1px solid var(--border)',
+                                            borderRight:  !isLastInRow ? '1px solid var(--border-subtle)' : 'none',
+                                            borderBottom: '1px solid var(--border-subtle)',
                                             /* Accent top-border marks today */
                                             borderTop:    isToday ? '2px solid var(--accent)' : undefined,
                                             padding:      isMobile ? '4px' : '6px',
                                             cursor:       'pointer',
-                                            background:   isSel ? 'var(--accent-light)' : cellBg,
+                                            background:   isSel ? 'var(--accent-subtle)' : cellBg,
                                             transition:   'background 0.12s',
                                             position:     'relative',
                                             boxSizing:    'border-box',
                                         }}
-                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
                                         onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = cellBg; }}
                                     >
                                         {/* Day number + indicator dots */}
@@ -574,10 +574,10 @@ function CalendarPageInner() {
 
                 {/* ── DESKTOP: inline day detail panel ── */}
                 {!isMobile && selectedDate && (
-                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', animation: 'fadeUp 160ms ease forwards' }}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', animation: 'fadeUp 160ms ease forwards' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
                             <button type="button" onClick={() => setSelectedDate(null)}
-                                style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <X size={13} />
                             </button>
                         </div>

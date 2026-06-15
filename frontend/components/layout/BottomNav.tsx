@@ -4,89 +4,33 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, MoreHorizontal,
-    Target, Trophy, X, Settings, Users, FolderOpen,
-    Wallet, CalendarDays, FileText, TrendingUp, Brain, Receipt,
-    Banknote, RefreshCw, ShoppingCart, SplitSquareHorizontal, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
-    Flame, Calculator, CalendarRange, Lightbulb, Flag, Archive, Bot,
+    Target, Trophy, X, Settings, CalendarDays, LineChart,
+    Briefcase, RefreshCw, SplitSquareHorizontal, Landmark, Bot,
 } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
-    { href: '/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
-    { href: '/analytics',    icon: PieChart,        label: 'Analytics' },
+    { href: '/transactions', icon: ArrowLeftRight,  label: 'Money' },
+    { href: '/analytics',    icon: PieChart,        label: 'Insights' },
 ];
 
-// All sections shown in the More sheet
-const moreSections = [
-    {
-        label: 'Finance',
-        items: [
-            { href: '/accounts',  icon: Wallet,        label: 'Accounts'  },
-            { href: '/net-worth', icon: LineChart,     label: 'Net Worth' },
-            { href: '/wealth-intelligence', icon: Sparkles, label: 'Wealth Intelligence' },
-            { href: '/budgets',   icon: Target,        label: 'Budgets'   },
-            { href: '/goals',     icon: Trophy,        label: 'Goals'     },
-            { href: '/investments', icon: Briefcase,   label: 'Investments' },
-            { href: '/calendar',  icon: CalendarDays,  label: 'Calendar'  },
-            { href: '/reports',       icon: FileText,  label: 'Reports'       },
-            { href: '/health-score',  icon: Heart,     label: 'Health Score'  },
-            { href: '/year-review',   icon: Award,     label: 'Year Review'   },
-            { href: '/savings-plan',  icon: PiggyBank, label: 'Savings Plan'  },
-        ],
-    },
-    {
-        label: 'AI & Insights',
-        items: [
-            { href: '/ai-advisor',           icon: Bot,           label: 'AI Advisor'    },
-            { href: '/insights',             icon: Brain,         label: 'Insights'      },
-            { href: '/forecast',             icon: TrendingUp,    label: 'Forecast'      },
-            { href: '/personality',          icon: Brain,         label: 'Personality'   },
-            { href: '/tax-estimate',         icon: Receipt,       label: 'Tax Estimate'  },
-            { href: '/salary-intelligence',  icon: Banknote,      label: 'Salary AI'     },
-        ],
-    },
-    {
-        label: 'Groups & Splits',
-        items: [
-            { href: '/groups',           icon: FolderOpen,           label: 'Groups'    },
-            { href: '/splits',           icon: SplitSquareHorizontal, label: 'Splits'   },
-            { href: '/recurring',        icon: RefreshCw,            label: 'Recurring' },
-            { href: '/one-time-expenses', icon: ShoppingCart,        label: 'One-Time'  },
-        ],
-    },
-    {
-        label: 'Debt',
-        items: [
-            { href: '/loans', icon: Building2, label: 'Loans' },
-            { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
-        ],
-    },
-    {
-        label: 'Planning',
-        items: [
-            { href: '/fire',       icon: Flame,        label: 'FIRE Calculator' },
-            { href: '/fire',       icon: Calculator,   label: 'SIP Optimizer' },
-            { href: '/cash-flow',  icon: CalendarRange, label: 'Cash Flow' },
-            { href: '/scenarios',  icon: Lightbulb,    label: 'Scenarios' },
-            { href: '/milestones', icon: Flag,         label: 'Milestones' },
-        ],
-    },
-    {
-        label: 'Tax & Documents',
-        items: [
-            { href: '/tax',       icon: Landmark, label: 'Tax'       },
-            { href: '/documents', icon: Archive,  label: 'Documents' },
-        ],
-    },
+// 2-column grid of items shown in the More sheet
+const moreItems = [
+    { href: '/budgets',      icon: Target,                label: 'Budgets' },
+    { href: '/calendar',     icon: CalendarDays,          label: 'Calendar' },
+    { href: '/goals',        icon: Trophy,                label: 'Goals' },
+    { href: '/net-worth',    icon: LineChart,             label: 'Net Worth' },
+    { href: '/investments',  icon: Briefcase,             label: 'Investments' },
+    { href: '/recurring',    icon: RefreshCw,             label: 'Recurring' },
+    { href: '/ai-advisor',   icon: Bot,                   label: 'AI Advisor' },
+    { href: '/splits',       icon: SplitSquareHorizontal, label: 'Splits' },
+    { href: '/tax',          icon: Landmark,              label: 'Tax' },
+    { href: '/profile',      icon: Settings,              label: 'Profile' },
 ];
-
-const allMoreHrefs = moreSections.flatMap(s => s.items.map(i => i.href));
 
 export function BottomNav() {
     const pathname  = usePathname();
     const router    = useRouter();
-    const { logout } = useAuthStore();
 
     const [moreOpen, setMoreOpen] = useState(false);
     const [rendered, setRendered] = useState(false);
@@ -254,87 +198,60 @@ export function BottomNav() {
                 <div
                     ref={backdropRef}
                     onClick={() => setMoreOpen(false)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'rgba(0,0,0,0.35)', opacity: moreOpen ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: moreOpen ? 'all' : 'none' }}
+                    style={{ position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'rgba(0,0,0,0.7)', opacity: moreOpen ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: moreOpen ? 'all' : 'none' }}
                 />
             )}
 
             {/* More sheet */}
             {rendered && (
-                <div ref={sheetRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-card)', borderRadius: '20px 20px 0 0', borderTop: '1px solid var(--border)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto', transform: moreOpen ? 'translateY(0)' : 'translateY(100%)', opacity: moreOpen ? 1 : 0, transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease' }}>
+                <div ref={sheetRef} style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-surface-1)', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0', borderTop: '1px solid var(--border-subtle)', paddingBottom: 'calc(16px + env(safe-area-inset-bottom))', maxHeight: '82vh', overflowY: 'auto', transform: moreOpen ? 'translateY(0)' : 'translateY(100%)', opacity: moreOpen ? 1 : 0, transition: 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease' }}>
 
                     {/* Handle */}
-                    <div ref={handleRef} style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--text-muted)', margin: '12px auto 8px', transformOrigin: 'center' }} />
+                    <div ref={handleRef} style={{ width: '40px', height: '4px', borderRadius: '2px', backgroundColor: 'var(--border-visible)', margin: '12px auto 8px', transformOrigin: 'center' }} />
 
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 12px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>More</span>
+                        <span style={{ fontSize: 'var(--text-h2)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>More</span>
                         <button type="button" onClick={() => setMoreOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <X size={20} />
                         </button>
                     </div>
 
-                    {/* Sections */}
-                    {moreSections.map((section, sIdx) => (
-                        <div key={section.label}>
-                            {/* Section label */}
-                            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', padding: '8px 20px 4px', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                {section.label}
-                            </p>
-
-                            {/* Items */}
-                            {section.items.map(({ href, icon: Icon, label }) => {
-                                const active = isActive(href);
-                                return (
-                                    <button key={`${section.label}-${label}`} type="button" onClick={() => handleNavigate(href)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 20px', width: '100%', border: 'none', background: active ? 'var(--accent-light)' : 'transparent', cursor: 'pointer', transition: 'background 0.12s' }}
-                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                        {/* Icon container */}
-                                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: active ? 'var(--accent)' : 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <Icon size={18} color={active ? 'white' : 'var(--text-secondary)'} />
-                                        </div>
-                                        {/* Label */}
-                                        <span style={{ fontSize: '15px', fontWeight: active ? 600 : 500, color: active ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                                            {label}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-
-                            {/* Divider between sections */}
-                            {sIdx < moreSections.length - 1 && (
-                                <div style={{ height: '1px', background: 'var(--border)', margin: '8px 20px 4px' }} />
-                            )}
-                        </div>
-                    ))}
-
-                    {/* Settings row (standalone at bottom) */}
-                    <div style={{ height: '1px', background: 'var(--border)', margin: '8px 20px 4px' }} />
-                    <button type="button" onClick={() => handleNavigate('/profile')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 20px', width: '100%', border: 'none', background: isActive('/profile') ? 'var(--accent-light)' : 'transparent', cursor: 'pointer', transition: 'background 0.12s' }}
-                        onMouseEnter={e => { if (!isActive('/profile')) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-                        onMouseLeave={e => { if (!isActive('/profile')) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: isActive('/profile') ? 'var(--accent)' : 'var(--bg-alt)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Settings size={18} color={isActive('/profile') ? 'white' : 'var(--text-secondary)'} />
-                        </div>
-                        <span style={{ fontSize: '15px', fontWeight: isActive('/profile') ? 600 : 500, color: isActive('/profile') ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                            Settings
-                        </span>
-                    </button>
+                    {/* 2-column grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', padding: '0 20px 20px' }}>
+                        {moreItems.map(({ href, icon: Icon, label }) => {
+                            const active = isActive(href);
+                            return (
+                                <button key={href} type="button" onClick={() => handleNavigate(href)}
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)',
+                                        padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
+                                        background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
+                                        border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
+                                        cursor: 'pointer', textAlign: 'left',
+                                    }}>
+                                    <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-secondary)'} />
+                                    <span style={{ fontSize: 'var(--text-body)', fontWeight: active ? 600 : 500, color: active ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                        {label}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
             {/* Bottom nav bar */}
-            <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-card)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '6px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', zIndex: 997, boxShadow: '0 -4px 20px rgba(0,0,0,0.08)' }}>
+            <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-surface-1)', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '6px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', zIndex: 997 }}>
                 {mainTabs.map(({ href, icon: Icon, label }) => {
                     const active = isActive(href);
                     return (
                         <a key={href} href={href} onClick={e => { e.preventDefault(); router.push(href); }}
-                            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px' }}>
-                            <div key={active ? 'active' : 'inactive'} style={{ padding: '5px 14px', borderRadius: '20px', background: active ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
-                                <Icon size={22} color={active ? 'white' : 'var(--text-muted)'} />
+                            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', flex: 1 }}>
+                            <div key={active ? 'active' : 'inactive'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: active ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                                <Icon size={22} color={active ? '#fff' : 'var(--text-muted)'} />
                             </div>
-                            <span style={{ fontSize: '11px', color: active ? 'var(--accent)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
+                            <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--accent)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
                                 {label}
                             </span>
                         </a>
@@ -343,11 +260,11 @@ export function BottomNav() {
 
                 {/* More button */}
                 <button ref={moreButtonRef} type="button" onClick={handleMoreButtonClick}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                    <div key={moreOpen ? 'open' : 'closed'} style={{ padding: '5px 14px', borderRadius: '20px', background: moreActive || moreOpen ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
-                        <MoreHorizontal size={22} color={moreActive || moreOpen ? 'white' : 'var(--text-muted)'} />
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', flex: 1, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                    <div key={moreOpen ? 'open' : 'closed'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: moreActive || moreOpen ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                        <MoreHorizontal size={22} color={moreActive || moreOpen ? '#fff' : 'var(--text-muted)'} />
                     </div>
-                    <span style={{ fontSize: '11px', color: moreActive || moreOpen ? 'var(--accent)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
+                    <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--accent)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
                         More
                     </span>
                 </button>

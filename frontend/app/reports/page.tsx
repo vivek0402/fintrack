@@ -23,7 +23,7 @@ const QUICK_RANGES = [
     { label: 'This Year',    getDates: () => { const y=new Date().getFullYear(); return { from:`${y}-01-01`, to:new Date().toISOString().split('T')[0] }; } },
 ];
 
-const card: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
+const card: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export default function ReportsPage() {
@@ -69,14 +69,14 @@ export default function ReportsPage() {
         return 'var(--color-exp)';
     };
 
-    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', background: active ? 'var(--bg-card)' : 'transparent', color: active ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
+    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: 'none', background: active ? 'var(--bg-surface-1)' : 'transparent', color: active ? 'var(--text-primary)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
 
     return (
         <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Reports</h1>
@@ -96,7 +96,7 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content' }}>
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '4px', width: 'fit-content' }}>
                     {([{ key: 'range', label: '📊 Date Range Report' }, { key: 'health', label: '🏆 Health Report Card' }] as const).map(tab => (
                         <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} style={tabStyle(activeTab === tab.key)}>{tab.label}</button>
                     ))}
@@ -105,13 +105,13 @@ export default function ReportsPage() {
                 {activeTab === 'range' && (
                     <>
                         <div style={card}>
-                            <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Select Date Range</h3>
+                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Select Date Range</h3>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
                                 {QUICK_RANGES.map(range => (
                                     <button key={range.label} type="button" onClick={() => { const { from: f, to: t } = range.getDates(); setFrom(f); setTo(t); }}
-                                        style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-alt)', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-body)' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-light)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-border)'; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-alt)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; }}>
+                                        style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-body)' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-border)'; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'; }}>
                                         {range.label}
                                     </button>
                                 ))}
@@ -142,7 +142,7 @@ export default function ReportsPage() {
 
                                 {data.categories.length > 0 && (
                                     <div style={card}>
-                                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Spending by Category</h3>
+                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Spending by Category</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {data.categories.map((cat: any) => {
                                                 const pct = totalExpenses > 0 ? (parseFloat(cat.total) / totalExpenses) * 100 : 0;
@@ -167,8 +167,8 @@ export default function ReportsPage() {
                                 )}
 
                                 <div style={{ ...card, padding: 0 }}>
-                                    <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions ({data.transactions.length})</h3>
+                                    <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions ({data.transactions.length})</h3>
                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{from} → {to}</span>
                                     </div>
                                     {data.transactions.length === 0 ? (
@@ -179,8 +179,8 @@ export default function ReportsPage() {
                                         data.transactions.map((tx: any) => {
                                             const isIncome = tx.type === 'income';
                                             return (
-                                                <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border)', gap: '12px', transition: 'background var(--transition-fast)' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                                                <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', gap: '12px', transition: 'background var(--transition-fast)' }}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
                                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                                                         <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -189,7 +189,7 @@ export default function ReportsPage() {
                                                         <div style={{ minWidth: 0 }}>
                                                             <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                                                {tx.category_name && <span style={{ fontSize: '11px', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color || 'var(--bg-alt)'}20`, padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
+                                                                {tx.category_name && <span style={{ fontSize: '11px', color: tx.category_color || 'var(--text-muted)', background: `${tx.category_color || 'var(--bg-surface-2)'}20`, padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
                                                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{formatDate(tx.date)}</span>
                                                             </div>
                                                         </div>
@@ -219,7 +219,7 @@ export default function ReportsPage() {
                         {!healthReport && (
                             <div style={{ ...card, padding: '60px 40px', textAlign: 'center' }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🏆</div>
-                                <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>Financial Health Report Card</h3>
+                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>Financial Health Report Card</h3>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>AI analyses your current month's transactions, budgets, and goals to give you an overall financial health score.</p>
                                 <Button onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); } finally { setHealthLoading(false); } }} isLoading={healthLoading} size="md">
                                     <Sparkles size={15} />Generate Health Report
@@ -246,10 +246,10 @@ export default function ReportsPage() {
                                 {/* Scores */}
                                 {healthReport.scores && (
                                     <div style={card}>
-                                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Score Breakdown</h3>
+                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Score Breakdown</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                             {Object.entries(healthReport.scores).map(([key, val]: [string, any]) => {
-                                                const colors: Record<string, string> = { spending: 'var(--color-exp)', savings: 'var(--color-inc)', budget: 'var(--accent)', goals: 'var(--color-warn)', consistency: 'var(--accent-2)' };
+                                                const colors: Record<string, string> = { spending: 'var(--color-exp)', savings: 'var(--color-inc)', budget: 'var(--accent)', goals: 'var(--color-warn)', consistency: 'var(--accent)' };
                                                 const color = colors[key] || 'var(--color-inc)';
                                                 return (
                                                     <div key={key}>
@@ -269,7 +269,7 @@ export default function ReportsPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
                                     {healthReport.strengths?.length > 0 && (
                                         <div style={card}>
-                                            <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--color-inc)', margin: '0 0 14px' }}>✅ Strengths</h3>
+                                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--color-inc)', margin: '0 0 14px' }}>✅ Strengths</h3>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 {healthReport.strengths.map((s: string, i: number) => (
                                                     <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -282,7 +282,7 @@ export default function ReportsPage() {
                                     )}
                                     {healthReport.improvements?.length > 0 && (
                                         <div style={card}>
-                                            <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--color-warn)', margin: '0 0 14px' }}>⚡ Areas to Improve</h3>
+                                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--color-warn)', margin: '0 0 14px' }}>⚡ Areas to Improve</h3>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 {healthReport.improvements.map((s: string, i: number) => (
                                                     <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -298,7 +298,7 @@ export default function ReportsPage() {
                                 {/* Budget performance */}
                                 {healthReport.budget_performance?.length > 0 && (
                                     <div style={card}>
-                                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Budget Performance</h3>
+                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Budget Performance</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             {healthReport.budget_performance.map((b: any, i: number) => {
                                                 const used = Math.min(b.percentage_used, 100);
@@ -320,7 +320,7 @@ export default function ReportsPage() {
                                 {/* Goals progress */}
                                 {healthReport.goals_progress?.length > 0 && (
                                     <div style={card}>
-                                        <h3 style={{ fontFamily: 'var(--font-head)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Goals Progress</h3>
+                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Goals Progress</h3>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             {healthReport.goals_progress.map((g: any, i: number) => (
                                                 <div key={i}>

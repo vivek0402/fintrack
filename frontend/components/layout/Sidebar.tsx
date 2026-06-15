@@ -5,72 +5,48 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
-    TrendingUp, LogOut, CalendarDays, RefreshCw,
-    Settings, Flag, FileText, Users, Brain, CalendarClock,
-    ChevronLeft, ChevronRight, FolderOpen, Receipt, Banknote,
-    Wallet, Heart, Award, PiggyBank, Briefcase, LineChart, Sparkles, Landmark, Building2, Gauge,
-    Flame, Calculator, CalendarRange, Lightbulb, Archive, Bot,
+    LogOut, CalendarDays, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
 
-const navItems = [
-    { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard' },
-    { href: '/transactions',        icon: ArrowLeftRight,  label: 'Transactions' },
-    { href: '/accounts',            icon: Wallet,          label: 'Accounts' },
-    { href: '/net-worth',           icon: LineChart,       label: 'Net Worth' },
-    { href: '/wealth-intelligence', icon: Sparkles,        label: 'Wealth Intelligence' },
-    { href: '/tax',                 icon: Landmark,        label: 'Tax' },
-    { href: '/documents',           icon: Archive,         label: 'Documents' },
-    { href: '/calendar',            icon: CalendarDays,    label: 'Calendar' },
-    { href: '/analytics',           icon: PieChart,        label: 'Analytics' },
-    { href: '/budgets',             icon: Target,          label: 'Budgets' },
-    { href: '/goals',               icon: Flag,            label: 'Goals' },
-    { href: '/investments',         icon: Briefcase,       label: 'Investments' },
-    { href: '/reports',             icon: FileText,        label: 'Reports' },
-    { href: '/health-score',        icon: Heart,           label: 'Health Score' },
-    { href: '/year-review',          icon: Award,           label: 'Year Review' },
-    { href: '/savings-plan',         icon: PiggyBank,       label: 'Savings Plan' },
-    { href: '/forecast',            icon: CalendarClock,   label: 'Forecast' },
-    { href: '/personality',         icon: Brain,           label: 'Personality' },
-    { href: '/tax-estimate',        icon: Receipt,         label: 'Tax Estimate' },
-    { href: '/salary-intelligence', icon: Banknote,        label: 'Salary AI' },
-    { href: '/ai-advisor',          icon: Bot,             label: 'AI Advisor' },
-    { href: '/insights',            icon: Brain,           label: 'Insights' },
-    { href: '/recurring',           icon: RefreshCw,       label: 'Recurring' },
-    { href: '/one-time-expenses',   icon: Receipt,         label: 'One-Time' },
-    { href: '/splits',              icon: Users,           label: 'Splits' },
-    { href: '/groups',              icon: FolderOpen,      label: 'Groups' },
-    { href: '/profile',             icon: Settings,        label: 'Settings' },
+const navGroups = [
+    {
+        label: 'Track',
+        items: [
+            { href: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+            { href: '/transactions', icon: ArrowLeftRight,  label: 'Transactions' },
+            { href: '/budgets',      icon: Target,          label: 'Budgets' },
+        ],
+    },
+    {
+        label: 'Understand',
+        items: [
+            { href: '/analytics',  icon: PieChart,     label: 'Analytics' },
+            { href: '/net-worth',  icon: LineChart,    label: 'Net Worth' },
+            { href: '/calendar',   icon: CalendarDays, label: 'Calendar' },
+        ],
+    },
+    {
+        label: 'Grow',
+        items: [
+            { href: '/goals',             icon: Flag,      label: 'Goals' },
+            { href: '/investments',       icon: Briefcase, label: 'Investments' },
+            { href: '/debt-intelligence', icon: Gauge,     label: 'Debt' },
+        ],
+    },
+    {
+        label: 'Tools',
+        items: [
+            { href: '/ai-advisor', icon: Bot,      label: 'AI Advisor' },
+            { href: '/profile',    icon: Settings, label: 'Settings' },
+        ],
+    },
 ];
 
-const debtSection = {
-    label: 'Debt',
-    items: [
-        { href: '/loans', icon: Building2, label: 'Loans' },
-        { href: '/debt-intelligence', icon: Gauge, label: 'Debt Intelligence' },
-    ],
-};
-
-const planningSection = {
-    label: 'Planning',
-    items: [
-        { href: '/fire',       icon: Flame,        label: 'FIRE Calculator' },
-        { href: '/fire',       icon: Calculator,   label: 'SIP Optimizer' },
-        { href: '/cash-flow',  icon: CalendarRange, label: 'Cash Flow' },
-        { href: '/scenarios',  icon: Lightbulb,    label: 'Scenarios' },
-        { href: '/milestones', icon: Flag,         label: 'Milestones' },
-    ],
-};
-
-interface SidebarProps {
-    collapsed: boolean;
-    onToggle: () => void;
-}
-
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
@@ -89,312 +65,187 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     return (
         <aside style={{
-            width: collapsed ? '64px' : '220px',
-            transition: 'width 0.2s ease',
-            overflow: 'hidden',
+            width: '240px',
+            flexShrink: 0,
             height: '100vh',
-            background: 'var(--bg-card)',
-            borderRight: '1px solid var(--border)',
+            background: 'var(--bg-surface-1)',
+            borderRight: '1px solid var(--border-subtle)',
             display: 'flex',
             flexDirection: 'column',
-            padding: collapsed ? '20px 0' : '20px 12px',
+            padding: 'var(--space-6) var(--space-4)',
             position: 'fixed',
             top: 0,
             left: 0,
             zIndex: 50,
-            boxShadow: 'var(--shadow-card)',
         }}>
-
-            {/* Collapse toggle */}
-            <div style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end', marginBottom: '4px' }}>
-                <button
-                    type="button"
-                    onClick={onToggle}
-                    title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                    style={{
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--text-secondary)',
-                        padding: '4px',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
-                >
-                    {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-                </button>
-            </div>
-
-            {/* Logo */}
+            {/* Wordmark */}
             <div style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '4px 10px',
-                marginBottom: '18px',
-                justifyContent: collapsed ? 'center' : 'flex-start',
+                alignItems: 'baseline',
+                padding: '0 var(--space-2)',
+                marginBottom: 'var(--space-6)',
             }}>
-                <div style={{
-                    width: '32px',
-                    height: '32px',
-                    flexShrink: 0,
-                    background: 'var(--accent)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--accent-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                <span style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 800,
+                    fontSize: '20px',
+                    color: 'var(--text-primary)',
+                    letterSpacing: '-0.02em',
                 }}>
-                    <TrendingUp size={17} color="white" strokeWidth={2.5} />
-                </div>
-                {!collapsed && (
-                    <span style={{
-                        fontFamily: 'var(--font-display)',
-                        fontWeight: 800,
-                        fontSize: '1.05rem',
-                        color: 'var(--text-primary)',
-                        letterSpacing: '-0.02em',
-                        whiteSpace: 'nowrap',
-                    }}>
-                        FinTrack
-                    </span>
-                )}
+                    Fin
+                </span>
+                <span style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 500,
+                    fontSize: '20px',
+                    color: 'var(--accent)',
+                    letterSpacing: '-0.02em',
+                }}>
+                    Track
+                </span>
             </div>
 
-            {!collapsed && <GlobalSearch />}
+            <GlobalSearch />
 
-            {/* Nav items — scrollable */}
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: '4px', overflowY: 'auto', overflowX: 'hidden' }}>
-                {navItems.map(({ href, icon: Icon, label }) => {
-                    const isActive = pathname === href || pathname.startsWith(href + '/');
-                    return (
-                        <Link key={href} href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: collapsed ? '0' : '10px',
-                                    justifyContent: collapsed ? 'center' : undefined,
-                                    padding: collapsed ? '9px 0' : '9px 12px',
-                                    paddingLeft: !collapsed ? (isActive ? '9px' : '12px') : undefined,
-                                    borderRadius: '10px',
-                                    background: isActive ? 'var(--accent-light)' : 'transparent',
-                                    borderLeft: !collapsed
-                                        ? (isActive ? '3px solid var(--accent)' : '3px solid transparent')
-                                        : 'none',
-                                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                                    fontSize: '0.86rem',
-                                    fontWeight: isActive ? 600 : 400,
-                                    transition: 'all var(--transition-fast)',
-                                    cursor: 'pointer',
-                                }}
-                                onMouseEnter={e => {
-                                    if (!isActive) {
-                                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
-                                    }
-                                }}
-                                onMouseLeave={e => {
-                                    if (!isActive) {
-                                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                                        (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
-                                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
-                                    }
-                                }}
-                            >
-                                <Icon size={16} color="currentColor" />
-                                {!collapsed && label}
-                            </div>
-                        </Link>
-                    );
-                })}
-
-                {/* Debt section */}
-                {!collapsed && (
-                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 12px 2px', fontFamily: 'var(--font-body)' }}>
-                        {debtSection.label}
-                    </p>
-                )}
-                {debtSection.items.map(item => (
-                    <NavSectionLink key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
-                ))}
-
-                {/* Planning section */}
-                {!collapsed && (
-                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '12px 12px 2px', fontFamily: 'var(--font-body)' }}>
-                        {planningSection.label}
-                    </p>
-                )}
-                {planningSection.items.map(item => (
-                    <NavSectionLink key={item.label} item={item} pathname={pathname} collapsed={collapsed} />
+            {/* Nav groups — scrollable */}
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: 'var(--space-4)', overflowY: 'auto', overflowX: 'hidden' }}>
+                {navGroups.map(group => (
+                    <div key={group.label} style={{ marginBottom: 'var(--space-2)' }}>
+                        <p style={{
+                            fontSize: 'var(--text-label)',
+                            fontWeight: 700,
+                            color: 'var(--text-muted)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                            margin: '0 0 var(--space-1) var(--space-3)',
+                            fontFamily: 'var(--font-body)',
+                        }}>
+                            {group.label}
+                        </p>
+                        {group.items.map(({ href, icon: Icon, label }) => {
+                            const isActive = pathname === href || pathname.startsWith(href + '/');
+                            return (
+                                <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 'var(--space-3)',
+                                            padding: '9px var(--space-3)',
+                                            borderRadius: 'var(--radius-md)',
+                                            background: isActive ? 'var(--accent-subtle)' : 'transparent',
+                                            color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                                            fontSize: 'var(--text-body)',
+                                            fontWeight: isActive ? 600 : 400,
+                                            transition: 'all var(--transition-fast)',
+                                            cursor: 'pointer',
+                                        }}
+                                        onMouseEnter={e => {
+                                            if (!isActive) {
+                                                (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)';
+                                                (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
+                                            }
+                                        }}
+                                        onMouseLeave={e => {
+                                            if (!isActive) {
+                                                (e.currentTarget as HTMLElement).style.background = 'transparent';
+                                                (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
+                                            }
+                                        }}
+                                    >
+                                        <Icon size={17} color="currentColor" />
+                                        {label}
+                                    </div>
+                                </Link>
+                            );
+                        })}
+                    </div>
                 ))}
             </nav>
 
             {/* Bottom section — fixed, never scrolls */}
             <div style={{ flexShrink: 0 }}>
-            <div style={{
-                height: '1px',
-                background: 'linear-gradient(90deg, transparent, var(--border), transparent)',
-                margin: '12px 0',
-            }} />
+                <div style={{
+                    height: '1px',
+                    background: 'var(--border-subtle)',
+                    margin: 'var(--space-3) 0',
+                }} />
 
-            {/* User card + logout */}
-            <div>
-                {collapsed ? (
-                    <div title={user?.full_name} style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
-                        <div style={{
-                            width: '34px',
-                            height: '34px',
-                            borderRadius: '50%',
-                            flexShrink: 0,
-                            background: 'var(--accent)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontFamily: 'var(--font-display)',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            color: 'white',
-                        }}>
-                            {initials}
-                        </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-2)' }}>
+                    <div style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: 'var(--accent)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontFamily: 'var(--font-display)',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: '#fff',
+                    }}>
+                        {initials}
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 10px 6px' }}>
-                        <div style={{
-                            width: '34px',
-                            height: '34px',
-                            borderRadius: '50%',
-                            flexShrink: 0,
-                            background: 'var(--accent)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontFamily: 'var(--font-display)',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            color: 'white',
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{
+                            fontSize: 'var(--text-body)',
+                            fontWeight: 600,
+                            color: 'var(--text-primary)',
+                            margin: 0,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                         }}>
-                            {initials}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                            <p style={{
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                color: 'var(--text-primary)',
-                                margin: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}>
-                                {user?.full_name}
-                            </p>
-                            <p style={{
-                                fontSize: '0.68rem',
-                                color: 'var(--text-muted)',
-                                margin: '1px 0 0 0',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}>
-                                {user?.email}
-                            </p>
-                        </div>
+                            {user?.full_name}
+                        </p>
+                        <p style={{
+                            fontSize: 'var(--text-caption)',
+                            color: 'var(--text-muted)',
+                            margin: '1px 0 0 0',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                        }}>
+                            {user?.email}
+                        </p>
                     </div>
-                )}
+                </div>
 
                 <button
                     type="button"
                     onClick={handleLogout}
-                    title={collapsed ? 'Logout' : undefined}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: collapsed ? '0' : '10px',
-                        justifyContent: collapsed ? 'center' : undefined,
-                        padding: collapsed ? '9px 0' : '9px 12px',
+                        gap: 'var(--space-3)',
+                        padding: '9px var(--space-3)',
                         width: '100%',
-                        borderRadius: '10px',
+                        borderRadius: 'var(--radius-md)',
                         background: 'transparent',
                         border: '1px solid transparent',
                         color: 'var(--text-secondary)',
-                        fontSize: '0.86rem',
+                        fontSize: 'var(--text-body)',
+                        fontFamily: 'var(--font-body)',
                         cursor: 'pointer',
                         transition: 'all var(--transition-fast)',
                     }}
                     onMouseEnter={e => {
                         const el = e.currentTarget as HTMLElement;
-                        el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)';
+                        el.style.background = 'var(--color-exp-subtle)';
                         el.style.color = 'var(--color-exp)';
-                        el.style.borderColor = 'color-mix(in srgb, var(--color-exp) 22%, transparent)';
                     }}
                     onMouseLeave={e => {
                         const el = e.currentTarget as HTMLElement;
                         el.style.background = 'transparent';
                         el.style.color = 'var(--text-secondary)';
-                        el.style.borderColor = 'transparent';
                     }}
                 >
-                    <LogOut size={16} />
-                    {!collapsed && 'Logout'}
+                    <LogOut size={17} />
+                    Logout
                 </button>
             </div>
-            </div>{/* end bottom fixed section */}
         </aside>
-    );
-}
-
-interface NavSectionLinkProps {
-    item: { href: string; icon: typeof TrendingUp; label: string };
-    pathname: string;
-    collapsed: boolean;
-}
-
-function NavSectionLink({ item: { href, icon: Icon, label }, pathname, collapsed }: NavSectionLinkProps) {
-    const isActive = pathname === href || pathname.startsWith(href + '/');
-    return (
-        <Link href={href} style={{ textDecoration: 'none' }} title={collapsed ? label : undefined}>
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: collapsed ? '0' : '10px',
-                    justifyContent: collapsed ? 'center' : undefined,
-                    padding: collapsed ? '9px 0' : '9px 12px',
-                    paddingLeft: !collapsed ? (isActive ? '9px' : '12px') : undefined,
-                    borderRadius: '10px',
-                    background: isActive ? 'var(--accent-light)' : 'transparent',
-                    borderLeft: !collapsed
-                        ? (isActive ? '3px solid var(--accent)' : '3px solid transparent')
-                        : 'none',
-                    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-                    fontSize: '0.86rem',
-                    fontWeight: isActive ? 600 : 400,
-                    transition: 'all var(--transition-fast)',
-                    cursor: 'pointer',
-                }}
-                onMouseEnter={e => {
-                    if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
-                        (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '14px';
-                    }
-                }}
-                onMouseLeave={e => {
-                    if (!isActive) {
-                        (e.currentTarget as HTMLElement).style.background = 'transparent';
-                        (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)';
-                        if (!collapsed) (e.currentTarget as HTMLElement).style.paddingLeft = '12px';
-                    }
-                }}
-            >
-                <Icon size={16} color="currentColor" />
-                {!collapsed && label}
-            </div>
-        </Link>
     );
 }
