@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Pencil, AlertCircle, BarChart2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, AlertCircle, BarChart2, CopyPlus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI, analyticsAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -56,6 +56,7 @@ export default function BudgetsPage() {
     const [zeroBasedMode, setZeroBasedMode]         = useState(false);
     const [healthFilter, setHealthFilter]           = useState<'all'|'on-track'|'over'|'suggestion'>('all');
     const [adjusting, setAdjusting]                 = useState<string | null>(null);
+    const [copying, setCopying]                      = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -190,6 +191,20 @@ export default function BudgetsPage() {
         try { localStorage.setItem('fintrack-budget-rollover', JSON.stringify(next)); } catch {}
     };
 
+    const handleCopyFromLastMonth = async () => {
+        const toCopy = prevMonthBudgets.filter(pb => !budgets.find(b => b.category_id === pb.category_id));
+        if (!toCopy.length) { toast.info('All last month\'s categories already have budgets this month.'); return; }
+        setCopying(true);
+        try {
+            await Promise.all(toCopy.map(pb =>
+                budgetsAPI.create({ category_id: pb.category_id, amount: parseFloat(pb.amount), month: currentMonth, year: currentYear })
+            ));
+            toast.success(`Copied ${toCopy.length} budget${toCopy.length > 1 ? 's' : ''} from last month`);
+            fetchBudgets();
+        } catch { toast.error('Failed to copy budgets'); }
+        finally { setCopying(false); }
+    };
+
     // ── Derived totals ────────────────────────────────────────────────────────
 
     const totalBudgeted   = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
@@ -200,6 +215,7 @@ export default function BudgetsPage() {
     const isOverTotal     = totalSpent > totalBudgeted;
     const onTrackCount    = budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount)).length;
     const unallocated     = monthlyIncome - totalBudgeted;
+    const copyableCount   = prevMonthBudgets.filter(pb => !budgets.find(b => b.category_id === pb.category_id)).length;
     const filteredBudgets = healthFilter === 'all'       ? budgets
         : healthFilter === 'on-track'                    ? budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount))
         : healthFilter === 'over'                        ? budgets.filter(b => parseFloat(b.spent) >  parseFloat(b.amount))
@@ -370,10 +386,18 @@ export default function BudgetsPage() {
                         <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                             Budget Categories {healthFilter !== 'all' && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>({filteredBudgets.length} shown)</span>}
                         </h2>
-                        <button type="button" onClick={openAdd}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            <Plus size={12} /> Add Budget
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                            {!loading && copyableCount > 0 && (
+                                <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: copying ? 'var(--bg-surface-2)' : 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: copying ? 0.6 : 1 }}>
+                                    <CopyPlus size={12} /> {copying ? 'Copying…' : `Copy last month (${copyableCount})`}
+                                </button>
+                            )}
+                            <button type="button" onClick={openAdd}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <Plus size={12} /> Add Budget
+                            </button>
+                        </div>
                     </div>
 
                     {loading ? (
@@ -385,9 +409,17 @@ export default function BudgetsPage() {
                             <p style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</p>
                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No budgets set</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Set monthly limits to stay on track</p>
-                            <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                Set your first budget
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                {prevMonthBudgets.length > 0 && (
+                                    <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
+                                        style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
+                                        <CopyPlus size={14} /> {copying ? 'Copying…' : `Copy from last month (${prevMonthBudgets.length})`}
+                                    </button>
+                                )}
+                                <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                    Set your first budget
+                                </button>
+                            </div>
                         </div>
                     ) : filteredBudgets.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
