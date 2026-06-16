@@ -410,6 +410,26 @@ export default function DashboardPage() {
     // Over-budget count
     const overBudget = budgets.filter((b: any) => parseFloat(b.spent) > parseFloat(b.amount)).length;
 
+    // Guilt-free budget computation
+    const guiltFreeData = useMemo(() => {
+        if (!isCurrentMonth || !summary || parseFloat(summary.total_income) <= 0) return null;
+        const income = parseFloat(summary.total_income);
+        const totalBudgeted = budgets.reduce((s: number, b: any) => s + parseFloat(b.amount), 0);
+        if (totalBudgeted === 0) return null;
+        const goalMonthly = goals.filter((g: any) => g.target_date && !g.is_completed).reduce((s: number, g: any) => {
+            const remaining = parseFloat(g.target_amount) - parseFloat(g.current_amount);
+            if (remaining <= 0) return s;
+            const months = Math.max(1, Math.ceil((new Date(g.target_date).getTime() - Date.now()) / (30.44 * 24 * 3600 * 1000)));
+            return s + remaining / months;
+        }, 0);
+        const pool = Math.max(0, income - totalBudgeted - Math.round(goalMonthly));
+        const budgetedSpent = budgets.reduce((s: number, b: any) => s + parseFloat(b.spent), 0);
+        const unbudgetedSpent = Math.max(0, (parseFloat(summary.total_expenses) || 0) - budgetedSpent);
+        const remaining = Math.max(0, pool - unbudgetedSpent);
+        const usedPct = pool > 0 ? Math.min(100, (unbudgetedSpent / pool) * 100) : 0;
+        return { income, totalBudgeted, goalMonthly: Math.round(goalMonthly), pool, unbudgetedSpent, remaining, usedPct };
+    }, [summary, budgets, goals, isCurrentMonth]);
+
     if (isLoading || !user) return (
         <AppLayout>
             <SkeletonCard height={60} style={{ marginBottom: '24px' }} />
@@ -532,6 +552,34 @@ export default function DashboardPage() {
                         ));
                     })()}
                 </div>
+
+                {/* ── GUILT-FREE BUDGET CARD ── */}
+                {!dataLoading && guiltFreeData && (
+                    <div style={{ background: guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 8%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-warn) 8%, var(--bg-surface-1))', border: `1px solid ${guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : 'color-mix(in srgb, var(--color-warn) 22%, transparent)'}`, borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                            <div>
+                                <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                    Guilt-free budget
+                                </p>
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 800, color: guiltFreeData.remaining > 0 ? 'var(--color-inc)' : 'var(--color-warn)', margin: 0, fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                    {fmt(guiltFreeData.remaining)}
+                                </p>
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>pool</p>
+                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(guiltFreeData.pool)}</p>
+                            </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ height: 6, background: 'var(--bg-surface-2)', borderRadius: 99, overflow: 'hidden', marginBottom: '8px' }}>
+                            <div style={{ height: '100%', width: `${guiltFreeData.usedPct}%`, background: guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)', borderRadius: 99, transition: 'width 0.6s ease' }} />
+                        </div>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                            {fmt(guiltFreeData.income)} income − {fmt(guiltFreeData.totalBudgeted)} budgets{guiltFreeData.goalMonthly > 0 ? ` − ${fmt(guiltFreeData.goalMonthly)} goals` : ''} = {fmt(guiltFreeData.pool)} pool
+                            {guiltFreeData.unbudgetedSpent > 0 && ` · ${fmt(guiltFreeData.unbudgetedSpent)} spent outside budgets`}
+                        </p>
+                    </div>
+                )}
 
                 {/* ── HERO — Net Position (dominant) ── */}
                 <div style={{ background: 'var(--bg-surface-1)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>

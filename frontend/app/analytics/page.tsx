@@ -479,24 +479,44 @@ export default function AnalyticsPage() {
                             )}
                         </div>
 
-                        {/* Weekly Spending Pattern */}
+                        {/* Day-of-Week Spending Heatmap */}
                         <div style={sectionCard}>
-                            <SectionHead title="Weekly Spending Pattern" />
-                            {dataLoading ? <SkeletonCard height={150} /> : (
-                                <ResponsiveContainer width="100%" height={160}>
-                                    <BarChart data={weeklyData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                                        <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
-                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
-                                        <YAxis hide />
-                                        <Tooltip content={<ChartTooltip />} />
-                                        <Bar dataKey="amount" name="Spent" radius={[4, 4, 0, 0]}>
-                                            {weeklyData.map((entry, idx) => (
-                                                <Cell key={idx} fill={entry.amount === maxWeeklyAmt && entry.amount > 0 ? cc.exp : cc.tint} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            )}
+                            <SectionHead title="Spending by Day of Week" />
+                            {dataLoading ? <SkeletonCard height={120} /> : (() => {
+                                // Mon-first order: indices 1,2,3,4,5,6,0
+                                const monFirst = [1,2,3,4,5,6,0].map(i => weeklyData[i]);
+                                const peakDay  = monFirst.reduce((a, b) => b.amount > a.amount ? b : a, monFirst[0]);
+                                const troughDay = monFirst.filter(d => d.amount > 0).reduce((a, b) => b.amount < a.amount ? b : a, peakDay);
+                                const ratio = troughDay && troughDay.amount > 0 ? (peakDay.amount / troughDay.amount) : 0;
+                                return (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', marginBottom: '10px' }}>
+                                            {monFirst.map((d) => {
+                                                const pct = maxWeeklyAmt > 0 ? d.amount / maxWeeklyAmt : 0;
+                                                const isPeak = d.amount === maxWeeklyAmt && d.amount > 0;
+                                                const intensity = Math.round(pct * 55) + (d.amount > 0 ? 8 : 0);
+                                                return (
+                                                    <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                        <span style={{ fontSize: '10px', color: isPeak ? cc.exp : 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: isPeak ? 700 : 400 }}>{d.day}</span>
+                                                        <div style={{ width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)', background: d.amount > 0 ? `color-mix(in srgb, ${cc.exp} ${intensity}%, var(--bg-surface-2))` : 'var(--bg-surface-2)', border: isPeak ? `1.5px solid color-mix(in srgb, ${cc.exp} 40%, transparent)` : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }} />
+                                                        <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1.2 }}>
+                                                            {d.amount > 0 ? (d.amount >= 1000 ? `${Math.round(d.amount/1000)}k` : Math.round(d.amount)) : '—'}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        {peakDay.amount > 0 && (
+                                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                                {ratio >= 1.5
+                                                    ? <><span style={{ color: cc.exp, fontWeight: 600 }}>{peakDay.day}s</span> are your biggest spend days — {fmt(peakDay.amount)} this month{ratio >= 2 ? `, ${ratio.toFixed(1)}× more than ${troughDay.day}s` : ''}</>
+                                                    : <>Spending is spread fairly evenly — peak on <span style={{ color: cc.exp, fontWeight: 600 }}>{peakDay.day}s</span> at {fmt(peakDay.amount)}</>
+                                                }
+                                            </p>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         {/* Payment Methods */}
