@@ -124,6 +124,19 @@ export default function BudgetsPage() {
         return out;
     }, [budgets, prevMonthBudgets, prev2MonthBudgets, dismissed, currentMonth, currentYear]);
 
+    const goalSurplusNudge = useMemo(() => {
+        const today = new Date().getDate();
+        const dim = new Date(currentYear, currentMonth, 0).getDate();
+        const daysLeft = dim - today;
+        if (daysLeft > 5 || budgets.length === 0) return null;
+        const surplusTotal = budgets.reduce((acc: number, b: any) => {
+            const s = parseFloat(b.spent); const l = parseFloat(b.amount);
+            return acc + Math.max(0, l - s);
+        }, 0);
+        if (surplusTotal < 200) return null;
+        return { daysLeft, surplusTotal };
+    }, [budgets, currentMonth, currentYear]);
+
     // ── Handlers ─────────────────────────────────────────────────────────────
 
     const handleAdd = async (e: React.FormEvent) => {
@@ -332,6 +345,25 @@ export default function BudgetsPage() {
                     <SuggestionsBanner items={suggestions} adjusting={adjusting} onAdjust={handleAdjust} onDismiss={handleDismiss} />
                 )}
 
+                {/* ── GOAL SURPLUS NUDGE ── */}
+                {goalSurplusNudge && (
+                    <div style={{ background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <span style={{ fontSize: '20px', flexShrink: 0 }}>🎯</span>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--color-inc)', margin: '0 0 3px' }}>
+                                Month-end surplus: {fmt(goalSurplusNudge.surplusTotal)}
+                            </p>
+                            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 10px', fontFamily: 'var(--font-body)' }}>
+                                {goalSurplusNudge.daysLeft === 0 ? 'Last day of the month!' : `${goalSurplusNudge.daysLeft} day${goalSurplusNudge.daysLeft !== 1 ? 's' : ''} left`} — consider putting {fmt(goalSurplusNudge.surplusTotal)} unspent toward your goals.
+                            </p>
+                            <button type="button" onClick={() => router.push('/goals')}
+                                style={{ padding: '6px 14px', background: 'var(--color-inc)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                View Goals →
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* ── BUDGET CATEGORY CARDS ── */}
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -375,6 +407,15 @@ export default function BudgetsPage() {
                                 const rollover = rolloverEnabled[budget.category_id];
                                 const prevB    = prevMonthBudgets.find(p => p.category_id === budget.category_id);
                                 const rolloverAmt = prevB ? Math.max(0, parseFloat(prevB.amount) - parseFloat(prevB.spent)) : 0;
+                                const _today = new Date().getDate();
+                                const _dim   = new Date(currentYear, currentMonth, 0).getDate();
+                                const _rate  = _today > 0 ? spent / _today : 0;
+                                const _proj  = Math.round(_rate * _dim);
+                                const _willExceed = !isOver && _today > 3 && _proj > limit;
+                                const _runOutDay  = _rate > 0 ? Math.ceil(limit / _rate) : _dim + 1;
+                                const _runOutStr  = _runOutDay <= _dim
+                                    ? new Date(currentYear, currentMonth - 1, _runOutDay).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                                    : null;
 
                                 return (
                                     <div key={budget.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
@@ -451,6 +492,18 @@ export default function BudgetsPage() {
                                                 </span>
                                             )}
                                         </div>
+
+                                        {/* Spending pace indicator */}
+                                        {_today > 3 && (
+                                            <p style={{ fontSize: '11px', color: _willExceed ? 'var(--color-warn)' : 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
+                                                {isOver
+                                                    ? null
+                                                    : _willExceed
+                                                        ? _runOutStr ? `Pace: runs out ~${_runOutStr}` : `Pace: ${fmt(_proj)} projected — may exceed`
+                                                        : `On pace · ${fmt(_proj)} projected`
+                                                }
+                                            </p>
+                                        )}
 
                                         {/* Inline edit */}
                                         {editingId === budget.id && (

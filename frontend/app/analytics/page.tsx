@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+    AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
 } from 'recharts';
@@ -224,6 +224,30 @@ export default function AnalyticsPage() {
         return `rgba(${r},${g},${b},${alpha})`;
     };
 
+    const merchantData = useMemo(() => {
+        const map: Record<string, { total: number; count: number }> = {};
+        allTransactions.filter((tx: any) => tx.type === 'expense' && tx.description).forEach((tx: any) => {
+            const key = (tx.description as string).trim();
+            if (!map[key]) map[key] = { total: 0, count: 0 };
+            map[key].total += parseFloat(tx.amount);
+            map[key].count += 1;
+        });
+        return Object.entries(map)
+            .map(([name, { total, count }]) => ({ name, total, count }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 10);
+    }, [allTransactions]);
+
+    const savingsRateData = useMemo(() =>
+        areaData
+            .filter(d => d.income > 0 || d.expenses > 0)
+            .map(d => ({
+                month: d.month,
+                rate: d.income > 0 ? Math.round(((d.income - d.expenses) / d.income) * 100) : 0,
+            })),
+    [areaData]);
+    const maxMerchantTotal = merchantData.length > 0 ? merchantData[0].total : 1;
+
     const handleGeneratePlan = async (force?: boolean) => {
         setAllocationLoading(true); setAllocationError('');
         try {
@@ -344,6 +368,26 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Savings Rate Sparkline */}
+                        {!dataLoading && savingsRateData.length >= 2 && (
+                            <div style={sectionCard}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Monthly Savings Rate</h2>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: savingsRate >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{savingsRate}%</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height={120}>
+                                    <LineChart data={savingsRateData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                        <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                        <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 10, fontFamily: 'DM Mono, monospace' }} />
+                                        <YAxis hide domain={['auto', 'auto']} />
+                                        <Tooltip formatter={(v: any) => [`${v}%`, 'Savings rate']} contentStyle={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
+                                        <Line type="monotone" dataKey="rate" name="Savings rate" stroke={cc.inc} strokeWidth={2} dot={{ r: 3, fill: cc.inc }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>% of income saved after expenses, month by month</p>
+                            </div>
+                        )}
 
                         {/* Bank Balances */}
                         {(accountsLoading || accounts.length > 0) && (
@@ -486,6 +530,30 @@ export default function AnalyticsPage() {
                                         <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Total</span>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(paymentTotal)}</span>
                                     </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Merchant Breakdown */}
+                        {!dataLoading && merchantData.length > 0 && (
+                            <div style={sectionCard}>
+                                <SectionHead title={`Top Merchants — ${FULL_MONTHS[currentMonth]}`} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {merchantData.map((m, i) => (
+                                        <div key={m.name}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', minWidth: 18 }}>{i + 1}</span>
+                                                    <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>{m.count}×</span>
+                                                </div>
+                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', flexShrink: 0, marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>{fmt(m.total)}</span>
+                                            </div>
+                                            <div style={{ height: 4, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
+                                                <div style={{ height: '100%', width: `${(m.total / maxMerchantTotal) * 100}%`, background: 'var(--color-exp)', borderRadius: 2, transition: 'width 0.5s ease' }} />
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}

@@ -89,11 +89,12 @@ interface Props {
     transaction?: any;
     prefill?: any;
     defaultDate?: string;
+    pastTransactions?: any[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate }: Props) {
+export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate, pastTransactions }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
     const [form, setForm] = useState({
@@ -121,6 +122,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [pendingNewCategory, setPendingNewCategory]         = useState('');
     const [showNewCategoryPrompt, setShowNewCategoryPrompt]   = useState(false);
     const [approvingCat, setApprovingCat]                     = useState(false);
+    const [dupWarning, setDupWarning] = useState<any>(null);
+    const dupBypassRef = useRef<boolean>(false);
 
     const [calOpen, setCalOpen]   = useState(false);
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -169,6 +172,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setShowAddCat(false);
         setShowNewCategoryPrompt(false);
         setPendingNewCategory('');
+        setDupWarning(null);
+        dupBypassRef.current = false;
     }, [transaction, isOpen, defaultDate, prefill]);
 
     // Default account
@@ -177,6 +182,25 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
         setForm(prev => prev.account_id === null ? { ...prev, account_id: defaultAccountId } : prev);
     }, [accounts, isOpen, isEditing]);
+
+    const suggestedCats = useMemo(() => {
+        const desc = form.description.trim().toLowerCase();
+        if (desc.length < 3 || !categories.length) return [];
+        const words = desc.split(/\s+/).filter((w: string) => w.length >= 3);
+        const scored = categories
+            .filter((c: any) => !form.category_id || String(c.id) !== form.category_id)
+            .map((c: any) => {
+                const cn = c.name.toLowerCase();
+                let score = 0;
+                if (cn === desc) score = 100;
+                else if (cn.includes(desc) || desc.includes(cn)) score = 50;
+                else for (const w of words) { if (cn.includes(w)) score += 10; }
+                return { ...c, score };
+            })
+            .filter((c: any) => c.score > 0)
+            .sort((a: any, b: any) => b.score - a.score || (Number(b.usage_count) || 0) - (Number(a.usage_count) || 0));
+        return scored.slice(0, 2);
+    }, [form.description, form.category_id, categories]);
 
     const findCategory = (cats: any[], aiCat: string) => {
         if (!aiCat || !cats.length) return null;
@@ -237,6 +261,19 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setLoading(true);
+        if (!isEditing && !dupBypassRef.current && (pastTransactions?.length ?? 0) > 0) {
+            const amount = parseFloat(form.amount);
+            const txDate = new Date((form.date || '').split('T')[0] + 'T00:00:00');
+            const dup = (pastTransactions || []).find((t: any) => {
+                if (t.type !== form.type) return false;
+                const tAmt = parseFloat(t.amount);
+                if (Math.abs(tAmt - amount) / Math.max(amount, 0.01) > 0.01) return false;
+                const tDate = new Date((t.date || '').split('T')[0] + 'T00:00:00');
+                return Math.abs(txDate.getTime() - tDate.getTime()) <= 48 * 3600 * 1000;
+            });
+            if (dup) { setDupWarning(dup); setLoading(false); return; }
+        }
+        dupBypassRef.current = false;
         const payload = { type: form.type, amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
@@ -342,6 +379,22 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 </div>
             }
         >
+            {/* Duplicate transaction warning */}
+            {dupWarning && (
+                <div style={{ background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 25%, transparent)', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>⚠️ Possible duplicate</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px', fontFamily: 'var(--font-body)' }}>
+                        Similar: <strong>{dupWarning.description}</strong>, ₹{Math.round(parseFloat(dupWarning.amount)).toLocaleString('en-IN')} on {new Date((dupWarning.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button type="button" onClick={() => { dupBypassRef.current = true; setDupWarning(null); (document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit?.(); }}
+                            style={{ padding: '5px 12px', background: 'var(--color-warn)', border: 'none', borderRadius: 6, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Save anyway</button>
+                        <button type="button" onClick={() => setDupWarning(null)}
+                            style={{ padding: '5px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
+                    </div>
+                </div>
+            )}
+
             {/* AI new-category prompt */}
             {showNewCategoryPrompt && (
                 <div style={{ background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -412,6 +465,20 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 )}
 
                 <Input label="Description" type="text" placeholder="e.g. Swiggy order, Monthly salary" icon={<FileText size={15} />} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required />
+
+                {/* Auto-category suggestions */}
+                {suggestedCats.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '-4px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Suggested:</span>
+                        {suggestedCats.map((c: any) => (
+                            <button key={c.id} type="button" onClick={() => { setForm(prev => ({ ...prev, category_id: String(c.id) })); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <CategoryIcon name={c.icon} size={11} color="currentColor" />
+                                {c.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* ── Category dropdown ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

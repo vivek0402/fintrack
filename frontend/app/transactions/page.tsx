@@ -339,7 +339,7 @@ function TransactionsPageInner() {
             </div>
 
             {/* ── TRANSACTION MODAL ── */}
-            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
+            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} pastTransactions={transactions} />
 
             {/* ── IMPORT PDF MODAL ── */}
             <Modal isOpen={importOpen} onClose={() => setImportOpen(false)} title="Import Bank Statement" maxWidth="560px">
