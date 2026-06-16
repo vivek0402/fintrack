@@ -108,6 +108,12 @@ router.post('/report', authMiddleware, async (req, res) => {
             .slice(0, 3)
             .map(([name, amount]) => ({ name, amount }));
 
+        // No transactions → skip AI, return a friendly onboarding nudge
+        if (transactions.length === 0) {
+            const monthName = now.toLocaleString('default', { month: 'long' });
+            return res.json({ report: `No transactions recorded for ${monthName} yet. Add your first income or expense and I'll give you a personalised summary of your month! 🙌` });
+        }
+
         // Fingerprint: changes when financial data changes → triggers regeneration
         const fingerprint = `${month}-${year}-${Math.round(totalIncome)}-${Math.round(totalExpenses)}-${transactions.length}`;
 
@@ -120,24 +126,19 @@ router.post('/report', authMiddleware, async (req, res) => {
             return res.json({ report: cached[0].report });
         }
 
-        const context = JSON.stringify({
-            month: now.toLocaleString('default', { month: 'long' }),
-            year,
-            totalIncome,
-            totalExpenses,
-            savingsRate,
-            topCategories,
-            budgets: budgets.map(b => ({
-                category: b.category_name,
-                budgeted: parseFloat(b.amount),
-                spent: categorySpending[b.category_name] || 0,
-            })),
-            transactionCount: transactions.length,
-        });
+        const monthName = now.toLocaleString('default', { month: 'long' });
+        const topCatLine = topCategories.length > 0
+            ? `Most spent on: ${topCategories.map(c => `${c.name} (₹${Math.round(c.amount)})`).join(', ')}.`
+            : '';
+        const budgetLines = budgets.map(b => {
+            const spent = categorySpending[b.category_name] || 0;
+            const budgeted = parseFloat(b.amount);
+            return `${b.category_name}: spent ₹${Math.round(spent)} of ₹${Math.round(budgeted)} budget`;
+        }).join('; ');
 
         const report = (await aiComplete('report', [{
             role: 'user',
-            content: `You're a friendly money coach talking to an everyday person — not a finance expert. Write a 3-4 sentence summary of their month in plain, conversational language, like you're texting a friend. Say "you earned" and "you spent", not "income" or "expenditure". Say "you saved" not "net surplus". Avoid words like: liquidity, net position, discretionary, fiscal, allocation, utilisation, variance. Mention what came in, what went out, what they spent the most on, and give one simple tip they can act on today. Use ₹ for amounts. Keep it warm, encouraging, and easy to understand. Data: ${context}`,
+            content: `You are a friendly personal finance buddy texting a friend a quick summary of their ${monthName}. Keep it to 2-3 short sentences max. Rules: use "you earned" / "you spent" / "you saved" — never "income", "expenditure", "net surplus", "fiscal", "allocation", "mitigate", "diversify", "financial landscape", or any finance jargon. Be specific with ₹ amounts. End with one tiny actionable tip (max 1 sentence). If they spent more than they earned, be gentle and encouraging, not alarming. Data — earned: ₹${Math.round(totalIncome)}, spent: ₹${Math.round(totalExpenses)}, ${topCatLine} ${budgetLines ? 'Budgets: ' + budgetLines + '.' : ''} Savings rate: ${savingsRate}%. Transactions: ${transactions.length}.`,
         }])).trim();
 
         // Persist to server-side cache (upsert)

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS ai_report_cache (
     id          SERIAL PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     month       INTEGER NOT NULL,
     year        INTEGER NOT NULL,
     fingerprint TEXT    NOT NULL,
