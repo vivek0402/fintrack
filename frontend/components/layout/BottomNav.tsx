@@ -8,7 +8,7 @@ import {
     Briefcase, RefreshCw, SplitSquareHorizontal, Landmark, Bot, Gauge,
     Receipt, Waves, Lightbulb, FileText, Award, HeartPulse,
     Gem, Flame, GitBranch, Percent, Calculator, Wallet, PiggyBank,
-    TrendingUp, Milestone, MessageSquare, Sparkles, CreditCard, FolderOpen, Users,
+    TrendingUp, Milestone, Sparkles, CreditCard, FolderOpen, Users,
 } from 'lucide-react';
 
 const mainTabs = [
@@ -67,7 +67,6 @@ const moreGroups = [
         label: 'Tools',
         items: [
             { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
-            { href: '/ai-chat',     icon: MessageSquare, label: 'AI Chat' },
             { href: '/personality', icon: Sparkles,      label: 'Personality' },
             { href: '/accounts',    icon: CreditCard,    label: 'Accounts' },
             { href: '/documents',   icon: FolderOpen,    label: 'Documents' },

@@ -8,7 +8,7 @@ import {
     LogOut, CalendarDays, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
     Repeat, Split, Receipt, Waves, Lightbulb, FileText, Award, HeartPulse,
     Landmark, Gem, Flame, GitBranch, Percent, Calculator, Wallet, PiggyBank,
-    TrendingUp, Milestone, MessageSquare, Sparkles, CreditCard, FolderOpen, Users,
+    TrendingUp, Milestone, Sparkles, CreditCard, FolderOpen, Users,
     MoreHorizontal, ChevronUp,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -77,7 +77,6 @@ const moreGroups = [
         label: 'Tools',
         items: [
             { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
-            { href: '/ai-chat',     icon: MessageSquare, label: 'AI Chat' },
             { href: '/personality', icon: Sparkles,      label: 'Personality' },
             { href: '/documents',   icon: FolderOpen,    label: 'Documents' },
             { href: '/groups',      icon: Users,         label: 'Groups' },
