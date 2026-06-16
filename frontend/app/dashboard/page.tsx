@@ -337,8 +337,8 @@ export default function DashboardPage() {
             return;
         }
         const fingerprint = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
-        const AI_KEY = `ai-report-${user.id}-${month}-${year}`;
-        const AI_FP_KEY  = `ai-fp-${user.id}-${month}-${year}`;
+        const AI_KEY = `ai-report-v2-${user.id}-${month}-${year}`;
+        const AI_FP_KEY  = `ai-fp-v2-${user.id}-${month}-${year}`;
         try {
             const cached    = localStorage.getItem(AI_KEY);
             const storedFP  = localStorage.getItem(AI_FP_KEY);
@@ -615,8 +615,8 @@ export default function DashboardPage() {
                                 onClick={async () => {
                                     setAiReportLoading(true);
                                     try {
-                                        const AI_KEY   = `ai-report-${user?.id}-${month}-${year}`;
-                                        const AI_FP_KEY = `ai-fp-${user?.id}-${month}-${year}`;
+                                        const AI_KEY   = `ai-report-v2-${user?.id}-${month}-${year}`;
+                                        const AI_FP_KEY = `ai-fp-v2-${user?.id}-${month}-${year}`;
                                         try { localStorage.removeItem(AI_KEY); localStorage.removeItem(AI_FP_KEY); } catch {}
                                         const res = await aiAPI.report();
                                         const report = res.data?.report ?? '';
