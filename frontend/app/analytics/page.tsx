@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
                 const [summaryRes, trendsRes, allTxRes, yearlyRes, pmRes] = await Promise.all([
                     analyticsAPI.summary({ month: currentMonth, year: currentYear }),
                     analyticsAPI.trends(),
-                    transactionsAPI.getAll(),
+                    transactionsAPI.getAll({ month: currentMonth, year: currentYear }),
                     analyticsAPI.yearly(currentYear),
                     analyticsAPI.paymentMethods({ month: currentMonth, year: currentYear }),
                 ]);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, Suspense } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Download, Zap, X, CheckSquare, FileUp } from 'lucide-react';
@@ -19,8 +19,8 @@ import { BankStatementImporter } from '@/components/transactions/BankStatementIm
 import { Modal } from '@/components/ui/Modal';
 import { exportToCSV } from '@/lib/utils';
 
-const NOW_YEAR  = new Date().getFullYear();
-const NOW_MONTH = new Date().getMonth() + 1;
+const getNowYear  = () => new Date().getFullYear();
+const getNowMonth = () => new Date().getMonth() + 1;
 const fmt = (n: number) => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 function TransactionsPageInner() {
@@ -35,8 +35,8 @@ function TransactionsPageInner() {
     const [modalOpen, setModalOpen]         = useState(false);
     const [editingTx, setEditingTx]         = useState<any>(null);
     const [prefillData, setPrefillData]     = useState<any>(null);
-    const [selectedMonth, setSelectedMonth] = useState<number | null>(NOW_MONTH);
-    const [selectedYear, setSelectedYear]   = useState(NOW_YEAR);
+    const [selectedMonth, setSelectedMonth] = useState<number | null>(getNowMonth);
+    const [selectedYear, setSelectedYear]   = useState(getNowYear);
     const [quickAddOpen, setQuickAddOpen]   = useState(false);
     const [quickAddText, setQuickAddText]   = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
@@ -48,8 +48,6 @@ function TransactionsPageInner() {
     const [initialQuery, setInitialQuery]   = useState('');
     const [importOpen, setImportOpen]       = useState(false);
 
-    const loadMoreRef = useRef<HTMLButtonElement>(null);
-
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
         'received salary 85000',
@@ -59,15 +57,14 @@ function TransactionsPageInner() {
     ];
 
     // ── Infinite scroll ───────────────────────────────────────────────────────
-    useEffect(() => {
-        if (!loadMoreRef.current) return;
+    const loadMoreRef = useCallback((node: HTMLElement | null) => {
+        if (!node) return;
         const observer = new IntersectionObserver(
             entries => { if (entries[0].isIntersecting) setDisplayCount(c => c + 50); },
             { threshold: 0.1 }
         );
-        observer.observe(loadMoreRef.current);
-        return () => observer.disconnect();
-    }, [loadMoreRef.current, filtered.length]);
+        observer.observe(node);
+    }, []);
 
     // ── Quick add placeholder rotation ────────────────────────────────────────
     useEffect(() => {
@@ -146,8 +143,8 @@ function TransactionsPageInner() {
         if (ctx === 'all') {
             setSelectedMonth(null);
         } else {
-            setSelectedMonth(prev => prev === null ? NOW_MONTH : prev);
-            if (selectedMonth === null) setSelectedYear(NOW_YEAR);
+            setSelectedMonth(prev => prev === null ? getNowMonth() : prev);
+            if (selectedMonth === null) setSelectedYear(getNowYear());
         }
     }, [selectedMonth]);
 
@@ -217,7 +214,7 @@ function TransactionsPageInner() {
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             {!isMobile && (
                                 <button type="button"
-                                    onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? NOW_MONTH).padStart(2, '0')}.csv`)}
+                                    onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? getNowMonth()).padStart(2, '0')}.csv`)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                     <Download size={14} /> Export
                                 </button>

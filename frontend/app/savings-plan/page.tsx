@@ -187,7 +187,7 @@ export default function SavingsPlanPage() {
         const startStr = challengeStarts[id];
         if (!startStr) return { active: false, daysCompleted: 0, pct: 0 };
         const daysCompleted = Math.min(Math.floor((Date.now() - new Date(startStr).getTime()) / 86400000), totalDays);
-        return { active: true, daysCompleted, pct: (daysCompleted / totalDays) * 100 };
+        return { active: true, daysCompleted, pct: totalDays > 0 ? (daysCompleted / totalDays) * 100 : 0 };
     };
 
     const activeGoals = goals.filter(g => parseFloat(g.saved_amount) < parseFloat(g.target_amount));

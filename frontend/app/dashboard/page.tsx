@@ -330,9 +330,12 @@ export default function DashboardPage() {
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user, month, year]);
 
-    // Fingerprint-based AI regeneration — only refetches when income/expenses change
+    // Fingerprint-based AI regeneration — only for current month (API has no month param)
     useEffect(() => {
-        if (!user || !summary) return;
+        if (!user || !summary || !isCurrentMonth) {
+            if (!isCurrentMonth) { setAiInsight(''); setAiLoading(false); }
+            return;
+        }
         const fingerprint = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
         const AI_KEY = `ai-report-${user.id}-${month}-${year}`;
         const AI_FP_KEY  = `ai-fp-${user.id}-${month}-${year}`;
