@@ -27,7 +27,8 @@ export default function LoginPage() {
         try {
             const res = await authAPI.login(form);
             setAuth(res.data.user, res.data.token);
-            router.push('/dashboard');
+            const dest = localStorage.getItem(`onboarded-${res.data.user.id}`) ? '/dashboard' : '/onboarding';
+            router.push(dest);
         } catch (err: any) {
             setError(err.response?.data?.error || 'Login failed.');
         } finally {

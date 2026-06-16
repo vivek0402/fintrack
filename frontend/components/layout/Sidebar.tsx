@@ -15,6 +15,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
+import { NotificationBell } from '@/components/ui/NotificationBell';
+import { InstallPWA } from '@/components/ui/InstallPWA';
 
 // Always-visible daily-driver set — keeps the primary nav short
 const coreItems = [
@@ -164,31 +166,35 @@ export function Sidebar() {
             left: 0,
             zIndex: 50,
         }}>
-            {/* Wordmark */}
+            {/* Wordmark + notification bell */}
             <div style={{
                 display: 'flex',
-                alignItems: 'baseline',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 padding: '0 var(--space-2)',
                 marginBottom: 'var(--space-6)',
             }}>
-                <span style={{
-                    fontFamily: 'var(--font-display)',
-                    fontWeight: 800,
-                    fontSize: '20px',
-                    color: 'var(--text-primary)',
-                    letterSpacing: '-0.02em',
-                }}>
-                    Fin
-                </span>
-                <span style={{
-                    fontFamily: 'var(--font-display)',
-                    fontWeight: 500,
-                    fontSize: '20px',
-                    color: 'var(--accent)',
-                    letterSpacing: '-0.02em',
-                }}>
-                    Track
-                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                    <span style={{
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 800,
+                        fontSize: '20px',
+                        color: 'var(--text-primary)',
+                        letterSpacing: '-0.02em',
+                    }}>
+                        Fin
+                    </span>
+                    <span style={{
+                        fontFamily: 'var(--font-display)',
+                        fontWeight: 500,
+                        fontSize: '20px',
+                        color: 'var(--accent)',
+                        letterSpacing: '-0.02em',
+                    }}>
+                        Track
+                    </span>
+                </div>
+                <NotificationBell panelAlign="left" />
             </div>
 
             <GlobalSearch />
@@ -294,6 +300,8 @@ export function Sidebar() {
                         </p>
                     </div>
                 </div>
+
+                <InstallPWA />
 
                 <button
                     type="button"
