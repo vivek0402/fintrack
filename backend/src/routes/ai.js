@@ -108,6 +108,18 @@ router.post('/report', authMiddleware, async (req, res) => {
             .slice(0, 3)
             .map(([name, amount]) => ({ name, amount }));
 
+        // Fingerprint: changes when financial data changes → triggers regeneration
+        const fingerprint = `${month}-${year}-${Math.round(totalIncome)}-${Math.round(totalExpenses)}-${transactions.length}`;
+
+        // Check server-side cache first — same report on all devices
+        const { rows: cached } = await pool.query(
+            `SELECT report, fingerprint FROM ai_report_cache WHERE user_id = $1 AND month = $2 AND year = $3`,
+            [userId, month, year]
+        );
+        if (cached.length > 0 && cached[0].fingerprint === fingerprint) {
+            return res.json({ report: cached[0].report });
+        }
+
         const context = JSON.stringify({
             month: now.toLocaleString('default', { month: 'long' }),
             year,
@@ -127,6 +139,15 @@ router.post('/report', authMiddleware, async (req, res) => {
             role: 'user',
             content: `You're a friendly money coach talking to an everyday person — not a finance expert. Write a 3-4 sentence summary of their month in plain, conversational language, like you're texting a friend. Say "you earned" and "you spent", not "income" or "expenditure". Say "you saved" not "net surplus". Avoid words like: liquidity, net position, discretionary, fiscal, allocation, utilisation, variance. Mention what came in, what went out, what they spent the most on, and give one simple tip they can act on today. Use ₹ for amounts. Keep it warm, encouraging, and easy to understand. Data: ${context}`,
         }])).trim();
+
+        // Persist to server-side cache (upsert)
+        await pool.query(
+            `INSERT INTO ai_report_cache (user_id, month, year, fingerprint, report, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (user_id, month, year)
+             DO UPDATE SET fingerprint = $4, report = $5, updated_at = NOW()`,
+            [userId, month, year, fingerprint, report]
+        );
 
         res.json({ report });
     } catch (err) {

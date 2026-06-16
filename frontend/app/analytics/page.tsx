@@ -101,6 +101,7 @@ export default function AnalyticsPage() {
     const [paymentMethods, setPaymentMethods]   = useState<any[]>([]);
     const [paymentTotal, setPaymentTotal]       = useState(0);
     const [allTransactions, setAllTransactions] = useState<any[]>([]);
+    const [yearTransactions, setYearTransactions] = useState<any[]>([]);
     const [accounts, setAccounts]               = useState<any[]>([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
     const [regretData, setRegretData]           = useState<any>(null);
@@ -148,6 +149,10 @@ export default function AnalyticsPage() {
             finally { setDataLoading(false); }
         };
         fetchData();
+        // Fetch full year for heatmap — independent of selected month
+        transactionsAPI.getAll({ year: currentYear })
+            .then((res: any) => setYearTransactions(res.data.transactions ?? []))
+            .catch(() => {});
         accountsAPI.getAll()
             .then((res: any) => setAccounts(res.data.accounts ?? []))
             .catch(() => setAccounts([]))
@@ -607,7 +612,7 @@ export default function AnalyticsPage() {
                             {!showHeatmap && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>GitHub-style calendar showing daily spending intensity</p>}
                             {showHeatmap && (
                                 <div style={{ marginTop: 16 }}>
-                                    {dataLoading ? <div style={{ height: 100, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> : <SpendingHeatmap transactions={allTransactions} />}
+                                    {dataLoading ? <div style={{ height: 100, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> : <SpendingHeatmap transactions={yearTransactions} />}
                                 </div>
                             )}
                         </div>

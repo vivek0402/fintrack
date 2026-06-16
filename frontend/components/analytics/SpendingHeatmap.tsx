@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -9,6 +9,7 @@ interface Props { transactions: any[] }
 
 export function SpendingHeatmap({ transactions }: Props) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
 
     const { grid, monthMarks, maxVal } = useMemo(() => {
         const map: Record<string, { total: number; count: number }> = {};
@@ -51,6 +52,12 @@ export function SpendingHeatmap({ transactions }: Props) {
         return { grid: enriched, monthMarks: marks, maxVal };
     }, [transactions]);
 
+    useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+        }
+    }, [grid]);
+
     const cellColor = (total: number) => {
         if (!total) return 'var(--bg-alt)';
         const t = Math.pow(Math.min(total / maxVal, 1), 0.5);
@@ -60,7 +67,7 @@ export function SpendingHeatmap({ transactions }: Props) {
     const CELL = 11, GAP = 2, COL_W = CELL + GAP;
 
     return (
-        <div onMouseLeave={() => setTooltip(null)} style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
+        <div ref={scrollRef} onMouseLeave={() => setTooltip(null)} style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
             {/* Month labels */}
             <div style={{ position: 'relative', height: 16, marginLeft: 22, marginBottom: 2 }}>
                 {monthMarks.map((m, i) => (
