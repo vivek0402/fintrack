@@ -18,13 +18,15 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
     if (loading) {
         return (
             <div style={{
-                background: 'var(--bg-card)',
+                background: 'var(--bg-surface-1)',
                 borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border-subtle)',
                 padding: 'var(--space-4)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 'var(--space-2)',
+                overflow: 'hidden',
+                minWidth: 0,
                 ...style,
             }}>
                 <Skeleton width="60%" height={10} borderRadius={4} />
@@ -38,13 +40,15 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
 
     return (
         <div style={{
-            background: 'var(--bg-card)',
+            background: 'var(--bg-surface-1)',
             borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-subtle)',
             padding: 'var(--space-4)',
             display: 'flex',
             flexDirection: 'column',
             gap: 'var(--space-2)',
+            overflow: 'hidden',
+            minWidth: 0,
             ...style,
         }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -53,7 +57,7 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
                     color: 'var(--text-secondary)',
-                    fontFamily: 'var(--font-head)',
+                    fontFamily: 'var(--font-display)',
                     fontWeight: 600,
                 }}>
                     {label}
@@ -66,13 +70,16 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
             </div>
 
             <div style={{
-                fontSize: 'var(--text-hero)',
+                fontSize: 'clamp(20px, 6.5vw, 32px)',
                 fontFamily: 'var(--font-mono)',
                 fontVariantNumeric: 'tabular-nums',
                 fontWeight: 700,
                 color: accentColor || 'var(--text-primary)',
-                lineHeight: 1,
+                lineHeight: 1.1,
                 letterSpacing: '-0.02em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
                 animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both',
             }}>
                 {value}
