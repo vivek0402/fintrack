@@ -9,13 +9,15 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
 
     if (isMobile) {
         return (
-            <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ padding: '28px 24px 24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ height: '100dvh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                {/* Fixed header — never scrolls away */}
+                <div style={{ flexShrink: 0, padding: '20px 24px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                         Fin<span style={{ fontWeight: 500, color: 'var(--accent)' }}>Track</span>
                     </span>
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '36px 24px 48px' }}>
+                {/* Scrollable form area — button always reachable by scrolling */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any, padding: '28px 24px 48px' }}>
                     {children}
                 </div>
             </div>
@@ -106,10 +108,10 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
 
             {/* ── Right form panel ── */}
             <div style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: '48px 52px', minHeight: '100vh',
+                flex: 1, overflowY: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+                padding: '0 52px', minHeight: '100vh',
             }}>
-                <div style={{ width: '100%', maxWidth: '400px' }}>
+                <div style={{ width: '100%', maxWidth: '400px', paddingTop: '72px', paddingBottom: '72px' }}>
                     {children}
                 </div>
             </div>
