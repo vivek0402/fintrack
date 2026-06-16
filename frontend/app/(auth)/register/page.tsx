@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { AuthPanel } from '@/components/auth/AuthPanel';
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -20,7 +21,6 @@ export default function RegisterPage() {
     const [loading, setLoading] = useState(false);
     const [cooldown, setCooldown] = useState(0);
     const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
     const [showPassword, setShowPassword] = useState(false);
     const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(''));
     const [focusedOtp, setFocusedOtp] = useState<number | null>(null);
@@ -28,27 +28,19 @@ export default function RegisterPage() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && user) router.push('/onboarding'); }, [user, isLoading]);
-    useEffect(() => {
-        return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
-    }, []);
+    useEffect(() => { return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }; }, []);
 
     function startCooldown(seconds = 60) {
         setCooldown(seconds);
         cooldownRef.current = setInterval(() => {
-            setCooldown(prev => {
-                if (prev <= 1) { clearInterval(cooldownRef.current!); return 0; }
-                return prev - 1;
-            });
+            setCooldown(prev => { if (prev <= 1) { clearInterval(cooldownRef.current!); return 0; } return prev - 1; });
         }, 1000);
     }
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (form.password.length < 6) {
-            setError('Password must be at least 6 characters.');
-            return;
-        }
+        if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
         setLoading(true);
         try {
             await authAPI.register(form);
@@ -57,18 +49,13 @@ export default function RegisterPage() {
             startCooldown(60);
         } catch (err: any) {
             setError(err.response?.data?.error || 'Registration failed.');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const handleVerify = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (otp.length !== 6) {
-            setError('Enter the 6-digit code sent to your email.');
-            return;
-        }
+        if (otp.length !== 6) { setError('Enter the 6-digit code sent to your email.'); return; }
         setLoading(true);
         try {
             const res = await authAPI.verifyEmail({ email: pendingEmail, otp });
@@ -76,9 +63,7 @@ export default function RegisterPage() {
             router.push('/onboarding');
         } catch (err: any) {
             setError(err.response?.data?.error || 'Verification failed.');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     const handleResend = async () => {
@@ -93,13 +78,8 @@ export default function RegisterPage() {
         }
     };
 
-    // Password strength
     const pw = form.password;
-    const pwStrength = pw.length === 0 ? 0
-        : pw.length < 6 ? 1
-            : pw.length < 8 ? 2
-                : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4
-                    : 3;
+    const pwStrength = pw.length === 0 ? 0 : pw.length < 6 ? 1 : pw.length < 8 ? 2 : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4 : 3;
     const strengthColors = ['', 'var(--color-exp)', 'var(--color-warn)', 'var(--accent)', 'var(--color-inc)'];
     const strengthLabels = ['', 'Too short', 'Fair', 'Good', 'Strong'];
 
@@ -113,9 +93,7 @@ export default function RegisterPage() {
     };
 
     const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
+        if (e.key === 'Backspace' && !otpDigits[index] && index > 0) otpRefs.current[index - 1]?.focus();
     };
 
     const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -129,123 +107,93 @@ export default function RegisterPage() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)' }}>
-            <div style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 'var(--space-8) var(--space-7)' }}>
+        <AuthPanel>
+            {/* ── Register step ── */}
+            {step === 'register' && (
+                <>
+                    <div style={{ marginBottom: '32px' }}>
+                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+                            Create account
+                        </h1>
+                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                            Start your financial journey
+                        </p>
+                    </div>
 
-                {/* Wordmark */}
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 'var(--space-6)' }}>
-                    Fin<span style={{ fontWeight: 500, color: 'var(--accent)' }}>Track</span>
-                </div>
+                    <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <Input label="Full Name" type="text" placeholder="Your full name" icon={<User size={15} />}
+                            value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} autoComplete="off" required />
 
-                {/* ── Register step ── */}
-                {step === 'register' && (
-                    <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                        <div>
-                            <div style={{ fontSize: 'var(--text-h1)', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 'var(--space-1)' }}>Create account</div>
-                            <div style={{ fontSize: 'var(--text-body)', color: 'var(--text-muted)' }}>Start your financial journey</div>
-                        </div>
-
-                        <Input
-                            label="Full Name"
-                            type="text"
-                            placeholder="Your full name"
-                            icon={<User size={15} />}
-                            value={form.full_name}
-                            onChange={e => setForm({ ...form, full_name: e.target.value })}
-                            autoComplete="off"
-                            required
-                        />
-
-                        <Input
-                            label="Email"
-                            type="email"
-                            placeholder="you@example.com"
-                            icon={<Mail size={15} />}
-                            value={form.email}
-                            onChange={e => setForm({ ...form, email: e.target.value })}
-                            autoComplete="off"
-                            required
-                        />
+                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />}
+                            value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} autoComplete="off" required />
 
                         <div>
-                            <Input
-                                label="Password"
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="Min. 6 characters"
-                                icon={<Lock size={15} />}
+                            <Input label="Password" type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" icon={<Lock size={15} />}
                                 suffix={
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(v => !v)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}
-                                    >
+                                    <button type="button" onClick={() => setShowPassword(v => !v)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
                                         {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                                     </button>
                                 }
-                                value={form.password}
-                                onChange={e => setForm({ ...form, password: e.target.value })}
-                                autoComplete="new-password"
-                                required
-                            />
+                                value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} autoComplete="new-password" required />
                             {pw.length > 0 && (
-                                <div style={{ marginTop: 'var(--space-2)' }}>
-                                    <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--space-1)' }}>
+                                <div style={{ marginTop: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
                                         {[1, 2, 3, 4].map(i => (
-                                            <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i <= pwStrength ? strengthColors[pwStrength] : 'var(--border-subtle)' }} />
+                                            <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i <= pwStrength ? strengthColors[pwStrength] : 'var(--border-subtle)', transition: 'background 0.2s' }} />
                                         ))}
                                     </div>
-                                    <div style={{ fontSize: 'var(--text-caption)', color: strengthColors[pwStrength] }}>{strengthLabels[pwStrength]}</div>
+                                    <div style={{ fontSize: '11px', color: strengthColors[pwStrength] }}>{strengthLabels[pwStrength]}</div>
                                 </div>
                             )}
                         </div>
 
                         {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-caption)', color: 'var(--color-exp)' }}>
+                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
                                 {error}
                             </div>
                         )}
 
-                        <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%' }}>
+                        <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
                             Create Account
                         </Button>
 
-                        <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
                             By signing up you agree to our{' '}
-                            <span style={{ color: 'var(--accent)' }}>Terms of Service</span>
-                            {' '}and{' '}
+                            <span style={{ color: 'var(--accent)' }}>Terms of Service</span> and{' '}
                             <span style={{ color: 'var(--accent)' }}>Privacy Policy</span>
-                        </div>
-                        <div style={{ textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>
-                            Already have an account?{' '}
-                            <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/login')}>Sign in</span>
-                        </div>
+                        </p>
                     </form>
-                )}
 
-                {/* ── OTP verify step ── */}
-                {step === 'verify' && (
-                    <form onSubmit={handleVerify} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                        <div style={{ width: '56px', height: '56px', borderRadius: 'var(--radius-full)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                            <Mail size={24} color="var(--accent)" />
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 'var(--text-h1)', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 'var(--space-1)' }}>Check your email</div>
-                            <div style={{ fontSize: 'var(--text-body)', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                                We sent a 6-digit code to<br />
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{pendingEmail}</span>
-                            </div>
-                        </div>
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
+                        Already have an account?{' '}
+                        <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/login')}>Sign in</span>
+                    </div>
+                </>
+            )}
 
-                        {/* OTP boxes */}
-                        <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'center' }}>
+            {/* ── OTP verify step ── */}
+            {step === 'verify' && (
+                <>
+                    <div style={{ marginBottom: '32px' }}>
+                        <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-full)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                            <Mail size={22} color="var(--accent)" />
+                        </div>
+                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+                            Check your email
+                        </h1>
+                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
+                            We sent a 6-digit code to{' '}
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{pendingEmail}</span>
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleVerify} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                             {otpDigits.map((digit, i) => (
-                                <input
-                                    key={i}
+                                <input key={i}
                                     ref={el => { otpRefs.current[i] = el; }}
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    maxLength={1}
+                                    type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1}
                                     value={digit}
                                     onChange={e => handleOtpChange(i, e.target.value)}
                                     onKeyDown={e => handleOtpKeyDown(i, e)}
@@ -253,12 +201,13 @@ export default function RegisterPage() {
                                     onFocus={() => setFocusedOtp(i)}
                                     onBlur={() => setFocusedOtp(null)}
                                     style={{
-                                        width: '44px', height: '52px', textAlign: 'center', fontSize: '20px', fontWeight: 700,
+                                        width: '48px', height: '56px', textAlign: 'center',
+                                        fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-mono)',
                                         background: 'var(--bg-surface-2)',
-                                        border: `1px solid ${focusedOtp === i || digit ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                                        border: `1.5px solid ${focusedOtp === i || digit ? 'var(--accent)' : 'var(--border-subtle)'}`,
                                         borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none',
-                                        fontFamily: 'var(--font-body)',
-                                        boxShadow: focusedOtp === i ? 'color-mix(in srgb, var(--accent) 15%, transparent) 0 0 0 3px' : 'none',
+                                        boxShadow: focusedOtp === i ? '0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)' : 'none',
+                                        transition: 'border-color 0.15s, box-shadow 0.15s',
                                         boxSizing: 'border-box',
                                     }}
                                 />
@@ -266,7 +215,7 @@ export default function RegisterPage() {
                         </div>
 
                         {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-caption)', color: 'var(--color-exp)' }}>
+                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
                                 {error}
                             </div>
                         )}
@@ -275,28 +224,23 @@ export default function RegisterPage() {
                             Verify Email
                         </Button>
 
-                        <div style={{ textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>
-                            {cooldown > 0 ? (
-                                `Resend code in ${cooldown}s`
-                            ) : (
-                                <>Didn&apos;t receive a code?{' '}
+                        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
+                            {cooldown > 0 ? `Resend code in ${cooldown}s` : (
+                                <>Didn&apos;t receive it?{' '}
                                     <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={handleResend}>Resend</span>
                                 </>
                             )}
                         </div>
-                        <div style={{ textAlign: 'center' }}>
-                            <button
-                                type="button"
-                                onClick={() => { setStep('register'); setError(''); setOtp(''); setOtpDigits(Array(6).fill('')); }}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 'var(--text-caption)' }}
-                            >
-                                <ShieldCheck size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                                Back
-                            </button>
-                        </div>
                     </form>
-                )}
-            </div>
-        </div>
+
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
+                        <button type="button" onClick={() => { setStep('register'); setError(''); setOtp(''); setOtpDigits(Array(6).fill('')); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
+                            <ArrowLeft size={13} /> Back to registration
+                        </button>
+                    </div>
+                </>
+            )}
+        </AuthPanel>
     );
 }

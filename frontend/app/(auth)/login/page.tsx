@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { AuthPanel } from '@/components/auth/AuthPanel';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -35,76 +36,70 @@ export default function LoginPage() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'var(--space-6)' }}>
-            <div style={{ width: '100%', maxWidth: '420px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 'var(--space-8) var(--space-7)' }}>
+        <AuthPanel>
+            <div style={{ marginBottom: '32px' }}>
+                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+                    Welcome back
+                </h1>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                    Sign in to your account
+                </p>
+            </div>
 
-                {/* Wordmark */}
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: 'var(--space-6)' }}>
-                    Fin<span style={{ fontWeight: 500, color: 'var(--accent)' }}>Track</span>
-                </div>
+            <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <Input
+                    label="Email"
+                    type="email"
+                    placeholder="you@example.com"
+                    icon={<Mail size={15} />}
+                    value={form.email}
+                    onChange={e => setForm({ ...form, email: e.target.value })}
+                    autoComplete="off"
+                    required
+                />
 
-                <div style={{ fontSize: 'var(--text-h1)', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)', marginBottom: 'var(--space-1)' }}>Welcome back</div>
-                <div style={{ fontSize: 'var(--text-body)', color: 'var(--text-muted)', marginBottom: 'var(--space-6)' }}>Sign in to your account</div>
-
-                <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div>
                     <Input
-                        label="Email"
-                        type="email"
-                        placeholder="you@example.com"
-                        icon={<Mail size={15} />}
-                        value={form.email}
-                        onChange={e => setForm({ ...form, email: e.target.value })}
-                        autoComplete="off"
+                        label="Password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Your password"
+                        icon={<Lock size={15} />}
+                        suffix={
+                            <button type="button" onClick={() => setShowPassword(v => !v)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
+                                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                        }
+                        value={form.password}
+                        onChange={e => setForm({ ...form, password: e.target.value })}
+                        autoComplete="new-password"
                         required
                     />
-
-                    <div>
-                        <Input
-                            label="Password"
-                            type={showPassword ? 'text' : 'password'}
-                            placeholder="Your password"
-                            icon={<Lock size={15} />}
-                            suffix={
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(v => !v)}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}
-                                >
-                                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                                </button>
-                            }
-                            value={form.password}
-                            onChange={e => setForm({ ...form, password: e.target.value })}
-                            autoComplete="new-password"
-                            required
-                        />
-                        <div style={{ textAlign: 'right', marginTop: 'var(--space-2)' }}>
-                            <button
-                                type="button"
-                                onClick={() => router.push('/forgot-password')}
-                                style={{ background: 'none', border: 'none', fontSize: 'var(--text-caption)', color: 'var(--accent)', fontWeight: 500, cursor: 'pointer', padding: 0 }}
-                            >
-                                Forgot password?
-                            </button>
-                        </div>
+                    <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                        <button type="button" onClick={() => router.push('/forgot-password')}
+                            style={{ background: 'none', border: 'none', fontSize: '12px', color: 'var(--accent)', fontWeight: 500, cursor: 'pointer', padding: 0 }}>
+                            Forgot password?
+                        </button>
                     </div>
-
-                    {error && (
-                        <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-caption)', color: 'var(--color-exp)' }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%' }}>
-                        Sign In
-                    </Button>
-                </form>
-
-                <div style={{ textAlign: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-muted)', marginTop: 'var(--space-5)' }}>
-                    New to FinTrack?{' '}
-                    <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>Create account</span>
                 </div>
+
+                {error && (
+                    <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
+                        {error}
+                    </div>
+                )}
+
+                <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
+                    Sign In
+                </Button>
+            </form>
+
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
+                New to FinTrack?{' '}
+                <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>
+                    Create account
+                </span>
             </div>
-        </div>
+        </AuthPanel>
     );
 }

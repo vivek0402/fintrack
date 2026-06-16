@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight, ChevronDown, CalendarClock, Flame, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
@@ -172,6 +172,15 @@ export default function DashboardPage() {
         ? { label: `${savingsPct}% · Fair`, color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)' }
         : { label: 'Needs work',            color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)'  };
 
+    // Row-2 tile computed values
+    const today       = new Date();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysElapsed = Math.max(today.getDate(), 1);
+    const daysLeft    = daysInMonth - today.getDate();
+    const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
+    const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
+    const lastTx      = transactions[0] ?? null;
+
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
     useEffect(() => {
@@ -239,32 +248,38 @@ export default function DashboardPage() {
         debtAPI.getDti().then(res => setDti(res.data)).catch(() => {});
         loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
+        opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
+        briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
+    }, [user]);
 
-        // Cache AI report for 1 hour to avoid burning the 30 req/hr rate limit on every reload
-        const AI_REPORT_KEY = `ai-report-${user.id}-${month}-${year}`;
-        const AI_REPORT_TTL = 60 * 60 * 1000;
+    // Fingerprint-based AI regeneration — only refetches when income/expenses change
+    useEffect(() => {
+        if (!user || !summary) return;
+        const fingerprint = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
+        const AI_KEY = `ai-report-${user.id}-${month}-${year}`;
+        const AI_FP_KEY  = `ai-fp-${user.id}-${month}-${year}`;
         try {
-            const cached = localStorage.getItem(AI_REPORT_KEY);
-            if (cached) {
-                const { report, ts } = JSON.parse(cached);
-                if (Date.now() - ts < AI_REPORT_TTL && report) {
-                    setAiInsight(report);
-                    setAiLoading(false);
-                    return;
-                }
+            const cached    = localStorage.getItem(AI_KEY);
+            const storedFP  = localStorage.getItem(AI_FP_KEY);
+            if (cached && storedFP === fingerprint) {
+                setAiInsight(JSON.parse(cached).report ?? '');
+                setAiLoading(false);
+                return;
             }
-        } catch { /* stale cache */ }
+        } catch { /* stale */ }
+        setAiLoading(true);
         aiAPI.report()
             .then(res => {
                 const report = res.data?.report ?? '';
                 setAiInsight(report);
-                if (report) try { localStorage.setItem(AI_REPORT_KEY, JSON.stringify({ report, ts: Date.now() })); } catch {}
+                if (report) {
+                    try { localStorage.setItem(AI_KEY,    JSON.stringify({ report })); } catch {}
+                    try { localStorage.setItem(AI_FP_KEY, fingerprint);                } catch {}
+                }
             })
             .catch(() => setAiInsight('Unable to generate right now — try again shortly.'))
             .finally(() => setAiLoading(false));
-        opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
-        briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
-    }, [user]);
+    }, [summary, month, year, user]);
 
     // Current week's Monday (matches backend mondayOf())
     const currentWeekOf = useMemo(() => {
@@ -357,54 +372,76 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
-                {/* ── STAT TILES ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : `repeat(${investmentRatio ? 5 : 4}, 1fr)`, gap: '12px' }}>
-                    {[
-                        { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
-                        { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
-                        { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', tint: 'color-mix(in srgb, var(--accent) 10%, var(--bg-surface-1))', border: 'color-mix(in srgb, var(--accent) 22%, transparent)', Icon: Wallet },
-                        { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,  color: savingsBadge.color, tint: savingsBadge.bg, border: 'transparent', Icon: Award, isSavings: true },
-                        ...(investmentRatio ? [{
-                            label: 'Investing This Month',
-                            value: investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
-                            sub: `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income`,
-                            color: investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)',
-                            tint: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 10%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',
-                            border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
-                            Icon: PiggyBank,
-                        }] : []),
-                    ].map((tile) => (
-                        <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
-                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <tile.Icon size={14} color={tile.color} />
+                {/* ── STAT TILES — 4×2 grid (desktop) / 2×4 (mobile) ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
+                    {(() => {
+                        // Row 1
+                        const investColor = !investmentRatio
+                            ? 'var(--text-muted)'
+                            : investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)';
+
+                        // Row 2 — Last Transaction
+                        const lastTxAmount = lastTx ? parseFloat(lastTx.amount) : 0;
+                        const lastTxColor  = !lastTx ? 'var(--text-muted)' : lastTx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)';
+                        const runwayColor  = runway >= 0 ? 'var(--color-inc)' : 'var(--color-exp)';
+                        const burnColor    = dailyBurn === 0 ? 'var(--text-muted)' : dailyBurn > (summary?.total_income ?? 0) / daysInMonth ? 'var(--color-exp)' : 'var(--color-warn)';
+
+                        const tiles = [
+                            // ── Row 1 ──
+                            { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month],          color: 'var(--color-inc)', Icon: TrendingUp   },
+                            { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month],          color: 'var(--color-exp)', Icon: TrendingDown },
+                            { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', Icon: Wallet },
+                            { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,           color: savingsBadge.color, Icon: Award        },
+                            // ── Row 2 ──
+                            {
+                                label: 'Investing This Month',
+                                value: !investmentRatio ? 'N/A' : investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
+                                sub: investmentRatio ? `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income` : 'No investment data',
+                                color: investColor, Icon: PiggyBank,
+                            },
+                            {
+                                label: 'Days Remaining',
+                                value: dataLoading ? '—' : `${daysLeft}d left`,
+                                sub: runway === 0 ? `${fmt(0)} runway` : `${fmt(Math.abs(runway))} ${runway >= 0 ? 'remaining' : 'deficit'}`,
+                                color: runwayColor, Icon: CalendarClock,
+                            },
+                            {
+                                label: 'Daily Burn',
+                                value: dataLoading ? '—' : dailyBurn === 0 ? fmt(0) : fmt(dailyBurn),
+                                sub: 'per day so far',
+                                color: burnColor, Icon: Flame,
+                            },
+                            {
+                                label: 'Last Transaction',
+                                value: !lastTx ? '—' : `${lastTx.type === 'income' ? '+' : '−'}${fmt(lastTxAmount)}`,
+                                sub: !lastTx ? 'No transactions yet' : `${lastTx.description ?? lastTx.category_name ?? 'Transaction'} · ${getDateLabel(lastTx.date)}`,
+                                color: lastTxColor, Icon: ArrowRightLeft,
+                            },
+                        ];
+
+                        return tiles.map(tile => (
+                            <div key={tile.label} style={{
+                                background: `color-mix(in srgb, ${tile.color} 10%, var(--bg-surface-1))`,
+                                border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
+                                borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden',
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
+                                    <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <tile.Icon size={14} color={tile.color} />
+                                    </div>
                                 </div>
+                                {dataLoading ? (
+                                    <Skeleton width="70%" height={28} borderRadius={4} />
+                                ) : (
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                        {tile.value}
+                                    </p>
+                                )}
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tile.sub}</p>
                             </div>
-                            {dataLoading ? (
-                                <Skeleton width="70%" height={28} borderRadius={4} />
-                            ) : (
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                    {tile.value}
-                                </p>
-                            )}
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{tile.sub}</p>
-                        </div>
-                    ))}
-                    {/* ── AI Insight compact tile — mobile only, fills gap beside Investing ── */}
-                    {isMobile && (
-                        <div style={{ background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>AI Insight</span>
-                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Sparkles size={14} color="var(--accent)" />
-                                </div>
-                            </div>
-                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                {aiLoading ? 'Generating…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
-                            </p>
-                        </div>
-                    )}
+                        ));
+                    })()}
                 </div>
 
                 {/* ── HERO — Net Position (dominant) ── */}
@@ -430,6 +467,42 @@ export default function DashboardPage() {
                         </p>
                     </div>
 
+                    {/* ── AI INSIGHT — above chart ── */}
+                    {!aiLoading && aiInsight && (
+                        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                            <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)', flex: 1 }}>
+                                {aiInsight}
+                            </p>
+                            <button type="button" title="Refresh AI insight"
+                                onClick={async () => {
+                                    setAiReportLoading(true);
+                                    try {
+                                        const AI_KEY   = `ai-report-${user?.id}-${month}-${year}`;
+                                        const AI_FP_KEY = `ai-fp-${user?.id}-${month}-${year}`;
+                                        try { localStorage.removeItem(AI_KEY); localStorage.removeItem(AI_FP_KEY); } catch {}
+                                        const res = await aiAPI.report();
+                                        const report = res.data?.report ?? '';
+                                        setAiInsight(report);
+                                        if (report && summary) {
+                                            const fp = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
+                                            try { localStorage.setItem(AI_KEY, JSON.stringify({ report })); localStorage.setItem(AI_FP_KEY, fp); } catch {}
+                                        }
+                                    } catch { setAiInsight('Unable to generate right now — try again shortly.'); }
+                                    finally { setAiReportLoading(false); }
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', flexShrink: 0, opacity: aiReportLoading ? 0.5 : 1 }}>
+                                <RefreshCw size={13} style={{ animation: aiReportLoading ? 'spin 0.7s linear infinite' : 'none' }} />
+                            </button>
+                        </div>
+                    )}
+                    {(aiLoading || aiReportLoading) && !aiInsight && (
+                        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Generating your monthly AI summary…</span>
+                        </div>
+                    )}
+
                     {/* 6-month trend */}
                     <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
                         6-month trend
@@ -439,40 +512,6 @@ export default function DashboardPage() {
                     ) : (
                         <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
                     )}
-                </div>
-
-                {/* ── AI INSIGHT ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <Sparkles size={14} color="var(--accent)" />
-                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
-                        </div>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
-                            {(aiLoading || aiReportLoading) ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
-                        </p>
-                    </div>
-                    <Button
-                        onClick={async () => {
-                            setAiReportLoading(true);
-                            try {
-                                const AI_REPORT_KEY = `ai-report-${user?.id}-${month}-${year}`;
-                                try { localStorage.removeItem(AI_REPORT_KEY); } catch {}
-                                const res = await aiAPI.report();
-                                const report = res.data?.report ?? '';
-                                setAiInsight(report);
-                                if (report) try { localStorage.setItem(AI_REPORT_KEY, JSON.stringify({ report, ts: Date.now() })); } catch {}
-                            } catch {
-                                setAiInsight('Unable to generate right now — try again shortly.');
-                            }
-                            finally { setAiReportLoading(false); }
-                        }}
-                        isLoading={aiReportLoading}
-                        size="sm"
-                        style={{ alignSelf: isMobile ? 'flex-start' : 'center', flexShrink: 0 }}
-                    >
-                        <RefreshCw size={12} /> Generate Report
-                    </Button>
                 </div>
 
                 {/* ── WEEKLY BRIEFING WIDGET ── */}
