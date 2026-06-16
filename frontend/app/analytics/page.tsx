@@ -221,6 +221,62 @@ export default function AnalyticsPage() {
     };
     const pctChange = (curr: number, last: number) => last === 0 ? null : ((curr - last) / last * 100).toFixed(1);
 
+    const periodStats = useMemo(() => {
+        if (period === 'month') {
+            const spent = summary?.total_expenses ?? 0;
+            const income = summary?.total_income ?? 0;
+            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+            const daysEl = isCurrentMonth ? new Date().getDate() : daysInMonth;
+            return {
+                totalSpent: spent,
+                dailyAvg: daysEl > 0 ? spent / daysEl : 0,
+                savingsRate: income > 0 ? Math.max(0, Math.round(((income - spent) / income) * 100)) : 0,
+                vsLast: vsLastMonth,
+                vsLabel: 'vs Last Month',
+                periodLabel: FULL_MONTHS[currentMonth],
+            };
+        }
+        if (period === 'quarter') {
+            const q = Math.ceil(currentMonth / 3);
+            const qMonths = [q * 3 - 2, q * 3 - 1, q * 3];
+            let qExp = 0, qInc = 0;
+            qMonths.forEach(m => { const e = trendsMap[`${currentYear}-${m}`]; if (e) { qExp += e.expenses; qInc += e.income; } });
+            const pq = q === 1 ? 4 : q - 1;
+            const pqYear = q === 1 ? currentYear - 1 : currentYear;
+            let pqExp = 0;
+            [pq * 3 - 2, pq * 3 - 1, pq * 3].forEach(m => { const e = trendsMap[`${pqYear}-${m}`]; if (e) pqExp += e.expenses; });
+            const qStart = new Date(currentYear, (q - 1) * 3, 1);
+            const qEnd = new Date(currentYear, q * 3, 0);
+            const today = new Date();
+            const isCurrentQ = today >= qStart && today <= qEnd;
+            const totalDays = Math.round((qEnd.getTime() - qStart.getTime()) / 86400000) + 1;
+            const daysEl = isCurrentQ ? Math.round((today.getTime() - qStart.getTime()) / 86400000) + 1 : totalDays;
+            return {
+                totalSpent: qExp,
+                dailyAvg: daysEl > 0 ? qExp / daysEl : 0,
+                savingsRate: qInc > 0 ? Math.max(0, Math.round(((qInc - qExp) / qInc) * 100)) : 0,
+                vsLast: pqExp > 0 ? Math.round(((qExp - pqExp) / pqExp) * 100) : null,
+                vsLabel: 'vs Last Quarter',
+                periodLabel: `Q${q} ${currentYear}`,
+            };
+        }
+        // year
+        const yExp = getYearlyTotal(currentYear, 'expense');
+        const yInc = getYearlyTotal(currentYear, 'income');
+        const pyExp = getYearlyTotal(currentYear - 1, 'expense');
+        const today = new Date();
+        const yearStart = new Date(currentYear, 0, 1);
+        const daysEl = currentYear === _nowYear ? Math.round((today.getTime() - yearStart.getTime()) / 86400000) + 1 : 365;
+        return {
+            totalSpent: yExp,
+            dailyAvg: daysEl > 0 ? yExp / daysEl : 0,
+            savingsRate: yInc > 0 ? Math.max(0, Math.round(((yInc - yExp) / yInc) * 100)) : 0,
+            vsLast: pyExp > 0 ? Math.round(((yExp - pyExp) / pyExp) * 100) : null,
+            vsLabel: 'vs Last Year',
+            periodLabel: String(currentYear),
+        };
+    }, [period, summary, trendsMap, currentMonth, currentYear, isCurrentMonth, vsLastMonth, yearlyData, _nowYear]);
+
     const hexToRgba = (hex: string, alpha: number) => {
         if (hex.startsWith('rgb')) return hex; // already rgba — just return
         const r = parseInt(hex.slice(1, 3), 16);
@@ -321,10 +377,10 @@ export default function AnalyticsPage() {
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                 {[
-                                    { label: 'Total Spent', value: fmt(summary?.total_expenses ?? 0), sub: FULL_MONTHS[currentMonth], color: 'var(--color-exp)' },
-                                    { label: 'Daily Average', value: fmt(dailyAvg), sub: 'this month', color: 'var(--color-warn)' },
-                                    { label: 'vs Last Month', value: vsLastMonth !== null ? `${vsLastMonth > 0 ? '+' : ''}${vsLastMonth}%` : '—', sub: 'expenses', color: vsLastMonth !== null && vsLastMonth > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
-                                    { label: 'Savings Rate', value: `${savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
+                                    { label: 'Total Spent', value: fmt(periodStats.totalSpent), sub: periodStats.periodLabel, color: 'var(--color-exp)' },
+                                    { label: 'Daily Average', value: fmt(periodStats.dailyAvg), sub: period === 'month' ? 'this month' : period === 'quarter' ? 'this quarter' : 'this year', color: 'var(--color-warn)' },
+                                    { label: periodStats.vsLabel, value: periodStats.vsLast !== null ? `${periodStats.vsLast > 0 ? '+' : ''}${periodStats.vsLast}%` : '—', sub: 'expenses', color: periodStats.vsLast !== null && periodStats.vsLast > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
+                                    { label: 'Savings Rate', value: `${periodStats.savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
                                 ].map(kpi => (
                                     <GCard key={kpi.label}>
                                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
