@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Briefcase, Wallet, TrendingUp, Layers, FileUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useIsMobile } from '@/hooks/useWindowSize';
 import { investmentAPI, CreateInvestmentPayload } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { StatTile } from '@/components/ui/StatTile';
@@ -40,6 +41,7 @@ const emptyForm = {
 export default function InvestmentsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
+    const isMobile = useIsMobile();
 
     const [investments, setInvestments] = useState<Investment[]>([]);
     const [summary, setSummary] = useState<InvestmentSummary | null>(null);
@@ -202,12 +204,12 @@ export default function InvestmentsPage() {
                             Track your portfolio across all asset types
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button variant="secondary" onClick={() => setShowCamsImport(true)}>
-                            <FileUp size={14} /> Import from CAMS
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                        <Button variant={isMobile ? 'icon' : 'secondary'} size={isMobile ? 'md' : 'md'} onClick={() => setShowCamsImport(true)} title="Import from CAMS">
+                            <FileUp size={16} />{!isMobile && ' Import from CAMS'}
                         </Button>
-                        <Button onClick={() => { setShowAdd(true); setFormErrors({}); }}>
-                            <Plus size={14} /> Add Investment
+                        <Button variant={isMobile ? 'icon' : 'primary'} onClick={() => { setShowAdd(true); setFormErrors({}); }} title="Add Investment">
+                            <Plus size={16} />{!isMobile && ' Add Investment'}
                         </Button>
                     </div>
                 </div>
