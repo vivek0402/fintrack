@@ -96,6 +96,23 @@ function BezierSparkline({ data, incColor, expColor }: {
                 <path d={linePath(incPts)} fill="none" stroke={incColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                 <path d={linePath(expPts)} fill="none" stroke={expColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            {/* Month labels aligned to data points */}
+            <div style={{ position: 'relative', height: '16px', marginTop: '4px' }}>
+                {data.map((d, i) => {
+                    const xPct = n === 1 ? 50 : (i / (n - 1)) * 100;
+                    return (
+                        <span key={i} style={{
+                            position: 'absolute',
+                            left: `${xPct}%`,
+                            transform: 'translateX(-50%)',
+                            fontSize: '10px',
+                            color: 'var(--text-muted)',
+                            fontFamily: 'var(--font-body)',
+                            whiteSpace: 'nowrap',
+                        }}>{d.month}</span>
+                    );
+                })}
+            </div>
             <div style={{ display: 'flex', gap: '14px', marginTop: '6px' }}>
                 {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
                     <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -142,6 +159,7 @@ export default function DashboardPage() {
     const [briefing, setBriefing] = useState<any>(null);
     const [briefingExpanded, setBriefingExpanded] = useState(false);
     const [healthDetailsOpen, setHealthDetailsOpen] = useState(false);
+    const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
 
     // Chart colours (read from CSS vars)
     const [incColor, setIncColor] = useState('#059669');
@@ -452,7 +470,7 @@ export default function DashboardPage() {
                     {dataLoading ? (
                         <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
                     ) : (
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? 'var(--text-display)' : '56px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '28px' : '38px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
                             {heroNet >= 0 ? '' : '−'}{fmt(Math.abs(heroNet))}
                         </p>
                     )}
@@ -563,60 +581,6 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* ── OPPORTUNITIES ── */}
-                {opportunities.length > 0 && (
-                    <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Opportunities</h2>
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-subtle)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
-                                    {opportunities.length}
-                                </span>
-                            </div>
-                            {opportunities.length > 3 && (
-                                <Link href="/insights" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '2px', fontFamily: 'var(--font-body)' }}>
-                                    See all <ChevronRight size={12} />
-                                </Link>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {opportunities.slice(0, 3).map((opp: any) => {
-                                const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
-                                const isDismissing = dismissingIds.has(opp.id);
-                                return (
-                                    <div key={opp.id} style={{
-                                        background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
-                                        borderRadius: 'var(--radius-lg)', padding: '14px 16px',
-                                        opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
-                                        transition: 'opacity 250ms ease, transform 250ms ease',
-                                    }}>
-                                        <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                            {opp.title}
-                                        </p>
-                                        <p style={{
-                                            fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)',
-                                            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                        }}>
-                                            {opp.description}
-                                        </p>
-                                        {opp.amount_saved != null && (
-                                            <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
-                                                    Save {fmt(parseFloat(opp.amount_saved))}/year
-                                                </span>
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
-                                            <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
-                                            <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
                 {/* ── DEBT ALERTS ── */}
                 {!utilAlertDismissed && creditUtilization && creditUtilization.aggregate.overall_utilization_pct > 50 && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)' }}>
@@ -663,36 +627,93 @@ export default function DashboardPage() {
                     </button>
                     {healthDetailsOpen && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px 20px' }}>
-                            {/* ── NET WORTH WIDGET ── */}
                             {(accounts.length > 0 || investments.length > 0) && <NetWorthWidget />}
-
-                            {/* ── WEALTH INTELLIGENCE WIDGETS ── */}
                             {investments.length > 0 && (
                                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
                                     <WealthVelocityWidget />
                                     <AssetAllocationWidget />
                                 </div>
                             )}
-
-                            {/* ── DEBT WIDGETS ── */}
                             {(activeLoanCount > 0 || (creditUtilization?.per_card?.length ?? 0) > 0) && (
                                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
                                     <CreditUtilizationWidget />
                                     <DtiWidget hasLoans={activeLoanCount > 0} hasCards={(creditUtilization?.per_card?.length ?? 0) > 0} />
                                 </div>
                             )}
-
-                            {/* ── HEALTH SCORE WIDGET ── */}
                             <HealthScoreWidget
                                 summary={summary}
                                 budgets={budgets}
                                 goals={goals}
                                 trends={trends}
                                 loading={dataLoading}
+                                investmentRatio={investmentRatio}
+                                dti={dti}
+                                creditUtilization={creditUtilization}
                             />
                         </div>
                     )}
                 </div>
+
+                {/* ── OPPORTUNITIES (collapsed by default) ── */}
+                {opportunities.length > 0 && (
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <button
+                            type="button"
+                            onClick={() => setOpportunitiesOpen(v => !v)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Opportunities</span>
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-subtle)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
+                                    {opportunities.length}
+                                </span>
+                            </div>
+                            <ChevronDown size={16} color="var(--text-muted)" style={{ transform: opportunitiesOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} />
+                        </button>
+                        {opportunitiesOpen && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px 16px' }}>
+                                {opportunities.slice(0, 3).map((opp: any) => {
+                                    const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
+                                    const isDismissing = dismissingIds.has(opp.id);
+                                    return (
+                                        <div key={opp.id} style={{
+                                            background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
+                                            borderRadius: 'var(--radius-lg)', padding: '14px 16px',
+                                            opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
+                                            transition: 'opacity 250ms ease, transform 250ms ease',
+                                        }}>
+                                            <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                                {opp.title}
+                                            </p>
+                                            <p style={{
+                                                fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)',
+                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                            }}>
+                                                {opp.description}
+                                            </p>
+                                            {opp.amount_saved != null && (
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
+                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
+                                                        Save {fmt(parseFloat(opp.amount_saved))}/year
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
+                                                <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
+                                                <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {opportunities.length > 3 && (
+                                    <Link href="/insights" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)', paddingTop: '4px' }}>
+                                        See all <ChevronRight size={12} />
+                                    </Link>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* ── 3-COLUMN: BUDGETS / CATEGORIES / RECENT TRANSACTIONS ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>

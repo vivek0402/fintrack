@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, ChevronRight } from 'lucide-react';
-import { creditCardsAPI } from '@/lib/api';
 import { calculateHealthScore, HealthScoreResult } from '@/lib/healthScore';
 import { useCountUp } from '@/hooks/useCountUp';
 
@@ -17,6 +16,9 @@ interface Props {
   goals: any[];
   trends: any[];
   loading: boolean;
+  investmentRatio: { invested_this_month: number; income_this_month: number; ratio_pct: number } | null;
+  dti: { dti_ratio: number } | null;
+  creditUtilization: { aggregate: { overall_utilization_pct: number } } | null;
 }
 
 function ScoreArc({ score, color }: { score: number; color: string }) {
@@ -46,7 +48,7 @@ function ScoreArc({ score, color }: { score: number; color: string }) {
   );
 }
 
-export function HealthScoreWidget({ summary, budgets, goals, trends, loading }: Props) {
+export function HealthScoreWidget({ summary, budgets, goals, trends, loading, investmentRatio, dti, creditUtilization }: Props) {
   const router = useRouter();
   const [result, setResult] = useState<HealthScoreResult | null>(null);
 
@@ -57,29 +59,33 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading }: 
 
   useEffect(() => {
     if (loading || !summary || !hasData) return;
-    creditCardsAPI.getAll()
-      .then(res => {
-        const cards: any[] = res.data?.credit_cards ?? [];
-        const totalCCDebt  = cards.reduce((s: number, c: any) => s + Number(c.outstanding_balance ?? 0), 0);
 
-        const expenseByMonth: Record<string, number> = {};
-        trends.forEach((row: any) => {
-          if (row.type === 'expense') {
-            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-            expenseByMonth[key] = parseFloat(row.total);
-          }
-        });
-        const monthlyExpenses = Object.entries(expenseByMonth)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .slice(-3)
-          .map(([, v]) => v);
+    // Build paired monthly income/expense arrays from trends
+    const monthMap: Record<string, { income: number; expenses: number }> = {};
+    trends.forEach((row: any) => {
+      const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+      if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
+      if (row.type === 'income')  monthMap[key].income   = parseFloat(row.total);
+      if (row.type === 'expense') monthMap[key].expenses = parseFloat(row.total);
+    });
+    const sorted = Object.entries(monthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-6);
+    const monthlyIncome   = sorted.map(([, v]) => v.income);
+    const monthlyExpenses = sorted.map(([, v]) => v.expenses);
 
-        setResult(calculateHealthScore({ income, expenses, budgets, goals, monthlyExpenses, totalCCDebt }));
-      })
-      .catch(() => {
-        setResult(calculateHealthScore({ income, expenses, budgets, goals, monthlyExpenses: [], totalCCDebt: 0 }));
-      });
-  }, [loading, summary, hasData, budgets, goals, trends]);
+    setResult(calculateHealthScore({
+      income,
+      expenses,
+      budgets,
+      goals,
+      monthlyIncome,
+      monthlyExpenses,
+      investedThisMonth:  investmentRatio?.invested_this_month ?? 0,
+      dtiRatio:           dti?.dti_ratio ?? 0,
+      ccUtilizationPct:   creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
+    }));
+  }, [loading, summary, hasData, budgets, goals, trends, investmentRatio, dti, creditUtilization]);
 
   const displayScore = useCountUp(result?.score ?? 0, 1000, !!result);
 

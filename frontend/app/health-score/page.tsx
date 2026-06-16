@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Heart, ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, budgetsAPI, goalsAPI, creditCardsAPI } from '@/lib/api';
+import { analyticsAPI, budgetsAPI, goalsAPI, debtAPI } from '@/lib/api';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { calculateHealthScore, HealthScoreResult } from '@/lib/healthScore';
@@ -80,32 +80,42 @@ export default function HealthScorePage() {
       analyticsAPI.trends(),
       budgetsAPI.getAll({ month, year }),
       goalsAPI.getAll(),
-      creditCardsAPI.getAll(),
-    ]).then(([summaryRes, trendsRes, budgetsRes, goalsRes, ccRes]) => {
-      const summary  = summaryRes.data.summary;
-      const trends   = trendsRes.data.trends ?? [];
-      const budgets  = budgetsRes.data.budgets ?? [];
-      const goals    = goalsRes.data.goals ?? [];
-      const cards    = ccRes.data?.credit_cards ?? [];
+      analyticsAPI.getInvestmentRatio().catch(() => ({ data: null })),
+      debtAPI.getDti().catch(() => ({ data: null })),
+      debtAPI.getCreditUtilization().catch(() => ({ data: null })),
+    ]).then(([summaryRes, trendsRes, budgetsRes, goalsRes, investRes, dtiRes, cuRes]) => {
+      const summary           = summaryRes.data.summary;
+      const trends            = trendsRes.data.trends ?? [];
+      const budgets           = budgetsRes.data.budgets ?? [];
+      const goals             = goalsRes.data.goals ?? [];
+      const investmentRatio   = investRes.data;
+      const dti               = dtiRes.data;
+      const creditUtilization = cuRes.data;
 
-      const totalCCDebt = cards.reduce((s: number, c: any) => s + Number(c.outstanding_balance ?? 0), 0);
-
-      const expenseByMonth: Record<string, number> = {};
+      // Build paired monthly income/expense arrays from trends
+      const monthMap: Record<string, { income: number; expenses: number }> = {};
       trends.forEach((row: any) => {
-        if (row.type === 'expense') {
-          const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-          expenseByMonth[key] = parseFloat(row.total);
-        }
+        const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+        if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
+        if (row.type === 'income')  monthMap[key].income   = parseFloat(row.total);
+        if (row.type === 'expense') monthMap[key].expenses = parseFloat(row.total);
       });
-      const monthlyExpenses = Object.entries(expenseByMonth)
+      const sorted = Object.entries(monthMap)
         .sort(([a], [b]) => a.localeCompare(b))
-        .slice(-4)
-        .map(([, v]) => v);
+        .slice(-6);
+      const monthlyIncome   = sorted.map(([, v]) => v.income);
+      const monthlyExpenses = sorted.map(([, v]) => v.expenses);
 
       const calc = calculateHealthScore({
         income:   Number(summary?.total_income   ?? 0),
         expenses: Number(summary?.total_expenses ?? 0),
-        budgets, goals, monthlyExpenses, totalCCDebt,
+        budgets,
+        goals,
+        monthlyIncome,
+        monthlyExpenses,
+        investedThisMonth:  investmentRatio?.invested_this_month ?? 0,
+        dtiRatio:           dti?.dti_ratio ?? 0,
+        ccUtilizationPct:   creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
       });
 
       setResult(calc);
@@ -221,16 +231,16 @@ export default function HealthScorePage() {
           </div>
 
           {loading
-            ? [1,2,3,4,5].map(i => (
-                <div key={i} style={{ padding: '14px 20px', borderBottom: i < 5 ? '1px solid var(--border-subtle)' : 'none' }}>
+            ? [1,2,3,4,5,6,7,8].map(i => (
+                <div key={i} style={{ padding: '14px 20px', borderBottom: i < 8 ? '1px solid var(--border-subtle)' : 'none' }}>
                   <Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '8px' }} />
                   <Skeleton width="100%" height={5} borderRadius={99} />
                 </div>
               ))
-            : result?.breakdown.map((f, i) => {
+            : result?.breakdown.map((f, i, arr) => {
                 const barColor = f.pct >= 70 ? 'var(--color-inc)' : f.pct >= 40 ? 'var(--color-warn)' : 'var(--color-exp)';
                 return (
-                  <div key={f.id} style={{ padding: '14px 20px', borderBottom: i < 4 ? '1px solid var(--border-subtle)' : 'none' }}>
+                  <div key={f.id} style={{ padding: '14px 20px', borderBottom: i < arr.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{f.name}</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: barColor }}>{f.score}<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/{f.max}</span></span>

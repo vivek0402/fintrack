@@ -125,7 +125,7 @@ router.post('/report', authMiddleware, async (req, res) => {
 
         const report = (await aiComplete('report', [{
             role: 'user',
-            content: `Personal finance advisor. Summarise this month in 3-5 crisp sentences. Lead with income vs expenses. Call out the top spending category. Flag one clear risk or win. End with one actionable tip. Use ₹. No filler. Data: ${context}`,
+            content: `You're a friendly money coach talking to an everyday person — not a finance expert. Write a 3-4 sentence summary of their month in plain, conversational language, like you're texting a friend. Say "you earned" and "you spent", not "income" or "expenditure". Say "you saved" not "net surplus". Avoid words like: liquidity, net position, discretionary, fiscal, allocation, utilisation, variance. Mention what came in, what went out, what they spent the most on, and give one simple tip they can act on today. Use ₹ for amounts. Keep it warm, encouraging, and easy to understand. Data: ${context}`,
         }])).trim();
 
         res.json({ report });
