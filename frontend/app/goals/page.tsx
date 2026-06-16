@@ -17,7 +17,7 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 
-const GOAL_COLORS = ['#00e5a0', '#6366f1', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
+const GOAL_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2'];
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -60,11 +60,11 @@ export default function GoalsPage() {
     const [fundsAmount, setFundsAmount] = useState('');
     const [fundsType, setFundsType] = useState<'add' | 'withdraw'>('add');
     const [fundsLoading, setFundsLoading] = useState(false);
-    const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', color: '#00e5a0' });
+    const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState({ name: '', target_amount: '', deadline: '', color: '#00e5a0' });
+    const [editForm, setEditForm] = useState({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
     const [showLifeEvent, setShowLifeEvent] = useState(false);
@@ -90,7 +90,7 @@ export default function GoalsPage() {
         e.preventDefault(); setFormError(''); setFormLoading(true);
         try {
             await goalsAPI.create({ name: form.name, target_amount: parseFloat(form.target_amount), deadline: form.deadline || undefined, color: form.color });
-            setForm({ name: '', target_amount: '', deadline: '', color: '#00e5a0' });
+            setForm({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
             setShowForm(false); fetchGoals();
         } catch (err: any) { setFormError(err.response?.data?.error || 'Failed to create goal.'); }
         finally { setFormLoading(false); }
@@ -293,7 +293,7 @@ export default function GoalsPage() {
                                                     + Add Funds
                                                 </button>
                                             )}
-                                            <button type="button" onClick={() => { setEditingId(goal.id); setEditForm({ name: goal.name, target_amount: String(goal.target_amount), deadline: goal.deadline ? goal.deadline.split('T')[0] : '', color: goal.color || '#00e5a0' }); setEditError(''); }} style={iconBtn}>
+                                            <button type="button" onClick={() => { setEditingId(goal.id); setEditForm({ name: goal.name, target_amount: String(goal.target_amount), deadline: goal.deadline ? goal.deadline.split('T')[0] : '', color: goal.color || '#2563eb' }); setEditError(''); }} style={iconBtn}>
                                                 <Pencil size={13} />
                                             </button>
                                             {confirmDeleteId === goal.id ? (

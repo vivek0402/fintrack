@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight, ChevronDown, CalendarClock, Flame, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -44,6 +44,9 @@ function BezierSparkline({ data, incColor, expColor }: {
     data: { month: string; income: number; expenses: number }[];
     incColor: string; expColor: string;
 }) {
+    const [tipIdx, setTipIdx] = useState<number | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
     if (!data.length) return (
         <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
@@ -78,8 +81,21 @@ function BezierSparkline({ data, incColor, expColor }: {
     const incPts = toPoints('income');
     const expPts = toPoints('expenses');
 
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const pct = (e.clientX - rect.left) / rect.width;
+        const idx = n === 1 ? 0 : Math.round(pct * (n - 1));
+        setTipIdx(Math.max(0, Math.min(n - 1, idx)));
+    };
+
+    const tipXPct = tipIdx !== null ? (n === 1 ? 50 : (tipIdx / (n - 1)) * 100) : 0;
+    const tipXInViewBox = PAD + (tipIdx !== null ? (n === 1 ? (W - PAD * 2) / 2 : (tipIdx / (n - 1)) * (W - PAD * 2)) : 0);
+
     return (
-        <div>
+        <div ref={containerRef} style={{ position: 'relative' }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setTipIdx(null)}>
             <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', overflow: 'visible' }}>
                 <defs>
                     <linearGradient id="dashIncGrad" x1="0" y1="0" x2="0" y2="1">
@@ -95,7 +111,33 @@ function BezierSparkline({ data, incColor, expColor }: {
                 <path d={areaPath(expPts)} fill="url(#dashExpGrad)" />
                 <path d={linePath(incPts)} fill="none" stroke={incColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                 <path d={linePath(expPts)} fill="none" stroke={expColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                {tipIdx !== null && (
+                    <line x1={tipXInViewBox} y1={0} x2={tipXInViewBox} y2={H}
+                        stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+                )}
             </svg>
+            {/* Hover tooltip */}
+            {tipIdx !== null && (
+                <div style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    left: `${tipXPct}%`,
+                    transform: tipXPct > 75 ? 'translateX(-100%)' : tipXPct < 10 ? 'translateX(0)' : 'translateX(-50%)',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border-visible)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '6px 10px',
+                    pointerEvents: 'none',
+                    zIndex: 10,
+                    whiteSpace: 'nowrap',
+                }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--text-muted)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{data[tipIdx].month}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: incColor, fontVariantNumeric: 'tabular-nums' }}>↑ {fmt(data[tipIdx].income)}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: expColor, fontVariantNumeric: 'tabular-nums' }}>↓ {fmt(data[tipIdx].expenses)}</span>
+                    </div>
+                </div>
+            )}
             {/* Month labels aligned to data points */}
             <div style={{ position: 'relative', height: '16px', marginTop: '4px' }}>
                 {data.map((d, i) => {

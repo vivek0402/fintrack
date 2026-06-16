@@ -135,7 +135,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Heart size={13} color={result.color} fill={result.color} />
-            <span style={{ fontFamily: 'var(--font-head)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Financial Health</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Financial Health</span>
           </div>
           <ChevronRight size={14} color="var(--text-muted)" />
         </div>

@@ -23,7 +23,7 @@ const QUICK_RANGES = [
     { label: 'This Year',    getDates: () => { const y=new Date().getFullYear(); return { from:`${y}-01-01`, to:new Date().toISOString().split('T')[0] }; } },
 ];
 
-const card: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
+const card: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: '16px' };
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export default function ReportsPage() {

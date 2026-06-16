@@ -154,7 +154,7 @@ export default function HealthScorePage() {
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button type="button" onClick={() => router.back()}
+          <button type="button" onClick={() => router.push('/dashboard')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', padding: '4px', borderRadius: '8px' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}>
