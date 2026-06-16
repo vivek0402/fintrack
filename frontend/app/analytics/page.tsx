@@ -27,14 +27,6 @@ const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
-const TABS = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'spending', label: 'Spending' },
-    { key: 'income', label: 'Income' },
-    { key: 'trends', label: 'Trends' },
-] as const;
-type TabKey = typeof TABS[number]['key'];
-
 // ── Chart colour state read from CSS custom properties at runtime ─────────────
 // This ensures charts update when the theme changes.
 type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; bgCard: string; };
@@ -85,7 +77,6 @@ export default function AnalyticsPage() {
 
     const [cc, setCc] = useState<ChartColors>(DEFAULT_CC);
     const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
-    const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
     const [summary, setSummary]                 = useState<any>(null);
     const [trends, setTrends]                   = useState<any[]>([]);
@@ -104,10 +95,10 @@ export default function AnalyticsPage() {
     const [planGenerated, setPlanGenerated]     = useState(false);
     const [dataLoading, setDataLoading]         = useState(true);
 
-    const [showHeatmap,       setShowHeatmap]       = useState(false);
-    const [showSankey,        setShowSankey]        = useState(false);
-    const [showTrajectory,    setShowTrajectory]    = useState(false);
-    const [showRegretAnalysis, setShowRegretAnalysis] = useState(false);
+    const [showHeatmap,       setShowHeatmap]       = useState(true);
+    const [showSankey,        setShowSankey]        = useState(true);
+    const [showTrajectory,    setShowTrajectory]    = useState(true);
+    const [showRegretAnalysis, setShowRegretAnalysis] = useState(true);
 
     // Re-read CSS custom properties whenever theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme]);
@@ -260,19 +251,8 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
-                {/* ── TABS ── */}
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none' } as React.CSSProperties}>
-                    {TABS.map(tab => (
-                        <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
-                            style={{ padding: '8px 18px', borderRadius: '999px', border: `1px solid ${activeTab === tab.key ? 'var(--accent)' : 'var(--border-subtle)'}`, background: activeTab === tab.key ? 'var(--accent)' : 'var(--bg-surface-1)', color: activeTab === tab.key ? 'white' : 'var(--text-secondary)', fontSize: '13px', fontWeight: activeTab === tab.key ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                {/* ══════════════════════ OVERVIEW TAB ══════════════════════ */}
-                {activeTab === 'overview' && (
-                    <>
+                {/* ── OVERVIEW ── */}
+                <>
                         {/* Period pills + 2x2 KPI grid */}
                         <div>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
@@ -384,12 +364,10 @@ export default function AnalyticsPage() {
                                 )}
                             </div>
                         )}
-                    </>
-                )}
+                </>
 
-                {/* ══════════════════════ SPENDING TAB ══════════════════════ */}
-                {activeTab === 'spending' && (
-                    <>
+                {/* ── SPENDING ── */}
+                <>
                         {/* Spending Breakdown — Pie + list */}
                         <div style={sectionCard}>
                             <SectionHead title={`Spending — ${FULL_MONTHS[currentMonth]}`} />
@@ -519,12 +497,10 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
                         </div>
-                    </>
-                )}
+                </>
 
-                {/* ══════════════════════ INCOME TAB ══════════════════════ */}
-                {activeTab === 'income' && (
-                    <>
+                {/* ── INCOME ── */}
+                <>
                         {/* Income KPIs */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                             {[
@@ -691,12 +667,10 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
                         </div>
-                    </>
-                )}
+                </>
 
-                {/* ══════════════════════ TRENDS TAB ══════════════════════ */}
-                {activeTab === 'trends' && (
-                    <>
+                {/* ── TRENDS ── */}
+                <>
                         {/* Money Flow Sankey (collapsible) */}
                         <div style={sectionCard}>
                             <button type="button" onClick={() => setShowSankey(v => !v)}
@@ -800,8 +774,7 @@ export default function AnalyticsPage() {
                                 </div>
                             )}
                         </div>
-                    </>
-                )}
+                </>
 
             </div>
         </AppLayout>

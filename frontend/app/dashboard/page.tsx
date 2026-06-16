@@ -39,44 +39,72 @@ function getDateLabel(dateStr: string): string {
     return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-// ── 6-bar sparkline (grouped income/expense bars per month) ──────────────────
-function SixBarSparkline({ data, incColor, expColor }: {
+// ── 6-month Bezier curve sparkline ───────────────────────────────────────────
+function BezierSparkline({ data, incColor, expColor }: {
     data: { month: string; income: number; expenses: number }[];
     incColor: string; expColor: string;
 }) {
     if (!data.length) return (
-        <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
         </div>
     );
 
-    const W = 600, H = 64, PB = 14;
-    const plotH = H - PB;
+    const W = 600, H = 56, PAD = 2;
+    const n = data.length;
     const maxVal = Math.max(...data.flatMap(d => [d.income, d.expenses]), 1);
-    const groupGap = 10;
-    const groupW = (W - groupGap * (data.length - 1)) / data.length;
-    const barGap = 4;
-    const barW = (groupW - barGap) / 2;
+
+    const toPoints = (key: 'income' | 'expenses') =>
+        data.map((d, i) => ({
+            x: PAD + (n === 1 ? (W - PAD * 2) / 2 : (i / (n - 1)) * (W - PAD * 2)),
+            y: H - PAD - (d[key] / maxVal) * (H - PAD * 2),
+        }));
+
+    const linePath = (pts: { x: number; y: number }[]) => {
+        if (pts.length < 2) return `M ${pts[0].x} ${pts[0].y}`;
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+            const p = pts[i - 1], c = pts[i];
+            const cp1x = p.x + (c.x - p.x) / 3;
+            const cp2x = c.x - (c.x - p.x) / 3;
+            d += ` C ${cp1x} ${p.y}, ${cp2x} ${c.y}, ${c.x} ${c.y}`;
+        }
+        return d;
+    };
+
+    const areaPath = (pts: { x: number; y: number }[]) =>
+        `${linePath(pts)} L ${pts[pts.length - 1].x} ${H} L ${pts[0].x} ${H} Z`;
+
+    const incPts = toPoints('income');
+    const expPts = toPoints('expenses');
 
     return (
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
-            {data.map((d, i) => {
-                const groupX = i * (groupW + groupGap);
-                const incH = Math.max(2, (d.income / maxVal) * plotH);
-                const expH = Math.max(2, (d.expenses / maxVal) * plotH);
-                const isLast = i === data.length - 1;
-                return (
-                    <g key={i}>
-                        <rect x={groupX} y={plotH - incH} width={barW} height={incH} rx={2} fill={incColor} opacity={isLast ? 1 : 0.55} />
-                        <rect x={groupX + barW + barGap} y={plotH - expH} width={barW} height={expH} rx={2} fill={expColor} opacity={isLast ? 1 : 0.55} />
-                        <text x={groupX + groupW / 2} y={H - 4} textAnchor="middle" fontSize="9"
-                            fill={isLast ? 'var(--text-secondary)' : 'var(--text-muted)'}
-                            fontWeight={isLast ? '600' : '400'}
-                            fontFamily="DM Mono, monospace">{d.month}</text>
-                    </g>
-                );
-            })}
-        </svg>
+        <div>
+            <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', overflow: 'visible' }}>
+                <defs>
+                    <linearGradient id="dashIncGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={incColor} stopOpacity={0.3} />
+                        <stop offset="100%" stopColor={incColor} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="dashExpGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={expColor} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={expColor} stopOpacity={0} />
+                    </linearGradient>
+                </defs>
+                <path d={areaPath(incPts)} fill="url(#dashIncGrad)" />
+                <path d={areaPath(expPts)} fill="url(#dashExpGrad)" />
+                <path d={linePath(incPts)} fill="none" stroke={incColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                <path d={linePath(expPts)} fill="none" stroke={expColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <div style={{ display: 'flex', gap: '14px', marginTop: '6px' }}>
+                {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
+                    <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ width: 16, height: 2, background: l.color, borderRadius: 1 }} />
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 
@@ -211,7 +239,29 @@ export default function DashboardPage() {
         debtAPI.getDti().then(res => setDti(res.data)).catch(() => {});
         loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
-        aiAPI.report().then(res => setAiInsight(res.data?.report ?? '')).catch(() => {}).finally(() => setAiLoading(false));
+
+        // Cache AI report for 1 hour to avoid burning the 30 req/hr rate limit on every reload
+        const AI_REPORT_KEY = `ai-report-${user.id}-${month}-${year}`;
+        const AI_REPORT_TTL = 60 * 60 * 1000;
+        try {
+            const cached = localStorage.getItem(AI_REPORT_KEY);
+            if (cached) {
+                const { report, ts } = JSON.parse(cached);
+                if (Date.now() - ts < AI_REPORT_TTL && report) {
+                    setAiInsight(report);
+                    setAiLoading(false);
+                    return;
+                }
+            }
+        } catch { /* stale cache */ }
+        aiAPI.report()
+            .then(res => {
+                const report = res.data?.report ?? '';
+                setAiInsight(report);
+                if (report) try { localStorage.setItem(AI_REPORT_KEY, JSON.stringify({ report, ts: Date.now() })); } catch {}
+            })
+            .catch(() => setAiInsight('Unable to generate right now — try again shortly.'))
+            .finally(() => setAiLoading(false));
         opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user]);
@@ -308,7 +358,7 @@ export default function DashboardPage() {
                 <RegretCheckSheet />
 
                 {/* ── STAT TILES ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : `repeat(${investmentRatio ? 5 : 4}, 1fr)`, gap: '12px' }}>
                     {[
                         { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month], color: 'var(--color-inc)',  tint: 'color-mix(in srgb, var(--color-inc) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-inc) 22%, transparent)',  Icon: TrendingUp   },
                         { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month], color: 'var(--color-exp)',  tint: 'color-mix(in srgb, var(--color-exp) 10%, var(--bg-surface-1))',  border: 'color-mix(in srgb, var(--color-exp) 22%, transparent)',  Icon: TrendingDown },
@@ -323,7 +373,7 @@ export default function DashboardPage() {
                             border: investmentRatio.ratio_pct >= 20 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : investmentRatio.ratio_pct >= 10 ? 'color-mix(in srgb, var(--color-warn) 22%, transparent)' : 'color-mix(in srgb, var(--color-exp) 22%, transparent)',
                             Icon: PiggyBank,
                         }] : []),
-                    ].map(tile => (
+                    ].map((tile) => (
                         <div key={tile.label} style={{ background: tile.tint, border: `1px solid ${tile.border}`, borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
@@ -341,6 +391,20 @@ export default function DashboardPage() {
                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{tile.sub}</p>
                         </div>
                     ))}
+                    {/* ── AI Insight compact tile — mobile only, fills gap beside Investing ── */}
+                    {isMobile && (
+                        <div style={{ background: 'color-mix(in srgb, var(--accent) 8%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>AI Insight</span>
+                                <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--accent) 15%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Sparkles size={14} color="var(--accent)" />
+                                </div>
+                            </div>
+                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {aiLoading ? 'Generating…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── HERO — Net Position (dominant) ── */}
@@ -373,8 +437,42 @@ export default function DashboardPage() {
                     {dataLoading ? (
                         <Skeleton width="100%" height={50} borderRadius={6} />
                     ) : (
-                        <SixBarSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
+                        <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
                     )}
+                </div>
+
+                {/* ── AI INSIGHT ── */}
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                            <Sparkles size={14} color="var(--accent)" />
+                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
+                        </div>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
+                            {(aiLoading || aiReportLoading) ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
+                        </p>
+                    </div>
+                    <Button
+                        onClick={async () => {
+                            setAiReportLoading(true);
+                            try {
+                                const AI_REPORT_KEY = `ai-report-${user?.id}-${month}-${year}`;
+                                try { localStorage.removeItem(AI_REPORT_KEY); } catch {}
+                                const res = await aiAPI.report();
+                                const report = res.data?.report ?? '';
+                                setAiInsight(report);
+                                if (report) try { localStorage.setItem(AI_REPORT_KEY, JSON.stringify({ report, ts: Date.now() })); } catch {}
+                            } catch {
+                                setAiInsight('Unable to generate right now — try again shortly.');
+                            }
+                            finally { setAiReportLoading(false); }
+                        }}
+                        isLoading={aiReportLoading}
+                        size="sm"
+                        style={{ alignSelf: isMobile ? 'flex-start' : 'center', flexShrink: 0 }}
+                    >
+                        <RefreshCw size={12} /> Generate Report
+                    </Button>
                 </div>
 
                 {/* ── WEEKLY BRIEFING WIDGET ── */}
@@ -555,32 +653,6 @@ export default function DashboardPage() {
                             />
                         </div>
                     )}
-                </div>
-
-                {/* ── AI INSIGHT ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: '16px' }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                            <Sparkles size={14} color="var(--accent)" />
-                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Insight</span>
-                        </div>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
-                            {aiLoading ? 'Generating your monthly AI summary…' : aiInsight || 'Tap generate to get your monthly AI summary.'}
-                        </p>
-                    </div>
-                    <Button
-                        onClick={async () => {
-                            setAiReportLoading(true);
-                            try { const res = await aiAPI.report(); setAiInsight(res.data?.report ?? ''); }
-                            catch { }
-                            finally { setAiReportLoading(false); }
-                        }}
-                        isLoading={aiReportLoading}
-                        size="sm"
-                        style={{ alignSelf: isMobile ? 'flex-start' : 'center', flexShrink: 0 }}
-                    >
-                        <RefreshCw size={12} /> Generate Report
-                    </Button>
                 </div>
 
                 {/* ── 3-COLUMN: BUDGETS / CATEGORIES / RECENT TRANSACTIONS ── */}
