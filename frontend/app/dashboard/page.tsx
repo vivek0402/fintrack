@@ -254,7 +254,7 @@ export default function DashboardPage() {
     const today       = new Date();
     const daysInMonth = new Date(year, month, 0).getDate();
     const daysElapsed = isCurrentMonth ? Math.max(today.getDate(), 1) : daysInMonth;
-    const daysLeft    = daysInMonth - today.getDate();
+    const daysLeft    = isCurrentMonth ? daysInMonth - today.getDate() : 0;
     const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
     const lastTx      = transactions[0] ?? null;
