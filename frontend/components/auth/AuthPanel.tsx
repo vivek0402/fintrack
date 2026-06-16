@@ -16,9 +16,11 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
                         Fin<span style={{ fontWeight: 500, color: 'var(--accent)' }}>Track</span>
                     </span>
                 </div>
-                {/* Scrollable form area — button always reachable by scrolling */}
-                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any, padding: '28px 24px 48px' }}>
-                    {children}
+                {/* Scrollable form area — centered when space allows, scrollable when keyboard opens */}
+                <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch' as any, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ margin: 'auto', width: '100%', padding: '28px 24px 48px' }}>
+                        {children}
+                    </div>
                 </div>
             </div>
         );
