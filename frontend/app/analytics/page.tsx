@@ -82,17 +82,51 @@ export default function AnalyticsPage() {
     const currentMonth = selMonth;
     const currentYear  = selYear;
     const isCurrentMonth = currentMonth === _nowMonth && currentYear === _nowYear;
-
-    const goToPrevMonth = () => {
-        if (currentMonth === 1) { setSelMonth(12); setSelYear(y => y - 1); }
-        else setSelMonth(m => m - 1);
-    };
-    const goToNextMonth = () => {
-        if (isCurrentMonth) return;
-        if (currentMonth === 12) { setSelMonth(1); setSelYear(y => y + 1); }
-        else setSelMonth(m => m + 1);
-    };
     const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
+
+    const currentQuarter = Math.ceil(currentMonth / 3);
+    const isCurrentPeriod = period === 'year'
+        ? currentYear === _nowYear
+        : period === 'quarter'
+        ? currentQuarter === Math.ceil(_nowMonth / 3) && currentYear === _nowYear
+        : isCurrentMonth;
+
+    const navLabel = period === 'year'
+        ? String(currentYear)
+        : period === 'quarter'
+        ? `Q${currentQuarter} ${currentYear}`
+        : `${FULL_MONTHS[currentMonth]} ${currentYear}`;
+
+    const goToPrev = () => {
+        if (period === 'year') {
+            setSelYear(y => y - 1);
+        } else if (period === 'quarter') {
+            if (currentQuarter === 1) { setSelMonth(10); setSelYear(y => y - 1); }
+            else setSelMonth((currentQuarter - 2) * 3 + 1);
+        } else {
+            if (currentMonth === 1) { setSelMonth(12); setSelYear(y => y - 1); }
+            else setSelMonth(m => m - 1);
+        }
+    };
+    const goToNext = () => {
+        if (isCurrentPeriod) return;
+        if (period === 'year') {
+            setSelYear(y => y + 1);
+        } else if (period === 'quarter') {
+            if (currentQuarter === 4) { setSelMonth(1); setSelYear(y => y + 1); }
+            else setSelMonth(currentQuarter * 3 + 1);
+        } else {
+            if (currentMonth === 12) { setSelMonth(1); setSelYear(y => y + 1); }
+            else setSelMonth(m => m + 1);
+        }
+    };
+    const handleSetPeriod = (p: 'month' | 'quarter' | 'year') => {
+        setPeriod(p);
+        if (p === 'quarter') {
+            // snap selMonth to first month of the current quarter so periodStats is consistent
+            setSelMonth((Math.ceil(selMonth / 3) - 1) * 3 + 1);
+        }
+    };
 
     const [summary, setSummary]                 = useState<any>(null);
     const [trends, setTrends]                   = useState<any[]>([]);
@@ -346,11 +380,11 @@ export default function AnalyticsPage() {
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Analytics</h1>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <button onClick={goToPrevMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous month">
+                                <button onClick={goToPrev} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous period">
                                     <ChevronLeft size={14} />
                                 </button>
-                                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>{FULL_MONTHS[currentMonth]} {currentYear} — spending overview</span>
-                                <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next month">
+                                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>{navLabel} — spending overview</span>
+                                <button onClick={goToNext} disabled={isCurrentPeriod} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentPeriod ? 'default' : 'pointer', color: isCurrentPeriod ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next period">
                                     <ChevronRight size={14} />
                                 </button>
                             </div>
@@ -368,7 +402,7 @@ export default function AnalyticsPage() {
                         <div>
                             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                                 {(['month', 'quarter', 'year'] as const).map(p => (
-                                    <button key={p} type="button" onClick={() => setPeriod(p)}
+                                    <button key={p} type="button" onClick={() => handleSetPeriod(p)}
                                         style={{ padding: '6px 14px', borderRadius: '999px', border: `1px solid ${period === p ? 'var(--accent)' : 'var(--border-subtle)'}`, background: period === p ? 'var(--accent)' : 'var(--bg-surface-1)', color: period === p ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: period === p ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', textTransform: 'capitalize' }}>
                                         {p}
                                     </button>
