@@ -98,12 +98,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const isEditing = !!transaction;
     const { user } = useAuthStore();
     const [form, setForm] = useState({
-        type: 'expense' as 'income' | 'expense',
+        type: 'expense' as 'income' | 'expense' | 'transfer',
         amount: '', description: '', notes: '',
         date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         category_id: '', tags: [] as string[],
         payment_method: 'Cash',
         account_id: null as number | null,
+        to_account_id: null as number | null,
     });
     const [tagInput, setTagInput] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
@@ -159,12 +160,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null });
+            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null });
             setTagInput('');
         }
         setError('');
@@ -274,7 +275,22 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             if (dup) { setDupWarning(dup); setLoading(false); return; }
         }
         dupBypassRef.current = false;
-        const payload = { type: form.type, amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
+        if (isTransfer) {
+            if (!form.account_id || !form.to_account_id) { setError('Select both From and To accounts.'); setLoading(false); return; }
+            if (form.account_id === form.to_account_id) { setError('From and To accounts must differ.'); setLoading(false); return; }
+            const amount = parseFloat(form.amount);
+            const transferTags = [...(form.tags.length > 0 ? form.tags : []), 'transfer'];
+            const base = { amount, description: form.description, notes: form.notes || undefined, date: form.date, tags: transferTags };
+            try {
+                await transactionsAPI.create({ ...base, type: 'expense', account_id: form.account_id });
+                await transactionsAPI.create({ ...base, type: 'income',  account_id: form.to_account_id });
+                toast.success('Transfer recorded');
+                onSuccess(); onClose();
+            } catch { setError('Transfer failed. Please try again.'); }
+            finally { setLoading(false); }
+            return;
+        }
+        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
             else await transactionsAPI.create(payload);
@@ -335,6 +351,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     };
 
     const isIncome = form.type === 'income';
+    const isTransfer = form.type === 'transfer';
     const safeCats = categories || [];
     const sortedCategories = useMemo(() => {
         if (!safeCats.length) return [];
@@ -371,7 +388,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={isEditing ? 'Edit Transaction' : 'Add Transaction'}
+            title={isEditing ? 'Edit Transaction' : isTransfer ? 'Transfer Between Accounts' : 'Add Transaction'}
             footer={
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <Button type="button" variant="secondary" size="lg" onClick={onClose}>Cancel</Button>
@@ -420,21 +437,19 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {/* ── Type toggle — dark pill ── */}
                 <div>
                     <label style={labelStyle}>Type</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-                        {(['expense', 'income'] as const).map(t => (
-                            <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                                style={{
-                                    padding: '10px', borderRadius: '9px', border: 'none',
-                                    background: form.type === t
-                                        ? (t === 'income' ? 'var(--color-inc)' : 'var(--text-primary)')
-                                        : 'transparent',
-                                    color: form.type === t ? (t === 'income' ? 'white' : 'var(--bg-card)') : 'var(--text-muted)',
-                                    fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-                                    transition: 'all var(--transition-fast)', fontFamily: 'var(--font-body)',
-                                }}>
-                                {t === 'income' ? '↑ Income' : '↓ Expense'}
-                            </button>
-                        ))}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                        {(['expense', 'income', 'transfer'] as const).map(t => {
+                            const active = form.type === t;
+                            const bg = active ? (t === 'income' ? 'var(--color-inc)' : t === 'transfer' ? 'var(--accent)' : 'var(--text-primary)') : 'transparent';
+                            const color = active ? (t === 'expense' ? 'var(--bg-card)' : 'white') : 'var(--text-muted)';
+                            const label = t === 'income' ? '↑ Income' : t === 'transfer' ? '⇄ Transfer' : '↓ Expense';
+                            return (
+                                <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
+                                    style={{ padding: '10px', borderRadius: '9px', border: 'none', background: bg, color, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all var(--transition-fast)', fontFamily: 'var(--font-body)' }}>
+                                    {label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -450,7 +465,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 </div>
 
                 {/* ── Payment Method (expense only) ── */}
-                {!isIncome && (
+                {!isIncome && !isTransfer && (
                     <div>
                         <label style={labelStyle}>How did you pay?</label>
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -467,7 +482,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <Input label="Description" type="text" placeholder="e.g. Swiggy order, Monthly salary" icon={<FileText size={15} />} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required />
 
                 {/* Auto-category suggestions */}
-                {suggestedCats.length > 0 && (
+                {suggestedCats.length > 0 && !isTransfer && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '-4px' }}>
                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Suggested:</span>
                         {suggestedCats.map((c: any) => (
@@ -481,7 +496,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 )}
 
                 {/* ── Category dropdown ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {!isTransfer && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={labelStyle}>Category</label>
                     <div ref={catDropdownRef} style={{ position: 'relative' }}>
                         <button type="button" onClick={() => setCatDropdownOpen(v => !v)}
@@ -521,7 +536,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
                         </div>
                     )}
-                </div>
+                </div>}
 
                 {/* ── Date picker ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -565,6 +580,28 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         )}
                     </div>
                 </div>
+
+                {/* ── Transfer accounts ── */}
+                {isTransfer && accounts.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div>
+                            <label style={labelStyle}>From account</label>
+                            <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
+                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                <option value="">Select account</option>
+                                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label style={labelStyle}>To account</label>
+                            <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
+                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                <option value="">Select account</option>
+                                {accounts.filter((a: any) => a.id !== form.account_id).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Tags ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
