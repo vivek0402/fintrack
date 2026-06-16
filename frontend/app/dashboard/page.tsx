@@ -445,7 +445,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* ── HERO — Net Position (dominant) ── */}
-                <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
                     <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
                         Net position · {MONTH_NAMES[month]}
                     </p>
