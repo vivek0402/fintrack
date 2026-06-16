@@ -16,7 +16,7 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
-import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award, ChevronLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { SpendingHeatmap } from '@/components/analytics/SpendingHeatmap';
 import { SankeyFlow } from '@/components/analytics/SankeyFlow';
 import { CategoryTrajectory } from '@/components/analytics/CategoryTrajectory';
@@ -72,10 +72,26 @@ export default function AnalyticsPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const { theme } = useThemeStore();
     const isMobile = useIsMobile();
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear  = new Date().getFullYear();
-
     const [cc, setCc] = useState<ChartColors>(DEFAULT_CC);
+
+    const _now = new Date();
+    const _nowMonth = _now.getMonth() + 1;
+    const _nowYear  = _now.getFullYear();
+    const [selMonth, setSelMonth] = useState(_nowMonth);
+    const [selYear,  setSelYear]  = useState(_nowYear);
+    const currentMonth = selMonth;
+    const currentYear  = selYear;
+    const isCurrentMonth = currentMonth === _nowMonth && currentYear === _nowYear;
+
+    const goToPrevMonth = () => {
+        if (currentMonth === 1) { setSelMonth(12); setSelYear(y => y - 1); }
+        else setSelMonth(m => m - 1);
+    };
+    const goToNextMonth = () => {
+        if (isCurrentMonth) return;
+        if (currentMonth === 12) { setSelMonth(1); setSelYear(y => y + 1); }
+        else setSelMonth(m => m + 1);
+    };
     const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
 
     const [summary, setSummary]                 = useState<any>(null);
@@ -135,7 +151,7 @@ export default function AnalyticsPage() {
             .then((res: any) => setAccounts(res.data.accounts ?? []))
             .catch(() => setAccounts([]))
             .finally(() => setAccountsLoading(false));
-    }, [user]);
+    }, [user, currentMonth, currentYear]);
 
     // ── Derived chart data ────────────────────────────────────────────────────
 
@@ -178,7 +194,8 @@ export default function AnalyticsPage() {
 
     // KPI computations
     const totalExpenses     = categories.reduce((s, c) => s + parseFloat(c.total ?? 0), 0);
-    const daysElapsed       = new Date().getDate();
+    const daysInSelectedMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const daysElapsed         = isCurrentMonth ? new Date().getDate() : daysInSelectedMonth;
     const dailyAvg          = daysElapsed > 0 ? (summary?.total_expenses ?? 0) / daysElapsed : 0;
     const savingsRate       = summary?.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
     const lastMonthKey      = (() => { let m = currentMonth - 1, y = currentYear; if (m === 0) { m = 12; y--; } return `${y}-${m}`; })();
@@ -242,7 +259,15 @@ export default function AnalyticsPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Analytics</h1>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{FULL_MONTHS[currentMonth]} {currentYear} — spending overview</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <button onClick={goToPrevMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous month">
+                                    <ChevronLeft size={14} />
+                                </button>
+                                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>{FULL_MONTHS[currentMonth]} {currentYear} — spending overview</span>
+                                <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next month">
+                                    <ChevronRight size={14} />
+                                </button>
+                            </div>
                         </div>
                         <button type="button" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}
                             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>

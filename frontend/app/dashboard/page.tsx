@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronRight, ChevronDown, CalendarClock, Flame, ArrowRightLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, ArrowRightLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
@@ -173,8 +173,26 @@ export default function DashboardPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const { theme, palette } = useThemeStore();
-    const { month, year } = getCurrentMonthYear();
     const isMobile = useIsMobile();
+
+    const _now = new Date();
+    const _nowMonth = _now.getMonth() + 1;
+    const _nowYear  = _now.getFullYear();
+    const [selMonth, setSelMonth] = useState(_nowMonth);
+    const [selYear,  setSelYear]  = useState(_nowYear);
+    const month = selMonth;
+    const year  = selYear;
+    const isCurrentMonth = month === _nowMonth && year === _nowYear;
+
+    const goToPrevMonth = () => {
+        if (month === 1) { setSelMonth(12); setSelYear(y => y - 1); }
+        else setSelMonth(m => m - 1);
+    };
+    const goToNextMonth = () => {
+        if (isCurrentMonth) return;
+        if (month === 12) { setSelMonth(1); setSelYear(y => y + 1); }
+        else setSelMonth(m => m + 1);
+    };
 
     const [summary, setSummary]         = useState<any>(null);
     const [trends, setTrends]           = useState<any[]>([]);
@@ -235,7 +253,7 @@ export default function DashboardPage() {
     // Row-2 tile computed values
     const today       = new Date();
     const daysInMonth = new Date(year, month, 0).getDate();
-    const daysElapsed = Math.max(today.getDate(), 1);
+    const daysElapsed = isCurrentMonth ? Math.max(today.getDate(), 1) : daysInMonth;
     const daysLeft    = daysInMonth - today.getDate();
     const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
@@ -310,7 +328,7 @@ export default function DashboardPage() {
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
         opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
-    }, [user]);
+    }, [user, month, year]);
 
     // Fingerprint-based AI regeneration — only refetches when income/expenses change
     useEffect(() => {
@@ -412,9 +430,17 @@ export default function DashboardPage() {
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                             {greeting} 👋
                         </h1>
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            {MONTH_NAMES[month]} {year} — Overview
-                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <button onClick={goToPrevMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous month">
+                                <ChevronLeft size={14} />
+                            </button>
+                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>
+                                {MONTH_NAMES[month]} {year} — Overview
+                            </span>
+                            <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next month">
+                                <ChevronRight size={14} />
+                            </button>
+                        </div>
                     </div>
                     <NotificationCenter />
                 </div>
