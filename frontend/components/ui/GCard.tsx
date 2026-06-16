@@ -8,13 +8,11 @@ interface GCardProps {
     style?: React.CSSProperties;
 }
 
-// Accent-tinted info surface. Background and border come from palette tokens,
-// so dark mode automatically uses the rgba variants set in globals.css.
 export function GCard({ children, padding = 'var(--space-4)', style }: GCardProps) {
     return (
         <div style={{
-            background: 'var(--accent-light)',
-            border: '1.5px solid var(--accent-border)',
+            background: 'var(--bg-surface-2)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-lg)',
             padding,
             ...style,

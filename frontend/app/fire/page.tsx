@@ -340,7 +340,7 @@ export default function FirePage() {
                             </Card>
 
                             {/* ── HERO RESULT ── */}
-                            <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
+                            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
                                     Corpus needed to retire
                                 </p>
@@ -499,7 +499,7 @@ export default function FirePage() {
                         ) : sipResult ? (
                             <>
                                 {/* ── HERO RESULT ── */}
-                                <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
+                                <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px' }}>
                                     {sipResult.mode === 'goal_based' ? (
                                         <>
                                             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>

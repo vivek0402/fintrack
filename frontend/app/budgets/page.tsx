@@ -294,7 +294,7 @@ export default function BudgetsPage() {
 
                 {/* ── ZERO-BASED MODE BANNER ── */}
                 {zeroBasedMode && monthlyIncome > 0 && (
-                    <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                    <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Zero-based Budget</p>
                         <p style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
                             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmt(monthlyIncome)}</span> income allocated: {' '}
