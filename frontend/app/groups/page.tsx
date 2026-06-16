@@ -117,7 +117,7 @@ export default function GroupsPage() {
         if (!selectedGroup || !splitDesc || !splitTotal || !splitPaidBy) return; setSavingSplit(true);
         const allMemberNames = [...members.map(m => m.name), 'Me'].filter(Boolean);
         let shares: { member: string; amount: number }[];
-        if (splitMode === 'equal') { const each = parseFloat(splitTotal) / allMemberNames.length; shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(each.toFixed(2)) })); }
+        if (splitMode === 'equal') { const total = parseFloat(splitTotal); const rounded = parseFloat((total / allMemberNames.length).toFixed(2)); const baseSum = parseFloat((rounded * (allMemberNames.length - 1)).toFixed(2)); shares = allMemberNames.map((m, idx) => ({ member: m, amount: idx === allMemberNames.length - 1 ? parseFloat((total - baseSum).toFixed(2)) : rounded })); }
         else { shares = allMemberNames.map(m => ({ member: m, amount: parseFloat(splitCustom[m] || '0') })); }
         try {
             if (editingSplit) await groupsAPI.updateSplit(String(selectedGroup.id), String(editingSplit.id), { description: splitDesc, total_amount: parseFloat(splitTotal), paid_by: splitPaidBy, date: splitDate, shares });

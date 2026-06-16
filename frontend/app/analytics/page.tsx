@@ -121,6 +121,7 @@ export default function AnalyticsPage() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
+    useEffect(() => { setAllocationPlan(null); setRegretData(null); setPlanGenerated(false); setRegretLoading(false); }, [currentMonth, currentYear]);
 
     useEffect(() => {
         if (!user) return;

@@ -39,6 +39,7 @@ export default function YearReviewPage() {
     const [allTxs, setAllTxs]               = useState<any[]>([]);
     const [loading, setLoading]             = useState(true);
     const [personality, setPersonality]     = useState('');
+    const [screenshotMsg, setScreenshotMsg] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -112,7 +113,7 @@ export default function YearReviewPage() {
 
     const handleScreenshot = () => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => alert('Take a screenshot of the summary card to share your year! 📸'), 350);
+        setTimeout(() => { setScreenshotMsg(true); setTimeout(() => setScreenshotMsg(false), 3000); }, 350);
     };
 
     const sCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
@@ -121,6 +122,11 @@ export default function YearReviewPage() {
 
     return (
         <AppLayout>
+            {screenshotMsg && (
+                <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 20px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
+                    Take a screenshot of the summary card to share your year! 📸
+                </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Header */}

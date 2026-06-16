@@ -416,7 +416,7 @@ export default function AiAdvisorPage() {
                             <ChatHeader agent={agentDef} isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
                             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
                                 {messages.map((msg, i) => (
-                                    <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
+                                    <div key={msg.timestamp ? `${msg.role}-${msg.timestamp}` : i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
                                         {msg.role === 'assistant' ? (
                                             <>
                                                 <div style={{

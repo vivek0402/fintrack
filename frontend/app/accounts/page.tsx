@@ -394,7 +394,7 @@ export default function AccountsPage() {
                     <SectionHead title="Wallets & UPI" total={fmt(totalWallets)} totalColor="var(--color-inc)" onAdd={openAddWallet} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {dataLoading ? [1, 2, 3, 4].map(i => (
-                            <div key={i} style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
+                            <div key={i} style={{ background: 'var(--bg-surface-2)', border: '1.5px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
                         )) : wallets.map(w => (
                             <GCard key={w.id} padding="var(--space-4)">
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
