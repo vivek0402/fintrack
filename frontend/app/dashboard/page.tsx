@@ -22,7 +22,6 @@ import { CreditUtilizationWidget } from '@/components/dashboard/CreditUtilizatio
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
-import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -465,7 +464,6 @@ export default function DashboardPage() {
                             </button>
                         </div>
                     </div>
-                    <NotificationCenter />
                 </div>
 
                 {/* ── COACH ALERTS ── */}

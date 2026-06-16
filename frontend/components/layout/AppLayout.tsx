@@ -13,7 +13,6 @@ import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { RedesignAnnouncement } from '@/components/ui/RedesignAnnouncement';
-import { NotificationBell } from '@/components/ui/NotificationBell';
 import { PageErrorBoundary } from '@/components/ui/PageErrorBoundary';
 import { processQueue } from '@/lib/txQueue';
 import { toast } from '@/store/toastStore';
@@ -120,11 +119,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <OfflineBanner />
-            {isMobile && (
-                <div style={{ position: 'fixed', top: 14, right: 16, zIndex: 100 }}>
-                    <NotificationBell panelAlign="right" />
-                </div>
-            )}
             <Sidebar />
             <main
                 key={pathname}
