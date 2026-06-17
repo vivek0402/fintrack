@@ -3,8 +3,14 @@
 This document maps every place the backend calls an LLM (via Groq, Gemini, NVIDIA NIM,
 or the `aiComplete()` router), what feature it powers, and which model/provider serves it.
 
-All AI-powered endpoints live in `backend/src/routes/ai.js` and are mounted under
+Most AI-powered endpoints live in `backend/src/routes/ai.js` and are mounted under
 `/api/ai/*`. The routing/model config lives in `backend/src/utils/ai.js`.
+
+Additional AI-powered routes:
+- `backend/src/routes/agents.js` → mounted at `/api/ai/agent`
+- `backend/src/routes/opportunities.js` → mounted at `/api/ai/opportunities`
+- `backend/src/routes/insights.js` → mounted at `/api/insights` (uses `aiComplete` for benchmarks)
+- `backend/src/routes/pdfImport.js` → mounted at `/api/import` (uses `aiComplete` for statement parsing)
 
 ## How the AI router works (`backend/src/utils/ai.js`)
 
@@ -71,10 +77,58 @@ All `nim`-provider routes fall back to `groq1` → `gemini` if `NVIDIA_API_KEY` 
 
 ---
 
+---
+
+## Specialized AI Agents (`backend/src/routes/agents.js`)
+
+Four domain agents, each receiving full financial context (loans, investments, tax, transactions)
+injected into every message. Uses `aiComplete()` with the `chat` route key (groq1 / LLAMA70B).
+
+| Agent type | Specialization |
+|---|---|
+| `debt_coach` | Loan prioritization, EMI prepayment strategy, credit utilization, payoff plans |
+| `investment_advisor` | Portfolio review, asset allocation, SIP, FIRE progress |
+| `tax_planner` | 80C optimization, Old vs New regime, advance tax, ITR readiness |
+| `budget_master` | Category budgeting, spending patterns, savings habits |
+
+Endpoints:
+- `POST /api/ai/agent/message` — send a message to an agent; creates/continues a conversation
+- `GET  /api/ai/agent/conversations` — list all past conversations for the user
+- `GET  /api/ai/agent/conversations/:id` — get full message history for a conversation
+- `DELETE /api/ai/agent/conversations/:id` — delete a conversation
+
+Conversations are persisted in the `agent_conversations` table with `messages` stored as JSONB.
+
+---
+
+## AI Opportunities (`backend/src/routes/opportunities.js`)
+
+Analyzes the user's full financial snapshot (bank balances, loans, investments, tax 80C, credit utilization)
+and uses `aiComplete()` to identify actionable optimization opportunities. Opportunities are stored in
+the `opportunities` table and can be dismissed or marked as acted on.
+
+Endpoints:
+- `POST /api/ai/opportunities/detect` — run opportunity detection (AI-powered analysis)
+- `GET  /api/ai/opportunities` — list all detected opportunities for the user
+- `PATCH /api/ai/opportunities/:id/dismiss` — dismiss an opportunity
+- `PATCH /api/ai/opportunities/:id/acted-on` — mark an opportunity as acted on
+
+---
+
 ## Non-AI / utility endpoints (for completeness)
 
 - `POST /api/ai/predict` — internal alias, rewrites to `/afford` (see #3 above)
 - `GET /api/ai/recurring` — internal alias, rewrites to `/detect-patterns` (see #5 above)
+
+---
+
+## PDF Bank Statement Import (`backend/src/routes/pdfImport.js`)
+
+Uses `pdf-parse` to extract text from an uploaded bank statement PDF, then calls `aiComplete()`
+with a structured prompt to extract individual transactions. Results are returned as a transaction list
+for the user to review and confirm before bulk-inserting.
+
+Endpoint: `POST /api/import/bank-statement`
 
 ---
 

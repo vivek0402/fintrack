@@ -1,32 +1,38 @@
-# Design System — Finance Tracker
+# Design System — FinTrack
 
 ## Product Context
-- **What this is:** A personal finance web + mobile app (PWA, Capacitor Android) with AI-powered insights via Gemini
-- **Who it's for:** Individuals who take money seriously and want clarity over their financial story
-- **Space/industry:** Personal finance, budgeting, net worth tracking
+- **What this is:** A personal finance web + mobile app (PWA, Capacitor Android) with AI-powered insights, investment tracking, Indian tax planning, and debt intelligence
+- **Who it's for:** Individuals who take money seriously and want surgical clarity over their complete financial picture
+- **Space/industry:** Personal finance, budgeting, net worth, investing, tax
 - **Project type:** Dashboard web app + mobile PWA
 
 ## Aesthetic Direction
-- **Direction:** Industrial/Refined
-- **Decoration level:** Intentional — solid surfaces with precise borders. No glassmorphism except one single backdrop blur on the ⌘K command overlay.
+- **Direction:** Industrial / Refined
+- **Decoration level:** Intentional — solid surfaces with precise borders. No glassmorphism (enforced in code, not just spec).
 - **Mood:** Cold obsidian surfaces, surgical typography, data that feels live. "This was built for someone who takes money seriously." The user should feel competent and calm in the first 3 seconds — not overwhelmed by UI tricks.
 - **Reference products:** Linear, Superhuman (craft tier); Copilot Money (design leadership in the category)
 - **Category departures:**
-  1. Full-width "financial pulse" view instead of a KPI card grid — opens to your financial story, not a dashboard of metrics
-  2. ⌘K / FAB as the primary AI surface — Gemini is a command palette over the whole app, not a sidebar widget
+  1. Numbers are always the hero — every currency figure is the most prominent element in its region; everything else supports it
+  2. FAB + dedicated pages as the primary AI surface — not sidebar widgets
 
 ## Typography
 
-- **Display/Hero numbers:** DM Mono — all financial figures, always, tabular-nums. Currency symbol at 60% the size of the numeral. Never render a currency figure in a proportional font.
-- **Headings:** Cabinet Grotesk 700/800 — replaces Sora. Tighter, more confident.
-- **Body/UI:** Satoshi — replaces DM Sans. Better optical spacing at small sizes.
+- **Display/Hero numbers:** DM Mono — all financial figures, always, `tabular-nums`. Never render a currency figure in a proportional font.
+- **Headings:** Cabinet Grotesk 700/800
+- **Body/UI:** Satoshi 400/500/600
 - **Code/Terminal:** DM Mono (consistent with number rendering)
-- **Loading:** Google Fonts / Fontshare CDN
+- **Loading:**
   ```html
   <!-- Cabinet Grotesk + Satoshi from Fontshare -->
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800,900&display=swap" rel="stylesheet">
   <!-- DM Mono from Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+  ```
+- **CSS font tokens** (always use these — never hardcode font names):
+  ```css
+  --font-display: 'Cabinet Grotesk', sans-serif   /* headings */
+  --font-body:    'Satoshi', sans-serif            /* body, UI labels, buttons */
+  --font-mono:    'DM Mono', monospace             /* numbers, currency, code */
   ```
 - **Scale:**
   ```
@@ -42,97 +48,134 @@
 
 ## Color
 
-- **Approach:** Restrained with surgical accents — color is rare and meaningful
-- **Design principle:** Surface colors shift slightly toward violet as elevation increases, creating depth without gradients
+- **Approach:** Restrained with semantic accents — color is rare and meaningful
+- **Design principle:** Pure black AMOLED surfaces with a flat elevation model (no violet shift — surfaces stay neutral)
 
-### CSS Variables
+### CSS Variables (authoritative — these are the actual tokens in `globals.css`)
+
+#### Dark Theme (default, AMOLED)
 ```css
-:root {
-  --bg-primary:         #080c18;   /* page background */
-  --bg-secondary:       #0d1425;   /* cards, panels */
-  --bg-card:            #111a30;   /* elevated cards, modals */
-  --bg-hover:           #192140;   /* hover states, selected rows */
-  --bg-border:          #1e2d4a;   /* subtle borders (1px) */
-  --bg-border-strong:   #2a3d5e;   /* visible dividers */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg-base:       #0a0a0a;   /* page background — AMOLED black (true off-pixel) */
+  --bg-surface-1:  #111111;   /* cards, panels */
+  --bg-surface-2:  #1a1a1a;   /* inputs, dropdowns, elevated surfaces */
+  --bg-surface-3:  #222222;   /* hover states, active rows */
 
-  --text-primary:       #f0f4ff;   /* slightly blue — matches cold surface */
-  --text-secondary:     #8899bb;   /* muted text */
-  --text-muted:         #4a5d7e;   /* timestamps, labels, placeholders */
+  /* Borders */
+  --border-subtle:  rgba(255, 255, 255, 0.06);  /* 1px borders on cards */
+  --border-visible: rgba(255, 255, 255, 0.12);  /* dividers, focus states */
 
-  --accent-mint:        #00e5a0;   /* positive, income, success — more electric than #10b981 */
-  --accent-rose:        #ff3d5e;   /* negative, expenses, error */
-  --accent-indigo:      #6366f1;   /* interactive, focus, links — more distinctive than #3b82f6 */
-  --accent-amber:       #f59e0b;   /* warnings, budget alerts */
+  /* Text */
+  --text-primary:   #f5f5f5;
+  --text-secondary: #a0a0a0;
+  --text-muted:     #555555;
+  --text-inverse:   #0a0a0a;
 
-  --accent-mint-bg:     rgba(0, 229, 160, 0.08);
-  --accent-mint-border: rgba(0, 229, 160, 0.2);
-  --accent-rose-bg:     rgba(255, 61, 94, 0.08);
-  --accent-rose-border: rgba(255, 61, 94, 0.2);
-  --accent-indigo-bg:   rgba(99, 102, 241, 0.1);
-  --accent-amber-bg:    rgba(245, 158, 11, 0.08);
+  /* Semantic colors */
+  --color-inc:       #16a34a;                      /* income, positive, success */
+  --color-inc-subtle: rgba(22, 163, 74, 0.12);
+  --color-exp:       #dc2626;                      /* expense, negative, error */
+  --color-exp-subtle: rgba(220, 38, 38, 0.12);
+  --color-warn:      #d97706;                      /* warnings, budget alerts */
+  --color-warn-subtle: rgba(217, 119, 6, 0.12);
+  --accent:          #2563eb;                      /* interactive, selected, CTA */
+  --accent-subtle:   rgba(37, 99, 235, 0.12);
+  --accent-border:   rgba(37, 99, 235, 0.25);
+  --color-info:      #0891b2;                      /* informational, neutral highlight */
+  --color-info-subtle: rgba(8, 145, 178, 0.12);
 
-  --transition-fast:    150ms;
-  --transition-base:    250ms;
-  --transition-slow:    400ms;
+  /* Shadows */
+  --shadow-card:  0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
+
+  /* Chart category palette */
+  --cat-0: #2563eb;  --cat-1: #16a34a;  --cat-2: #d97706;  --cat-3: #dc2626;
+  --cat-4: #7c3aed;  --cat-5: #0891b2;  --cat-6: #db2777;  --cat-7: #65a30d;
 }
 ```
 
-### Light Mode
+#### Light Theme
 ```css
 [data-theme="light"] {
-  --bg-primary:       #f8f9fc;
-  --bg-secondary:     #ffffff;
-  --bg-card:          #f1f4fa;
-  --bg-hover:         #e8ecf4;
-  --bg-border:        #e2e8f0;
-  --bg-border-strong: #cbd5e1;
-  --text-primary:     #0f1729;
-  --text-secondary:   #4a5568;
-  --text-muted:       #94a3b8;
-  --accent-mint:      #059669;   /* darker for contrast on light bg */
-  --accent-rose:      #e11d48;
-  --accent-indigo:    #4f46e5;
-  --accent-amber:     #d97706;
+  --bg-base:       #f8f8f8;
+  --bg-surface-1:  #ffffff;
+  --bg-surface-2:  #f3f3f3;
+  --bg-surface-3:  #e8e8e8;
+
+  --border-subtle:  rgba(0, 0, 0, 0.06);
+  --border-visible: rgba(0, 0, 0, 0.14);
+
+  --text-primary:   #111111;
+  --text-secondary: #555555;
+  --text-muted:     #aaaaaa;
+  --text-inverse:   #ffffff;
+
+  --color-inc:   #16a34a;   /* same green works on light */
+  --color-exp:   #dc2626;
+  --color-warn:  #d97706;
+  --accent:      #2563eb;
+  --color-info:  #0891b2;
 }
 ```
 
+### Legacy Aliases (compat — do not use in new code)
+Older page files still reference the pre-v2 token names. These are mapped in globals.css via compat aliases and will be phased out:
+```
+--bg-page        → --bg-base
+--bg-card        → --bg-surface-1
+--bg-alt         → --bg-surface-2
+--bg-hover       → --bg-surface-3
+--border         → --border-subtle
+--accent-mint    → --color-inc
+--accent-rose    → --color-exp
+--accent-indigo  → --accent
+--accent-amber   → --color-warn
+```
+Always use the canonical v2 tokens in new code. Never use the legacy names.
+
 ### Semantic Rules
-- Positive values, income, savings: always `--accent-mint`
-- Negative values, expenses, deficits: always `--accent-rose`
-- Interactive elements, focus rings, links: `--accent-indigo`
-- Budget warnings, caution states: `--accent-amber`
+- Positive values, income, savings: always `--color-inc`
+- Negative values, expenses, deficits: always `--color-exp`
+- Interactive elements, focus rings, links: `--accent`
+- Budget warnings, caution states: `--color-warn`
 - Never use color as the only distinguishing signal (accessibility)
 
 ## Spacing
 
-- **Base unit:** 8px
-- **Density:** Comfortable
-- **Scale:**
-  ```
-  2xs:  2px
-  xs:   4px
-  sm:   8px
-  md:  16px
-  lg:  24px
-  xl:  32px
-  2xl: 48px
-  3xl: 64px
+- **CSS tokens:** Always use spacing variables — never hardcode pixel values
+  ```css
+  --space-1:   4px
+  --space-2:   8px
+  --space-3:  12px
+  --space-4:  16px
+  --space-5:  20px
+  --space-6:  24px
+  --space-7:  28px
+  --space-8:  32px
+  --space-10: 40px
+  --space-12: 48px
+  --space-16: 64px
   ```
 - **Row height:** 52px minimum on desktop, 60px on mobile (thumb targets)
-- **Border radius:**
+- **Radius tokens:**
+  ```css
+  --radius-sm:   6px    — tags, badges, inputs
+  --radius-md:  10px    — buttons, small cards
+  --radius-lg:  16px    — cards, panels, modals
+  --radius-xl:  24px    — large containers, sheets
+  --radius-full: 9999px — pills, avatars
   ```
-  sm:   4px   — tags, badges, small chips
-  md:   8px   — buttons, inputs, small cards
-  lg:  12px   — cards, panels
-  xl:  16px   — modals, large containers
-  full: 9999px — pills, avatars
+- **Transition tokens:**
+  ```css
+  --transition-fast: all 0.12s ease   — hover states, focus rings
+  --transition-base: all 0.20s ease   — button presses, toggles
   ```
 
 ## Layout
 
-- **Approach:** Grid-disciplined with one editorial exception (the financial pulse home screen)
-- **Home screen:** Full-width financial pulse view — large net position number (DM Mono, 52px) at top, full-width area chart below, then stat row, then transactions. No KPI card grid.
-- **Navigation:** Left rail — 48px wide (icon-only) by default, expands to 220px on hover/focus. Icon-only collapses preserve content space.
+- **Home screen:** Dashboard with hero stat tiles, proactive coach alerts, quick-add FAB, and transaction list. Full financial overview visible without scrolling on desktop.
+- **Navigation:** Left sidebar on desktop (collapsible); bottom nav on mobile with a "More" sheet for secondary pages
 - **Grid:** 12-column on desktop, 4-column on mobile
 - **Max content width:** 1280px
 - **Breakpoints:** mobile < 768px, tablet 768–1024px, desktop > 1024px
@@ -153,39 +196,80 @@
   medium: 250–400ms  — panel transitions, modal open
   long:   400–700ms  — chart mount animations, page transitions
   ```
-- **Chart animation:** Mount on first render only, cubic-bezier(0.16,1,0.3,1) 600ms. Never loop.
-- **⌘K overlay:** Fade-in 200ms with backdrop-blur (the ONLY place backdrop-filter is used)
+- **Chart animation:** Mount on first render only. Never loop.
 
 ## Data Visualization (Recharts)
 
 - Remove all default Recharts borders, backgrounds, gridlines — start from zero
-- **Gridlines:** Horizontal only, `--bg-border` color, 1px, no vertical lines
-- **Area charts:** Gradient fill from `rgba(0,229,160,0.2)` at line to `rgba(0,229,160,0)` at base. Line: 1.5px, `--accent-mint`.
-- **Tooltips:** Surface `--bg-card`, 1px border `--bg-border-strong`, DM Mono for the number, Satoshi for label. No drop shadows.
-- **All chart numbers:** DM Mono, tabular-nums, appropriate semantic color
+- **Gridlines:** Horizontal only, `--border-subtle` color, 1px, no vertical lines
+- **Area charts:** Gradient fill from `rgba(22,163,74,0.2)` at line to `rgba(22,163,74,0)` at base. Line: 1.5px, `--color-inc`.
+- **Tooltips:** Background `--bg-surface-2`, 1px border `--border-visible`, DM Mono for the number, Satoshi for label. No drop shadows. No `backdropFilter`.
+- **All chart numbers:** DM Mono, `tabular-nums`, appropriate semantic color
 - **Axis labels:** 11px, `--text-muted`, DM Mono
+- **Category colors:** Use `--cat-0` through `--cat-7` tokens — never hardcode hex in chart config
 
-## AI Interface (Gemini / ⌘K)
+## AI Interface
 
-The AI layer is a command palette, not a chat widget:
-- Desktop: `⌘K` (Mac) / `Ctrl+K` (Windows) launches full-screen overlay
-- Mobile: Floating action button (FAB) in bottom right, 56px
-- The overlay uses `backdrop-filter: blur(20px)` on the surface behind it — the only use of blur in the entire app
-- Single text input at center. No chat history visible on open. Full history accessible by scrolling up.
-- The command surface can: log transactions, query data, set budgets, navigate, answer questions about spending
-- Visual treatment: background `rgba(8,12,24,0.92)` + backdrop blur, single border `--bg-border`, input uses `--accent-indigo` focus ring
+The AI layer is spread across dedicated pages and a persistent FAB:
+
+- **Quick Add FAB:** Floating action button in bottom-right (56px). Tapping opens the quick-add sheet to log a transaction in natural language.
+- **AI Chat (`/ai-chat`):** Full conversational interface with the general-purpose financial assistant.
+- **AI Advisor (`/ai-advisor`):** Four specialized domain agents (Debt Coach, Investment Advisor, Tax Planner, Budget Master) with persistent conversation history. Each agent panel has conversation starters and a compact sidebar for switching agents.
+- **Inline AI features:** Monthly report, personality analysis, regret patterns, forecast, opportunities, and health report are each surfaced within their respective domain pages — not a central hub.
+
+## Component Library
+
+Every component uses CSS variables only — no hardcoded hex values.
+
+| Component | File | Description |
+|---|---|---|
+| `PageShell` | `components/layout/PageShell.tsx` | Universal page wrapper — title, subtitle, headerRight slot, responsive padding |
+| `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon |
+| `Card` | `components/ui/Card.tsx` | `--bg-surface-1` container with optional hover lift |
+| `StatTile` | `components/ui/StatTile.tsx` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
+| `TransactionRow` | `components/ui/TransactionRow.tsx` | Swipe-left to delete (mobile), hover-edit (desktop) |
+| `EmptyState` | `components/ui/EmptyState.tsx` | Standardised empty state: Lucide icon, title, optional CTA |
+| `Modal` | `components/ui/Modal.tsx` | `createPortal(content, document.body)` — always at body root |
+| `Skeleton` / `SkeletonCard` | `components/ui/Skeleton.tsx` | Shimmer loading — replaces all spinners |
+| `Badge` | `components/ui/Badge.tsx` | Colored status/label chip |
+| `ProgressBar` | `components/ui/ProgressBar.tsx` | Animated progress with color variants |
+| `FAB` | `components/ui/FAB.tsx` | Floating action button for quick add |
+| `BottomSheet` | `components/ui/BottomSheet.tsx` | Mobile slide-up sheet |
+| `Toast` / `ToastContainer` | `components/ui/ToastContainer.tsx` | Non-blocking ephemeral feedback |
+| `NotificationBell` | `components/ui/NotificationBell.tsx` | Header bell with unread count badge |
+| `AIResponseCard` | `components/ui/AIResponseCard.tsx` | Formatted AI response with sections and highlights |
+| `ThemePicker` | `components/ui/ThemePicker.tsx` | Dark / light theme toggle |
+| `WalkthroughTour` | `components/ui/WalkthroughTour.tsx` | Step-by-step onboarding tour overlay |
+| `Input` | `components/ui/Input.tsx` | Styled text input with label and error states |
+| `DatePicker` | `components/ui/DatePicker.tsx` | Date input with calendar popover |
+
+### Input / Form Pattern
+All form inputs use this inline style baseline — never deviate without a documented reason:
+```css
+background:    var(--bg-surface-2)
+border:        1px solid var(--border-subtle)
+border-radius: var(--radius-sm)
+padding:       10px 12px
+color:         var(--text-primary)
+font-size:     14px              /* minimum — prevents iOS zoom */
+font-family:   var(--font-body)
+```
+
+Labels: `11px / 600 / var(--text-secondary) / uppercase / 0.5px letter-spacing`
+
+Error text: `11px / var(--color-exp)`
 
 ## Anti-Patterns (never do these)
 
-- No glassmorphism on cards or panels
-- No purple/violet gradients as accent
-- No 3-column feature grids with icons in colored circles
-- No alternating row colors in tables
+- No glassmorphism on cards or panels (enforced — `backdropFilter` banned on surfaces)
+- No hardcoded hex in component files — always use CSS variables
 - No proportional fonts for currency figures
 - No looping chart animations
 - No drop shadows on tooltips
 - No vertical gridlines in charts
-- No centering everything
+- No alternating row colors in tables
+- No using legacy `--bg-primary`, `--accent-mint`, etc. token names in new code
+- No `color-mix()` inline — define a semantic token if you need a derived color
 
 ## Decisions Log
 
@@ -194,15 +278,13 @@ The AI layer is a command palette, not a chat widget:
 | 2026-04-02 | Cabinet Grotesk replaces Sora | Tighter, more confident, better at display sizes |
 | 2026-04-02 | Satoshi replaces DM Sans | Better optical spacing at small sizes |
 | 2026-04-02 | DM Mono for all financial figures | Makes currency data feel instrumental, not decorative |
-| 2026-04-02 | #00e5a0 replaces #10b981 | More electric mint — stronger premium signal |
-| 2026-04-02 | #6366f1 replaces #3b82f6 | Indigo is more distinctive than standard blue in this space |
-| 2026-04-02 | Backgrounds shift toward violet with elevation | Creates depth without gradients — intentional, not accidental |
-| 2026-04-02 | Full-width pulse view as home | Competitors all use KPI grids — this is the deliberate departure |
-| 2026-04-02 | ⌘K command palette for AI | AI as infrastructure, not a feature — Superhuman-pattern |
-| 2026-04-02 | No glassmorphism | It's category-ubiquitous now, no longer a differentiator |
-| 2026-04-02 | Initial design system created | Created by /design-consultation — research + Claude subagent synthesis |
-| 2026-06-04 | **AMOLED black (#000000) kept** instead of cold obsidian (#080c18) | Superior on OLED panels (true black = off pixels); difference is imperceptible on LCD; chosen consciously over the design doc spec |
-| 2026-06-04 | **Light mode --accent-blue: #4f46e5** (not #2563eb) | Aligns with indigo family (#6366f1 dark / #4f46e5 light) for coherent cross-theme identity |
-| 2026-06-04 | **--glass-bg/border vars retired** | Redefined to solid `--bg-card/--bg-border-strong` values. TrendChart and CategoryChart tooltips no longer use backdropFilter. Glassmorphism ban now enforced in code, not just spec. |
-| 2026-06-04 | **Font stack unified** across all components | Purged bare `Sora,sans-serif` → `'Cabinet Grotesk','Sora',sans-serif` and `DM Sans,sans-serif` → `'Satoshi','DM Sans',sans-serif`. Currency/number contexts changed to `'DM Mono',monospace`. Remaining tech debt: non-SVG hardcoded hex in page files (color-picker swatches for user content are intentional and left alone). |
-| 2026-06-04 | **Home screen KPI grid and ⌘K search retained** for now | Converting to financial-pulse home and full AI command palette is a product-scope rewrite, not a token change. Logged here as accepted scope debt — build as a discrete feature sprint, not part of a token reconciliation. |
+| 2026-04-02 | Full-width pulse view as home | Competitors all use KPI grids — deliberate departure |
+| 2026-04-02 | No glassmorphism | Category-ubiquitous now, no longer a differentiator |
+| 2026-06-04 | **AMOLED black (#0a0a0a) for `--bg-base`** | Superior on OLED panels; difference is imperceptible on LCD |
+| 2026-06-04 | **Font tokens unified** (`--font-display`, `--font-body`, `--font-mono`) | Single source of truth; purged bare `Sora,sans-serif` and `DM Sans,sans-serif` strings from components |
+| 2026-06-04 | **Glassmorphism banned in code** | `backdropFilter` removed from TrendChart, CategoryChart tooltips; `--glass-bg/border` aliases retired |
+| 2026-06-04 | **v2 token system adopted** | Old `--bg-primary/secondary/card`, `--accent-mint/rose/indigo/amber` replaced with semantic `--bg-base/surface-1/2/3`, `--color-inc/exp/warn`, `--accent`. Legacy compat aliases maintained for transition. |
+| 2026-06-04 | **Violet elevation model retired** | Surfaces stay neutral gray rather than shifting toward violet. AMOLED blacks on dark theme. |
+| 2026-06-12 | **`--color-info: #0891b2` added** | Needed for neutral informational states (loan DTI, ITR readiness) without overloading warn or accent |
+| 2026-06-12 | **Spacing + radius tokens added** (`--space-*`, `--radius-*`) | Enforce consistent spatial rhythm across the component library |
+| 2026-06-12 | **Category palette tokens** (`--cat-0` through `--cat-7`) | Consistent colors across all charts — no per-chart hardcoded hex |

@@ -1,6 +1,6 @@
 # FinTrack — AI-Powered Personal Finance
 
-> A production-grade personal finance application with real-time AI insights, multi-account tracking, group expense splits, and a premium AMOLED-first design system.
+> A production-grade personal finance application with real-time AI insights, multi-account tracking, investment portfolio management, Indian tax planning, debt intelligence, FIRE simulation, and a premium AMOLED-first design system.
 
 ---
 
@@ -25,9 +25,9 @@
 
 ## Overview
 
-FinTrack is a full-stack personal finance tracker built for users who take their money seriously. It goes beyond basic budgeting — it ingests your transactions, learns your spending personality, forecasts your financial future, and gives you an AI co-pilot you can actually ask questions in plain English.
+FinTrack is a full-stack personal finance tracker built for users who take their money seriously. It goes beyond basic budgeting — it ingests your transactions, tracks your investments, plans your debt payoff, runs FIRE projections, handles Indian tax compliance, and gives you an AI co-pilot you can actually ask questions in plain English.
 
-**Who it's for:** Individuals who want surgical clarity over their financial story — not another pastel dashboard full of pie charts.
+**Who it's for:** Individuals who want surgical clarity over their complete financial picture — not another pastel dashboard full of pie charts.
 
 **Design philosophy:** Cold obsidian surfaces, tabular financial numbers, data that feels live. Inspired by Linear and Superhuman in terms of craft; Copilot Money in terms of category understanding.
 
@@ -52,12 +52,13 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Transactions** | Add, edit, delete income/expense entries with categories, tags, notes, payment mode |
 | **Quick Add** | Natural language input — type "₹500 coffee" and AI parses it instantly |
 | **SMS Parser** | Paste a bank SMS and AI extracts the transaction automatically |
-| **Receipt Scanner** | Upload a photo — Gemini Vision reads the amount, merchant, and date |
+| **Receipt Scanner** | Upload a photo — AI vision reads the amount, merchant, and date |
 | **Recurring** | Schedule bills, subscriptions, EMIs with daily/weekly/monthly/yearly cadence |
 | **One-Time Expenses** | Plan large upcoming purchases separately from recurring flow |
 | **Regret Tracking** | Mark a transaction as regret — AI identifies your regret spending patterns |
 | **Advanced Search** | Token-based search (`amount:`, `category:`, `type:`, `tag:`, `date:`, `notes:`) with saved filter views |
 | **Bulk Operations** | Multi-select transactions to bulk recategorize, tag, delete, split, or export to CSV |
+| **PDF Bank Statement Import** | Upload a bank statement PDF — AI extracts and imports all transactions in bulk |
 
 ### Accounts & Net Worth
 
@@ -66,7 +67,30 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Bank Accounts** | Track multiple savings/current accounts with live balance computation |
 | **Credit Cards** | Track credit limit, outstanding balance, billing cycle, due dates |
 | **Wallets** | UPI wallets (PhonePe, Paytm, etc.) with custom icons and colors |
-| **Net Worth View** | Hero dashboard showing total assets, credit debt, and wallet balances |
+| **Net Worth View** | Dedicated `/net-worth` page with monthly snapshots and wealth velocity tracking |
+| **Wealth Intelligence** | Month-over-month net worth growth trend (accelerating/decelerating/steady), asset allocation vs recommended, deviation score |
+
+### Investments
+
+| Feature | Description |
+|---|---|
+| **Investment Portfolio** | Track mutual funds, stocks, FDs, PPF, NPS, gold, crypto, and other assets |
+| **Live Gain/Loss** | Unrealized gain/loss computed from purchase price vs current NAV/price |
+| **Portfolio Summary** | Total invested, current value, overall gain/loss percentage, grouped by asset type |
+| **CAMS Import** | Upload a CAMS consolidated statement PDF/CAS to auto-import your mutual fund holdings |
+| **Investment Transactions** | Log buys, sells, dividends, and SIP installments per holding |
+
+### Loans & Debt Intelligence
+
+| Feature | Description |
+|---|---|
+| **Loan Tracker** | Track home loans, car loans, personal loans, student loans with full amortization |
+| **Amortization Schedule** | Month-by-month EMI breakdown: principal vs interest for every loan |
+| **Prepayment Simulation** | Model what happens if you make a lump-sum prepayment — months saved, interest saved |
+| **Debt Payoff Optimizer** | Avalanche (highest-rate first), Snowball (smallest-balance first), and Cascade strategies |
+| **Prepayment Impact** | Side-by-side comparison of payoff date and total interest with vs without extra payments |
+| **Credit Utilization** | Credit card utilization across all cards with optimal vs critical thresholds |
+| **Debt-to-Income Ratio** | Real-time DTI based on current income and all active loan EMIs |
 
 ### Budgets & Goals
 
@@ -96,6 +120,48 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Spending Heatmap** | Calendar-grid view of daily spending intensity |
 | **Category Trajectory** | Month-by-month trend line for your top spending categories |
 
+### Tax Center (India)
+
+| Feature | Description |
+|---|---|
+| **Tax Profile** | Store salary, HRA, employer PF, and city type for automatic deduction calculations |
+| **80C Deduction Tracker** | Log PPF, ELSS, EPF, life insurance, NSC, tax-saver FDs, NPS, home loan principal, and tuition fees with ₹1.5L cap tracking |
+| **Capital Gains** | Record equity, debt, and property transactions; STCG/LTCG computed automatically |
+| **Advance Tax Payments** | Log quarterly advance tax payments; ITR-6 compliance |
+| **Old vs New Regime Comparison** | Side-by-side tax under both regimes with recommended choice, slab breakdown, and savings tips |
+| **ITR Readiness Checklist** | Progress tracker for all documents needed to file your return |
+| **HRA & LTA Estimates** | Compute HRA exemption from salary + rent; LTA eligibility estimate |
+| **80C Summary** | Visual progress bar against ₹1.5L limit with category breakdown |
+
+### Financial Planning
+
+| Feature | Description |
+|---|---|
+| **FIRE Calculator** | Compute corpus needed for Financial Independence using the 4% rule; real vs nominal returns; years-to-FIRE with step-up and extra-payment scenarios |
+| **SIP Calculator** | Goal-based and growth-based SIP projections — monthly SIP amount, lumpsum alternative, total returns, wealth ratio |
+| **Cash Flow Forecast** | Monthly projected income, expenses, EMIs, and savings for the next 12 months |
+| **Scenario Modeling** | What-if simulations: SIP compounding, new loan impact, expense cut savings, salary raise effect |
+| **Portfolio Projection** | Year-by-year portfolio value chart up to your FIRE date |
+| **Savings Targets** | Required savings to reach FIRE in 10/15/20 years |
+
+### Milestones
+
+| Feature | Description |
+|---|---|
+| **Financial Milestones** | Create hierarchical life goals with deadlines and optional target amounts (e.g., "Emergency Fund", "First Crore") |
+| **Feasibility Check** | Auto-computes monthly savings needed and whether you're on track based on last 3 months average |
+| **Progress Tracking** | Current amount vs target with status transitions (not started → in progress → achieved / missed) |
+| **Priority & Parent Grouping** | Organize milestones by priority; link sub-milestones to a parent goal |
+
+### Documents Vault
+
+| Feature | Description |
+|---|---|
+| **Secure Document Storage** | Upload Form 16, ITR copies, salary slips, bank statements, insurance policies, investment proofs, advance tax challans, and rent receipts |
+| **Supabase Storage Backend** | Files stored in a private Supabase bucket (up to 20MB per file); signed download URLs generated on demand |
+| **Financial Year Tagging** | Tag documents by financial year for easy retrieval at tax time |
+| **Supported Formats** | PDF, JPG, PNG, XLSX |
+
 ### Groups & Splits
 
 | Feature | Description |
@@ -110,16 +176,19 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | Feature | Description |
 |---|---|
 | **AI Chat** | Ask anything — "Am I spending too much on Swiggy?" or "Can I afford a trip to Goa?" |
+| **AI Agents** | 4 specialized domain agents with persistent conversation history: Debt Coach, Investment Advisor, Tax Planner, Budget Master |
 | **Monthly Report** | AI-generated narrative of your financial month — strengths, warnings, suggestions |
 | **Forecast** | AI predicts next month's expenses based on 3-month rolling patterns |
 | **Forecast Calendar** | Day-by-day projected cash flow calendar with recurring + AI-predicted items |
 | **Personality** | Spending personality analysis — are you a "Comfort Seeker", "Impulsive Buyer", or "Strategic Saver"? |
-| **Salary Intelligence** | Upload salary + expenses; AI calculates take-home, suggests allocations |
+| **Salary Intelligence** | AI calculates take-home, suggests allocations based on your income pattern |
 | **Salary Allocation** | AI designs a 50/30/20-style budget plan personalized to your income |
-| **Tax Estimate** | Rough income tax estimate (India) based on categorized income transactions |
+| **Tax Estimate** | AI-powered Old vs New regime tax comparison with slab breakdown and saving tips |
 | **Life Event Planner** | Input a life goal (car, wedding, home); AI projects a monthly savings plan |
 | **Regret Patterns** | AI identifies your specific regret triggers and time-of-week patterns |
 | **Afford Check** | Quick "Can I afford X?" query answered against your real data |
+| **Opportunities** | AI-detected financial optimization opportunities (idle savings, high-interest debt, underutilized 80C) with dismiss/act-on tracking |
+| **Peer Insights** | Spending vs anonymized income-bracket benchmarks; behavioral pattern detection (budget anchoring, present bias, subscription bloat) |
 
 ### Calendar & Scheduling
 
@@ -161,16 +230,12 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 │  ┌─────────────────────────────────────────────────────────┐    │
 │  │              Express.js Server (Node 18)                │    │
 │  │                                                         │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐   │    │
-│  │  │   Auth   │  │   Txns   │  │ Analytics│  │   AI   │   │    │
-│  │  │  Routes  │  │  Routes  │  │  Routes  │  │ Routes │   │    │
-│  │  └──────────┘  └──────────┘  └──────────┘  └────────┘   │    │
+│  │  Auth │ Txns │ Analytics │ AI │ Investments │ Loans     │    │
+│  │  Tax  │ Debt │ Planning  │ Milestones │ Documents        │    │
+│  │  Insights │ Agents │ Notifications │ Budgets/Goals       │    │
 │  │                                                         │    │
-│  │  ┌─────────────────────────────────────────────────┐    │    │
-│  │  │              authMiddleware (JWT)               │    │    │
-│  │  └─────────────────────────────────────────────────┘    │    │
-│  │                                                         │    │
-│  │  Helmet │ CORS │ Rate Limiting │ Cron Jobs              │    │
+│  │  authMiddleware (JWT) │ Helmet │ CORS │ Rate Limiting    │    │
+│  │  Cron Jobs (recurring + notifications)                  │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -179,9 +244,14 @@ FinTrack is a full-stack personal finance tracker built for users who take their
       │                  │                  │                  │
 ┌─────▼───────┐  ┌───────▼─────┐  ┌─────────▼───────┐  ┌───────▼─────────┐
 │  PostgreSQL │  │   Groq API  │  │  NVIDIA NIM     │  │  Gemini API     │
-│  (Supabase  │  │  (Primary   │  │  (Primary LLM   │  │  (Vision +      │
-│   Pooler)   │  │    LLM)     │  │   for 11 routes)│  │   Fallback LLM) │
+│  (Supabase  │  │  (AI chat + │  │  (Primary LLM   │  │  (Vision +      │
+│   Pooler)   │  │   parsers)  │  │   for 11 routes)│  │   Fallback LLM) │
 └─────────────┘  └─────────────┘  └─────────────────┘  └─────────────────┘
+                                                                │
+                                                   ┌────────────▼────────────┐
+                                                   │  Supabase Storage       │
+                                                   │  (Documents Vault)      │
+                                                   └─────────────────────────┘
 ```
 
 ### Request Flow
@@ -204,7 +274,7 @@ Express Route Handler
     │
     ├── authMiddleware — verifies JWT, attaches req.user
     │
-    ├── Input validation
+    ├── Input validation (utils/validation.js)
     │
     ├── PostgreSQL query (parameterized only)
     │
@@ -219,13 +289,13 @@ User AI Request (e.g. /ai/chat)
     ▼
 Check ai_cache in users table
     │
-    ├── HIT (< 6h old) ──────────────────────► Return cached response
+    ├── HIT (< 6h old, or 24h for personality) ──► Return cached response
     │
     └── MISS
           │
           ▼
         Pull real financial data from DB
-        (transactions, budgets, goals, accounts)
+        (transactions, budgets, goals, accounts, investments, loans)
           │
           ▼
         Inject data into LLM prompt
@@ -233,12 +303,13 @@ Check ai_cache in users table
           ▼
         Route to correct model (see AI System)
           │
-          ├── NVIDIA NIM  ────► primary for 11 routes (groq1 → gemini fallback)
-          ├── Groq Key 1 ────► primary for remaining routes
-          ├── Groq Key 2 ────► fallback / load share
-          └── Gemini     ────► vision fallback + non-NIM fallback chain
+          ├── NVIDIA NIM  ────► primary for 11 routes
+          ├── Groq Key 1 ────► primary for chat, SMS, split parsers
+          ├── Groq Key 2 ────► quick-add + load share
+          └── Gemini     ────► vision fallback + non-NIM fallback
           │
           ▼
+        Strip <think>…</think> blocks (Qwen/DeepSeek reasoning models)
         Strip ```json wrapper (if JSON response)
           │
           ▼
@@ -255,44 +326,72 @@ Check ai_cache in users table
 
 ## AI System
 
-FinTrack routes each AI feature to the optimal model based on complexity, token budget, and cost:
+FinTrack routes each AI feature to the optimal model based on complexity, token budget, and cost.
+
+### Standard Routes (via `aiComplete()`)
 
 ```
 ┌─────────────────────────┬──────────────────────────────┬────────────────┐
 │ Feature                 │ Model                        │ Provider       │
 ├─────────────────────────┼──────────────────────────────┼────────────────┤
 │ AI Chat                 │ llama-3.3-70b-versatile      │ Groq Key 1     │
-│ Personality Analysis    │ nemotron-super-49b           │ NVIDIA NIM     │
+│ Personality Analysis    │ nemotron-super-49b-v1.5      │ NVIDIA NIM     │
 │ Monthly Report          │ minimax-m2.7                 │ NVIDIA NIM     │
-│ Recurring Suggestions   │ deepseek-v4-flash            │ NVIDIA NIM     │
-│ Forecast / Cash Flow    │ llama-3.2-3b-instruct        │ NVIDIA NIM     │
+│ Recurring Detection     │ deepseek-v4-flash            │ NVIDIA NIM     │
+│ Forecast Insight        │ llama-3.2-3b-instruct        │ NVIDIA NIM     │
 │ Salary Intelligence     │ deepseek-v4-flash            │ NVIDIA NIM     │
 │ Tax Estimate            │ deepseek-v4-flash            │ NVIDIA NIM     │
 │ Afford / Predictor      │ deepseek-v4-flash            │ NVIDIA NIM     │
 │ Regret Patterns         │ llama-3.2-3b-instruct        │ NVIDIA NIM     │
 │ Life Event Planning     │ minimax-m2.7                 │ NVIDIA NIM     │
 │ Health Report           │ minimax-m2.7                 │ NVIDIA NIM     │
-│ SMS Parser              │ llama-3.1-8b                 │ Groq Key 1     │
-│ Quick Add               │ llama-3.1-8b                 │ Groq Key 2     │
-│ Split Expense Parser    │ llama-3.1-8b                 │ Groq Key 1     │
 │ Salary Allocation       │ deepseek-v4-flash            │ NVIDIA NIM     │
-│ Receipt Scanner         │ llama-3.2-11b-vision         │ NVIDIA NIM     │
+│ SMS Parser              │ llama-3.1-8b-instant         │ Groq Key 1     │
+│ Quick Add               │ llama-3.1-8b-instant         │ Groq Key 2     │
+│ Split Expense Parser    │ llama-3.1-8b-instant         │ Groq Key 1     │
+│ PDF Bank Statement      │ llama-3.1-8b-instant         │ Groq Key 1     │
 └─────────────────────────┴──────────────────────────────┴────────────────┘
+```
 
-Fallback chains:
-  groq1  → groq2  → gemini
-  groq2  → groq1  → gemini
-  gemini → groq1  → groq2
-  nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
+### Vision Route (direct call, bypasses `aiComplete()`)
 
-Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key.
+```
+Receipt Scanner:  NIM llama-3.2-11b-vision-instruct  →  Gemini gemini-2.0-flash (fallback)
+```
+
+### AI Agents (domain-specific, via `/api/ai/agent`)
+
+Four specialized agents with full conversation history stored in `agent_conversations`:
+
+```
+┌──────────────────────┬────────────────────────────────────────────────────┐
+│ Agent                │ Specialization                                     │
+├──────────────────────┼────────────────────────────────────────────────────┤
+│ Debt Coach           │ Loan prioritization, EMI prepayment, payoff plans  │
+│ Investment Advisor   │ Portfolio review, asset allocation, FIRE progress  │
+│ Tax Planner          │ 80C optimization, regime comparison, ITR readiness │
+│ Budget Master        │ Category budgeting, spending cuts, savings habits  │
+└──────────────────────┴────────────────────────────────────────────────────┘
+```
+
+Each agent receives full context about the user's actual financial data (loans, investments, tax profile, transactions) injected into every prompt.
+
+### Fallback Chains
+
+```
+groq1  → groq2  → gemini
+groq2  → groq1  → gemini
+gemini → groq1  → groq2
+nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
 ```
 
 **Key AI constraints enforced in code:**
 - `temperature: 0.3` on all completions — deterministic, not creative
 - Real financial data always injected — no hallucinated numbers
-- 6-hour cache on all heavy AI endpoints (report, forecast, personality, salary)
+- 6-hour cache on all heavy AI endpoints; 24-hour cache on personality
+- `<think>…</think>` blocks stripped from all responses (Qwen/DeepSeek reasoning models)
 - All JSON responses: strip ` ```json ` wrapper before `JSON.parse`
+- 30 req/hour per-user rate limit on all AI endpoints (keyed by JWT user ID)
 
 ---
 
@@ -304,8 +403,8 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 |---|---|
 | Framework | Next.js 16 (App Router) |
 | Language | TypeScript |
-| Styling | Inline styles + CSS custom properties (zero Tailwind) |
-| State | Zustand (authStore, themeStore) |
+| Styling | CSS custom properties + Tailwind CSS (utility layer only) |
+| State | Zustand (authStore, themeStore, toastStore) |
 | HTTP | axios with request/response interceptors |
 | Charts | Recharts |
 | Icons | Lucide React |
@@ -321,12 +420,15 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 | Auth | JWT (jsonwebtoken) + bcryptjs |
 | Database | PostgreSQL via `pg` (connection pool) |
 | Database Host | Supabase (Transaction Pooler, port 6543) |
+| File Storage | Supabase Storage (documents vault, signed URLs) |
 | Email (OTP) | Nodemailer / SMTP |
-| File Upload | Multer (memory storage, 10MB limit) |
+| File Upload | Multer (memory storage, 10MB general / 20MB documents) |
+| PDF Parsing | pdf-parse (bank statement import) |
 | Security | Helmet, CORS whitelist, express-rate-limit |
-| Cron | node-cron (recurring transaction processor) |
-| AI Primary | Groq SDK + NVIDIA NIM (via OpenAI SDK) |
-| AI Vision | NVIDIA NIM Llama 3.2 11B Vision (Gemini fallback) |
+| Cron | node-cron (recurring transaction processor + notification triggers) |
+| AI Primary | Groq SDK + NVIDIA NIM (via OpenAI-compatible SDK) |
+| AI Vision | NIM Llama 3.2 11B Vision (Gemini gemini-2.0-flash fallback) |
+| Push Notifications | Firebase Cloud Messaging (FCM) |
 
 ---
 
@@ -341,7 +443,8 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ transactions         │ id, user_id, amount, type (income/expense), │
 │                      │ description, category_id, account_id,       │
-│                      │ date, notes, tags[], is_regret, created_at  │
+│                      │ payment_method, date, notes, tags[],        │
+│                      │ is_regret, created_at                       │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ categories           │ id, user_id, name, icon, color, is_default  │
 ├──────────────────────┼─────────────────────────────────────────────┤
@@ -362,19 +465,88 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 ┌────────────────────────────────────────────────────────────────────┐
 │                       ACCOUNTS TABLES                              │
 ├──────────────────────┬─────────────────────────────────────────────┤
-│ accounts             │ id, user_id, name, icon, color,             │
-│                      │ starting_balance, balance_as_of,            │
-│                      │ account_type (bank/wallet), is_default      │
+│ bank_accounts        │ id, user_id, name, icon, color,             │
+│ (accounts)           │ starting_balance, balance_as_of,            │
+│                      │ account_type (bank/wallet), last_four,      │
+│                      │ is_default                                  │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ credit_cards         │ id, user_id, bank_name, card_name,          │
 │                      │ last_four, credit_limit, outstanding_balance│
 │                      │ billing_date, due_days, network, color      │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ wallets              │ id, user_id, name, icon, color, balance     │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ net_worth_snapshots  │ id, user_id, snapshot_date, net_worth,      │
+│                      │ assets_total, liabilities_total             │
 └──────────────────────┴─────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────────┐
-│                       SOCIAL TABLES                                │
+│                    INVESTMENT TABLES                                │
+├──────────────────────┬─────────────────────────────────────────────┤
+│ investments          │ id, user_id, type, name, ticker_or_folio,   │
+│                      │ units, purchase_price_per_unit,             │
+│                      │ current_nav_or_price, purchase_date,        │
+│                      │ account_label                               │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ investment_          │ id, investment_id, transaction_type         │
+│ transactions         │ (buy/sell/dividend/sip), units, price,      │
+│                      │ date, notes                                 │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ pdf_import_jobs      │ id, user_id, file_name, bank_name, status,  │
+│                      │ extracted_count, error_message              │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ cams_import_jobs     │ id, user_id, file_name, status,             │
+│                      │ holdings_found                              │
+└──────────────────────┴─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                       LOAN / DEBT TABLES                           │
+├──────────────────────┬─────────────────────────────────────────────┤
+│ loans                │ id, user_id, name, type, principal_amount,  │
+│                      │ disbursement_date, tenure_months,           │
+│                      │ interest_rate_pct, outstanding_balance,     │
+│                      │ emi_amount, is_active                       │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ loan_prepayments     │ id, loan_id, amount, date, notes            │
+└──────────────────────┴─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                        TAX TABLES                                  │
+├──────────────────────┬─────────────────────────────────────────────┤
+│ tax_profiles         │ id, user_id, financial_year, gross_salary,  │
+│                      │ employer_pf, hra_received, city_type,       │
+│                      │ regime_preference                           │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ tax_deductions       │ id, user_id, financial_year, section,       │
+│                      │ type, amount, description                   │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ capital_gains_records│ id, user_id, financial_year, asset_type,    │
+│                      │ description, purchase_date, sell_date,      │
+│                      │ purchase_price, sell_price, indexed_cost    │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ capital_transactions │ id, user_id, financial_year, asset_type,    │
+│                      │ transaction_type, date, amount, description │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ tax_investments      │ id, user_id, financial_year, type, amount   │
+│                      │ (Section 80C eligible investments)          │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ advance_tax_payments │ id, user_id, financial_year, quarter,       │
+│                      │ amount, payment_date, challan_number        │
+└──────────────────────┴─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                     PLANNING TABLES                                │
+├──────────────────────┬─────────────────────────────────────────────┤
+│ milestones           │ id, user_id, name, description, target_date,│
+│                      │ target_amount, current_amount, parent_id,   │
+│                      │ priority, status                            │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ scenarios            │ id, user_id, title, type, inputs_json,      │
+│                      │ result_json, created_at                     │
+└──────────────────────┴─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                      SOCIAL TABLES                                 │
 ├──────────────────────┬─────────────────────────────────────────────┤
 │ groups               │ id, user_id, name, emoji, description,      │
 │                      │ budget, currency, members (JSONB)           │
@@ -384,6 +556,25 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ splits               │ id, user_id, description, total_amount,     │
 │                      │ participants (JSONB), date                  │
+└──────────────────────┴─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────┐
+│                      AI / SYSTEM TABLES                            │
+├──────────────────────┬─────────────────────────────────────────────┤
+│ agent_conversations  │ id, user_id, agent_type, title,             │
+│                      │ messages (JSONB), updated_at                │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ opportunities        │ id, user_id, type, title, description,      │
+│                      │ impact_estimate, dismissed, acted_on        │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ documents            │ id, user_id, name, type, financial_year,    │
+│                      │ storage_path, file_name, file_size_bytes,   │
+│                      │ mime_type, description                      │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ user_fcm_tokens      │ id, user_id, token, platform, updated_at    │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ notification_log     │ id, user_id, key, created_at                │
+│                      │ (server-side dedup for push notifications)  │
 └──────────────────────┴─────────────────────────────────────────────┘
 ```
 
@@ -401,7 +592,7 @@ Receipt Scanner falls back from NIM vision to Gemini Vision on error/missing key
 
 ```
 POST   /api/auth/register          Register new account
-POST   /api/auth/verify-email      Verify OTP (6-digit email code)
+POST   /api/auth/verify-email      Verify OTP (6-digit email code, max 5 attempts)
 POST   /api/auth/resend-otp        Resend OTP (register or reset)
 POST   /api/auth/login             Login → JWT
 POST   /api/auth/forgot-password   Send reset OTP
@@ -412,8 +603,8 @@ GET    /api/auth/me                Get current user (requires auth)
 ### Transactions
 
 ```
-GET    /api/transactions            List (filter: type, month, year)
-GET    /api/transactions/search     Full-text search by description
+GET    /api/transactions            List (filter: type, month, year; paginated)
+GET    /api/transactions/search     Token-based search (limit configurable)
 GET    /api/transactions/earliest   Earliest transaction date
 POST   /api/transactions            Create transaction
 PUT    /api/transactions/:id        Update transaction
@@ -432,6 +623,85 @@ GET    /api/analytics/report        Date-range report
 GET    /api/analytics/payment-methods  Payment method breakdown
 ```
 
+### Investments
+
+```
+GET    /api/investments             List all investments (sorted by value)
+GET    /api/investments/summary     Portfolio totals + group breakdown
+POST   /api/investments             Add investment
+PATCH  /api/investments/:id         Update current NAV/price or units
+DELETE /api/investments/:id         Remove investment
+POST   /api/import/bank-statement   Upload PDF bank statement for AI extraction
+POST   /api/import/cams-statement   Upload CAMS PDF/CAS for mutual fund import
+```
+
+### Loans & Debt
+
+```
+GET    /api/loans                   List loans (filter: active=true)
+POST   /api/loans                   Add loan
+PATCH  /api/loans/:id               Update loan details
+DELETE /api/loans/:id               Delete loan
+GET    /api/loans/:id/amortization  Full amortization schedule
+POST   /api/loans/:id/prepayments   Record a prepayment
+GET    /api/loans/:id/prepayments   List prepayments for a loan
+
+GET    /api/debt/payoff-optimizer   Avalanche/snowball/cascade strategies + monthly plan
+GET    /api/debt/prepayment-impact  Side-by-side: with vs without extra payment
+GET    /api/debt/credit-utilization Per-card and aggregate utilization
+GET    /api/debt/dti                Debt-to-income ratio
+```
+
+### Tax Center
+
+```
+GET/POST  /api/tax/profile           Tax profile (salary, HRA, city, regime)
+GET       /api/tax/hra               HRA exemption estimate
+GET       /api/tax/lta               LTA eligibility estimate
+GET       /api/tax/advance-tax       Advance tax schedule + quarterly amounts due
+POST      /api/tax/advance-tax/payment  Record an advance tax payment
+GET       /api/tax/itr-readiness     ITR filing checklist status
+PATCH     /api/tax/itr-readiness     Update checklist item
+GET       /api/tax/80c-summary       80C deduction total + category breakdown
+GET/POST  /api/tax/80c               List / add 80C deduction entry
+PATCH/DELETE /api/tax/80c/:id        Update / delete 80C entry
+GET       /api/tax/capital-gains     STCG/LTCG summary for the financial year
+POST      /api/tax/capital-transaction  Record a capital asset transaction
+```
+
+### Financial Planning
+
+```
+POST   /api/planning/fire           FIRE corpus + years-to-FIRE calculator
+POST   /api/planning/sip            SIP amount calculator (goal-based or growth-based)
+GET    /api/planning/cashflow       12-month projected cash flow
+GET    /api/planning/scenarios      List saved scenarios
+GET    /api/planning/scenarios/:id  Get a saved scenario
+POST   /api/planning/scenarios      Save a new scenario
+PATCH  /api/planning/scenarios/:id  Update scenario
+DELETE /api/planning/scenarios/:id  Delete scenario
+POST   /api/planning/scenarios/simulate  Run a what-if simulation
+```
+
+### Milestones
+
+```
+GET    /api/milestones              List milestones (with feasibility checks)
+POST   /api/milestones              Create milestone
+PATCH  /api/milestones/:id          Update milestone
+PATCH  /api/milestones/:id/progress Update current_amount progress
+DELETE /api/milestones/:id          Delete milestone
+```
+
+### Documents
+
+```
+POST   /api/documents               Upload document (multipart/form-data)
+GET    /api/documents               List documents (filter by type, financial_year)
+GET    /api/documents/:id/download-url  Generate signed download URL
+DELETE /api/documents/:id           Delete document
+```
+
 ### AI Endpoints
 
 ```
@@ -441,19 +711,39 @@ POST   /api/ai/parse-sms            Parse bank SMS → transaction
 POST   /api/ai/parse-image          Parse receipt photo → transaction
 POST   /api/ai/quick-add            Natural language → transaction
 POST   /api/ai/afford               "Can I afford X?" check
+POST   /api/ai/predict              Alias for /afford
 POST   /api/ai/personality          Spending personality analysis
 POST   /api/ai/salary-allocation    Personalized budget plan
 POST   /api/ai/life-event           Life goal savings planner
 POST   /api/ai/health-report        AI budget health assessment
+POST   /api/ai/parse-split          Parse split expense text
 GET    /api/ai/salary-intelligence  Salary benchmarking insights
 GET    /api/ai/forecast-calendar    Day-by-day cash flow calendar
-GET    /api/ai/tax-estimate         Indian income tax estimate
+GET    /api/ai/tax-estimate         Indian income tax estimate (Old vs New regime)
 GET    /api/ai/detect-patterns      Spending pattern detection
+GET    /api/ai/recurring            Alias for /detect-patterns
 GET    /api/ai/regret-patterns      Regret trigger analysis
 DELETE /api/ai/cache/:key           Bust cache for a specific endpoint
+
+POST   /api/ai/agent/message        Send message to a specialized agent
+GET    /api/ai/agent/conversations  List past agent conversations
+GET    /api/ai/agent/conversations/:id  Get conversation history
+DELETE /api/ai/agent/conversations/:id Delete conversation
+
+POST   /api/ai/opportunities/detect  Detect new financial opportunities
+GET    /api/ai/opportunities         List detected opportunities
+PATCH  /api/ai/opportunities/:id/dismiss  Dismiss an opportunity
+PATCH  /api/ai/opportunities/:id/acted-on Mark opportunity as acted on
 ```
 
-### Accounts, Groups, Splits (abbreviated)
+### Insights
+
+```
+GET    /api/insights/peer-benchmarks     Spending vs income-bracket anonymized benchmarks
+GET    /api/insights/behavioral-patterns Detected behavioral patterns (budget anchoring, etc.)
+```
+
+### Accounts, Groups, Splits, Budgets, Goals (abbreviated)
 
 ```
 GET/POST/PATCH/DELETE  /api/accounts
@@ -461,31 +751,68 @@ GET/POST/PATCH/DELETE  /api/credit-cards
 GET/POST/PATCH/DELETE  /api/wallets
 GET/POST/PATCH/DELETE  /api/groups
 GET/POST/PUT/DELETE    /api/splits
-GET/POST/PATCH/DELETE  /api/budgets
+GET/POST/PUT/DELETE    /api/budgets
 GET/POST/PUT/DELETE    /api/goals
 GET/POST/PUT/DELETE    /api/recurring
+GET/POST/PATCH/DELETE  /api/notifications/...
 ```
 
 ---
 
 ## Design System
 
-FinTrack uses a custom design system with zero Tailwind — every style is an inline object or a CSS custom property.
+FinTrack uses a custom design token system defined in `frontend/app/globals.css`. Two themes only: `dark` (AMOLED-first, default) and `light`. Theme is applied as `data-theme` on `<html>`.
 
 ### Themes
 
-Two themes, toggled with a binary Moon/Sun pill:
-
 ```
-Dark (AMOLED)          Light
-─────────────          ─────────────
-bg:     #000000        bg:     #f9fafb
-card:   #111111        card:   #ffffff
-text:   #f5f5f5        text:   #0f172a
-border: #222222        border: #e5e7eb
+Dark (AMOLED)                    Light
+────────────────────────         ────────────────────────
+--bg-base:       #0a0a0a         --bg-base:       #f8f8f8
+--bg-surface-1:  #111111         --bg-surface-1:  #ffffff
+--bg-surface-2:  #1a1a1a         --bg-surface-2:  #f3f3f3
+--bg-surface-3:  #222222         --bg-surface-3:  #e8e8e8
 ```
 
-Theme is stored in `localStorage` under `fintrack-theme`. Any legacy `pitch` or `navy` value migrates to `dark` automatically.
+Theme is stored in `localStorage` under `fintrack-theme`. Legacy values (`pitch`, `navy`) migrate to `dark` automatically.
+
+### CSS Token System
+
+All styles use CSS custom properties. Never use magic numbers — always reference a token.
+
+**Semantic color tokens:**
+```css
+--color-inc:   #16a34a   income, positive delta, success
+--color-exp:   #dc2626   expense, negative delta, danger
+--accent:      #2563eb   interactive, selected, CTA
+--color-warn:  #d97706   warning, pending, budget alert
+--color-info:  #0891b2   informational, neutral highlight
+```
+
+**Surface hierarchy:**
+```css
+--bg-base       Page background (deepest)
+--bg-surface-1  Cards, panels
+--bg-surface-2  Elevated surfaces, inputs, dropdowns
+--bg-surface-3  Hover states, active rows
+```
+
+**Border tokens:**
+```css
+--border-subtle   1px borders on cards (low contrast)
+--border-visible  Dividers and focused elements (higher contrast)
+```
+
+**Typography tokens:**
+```css
+--font-display: 'Cabinet Grotesk', sans-serif   headings
+--font-body:    'Satoshi', sans-serif            body, UI labels
+--font-mono:    'DM Mono', monospace             numbers, currency, code
+```
+
+**Spacing scale:** `--space-1` (4px) through `--space-16` (64px)
+
+**Radius tokens:** `--radius-sm` (6px), `--radius-md` (10px), `--radius-lg` (16px), `--radius-xl` (24px), `--radius-full`
 
 ### Typography
 
@@ -496,24 +823,7 @@ Body / UI:         Satoshi 400/500/600
 Code / Terminal:   DM Mono
 ```
 
-### Color Semantics
-
-```css
---accent-green:   income, positive delta, success
---accent-red:     expense, negative delta, danger
---accent-blue:    interactive, selected, CTA
---accent-yellow:  warning, pending
---accent-purple:  tags, secondary category
-```
-
-### Surface Hierarchy
-
-```
---surface-0   Page background (deepest)
---surface-1   Cards, panels
---surface-2   Elevated surfaces, dropdowns
---surface-3   Hover states, active rows
-```
+Type scale: `xs` (11px) → `sm` (12px) → `base` (14px) → `md` (15px) → `lg` (20px) → `xl` (28px) → `2xl` (40px) → `hero` (52px)
 
 ### Component Library
 
@@ -523,11 +833,20 @@ Code / Terminal:   DM Mono
 | `Button` | 5 variants: primary / secondary / ghost / danger / icon |
 | `Card` | Surface-1 container with optional hover lift |
 | `StatTile` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
-| `TransactionRow` | Swipe-to-delete on mobile, hover edit on desktop |
+| `TransactionRow` | Swipeable transaction list row (swipe-left to delete on mobile) |
 | `EmptyState` | Standardised empty state with Lucide icon, title, action |
 | `Modal` | `createPortal(content, document.body)` — always rendered at body root |
-| `Skeleton` | Shimmer loading state — replaces all spinners |
-| `ThemeToggle` | Binary Moon/Sun pill toggle |
+| `Skeleton` / `SkeletonCard` | Shimmer loading states — replaces all spinners |
+| `ThemePicker` | Theme toggle with dark/light options |
+| `Badge` | Colored status/label chip |
+| `ProgressBar` | Animated progress bar with color variants |
+| `FAB` | Floating action button for quick add |
+| `BottomSheet` | Mobile-optimised slide-up sheet |
+| `Toast` / `ToastContainer` | Non-blocking ephemeral feedback notifications |
+| `NotificationBell` | Header bell with unread count badge |
+| `AIResponseCard` | Formatted AI response with sections and highlights |
+| `SwipeableRow` | Gesture-aware row wrapper for swipe actions |
+| `WalkthroughTour` | Step-by-step onboarding tour overlay |
 
 ---
 
@@ -558,14 +877,16 @@ Supported origins:
 | Layer | Implementation |
 |---|---|
 | Auth | JWT (RS256-compatible secret, 7d expiry) |
-| OTP | 6-digit code, 10 min expiry, max 10 attempts per 10 min window |
+| OTP | 6-digit code, 10 min expiry, max 5 attempts (server-side counter), then row deleted |
 | Passwords | bcryptjs (salt rounds: 10) |
 | SQL | Parameterized queries only — zero string interpolation |
-| Rate Limiting | 200 req/15min general, 30 req/15min auth, 10 req/10min OTP |
-| CORS | Strict whitelist — blocks all unknown origins |
-| Headers | Helmet.js — no CSP (API-only), HSTS enforced |
+| Rate Limiting | 200 req/15min general, 30 req/15min auth, 10 req/10min OTP, 30 req/hr AI (per-user) |
+| CORS | Strict allowlist via `CORS_ALLOWED_ORIGINS` env var — blocks all unknown origins |
+| Headers | Helmet.js — CSP off (API-only), HSTS enforced |
 | Logs | No sensitive data — no passwords, tokens, or stack traces in logs |
-| Uploads | Memory-only (never written to disk), 10MB cap |
+| Uploads | Memory-only (never written to disk), 10MB general / 20MB documents |
+| Error Responses | Global error handler always returns generic `{ error: 'Internal server error' }` |
+| Input Validation | `utils/validation.js` validates all amount, type, date, and enum inputs at route level |
 
 ---
 
@@ -578,11 +899,13 @@ Supported origins:
 - Groq API key (free tier available)
 - Google Gemini API key (vision/fallback)
 - NVIDIA NIM API key (primary LLM for most AI features; optional — falls back to Groq/Gemini if unset)
+- Supabase project (for Storage; required for documents vault; `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`)
+- Firebase project (for push notifications; optional — `FIREBASE_SERVICE_ACCOUNT_KEY`)
 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/your-username/fintrack.git
+git clone https://github.com/vivek0402/fintrack.git
 cd fintrack
 ```
 
@@ -608,7 +931,7 @@ App runs at `http://localhost:3000`. Backend at `http://localhost:5000`.
 
 ### 4. Database
 
-Migrations run automatically on server start from `backend/src/db/migrations/*.sql` in alphabetical order.
+Migrations run automatically on server start from `backend/src/db/migrations/*.sql` in alphabetical order (migrations `001` through `041` currently).
 
 ---
 
@@ -621,16 +944,28 @@ PORT=5000
 DATABASE_URL=postgresql://user:password@host:6543/postgres?pgbouncer=true
 JWT_SECRET=your-secret-key-min-32-chars
 
-GROQ_API_KEY=gsk_...          # Primary LLM key
-GROQ_API_KEY_2=gsk_...        # Secondary (load sharing + fallback)
+# AI providers
+GROQ_API_KEY=gsk_...          # Primary LLM key (chat, SMS parser, split parser)
+GROQ_API_KEY_2=gsk_...        # Secondary (quick-add + load sharing + fallback)
 GEMINI_API_KEY=AIza...        # Vision + non-NIM fallback
 NVIDIA_API_KEY=nvapi-...      # NIM — primary LLM for most AI routes + receipt vision
 
+# Email (OTP)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your@email.com
 SMTP_PASS=app-password
 EMAIL_FROM=FinTrack <your@email.com>
+
+# Supabase (required for documents vault)
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+
+# Firebase (optional — push notifications)
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+
+# CORS (optional — defaults to localhost + Vercel)
+CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app,capacitor://localhost
 ```
 
 ### Frontend (`frontend/.env.local`)
@@ -648,30 +983,46 @@ fintrack/
 ├── frontend/
 │   ├── app/
 │   │   ├── (auth)/                 # Login, register, forgot-password
-│   │   ├── dashboard/              # Main overview + hero stats
-│   │   ├── transactions/           # Transaction list + filters
-│   │   ├── analytics/              # Charts, trends, payment methods
+│   │   ├── dashboard/              # Main overview + hero stats + coach alerts
+│   │   ├── transactions/           # Transaction list + advanced search + bulk ops
+│   │   ├── analytics/              # Charts, trends, payment methods, regret analysis
 │   │   ├── accounts/               # Net worth, banks, cards, wallets
+│   │   ├── net-worth/              # Net worth snapshots + wealth velocity
+│   │   ├── investments/            # Investment portfolio + CAMS import
+│   │   ├── loans/                  # Loan tracker + amortization
+│   │   ├── debt-intelligence/      # Payoff optimizer + DTI + utilization
+│   │   ├── tax/                    # Full Indian tax center (80C, capital gains, ITR)
+│   │   ├── tax-estimate/           # Quick AI Old vs New regime comparison
+│   │   ├── fire/                   # FIRE + SIP calculator
+│   │   ├── cash-flow/              # 12-month cash flow projection
+│   │   ├── scenarios/              # What-if financial scenario modeling
+│   │   ├── milestones/             # Financial life milestones
+│   │   ├── documents/              # Financial document vault
+│   │   ├── insights/               # Peer benchmarking + behavioral patterns
+│   │   ├── wealth-intelligence/    # Wealth velocity + asset allocation analysis
 │   │   ├── budgets/                # Monthly category budgets
 │   │   ├── goals/                  # Savings goals with progress
+│   │   ├── savings-plan/           # Savings challenges + automation planner
+│   │   ├── health-score/           # Financial health score gauge + trend
 │   │   ├── recurring/              # Recurring income/expenses
 │   │   ├── one-time-expenses/      # Planned large purchases
 │   │   ├── groups/                 # Group expense management
 │   │   ├── splits/                 # Quick bill splits
 │   │   ├── reports/                # Date-range analytics
-│   │   ├── calendar/               # Transaction calendar view
+│   │   ├── calendar/               # Transaction calendar + heatmap
 │   │   ├── forecast/               # AI spending forecast
 │   │   ├── ai-chat/                # Conversational AI interface
+│   │   ├── ai-advisor/             # Specialized AI agents (Debt/Investment/Tax/Budget)
 │   │   ├── personality/            # Spending personality analysis
 │   │   ├── salary-intelligence/    # Salary benchmarking
-│   │   ├── tax-estimate/           # Indian tax calculator
+│   │   ├── year-review/            # Year in review + Sankey + heatmap
 │   │   ├── profile/                # Account settings + theme
 │   │   ├── onboarding/             # New user setup flow
-│   │   ├── globals.css             # Design system CSS variables
+│   │   ├── globals.css             # Design token system (CSS custom properties)
 │   │   └── layout.tsx              # Root layout + font loading
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppLayout.tsx       # Shell with sidebar + bottom nav
+│   │   │   ├── AppLayout.tsx       # Shell with sidebar + bottom nav + FAB
 │   │   │   └── PageShell.tsx       # Per-page wrapper with title slot
 │   │   ├── ui/
 │   │   │   ├── Button.tsx          # 5-variant button component
@@ -680,26 +1031,54 @@ fintrack/
 │   │   │   ├── StatTile.tsx        # Metric tile (DM Mono hero value)
 │   │   │   ├── TransactionRow.tsx  # Swipeable transaction list row
 │   │   │   ├── EmptyState.tsx      # Standardised empty state
-│   │   │   ├── Skeleton.tsx        # Shimmer loading state
-│   │   │   └── ThemeToggle.tsx     # Binary dark/light pill toggle
+│   │   │   ├── Skeleton.tsx        # Shimmer loading states
+│   │   │   ├── Badge.tsx           # Colored status chip
+│   │   │   ├── ProgressBar.tsx     # Animated progress bar
+│   │   │   ├── FAB.tsx             # Floating action button
+│   │   │   ├── BottomSheet.tsx     # Mobile slide-up sheet
+│   │   │   ├── Toast*.tsx          # Toast notification system
+│   │   │   ├── NotificationBell.tsx # Header notification center
+│   │   │   ├── AIResponseCard.tsx  # Formatted AI response card
+│   │   │   ├── ThemePicker.tsx     # Dark/light theme toggle
+│   │   │   └── WalkthroughTour.tsx # Onboarding tour overlay
+│   │   ├── investments/
+│   │   │   └── CamsImporter.tsx    # CAMS statement import UI
 │   │   └── transactions/
 │   │       └── TransactionList.tsx # Date-grouped transaction list
 │   ├── store/
 │   │   ├── authStore.ts            # Zustand auth state (user + token)
-│   │   └── themeStore.ts           # Zustand theme state (dark/light)
+│   │   ├── themeStore.ts           # Zustand theme state (dark/light)
+│   │   └── toastStore.ts           # Zustand toast queue
 │   ├── lib/
-│   │   └── api.ts                  # Typed axios API client
-│   └── hooks/
-│       └── useWindowSize.ts        # useIsMobile() hook
+│   │   ├── api.ts                  # Typed axios API client (all endpoints)
+│   │   └── healthScore.ts          # Financial health score computation
+│   ├── hooks/
+│   │   └── useWindowSize.ts        # useIsMobile() hook
+│   └── types/
+│       ├── investments.ts          # Investment type definitions
+│       └── loans.ts                # Loan type definitions
 │
 ├── backend/
 │   └── src/
 │       ├── index.js                # Express app + middleware + cron
 │       ├── routes/
 │       │   ├── auth.js             # Register, login, OTP, reset
-│       │   ├── transactions.js     # CRUD + search + regret
+│       │   ├── transactions.js     # CRUD + search + regret + bulk
 │       │   ├── analytics.js        # Summary, trends, forecast, report
-│       │   ├── ai.js               # All AI features
+│       │   ├── ai.js               # All AI features + caching
+│       │   ├── agents.js           # Specialized AI agents (4 types)
+│       │   ├── opportunities.js    # AI-detected financial opportunities
+│       │   ├── insights.js         # Peer benchmarks + behavioral patterns
+│       │   ├── investments.js      # Investment portfolio CRUD
+│       │   ├── loans.js            # Loan tracker + amortization + prepayments
+│       │   ├── debt.js             # Payoff optimizer + DTI + utilization
+│       │   ├── tax.js              # Full Indian tax center
+│       │   ├── planning.js         # FIRE, SIP, cash flow, scenarios
+│       │   ├── milestones.js       # Financial milestones
+│       │   ├── documents.js        # Document vault (Supabase Storage)
+│       │   ├── pdfImport.js        # PDF bank statement import
+│       │   ├── camsImport.js       # CAMS mutual fund import
+│       │   ├── notifications.js    # FCM token + notification log
 │       │   ├── budgets.js
 │       │   ├── goals.js
 │       │   ├── recurring.js
@@ -715,19 +1094,23 @@ fintrack/
 │       │   └── auth.js             # JWT verification middleware
 │       ├── db/
 │       │   ├── pool.js             # pg connection pool (port 6543)
-│       │   └── migrations/         # SQL migration files (auto-run)
+│       │   └── migrations/         # 041 SQL migration files (auto-run)
 │       └── utils/
-│           ├── ai.js               # aiComplete() with model routing (Groq/NIM/Gemini)
+│           ├── ai.js               # aiComplete() with model routing
 │           ├── groq.js             # Groq client + fallback logic
-│           ├── gemini.js           # Gemini Vision client + NIM vision fallback
+│           ├── gemini.js           # Gemini Vision + NIM vision fallback
+│           ├── amortization.js     # EMI calc + amortization + cascade simulation
+│           ├── taxComputation.js   # Old/New regime tax engine
+│           ├── validation.js       # Input validators (amounts, dates, enums)
+│           ├── fcm.js              # Firebase Cloud Messaging client
 │           └── email.js            # OTP email sender
 │
 ├── docs/
-│   └── superpowers/
-│       ├── plans/                  # Implementation plans
-│       └── specs/                  # Feature specifications
+│   ├── AI_FEATURES.md              # Complete AI provider/model/endpoint map
+│   ├── CHANGELOG.md                # Full version history
+│   └── FINTRACK_DOCUMENTATION.md   # Extended feature documentation
 │
-├── DESIGN.md                       # Full design system documentation
+├── DESIGN.md                       # Full design system specification
 └── README.md                       # This file
 ```
 
@@ -736,17 +1119,17 @@ fintrack/
 ## Roadmap
 
 - [ ] WhatsApp bot integration (send SMS → FinTrack auto-logs it)
-- [ ] Bank statement PDF import (AI-parsed CSV → bulk transactions)
+- [ ] iOS Capacitor build
 - [ ] Shared household budgets (multi-user accounts)
 - [ ] UPI deep links for quick payment recording
-- [ ] iOS Capacitor build
-- [ ] Widget (Android home screen balance snapshot)
+- [ ] Android home screen widget (balance snapshot)
+- [ ] Bank statement import via Plaid/Setu (automated, not PDF)
 
 ---
 
 ## Contributing
 
-This is a personal project. If you're a recruiter or developer reading this — the architecture decisions, AI routing system, and design system were all designed and built from scratch. Feel free to reach out.
+This is a personal project. If you're a recruiter or developer reading this — the architecture decisions, AI routing system, tax engine, debt simulation, FIRE calculator, and design system were all designed and built from scratch. Feel free to reach out.
 
 ---
 
