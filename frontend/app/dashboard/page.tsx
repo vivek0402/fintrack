@@ -441,6 +441,78 @@ export default function DashboardPage() {
         </AppLayout>
     );
 
+    // ── Net Balance hero (rendered above tiles on mobile, below on desktop) ──
+    const netBalanceHero = (
+        <div style={{ background: 'var(--bg-surface-1)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
+                Net balance · {MONTH_NAMES[month]}
+            </p>
+            {dataLoading ? (
+                <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
+            ) : (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '28px' : '38px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                    {heroNet >= 0 ? '' : '−'}{fmt(Math.abs(heroNet))}
+                </p>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--color-exp) 12%, transparent)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
+                        {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
+                    </span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(heroIncome)} in · {fmt(heroExpenses)} out
+                </p>
+            </div>
+
+            {/* ── AI INSIGHT — above chart ── */}
+            {!aiLoading && aiInsight && (
+                <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)', flex: 1 }}>
+                        {aiInsight}
+                    </p>
+                    <button type="button" title="Refresh AI insight"
+                        onClick={async () => {
+                            setAiReportLoading(true);
+                            try {
+                                const AI_KEY   = `ai-report-v2-${user?.id}-${month}-${year}`;
+                                const AI_FP_KEY = `ai-fp-v2-${user?.id}-${month}-${year}`;
+                                try { localStorage.removeItem(AI_KEY); localStorage.removeItem(AI_FP_KEY); } catch {}
+                                const res = await aiAPI.report();
+                                const report = res.data?.report ?? '';
+                                setAiInsight(report);
+                                if (report && summary) {
+                                    const fp = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
+                                    try { localStorage.setItem(AI_KEY, JSON.stringify({ report })); localStorage.setItem(AI_FP_KEY, fp); } catch {}
+                                }
+                            } catch { setAiInsight('Unable to generate right now — try again shortly.'); }
+                            finally { setAiReportLoading(false); }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', flexShrink: 0, opacity: aiReportLoading ? 0.5 : 1 }}>
+                        <RefreshCw size={13} style={{ animation: aiReportLoading ? 'spin 0.7s linear infinite' : 'none' }} />
+                    </button>
+                </div>
+            )}
+            {(aiLoading || aiReportLoading) && !aiInsight && (
+                <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0 }} />
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Generating your monthly AI summary…</span>
+                </div>
+            )}
+
+            {/* 6-month trend */}
+            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
+                6-month trend
+            </p>
+            {dataLoading ? (
+                <Skeleton width="100%" height={50} borderRadius={6} />
+            ) : (
+                <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
+            )}
+        </div>
+    );
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <AppLayout>
@@ -479,7 +551,9 @@ export default function DashboardPage() {
                 {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
                 <RegretCheckSheet />
 
-                {/* ── STAT TILES — 4×2 grid (desktop) / 2×4 (mobile) ── */}
+                {isMobile && netBalanceHero}
+
+                {/* ── STAT TILES — 4×2 grid (desktop) / 2×3 (mobile) ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
                     {(() => {
                         // Row 1
@@ -526,7 +600,11 @@ export default function DashboardPage() {
                             },
                         ];
 
-                        return tiles.map(tile => (
+                        const visibleTiles = isMobile
+                            ? tiles.filter(t => t.label !== 'Net Balance' && t.label !== 'Investing This Month')
+                            : tiles;
+
+                        return visibleTiles.map(tile => (
                             <div key={tile.label} style={{
                                 background: `color-mix(in srgb, ${tile.color} 10%, var(--bg-surface-1))`,
                                 border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
@@ -579,75 +657,7 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* ── HERO — Net Position (dominant) ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
-                    <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
-                        Net position · {MONTH_NAMES[month]}
-                    </p>
-                    {dataLoading ? (
-                        <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
-                    ) : (
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '28px' : '38px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                            {heroNet >= 0 ? '' : '−'}{fmt(Math.abs(heroNet))}
-                        </p>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--color-exp) 12%, transparent)' }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
-                                {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
-                            </span>
-                        </div>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {fmt(heroIncome)} in · {fmt(heroExpenses)} out
-                        </p>
-                    </div>
-
-                    {/* ── AI INSIGHT — above chart ── */}
-                    {!aiLoading && aiInsight && (
-                        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                            <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)', flex: 1 }}>
-                                {aiInsight}
-                            </p>
-                            <button type="button" title="Refresh AI insight"
-                                onClick={async () => {
-                                    setAiReportLoading(true);
-                                    try {
-                                        const AI_KEY   = `ai-report-v2-${user?.id}-${month}-${year}`;
-                                        const AI_FP_KEY = `ai-fp-v2-${user?.id}-${month}-${year}`;
-                                        try { localStorage.removeItem(AI_KEY); localStorage.removeItem(AI_FP_KEY); } catch {}
-                                        const res = await aiAPI.report();
-                                        const report = res.data?.report ?? '';
-                                        setAiInsight(report);
-                                        if (report && summary) {
-                                            const fp = `${summary.total_income}-${summary.total_expenses}-${month}-${year}`;
-                                            try { localStorage.setItem(AI_KEY, JSON.stringify({ report })); localStorage.setItem(AI_FP_KEY, fp); } catch {}
-                                        }
-                                    } catch { setAiInsight('Unable to generate right now — try again shortly.'); }
-                                    finally { setAiReportLoading(false); }
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', flexShrink: 0, opacity: aiReportLoading ? 0.5 : 1 }}>
-                                <RefreshCw size={13} style={{ animation: aiReportLoading ? 'spin 0.7s linear infinite' : 'none' }} />
-                            </button>
-                        </div>
-                    )}
-                    {(aiLoading || aiReportLoading) && !aiInsight && (
-                        <div style={{ borderTop: '1px solid color-mix(in srgb, var(--accent-border) 50%, transparent)', paddingTop: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Generating your monthly AI summary…</span>
-                        </div>
-                    )}
-
-                    {/* 6-month trend */}
-                    <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
-                        6-month trend
-                    </p>
-                    {dataLoading ? (
-                        <Skeleton width="100%" height={50} borderRadius={6} />
-                    ) : (
-                        <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
-                    )}
-                </div>
+                {!isMobile && netBalanceHero}
 
                 {/* ── WEEKLY BRIEFING WIDGET ── */}
                 {showBriefing && (
