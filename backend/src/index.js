@@ -42,16 +42,15 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 5000;
 
 console.log('=== AI Provider Status ===');
-console.log('GROQ_API_KEY:   ', process.env.GROQ_API_KEY   ? '✅' : '❌ MISSING');
-console.log('GROQ_API_KEY_2: ', process.env.GROQ_API_KEY_2 ? '✅' : '⚠️  using key 1 as fallback');
-console.log('GEMINI_API_KEY: ', process.env.GEMINI_API_KEY  ? '✅' : '❌ MISSING');
+console.log('GROQ_API_KEY:     ', process.env.GROQ_API_KEY     ? '✅' : '❌ MISSING');
+console.log('CEREBRAS_API_KEY: ', process.env.CEREBRAS_API_KEY ? '✅' : '⚠️  failover step will be skipped');
+console.log('GEMINI_API_KEY:   ', process.env.GEMINI_API_KEY   ? '✅' : '❌ MISSING');
+console.log('NVIDIA_API_KEY:   ', process.env.NVIDIA_API_KEY   ? '✅' : '⚠️  failover step will be skipped');
+console.log('Failover chain: Groq → Cerebras → Gemini Flash-Lite → NVIDIA NIM');
 console.log('=========================');
-console.log('Route distribution:');
-const PROVIDER_LABELS = { groq1: 'Groq Key1', groq2: 'Groq Key2', gemini: 'Gemini Flash' };
+console.log('Route models (Groq attempt):');
 for (const [routeKey, cfg] of Object.entries(ROUTES)) {
-    const provider = PROVIDER_LABELS[cfg.provider] || cfg.provider;
-    const model = cfg.model || '';
-    console.log(`  ${routeKey.padEnd(20)}→ ${provider}${model ? ' ' + model : ''}`);
+    console.log(`  ${routeKey.padEnd(20)}→ ${cfg.model}`);
 }
 console.log('=========================');
 
