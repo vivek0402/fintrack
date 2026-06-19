@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, ArrowRightLeft } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Sun, CloudSun, Cloud, CloudRain, CloudLightning, CloudFog } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
@@ -256,7 +256,33 @@ export default function DashboardPage() {
     const daysLeft    = isCurrentMonth ? daysInMonth - today.getDate() : 0;
     const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
-    const lastTx      = transactions[0] ?? null;
+
+    // ── Financial Weather — one-glance mood derived from existing signals ──
+    const financialWeather = useMemo(() => {
+        const income = summary?.total_income ?? 0;
+        const hasActivity = transactions.length > 0;
+        const alertFlag = (creditUtilization?.aggregate?.overall_utilization_pct ?? 0) > 50 || (dti?.dti_ratio ?? 0) > 35;
+        const idealDailyBurn = income > 0 ? income / daysInMonth : 0;
+        const burnPace = idealDailyBurn > 0 ? dailyBurn / idealDailyBurn : (dailyBurn > 0 ? 2 : 0);
+        const bigDeficit = netBalance < 0 && income > 0 && Math.abs(netBalance) > income * 0.2;
+
+        if (!hasActivity) {
+            return { label: 'Calm Waters', sub: 'Nothing recorded yet', color: 'var(--text-muted)', Icon: CloudFog };
+        }
+        if (alertFlag || bigDeficit) {
+            return { label: 'Stormy', sub: 'Spending is outpacing income', color: 'var(--color-exp)', Icon: CloudLightning };
+        }
+        if (netBalance < 0) {
+            return { label: 'Tight Squeeze', sub: 'Spent more than you earned', color: 'var(--color-warn)', Icon: CloudRain };
+        }
+        if (savingsPct >= 25 && burnPace <= 1) {
+            return { label: 'Thriving', sub: `${savingsPct}% saved this month`, color: 'var(--color-inc)', Icon: Sun };
+        }
+        if (savingsPct >= 10) {
+            return { label: 'Cruising', sub: `${savingsPct}% saved, steady pace`, color: 'var(--color-inc)', Icon: CloudSun };
+        }
+        return { label: 'Watch Your Pace', sub: 'Spending is creeping up', color: 'var(--color-warn)', Icon: Cloud };
+    }, [summary, transactions, creditUtilization, dti, daysInMonth, dailyBurn, netBalance, savingsPct]);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -561,9 +587,6 @@ export default function DashboardPage() {
                             ? 'var(--text-muted)'
                             : investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)';
 
-                        // Row 2 — Last Transaction
-                        const lastTxAmount = lastTx ? parseFloat(lastTx.amount) : 0;
-                        const lastTxColor  = !lastTx ? 'var(--text-muted)' : lastTx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)';
                         const runwayColor  = runway >= 0 ? 'var(--color-inc)' : 'var(--color-exp)';
                         const burnColor    = dailyBurn === 0 ? 'var(--text-muted)' : dailyBurn > (summary?.total_income ?? 0) / daysInMonth ? 'var(--color-exp)' : 'var(--color-warn)';
 
@@ -593,10 +616,10 @@ export default function DashboardPage() {
                                 color: burnColor, Icon: Flame,
                             },
                             {
-                                label: 'Last Transaction',
-                                value: !lastTx ? '—' : `${lastTx.type === 'income' ? '+' : '−'}${fmt(lastTxAmount)}`,
-                                sub: !lastTx ? 'No transactions yet' : `${lastTx.description ?? lastTx.category_name ?? 'Transaction'} · ${getDateLabel(lastTx.date)}`,
-                                color: lastTxColor, Icon: ArrowRightLeft,
+                                label: 'Financial Weather',
+                                value: dataLoading ? '—' : financialWeather.label,
+                                sub: financialWeather.sub,
+                                color: financialWeather.color, Icon: financialWeather.Icon,
                             },
                         ];
 
