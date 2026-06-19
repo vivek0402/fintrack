@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Sun, CloudSun, Cloud, CloudRain, CloudLightning, CloudFog } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI } from '@/lib/api';
@@ -15,6 +15,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
+import { calculateHealthScore } from '@/lib/healthScore';
 import { NetWorthWidget } from '@/components/dashboard/NetWorthWidget';
 import { WealthVelocityWidget } from '@/components/dashboard/WealthVelocityWidget';
 import { AssetAllocationWidget } from '@/components/dashboard/AssetAllocationWidget';
@@ -257,32 +258,31 @@ export default function DashboardPage() {
     const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
 
-    // ── Financial Weather — one-glance mood derived from existing signals ──
-    const financialWeather = useMemo(() => {
-        const income = summary?.total_income ?? 0;
-        const hasActivity = transactions.length > 0;
-        const alertFlag = (creditUtilization?.aggregate?.overall_utilization_pct ?? 0) > 50 || (dti?.dti_ratio ?? 0) > 35;
-        const idealDailyBurn = income > 0 ? income / daysInMonth : 0;
-        const burnPace = idealDailyBurn > 0 ? dailyBurn / idealDailyBurn : (dailyBurn > 0 ? 2 : 0);
-        const bigDeficit = netBalance < 0 && income > 0 && Math.abs(netBalance) > income * 0.2;
+    // ── Health Score teaser — reuses the same scoring engine as /health-score ──
+    const healthScoreTeaser = useMemo(() => {
+        const income   = Number(summary?.total_income   ?? 0);
+        const expenses = Number(summary?.total_expenses ?? 0);
+        const hasData = income > 0 || expenses > 0 || budgets.length > 0 || goals.length > 0 || trends.length > 0;
+        if (!hasData) return null;
 
-        if (!hasActivity) {
-            return { label: 'Calm Waters', sub: 'Nothing recorded yet', color: 'var(--text-muted)', Icon: CloudFog };
-        }
-        if (alertFlag || bigDeficit) {
-            return { label: 'Stormy', sub: 'Spending is outpacing income', color: 'var(--color-exp)', Icon: CloudLightning };
-        }
-        if (netBalance < 0) {
-            return { label: 'Tight Squeeze', sub: 'Spent more than you earned', color: 'var(--color-warn)', Icon: CloudRain };
-        }
-        if (savingsPct >= 25 && burnPace <= 1) {
-            return { label: 'Thriving', sub: `${savingsPct}% saved this month`, color: 'var(--color-inc)', Icon: Sun };
-        }
-        if (savingsPct >= 10) {
-            return { label: 'Cruising', sub: `${savingsPct}% saved, steady pace`, color: 'var(--color-inc)', Icon: CloudSun };
-        }
-        return { label: 'Watch Your Pace', sub: 'Spending is creeping up', color: 'var(--color-warn)', Icon: Cloud };
-    }, [summary, transactions, creditUtilization, dti, daysInMonth, dailyBurn, netBalance, savingsPct]);
+        const monthMap: Record<string, { income: number; expenses: number }> = {};
+        trends.forEach((row: any) => {
+            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+            if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
+            if (row.type === 'income')  monthMap[key].income   = parseFloat(row.total);
+            if (row.type === 'expense') monthMap[key].expenses = parseFloat(row.total);
+        });
+        const sorted = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b)).slice(-6);
+
+        return calculateHealthScore({
+            income, expenses, budgets, goals,
+            monthlyIncome:   sorted.map(([, v]) => v.income),
+            monthlyExpenses: sorted.map(([, v]) => v.expenses),
+            investedThisMonth: investmentRatio?.invested_this_month ?? 0,
+            dtiRatio:          dti?.dti_ratio ?? 0,
+            ccUtilizationPct:  creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
+        });
+    }, [summary, budgets, goals, trends, investmentRatio, dti, creditUtilization]);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -616,10 +616,11 @@ export default function DashboardPage() {
                                 color: burnColor, Icon: Flame,
                             },
                             {
-                                label: 'Financial Weather',
-                                value: dataLoading ? '—' : financialWeather.label,
-                                sub: financialWeather.sub,
-                                color: financialWeather.color, Icon: financialWeather.Icon,
+                                label: 'Health Score',
+                                value: !healthScoreTeaser ? 'N/A' : `${healthScoreTeaser.score}/100`,
+                                sub: !healthScoreTeaser ? 'Add transactions to see your score' : healthScoreTeaser.label,
+                                color: healthScoreTeaser?.color ?? 'var(--text-muted)', Icon: Heart,
+                                onClick: () => router.push('/health-score'),
                             },
                         ];
 
@@ -628,10 +629,11 @@ export default function DashboardPage() {
                             : tiles;
 
                         return visibleTiles.map(tile => (
-                            <div key={tile.label} style={{
+                            <div key={tile.label} onClick={(tile as any).onClick} style={{
                                 background: `color-mix(in srgb, ${tile.color} 10%, var(--bg-surface-1))`,
                                 border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
                                 borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden',
+                                cursor: (tile as any).onClick ? 'pointer' : 'default',
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                                     <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
