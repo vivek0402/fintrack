@@ -18,9 +18,9 @@ interface ActionButton {
 const colorStyles = {
     blue: {
         text:  'var(--accent)',
-        bg:    'var(--accent-light)',
+        bg:    'var(--accent-subtle)',
         border:'var(--accent-border)',
-        hover: 'var(--accent-tint)',
+        hover: 'var(--accent-subtle)',
     },
     green: {
         text:  'var(--color-inc)',
@@ -91,8 +91,8 @@ export function AIResponseCard({ message, type = 'chat', onAction, style }: AIRe
 
     return (
         <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
+            background: 'var(--bg-surface-1)',
+            border: '1px solid var(--border-subtle)',
             borderLeft: `3px solid var(--accent)`,
             borderRadius: 'var(--radius-lg)',
             padding: '14px 16px',
@@ -102,7 +102,7 @@ export function AIResponseCard({ message, type = 'chat', onAction, style }: AIRe
             {type !== 'chat' && (
                 <div style={{
                     width: '28px', height: '28px', borderRadius: '50%',
-                    background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-card))',
+                    background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-surface-1))',
                     border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '13px', color: 'var(--color-info)',

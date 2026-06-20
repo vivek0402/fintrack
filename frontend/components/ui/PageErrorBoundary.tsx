@@ -23,7 +23,7 @@ export class PageErrorBoundary extends React.Component<{ children: React.ReactNo
         return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: '16px', padding: '40px', textAlign: 'center' }}>
                 <p style={{ fontSize: '40px', lineHeight: 1 }}>😕</p>
-                <p style={{ fontFamily: 'var(--font-head)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                     Something went wrong{this.props.pageName ? ` on ${this.props.pageName}` : ''}
                 </p>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '320px', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>

@@ -158,8 +158,8 @@ export function BankAccountsSection() {
 
     return (
         <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border)',
+            backgroundColor: 'var(--bg-surface-1)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '16px',
             padding: '24px',
             marginTop: '24px',
@@ -228,7 +228,7 @@ export function BankAccountsSection() {
             {loading && (
                 <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                     {[1, 2].map(i => (
-                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--bg-alt)', border: '1px solid var(--border)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', animation: 'pulse 1.5s ease-in-out infinite' }} />
                     ))}
                 </div>
             )}
@@ -272,8 +272,8 @@ export function BankAccountsSection() {
                             <div
                                 key={account.id}
                                 style={{
-                                    backgroundColor: 'var(--bg-alt)',
-                                    border: '1px solid var(--border)',
+                                    backgroundColor: 'var(--bg-surface-2)',
+                                    border: '1px solid var(--border-subtle)',
                                     borderLeft: `3px solid ${account.color}`,
                                     borderRadius: '12px',
                                     padding: '16px',
@@ -317,8 +317,8 @@ export function BankAccountsSection() {
                                                 right: 0,
                                                 top: '100%',
                                                 zIndex: 50,
-                                                backgroundColor: 'var(--bg-card)',
-                                                border: '1px solid var(--border)',
+                                                backgroundColor: 'var(--bg-surface-1)',
+                                                border: '1px solid var(--border-subtle)',
                                                 borderRadius: '8px',
                                                 padding: '4px',
                                                 minWidth: '140px',
@@ -352,7 +352,7 @@ export function BankAccountsSection() {
                                 )}
 
                                 {/* Divider */}
-                                <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+                                <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '12px 0' }} />
 
                                 {/* Current balance */}
                                 <p style={{
@@ -403,7 +403,7 @@ export function BankAccountsSection() {
                         onClick={openAdd}
                         style={{
                             backgroundColor: 'transparent',
-                            border: '1px dashed var(--border)',
+                            border: '1px dashed var(--border-subtle)',
                             borderRadius: '12px',
                             padding: '16px',
                             display: 'flex',
@@ -418,7 +418,7 @@ export function BankAccountsSection() {
                         <div style={{
                             width: '36px',
                             height: '36px',
-                            border: '1px dashed var(--border)',
+                            border: '1px dashed var(--border-subtle)',
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
@@ -449,8 +449,8 @@ export function BankAccountsSection() {
                     onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
                 >
                     <div style={{
-                        backgroundColor: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--bg-surface-1)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: '16px',
                         width: '100%',
                         maxWidth: '440px',
@@ -467,7 +467,7 @@ export function BankAccountsSection() {
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '20px 24px 16px',
-                            borderBottom: '1px solid var(--border)',
+                            borderBottom: '1px solid var(--border-subtle)',
                             flexShrink: 0,
                         }}>
                             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
@@ -490,8 +490,8 @@ export function BankAccountsSection() {
                                                 width: '40px',
                                                 height: '40px',
                                                 borderRadius: '8px',
-                                                border: form.icon === ic ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                                backgroundColor: 'var(--bg-alt)',
+                                                border: form.icon === ic ? '2px solid var(--accent)' : '1px solid var(--border-subtle)',
+                                                backgroundColor: 'var(--bg-surface-2)',
                                                 fontSize: '18px',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -609,7 +609,7 @@ export function BankAccountsSection() {
                                             width: '36px',
                                             height: '20px',
                                             borderRadius: '10px',
-                                            backgroundColor: form.is_default ? 'var(--accent)' : 'var(--bg-hover)',
+                                            backgroundColor: form.is_default ? 'var(--accent)' : 'var(--bg-surface-3)',
                                             border: 'none',
                                             cursor: 'pointer',
                                             position: 'relative',
@@ -637,7 +637,7 @@ export function BankAccountsSection() {
                             display: 'flex',
                             gap: '10px',
                             padding: '16px 24px 20px',
-                            borderTop: '1px solid var(--border)',
+                            borderTop: '1px solid var(--border-subtle)',
                             flexShrink: 0,
                         }}>
                             <button onClick={() => setShowModal(false)} style={cancelBtnStyle}>Cancel</button>
@@ -688,8 +688,8 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
     width: '100%',
-    backgroundColor: 'var(--bg-alt)',
-    border: '1px solid var(--border)',
+    backgroundColor: 'var(--bg-surface-2)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: '8px',
     padding: '10px 12px',
     color: 'var(--text-primary)',
@@ -717,8 +717,8 @@ const cancelBtnStyle: React.CSSProperties = {
     flex: 1,
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg-alt)',
+    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'var(--bg-surface-2)',
     color: 'var(--text-secondary)',
     fontSize: '14px',
     cursor: 'pointer',

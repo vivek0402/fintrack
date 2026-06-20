@@ -14,10 +14,10 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     }, []);
 
     const colors: Record<string, { bg: string; border: string; icon: string }> = {
-        success: { bg: 'rgba(0,229,160,0.12)', border: 'rgba(0,229,160,0.25)', icon: 'var(--accent-green)' },
-        error:   { bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.25)',  icon: 'var(--accent-red)' },
-        info:    { bg: 'var(--surface-2)',       border: 'var(--bg-border)',      icon: 'var(--accent-blue)' },
-        undo:    { bg: 'var(--surface-2)',       border: 'var(--bg-border)',      icon: 'var(--text-primary)' },
+        success: { bg: 'rgba(0,229,160,0.12)', border: 'rgba(0,229,160,0.25)', icon: 'var(--color-inc)' },
+        error:   { bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.25)',  icon: 'var(--color-exp)' },
+        info:    { bg: 'var(--surface-2)',       border: 'var(--border-subtle)',      icon: 'var(--accent)' },
+        undo:    { bg: 'var(--surface-2)',       border: 'var(--border-subtle)',      icon: 'var(--text-primary)' },
     };
 
     const c = colors[toast.type];
@@ -62,7 +62,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
                     style={{
                         padding: '4px 10px',
                         borderRadius: 'var(--radius-sm)',
-                        background: 'var(--accent-blue)',
+                        background: 'var(--accent)',
                         border: 'none',
                         color: '#fff',
                         fontSize: '12px',

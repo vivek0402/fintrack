@@ -54,7 +54,7 @@ export function TransactionRow({ transaction: tx, onEdit, onDelete }: Transactio
                 background: 'transparent',
                 transition: `background var(--transition-fast)`,
             }}
-            onMouseEnter={e => { if (!isMobile) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+            onMouseEnter={e => { if (!isMobile) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
             onMouseLeave={e => { if (!isMobile) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
             {/* Category icon circle */}
@@ -62,7 +62,7 @@ export function TransactionRow({ transaction: tx, onEdit, onDelete }: Transactio
                 width: 36,
                 height: 36,
                 borderRadius: '50%',
-                background: bg || 'var(--bg-alt)',
+                background: bg || 'var(--bg-surface-2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

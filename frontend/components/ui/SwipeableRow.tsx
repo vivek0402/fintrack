@@ -79,7 +79,7 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
                     pointerEvents: 'none',
                 }}>
                     <span style={{ fontSize: '18px', lineHeight: 1 }}>🤦</span>
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--accent-yellow)', letterSpacing: '0.02em' }}>Regret</span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-warn)', letterSpacing: '0.02em' }}>Regret</span>
                 </div>
             )}
 
@@ -91,8 +91,8 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
                     pointerEvents: 'none',
                 }}>
-                    <Trash2 size={18} color="var(--accent-red)" />
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--accent-red)', letterSpacing: '0.02em' }}>Delete</span>
+                    <Trash2 size={18} color="var(--color-exp)" />
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-exp)', letterSpacing: '0.02em' }}>Delete</span>
                 </div>
             )}
 
@@ -108,7 +108,7 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
                     transition: transitioning ? 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none',
                     willChange: 'transform',
                     zIndex: 1,
-                    background: 'var(--bg-card)',
+                    background: 'var(--bg-surface-1)',
                 }}
             >
                 {children}

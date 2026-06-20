@@ -115,13 +115,13 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                         if (f) handleFileSelect(f);
                     }}
                     style={{
-                        border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border-strong)'}`,
+                        border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border-visible)'}`,
                         borderRadius: 'var(--radius-lg)',
                         padding: '32px 16px',
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'border-color 150ms ease',
-                        background: dragOver ? 'var(--accent-light)' : 'var(--bg-alt)',
+                        background: dragOver ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
                     }}
                 >
                     <Upload size={28} style={{ margin: '0 auto 10px', color: 'var(--text-muted)' }} />
@@ -139,7 +139,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                     )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <div style={{ display: 'flex', gap: 10, padding: '10px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10 }}>
                     <Info size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 1 }} />
                     <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
                         A CAMS CAS (Consolidated Account Statement) lists all your mutual fund holdings in one PDF.
@@ -187,9 +187,9 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                         </p>
                     )}
                     {holdings.map((h, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 28px', gap: 8, alignItems: 'center', padding: '10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 28px', gap: 8, alignItems: 'center', padding: '10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {h.scheme_name}
                                 </p>
                                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
@@ -212,7 +212,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
                     <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                         Cancel
                     </button>
@@ -229,7 +229,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: 16, textAlign: 'center' }}>
             <CheckCircle2 size={40} style={{ color: 'var(--color-inc)' }} />
             <div>
-                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-head)' }}>
+                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-display)' }}>
                     Portfolio updated
                 </p>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>

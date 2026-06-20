@@ -131,7 +131,7 @@ export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, c
                             </p>
 
                             {card.id === 'savings' ? (
-                                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: 600, color: 'var(--accent-yellow)', background: 'var(--accent-yellow-bg)', borderRadius: '20px', padding: '2px 8px' }}>
+                                <span style={{ display: 'inline-block', fontSize: '11px', fontWeight: 600, color: 'var(--color-warn)', background: 'var(--color-warn-subtle)', borderRadius: '20px', padding: '2px 8px' }}>
                                     {savingsLabel}
                                 </span>
                             ) : (

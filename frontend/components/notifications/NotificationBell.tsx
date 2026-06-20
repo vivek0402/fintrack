@@ -100,8 +100,8 @@ export function NotificationBell() {
           width: 36,
           height: 36,
           borderRadius: '50%',
-          background: open ? 'var(--bg-alt)' : 'transparent',
-          border: '1px solid ' + (open ? 'var(--border)' : 'transparent'),
+          background: open ? 'var(--bg-surface-2)' : 'transparent',
+          border: '1px solid ' + (open ? 'var(--border-subtle)' : 'transparent'),
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
@@ -130,7 +130,7 @@ export function NotificationBell() {
             justifyContent: 'center',
             padding: '0 3px',
             lineHeight: 1,
-            border: '1.5px solid var(--bg-card)',
+            border: '1.5px solid var(--bg-surface-1)',
           }}>
             {unread > 9 ? '9+' : unread}
           </span>
@@ -144,10 +144,10 @@ export function NotificationBell() {
           top: 44,
           right: 0,
           width: 'min(380px, calc(100vw - 32px))',
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
+          background: 'var(--bg-surface-1)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-elevated)',
+          boxShadow: 'var(--shadow-card)',
           zIndex: 200,
           overflow: 'hidden',
           animation: 'notifSlideIn 150ms ease forwards',
@@ -165,9 +165,9 @@ export function NotificationBell() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '14px 16px 12px',
-            borderBottom: '1px solid var(--border)',
+            borderBottom: '1px solid var(--border-subtle)',
           }}>
-            <span style={{ fontFamily: 'var(--font-head)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
               Notifications
             </span>
             <div style={{ display: 'flex', gap: 12 }}>
@@ -203,15 +203,15 @@ export function NotificationBell() {
                     alignItems: 'flex-start',
                     gap: 12,
                     padding: '12px 16px',
-                    background: n.readAt ? 'var(--bg-card)' : 'var(--bg-alt)',
+                    background: n.readAt ? 'var(--bg-surface-1)' : 'var(--bg-surface-2)',
                     border: 'none',
-                    borderBottom: i < notifications.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderBottom: i < notifications.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'background 0.12s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = n.readAt ? 'var(--bg-card)' : 'var(--bg-alt)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface-3)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = n.readAt ? 'var(--bg-surface-1)' : 'var(--bg-surface-2)')}
                 >
                   <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>
                     {TYPE_ICON[n.type] || '🔔'}

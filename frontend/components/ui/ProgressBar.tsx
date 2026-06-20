@@ -14,7 +14,7 @@ export function ProgressBar({ pct, color, height = 5 }: ProgressBarProps) {
     return (
         <div style={{
             height: `${height}px`,
-            background: 'var(--border)',
+            background: 'var(--border-subtle)',
             borderRadius: '999px',
             overflow: 'hidden',
         }}>

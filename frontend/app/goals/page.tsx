@@ -14,6 +14,8 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { MilestoneBurst } from '@/components/ui/MilestoneBurst';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 
@@ -72,6 +74,7 @@ export default function GoalsPage() {
     const [lifeEventLoading, setLifeEventLoading] = useState(false);
     const [lifeEventResult, setLifeEventResult] = useState<any>(null);
     const [lifeEventError, setLifeEventError] = useState('');
+    const [showBurst, setShowBurst] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -109,10 +112,19 @@ export default function GoalsPage() {
         if (!fundsGoalId || !fundsAmount) return;
         setFundsLoading(true);
         try {
+            const goal = goals.find(g => g.id === fundsGoalId);
             const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
             await goalsAPI.addFunds(fundsGoalId, amount);
             setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); fetchGoals();
-            toast.success(fundsType === 'add' ? 'Funds added to goal' : 'Funds withdrawn from goal');
+
+            const wasComplete = goal && parseFloat(goal.saved_amount) >= parseFloat(goal.target_amount);
+            const nowComplete = goal && parseFloat(goal.saved_amount) + amount >= parseFloat(goal.target_amount);
+            if (fundsType === 'add' && goal && !wasComplete && nowComplete) {
+                setShowBurst(true);
+                toast.success(`🎯 "${goal.name}" goal reached — nicely done!`, 4500);
+            } else {
+                toast.success(fundsType === 'add' ? 'Funds added to goal' : 'Funds withdrawn from goal');
+            }
         } catch { toast.error('Failed to update goal funds'); }
         finally { setFundsLoading(false); }
     };
@@ -161,6 +173,7 @@ export default function GoalsPage() {
 
     return (
         <AppLayout>
+            {showBurst && <MilestoneBurst onDone={() => setShowBurst(false)} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -226,14 +239,16 @@ export default function GoalsPage() {
                         {[1, 2, 3].map(i => <SkeletonCard key={i} height={130} />)}
                     </div>
                 ) : goals.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                        <p style={{ fontSize: '48px', marginBottom: '12px' }}>🎯</p>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No goals yet</p>
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Set a savings target and track your progress</p>
-                        <button type="button" onClick={() => setShowForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            Create your first goal
-                        </button>
-                    </div>
+                    <EmptyState
+                        icon={Target}
+                        title="No goals yet"
+                        subtitle="Set a savings target and track your progress"
+                        action={
+                            <button type="button" onClick={() => setShowForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                Create your first goal
+                            </button>
+                        }
+                    />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {goals.map(goal => {

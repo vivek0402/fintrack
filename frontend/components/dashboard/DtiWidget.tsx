@@ -84,7 +84,7 @@ export function DtiWidget({ hasLoans, hasCards }: { hasLoans: boolean; hasCards:
                         <Badge color={color} bg={`color-mix(in srgb, ${color} 12%, transparent)`}>{DTI_LABELS[data.status] || data.status}</Badge>
                     </div>
 
-                    <div style={{ height: '6px', background: 'var(--border)', borderRadius: '999px', overflow: 'hidden', marginBottom: 12 }}>
+                    <div style={{ height: '6px', background: 'var(--border-subtle)', borderRadius: '999px', overflow: 'hidden', marginBottom: 12 }}>
                         <div style={{ height: '100%', width: `${barPct}%`, background: barColor(data.dti_ratio), borderRadius: '999px', transition: 'width 0.8s cubic-bezier(.4,0,.2,1)' }} />
                     </div>
 

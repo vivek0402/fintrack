@@ -30,7 +30,7 @@ interface BankStatementImporterProps {
 }
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8,
+    width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8,
     padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
 const labelSt: React.CSSProperties = {
@@ -149,13 +149,13 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
                         if (f) setFile(f);
                     }}
                     style={{
-                        border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border-strong)'}`,
+                        border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border-visible)'}`,
                         borderRadius: 'var(--radius-lg)',
                         padding: '32px 16px',
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'border-color 150ms ease',
-                        background: dragOver ? 'var(--accent-light)' : 'var(--bg-alt)',
+                        background: dragOver ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
                     }}
                 >
                     <Upload size={28} style={{ margin: '0 auto 10px', color: 'var(--text-muted)' }} />
@@ -193,7 +193,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
                             {history.map(job => {
                                 const status = statusColors[job.status?.toLowerCase()] || statusColors.pending;
                                 return (
-                                    <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                                    <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
                                         <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
                                             {job.bank_name || job.bank || 'Unknown bank'}
                                         </span>
@@ -240,7 +240,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '360px', overflowY: 'auto' }}>
                     {editableTransactions.map((t, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 90px 28px', gap: 6, alignItems: 'center', padding: '8px', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 90px 28px', gap: 6, alignItems: 'center', padding: '8px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
                             <input type="date" value={t.date} onChange={e => updateRow(idx, { date: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
                             <input type="text" value={t.description} onChange={e => updateRow(idx, { description: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} placeholder="Description" />
                             <input type="number" min="0" step="0.01" value={t.amount} onChange={e => updateRow(idx, { amount: parseFloat(e.target.value) || 0 })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
@@ -262,11 +262,11 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
                     ))}
                 </div>
 
-                <button type="button" onClick={addRow} style={{ padding: '8px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                <button type="button" onClick={addRow} style={{ padding: '8px', borderRadius: 8, border: '1px dashed var(--border-visible)', background: 'transparent', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                     + Add row
                 </button>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
                     <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                         Cancel
                     </button>
@@ -282,7 +282,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: 16, textAlign: 'center' }}>
             <CheckCircle2 size={40} style={{ color: 'var(--color-inc)' }} />
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)' }}>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
                 Successfully imported {importedCount} transaction{importedCount !== 1 ? 's' : ''}.
             </p>
             <div style={{ display: 'flex', gap: 10 }}>

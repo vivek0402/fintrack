@@ -25,8 +25,8 @@ const Alert = ({ budget, type, currency, onDismiss }: AlertProps) => {
     const limit = parseFloat(String(budget.amount));
     const pct = Math.min((spent / limit) * 100, 100);
     const isOver = type === 'over';
-    const accentColor = isOver ? 'var(--accent-red)' : 'var(--accent-yellow)';
-    const accentBg = isOver ? 'var(--accent-red-bg)' : 'var(--accent-yellow-bg)';
+    const accentColor = isOver ? 'var(--color-exp)' : 'var(--color-warn)';
+    const accentBg = isOver ? 'var(--color-exp-subtle)' : 'var(--color-warn-subtle)';
     const accentBorder = isOver ? 'var(--accent-red-border)' : 'var(--accent-yellow-border)';
     const gradient = isOver ? 'var(--gradient-red)' : 'var(--gradient-yellow)';
 
@@ -39,7 +39,7 @@ const Alert = ({ budget, type, currency, onDismiss }: AlertProps) => {
                         <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{budget.category_name}</span>
                         <span style={{ fontSize: '0.68rem', fontWeight: 700, color: accentColor, background: accentBg, border: `1px solid ${accentBorder}`, padding: '1px 7px', borderRadius: '20px' }}>{pct.toFixed(0)}%</span>
                     </div>
-                    <div style={{ height: '4px', background: 'var(--bg-border)', borderRadius: '2px', overflow: 'hidden', marginBottom: '5px' }}>
+                    <div style={{ height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', overflow: 'hidden', marginBottom: '5px' }}>
                         <div style={{
                             height: '100%',
                             width: `${pct}%`,

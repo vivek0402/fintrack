@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { SkeletonCard, Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
@@ -1595,12 +1596,14 @@ function SalaryIntelligenceTab() {
 
             {/* Empty */}
             {!generated && !loading && !error && (
-                <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                    <p style={{ fontSize: '48px', marginBottom: '12px' }}>💰</p>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No data yet</p>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Add income transactions so we can detect your salary and generate a personalised allocation plan</p>
-                    <Button variant="primary" size="md" onClick={() => analyse()}><Banknote size={15} /> Analyse Salary Pattern</Button>
-                </div>
+                <EmptyState
+                    icon={Banknote}
+                    title="No data yet"
+                    subtitle="Add income transactions so we can detect your salary and generate a personalised allocation plan"
+                    action={
+                        <Button variant="primary" size="md" onClick={() => analyse()}><Banknote size={15} /> Analyse Salary Pattern</Button>
+                    }
+                />
             )}
 
             {/* Loading */}

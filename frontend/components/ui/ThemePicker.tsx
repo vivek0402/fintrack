@@ -44,12 +44,12 @@ export function ThemePicker() {
                     position: 'absolute',
                     bottom: '52px',
                     left: 0,
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
+                    background: 'var(--bg-surface-1)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: 'var(--radius-lg)',
                     padding: '14px 16px',
                     width: '228px',
-                    boxShadow: 'var(--shadow-elevated)',
+                    boxShadow: 'var(--shadow-card)',
                     animation: 'fadeUp 150ms ease forwards',
                 }}>
                     {/* Colour section */}
@@ -86,7 +86,7 @@ export function ThemePicker() {
                     <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
                         Mode
                     </p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>
                         {([
                             { key: 'light' as const, label: '☀️ Light' },
                             { key: 'dark'  as const, label: '🌙 Dark'  },
@@ -98,7 +98,7 @@ export function ThemePicker() {
                                 style={{
                                     padding: '7px 4px',
                                     borderRadius: 'var(--radius-sm)',
-                                    background: theme === m.key ? 'var(--bg-card)' : 'transparent',
+                                    background: theme === m.key ? 'var(--bg-surface-1)' : 'transparent',
                                     boxShadow: theme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
                                     border: 'none',
                                     cursor: 'pointer',
@@ -125,13 +125,13 @@ export function ThemePicker() {
                     width: 42,
                     height: 42,
                     borderRadius: '50%',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
+                    background: 'var(--bg-surface-1)',
+                    border: '1px solid var(--border-subtle)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: 'var(--shadow-elevated)',
+                    boxShadow: 'var(--shadow-card)',
                     transition: 'transform 0.15s, box-shadow 0.15s',
                 }}
                 onMouseEnter={e => {
@@ -142,7 +142,7 @@ export function ThemePicker() {
                 onMouseLeave={e => {
                     const el = e.currentTarget as HTMLElement;
                     el.style.transform = 'scale(1)';
-                    el.style.boxShadow = 'var(--shadow-elevated)';
+                    el.style.boxShadow = 'var(--shadow-card)';
                 }}
             >
                 <Palette size={18} color="var(--accent)" />

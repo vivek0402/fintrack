@@ -10,7 +10,7 @@ function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
         <div style={{
-            background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)',
+            background: 'var(--bg-surface-1)', border: '1px solid var(--border-visible)',
             borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem',
             boxShadow: 'var(--shadow-modal)',
         }}>
@@ -38,7 +38,7 @@ export function TrendChart({ trends }: Props) {
     })();
 
     return (
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
+        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
             <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
                 Income vs Expenses
             </h3>
@@ -59,7 +59,7 @@ export function TrendChart({ trends }: Props) {
                                 <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--bg-border)" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
                         <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'k'} width={48} />
                         <Tooltip content={<CustomTooltip />} />

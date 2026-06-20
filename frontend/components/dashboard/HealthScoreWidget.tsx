@@ -34,7 +34,7 @@ function ScoreArc({ score, color }: { score: number; color: string }) {
   return (
     <svg viewBox="0 0 100 100" width="110" height="110" style={{ display: 'block' }}>
       <circle cx="50" cy="50" r={R}
-        fill="none" stroke="var(--border)" strokeWidth="8" strokeLinecap="round"
+        fill="none" stroke="var(--border-subtle)" strokeWidth="8" strokeLinecap="round"
         strokeDasharray={`${GAUGE} ${CIRC - GAUGE}`}
         transform="rotate(135 50 50)"
       />
@@ -97,7 +97,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
 
   if (loading) {
     return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Calculating health score…</span>
       </div>
     );
@@ -105,7 +105,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
 
   if (!hasData || !result) {
     return (
-      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+      <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
         <Heart size={20} color="var(--text-muted)" />
         <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textAlign: 'center' }}>Add transactions to see your financial health score</span>
       </div>
@@ -115,9 +115,9 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
   return (
     <div
       onClick={handleClick}
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', cursor: 'pointer', transition: 'border-color var(--transition-fast)', display: 'flex', gap: '16px', alignItems: 'center' }}
+      style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 18px', cursor: 'pointer', transition: 'border-color var(--transition-fast)', display: 'flex', gap: '16px', alignItems: 'center' }}
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--accent)'; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-subtle)'; }}
     >
       {/* Gauge + score */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -150,7 +150,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, marginLeft: '6px' }}>{f.score}/{f.max}</span>
                 </div>
-                <div style={{ height: '3px', borderRadius: '2px', background: 'var(--border)', overflow: 'hidden' }}>
+                <div style={{ height: '3px', borderRadius: '2px', background: 'var(--border-subtle)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${f.pct}%`, borderRadius: '2px', background: f.pct >= 70 ? 'var(--color-inc)' : f.pct >= 40 ? 'var(--color-warn)' : 'var(--color-exp)', transition: 'width 1s ease' }} />
                 </div>
               </div>

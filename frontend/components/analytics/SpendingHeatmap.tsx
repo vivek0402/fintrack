@@ -59,9 +59,9 @@ export function SpendingHeatmap({ transactions }: Props) {
     }, [grid]);
 
     const cellColor = (total: number) => {
-        if (!total) return 'var(--bg-alt)';
+        if (!total) return 'var(--bg-surface-2)';
         const t = Math.pow(Math.min(total / maxVal, 1), 0.5);
-        return `color-mix(in srgb, var(--color-exp) ${Math.round(15 + t * 70)}%, var(--bg-alt))`;
+        return `color-mix(in srgb, var(--color-exp) ${Math.round(15 + t * 70)}%, var(--bg-surface-2))`;
     };
 
     const CELL = 11, GAP = 2, COL_W = CELL + GAP;
@@ -115,13 +115,13 @@ export function SpendingHeatmap({ transactions }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, justifyContent: 'flex-end' }}>
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Less</span>
                 {[0, 0.2, 0.45, 0.7, 1].map(p => (
-                    <div key={p} style={{ width: CELL, height: CELL, borderRadius: 2, background: p === 0 ? 'var(--bg-alt)' : `color-mix(in srgb, var(--color-exp) ${Math.round(15 + p * 70)}%, var(--bg-alt))` }} />
+                    <div key={p} style={{ width: CELL, height: CELL, borderRadius: 2, background: p === 0 ? 'var(--bg-surface-2)' : `color-mix(in srgb, var(--color-exp) ${Math.round(15 + p * 70)}%, var(--bg-surface-2))` }} />
                 ))}
                 <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>More</span>
             </div>
 
             {tooltip && (
-                <div style={{ position: 'fixed', left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '7px 12px', fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', pointerEvents: 'none', zIndex: 999, boxShadow: 'var(--shadow-card)', whiteSpace: 'nowrap' }}>
+                <div style={{ position: 'fixed', left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '7px 12px', fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', pointerEvents: 'none', zIndex: 999, boxShadow: 'var(--shadow-card)', whiteSpace: 'nowrap' }}>
                     {tooltip.label}
                 </div>
             )}

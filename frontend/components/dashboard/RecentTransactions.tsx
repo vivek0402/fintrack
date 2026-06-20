@@ -10,13 +10,13 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
     const recent = transactions.slice(0, 5);
 
     return (
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                     Recent Transactions
                 </h3>
                 <Link href="/transactions" style={{ textDecoration: 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 500, padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--accent-blue-border)', background: 'var(--accent-blue-bg)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 500, padding: '4px 10px', borderRadius: '8px', border: '1px solid var(--accent-border)', background: 'var(--accent-subtle)' }}>
                         View all <ArrowRight size={12} />
                     </div>
                 </Link>
@@ -34,11 +34,11 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                 key={tx.id}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--bg-border)',
+                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--border-subtle)',
                                     borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     transition: 'background var(--transition-fast)',
                                 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -48,7 +48,7 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                         border: '1px solid transparent',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
-                                        {isIncome ? <TrendingUp size={15} color="var(--accent-green)" /> : <TrendingDown size={15} color="var(--accent-red)" />}
+                                        {isIncome ? <TrendingUp size={15} color="var(--color-inc)" /> : <TrendingDown size={15} color="var(--color-exp)" />}
                                     </div>
                                     <div>
                                         <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0 }}>{tx.description}</p>
@@ -62,7 +62,7 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                         </div>
                                     </div>
                                 </div>
-                                <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--accent-green)' : 'var(--accent-red)', margin: 0, flexShrink: 0 }}>
+                                <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, flexShrink: 0 }}>
                                     {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), currency)}
                                 </p>
                             </div>

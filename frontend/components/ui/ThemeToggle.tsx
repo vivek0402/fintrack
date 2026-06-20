@@ -36,7 +36,7 @@ export function ThemeToggle() {
                 background: 'var(--surface-2)',
                 borderRadius: 'var(--radius-xl)',
                 padding: '3px',
-                border: '1px solid var(--bg-border)',
+                border: '1px solid var(--border-subtle)',
                 margin: '0 8px',
             }}>
                 {([

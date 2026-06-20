@@ -120,8 +120,8 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                     position: 'relative',
                     maxWidth: '440px',
                     width: 'calc(100% - 32px)',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--bg-border)',
+                    background: 'var(--bg-surface-1)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '20px',
                     padding: '32px 28px 24px',
                     boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
@@ -219,7 +219,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                                     width: i === step ? '20px' : '6px',
                                     height: '6px',
                                     borderRadius: i === step ? '3px' : '50%',
-                                    background: i === step ? 'var(--accent-blue)' : 'var(--bg-border)',
+                                    background: i === step ? 'var(--accent)' : 'var(--border-subtle)',
                                     transition: 'all 0.3s ease',
                                 }}
                             />
@@ -260,7 +260,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                                     type="button"
                                     onClick={handleBack}
                                     style={{
-                                        background: 'var(--bg-hover)',
+                                        background: 'var(--bg-surface-3)',
                                         color: 'var(--text-secondary)',
                                         borderRadius: '8px',
                                         padding: '10px 18px',

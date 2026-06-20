@@ -72,7 +72,7 @@ export function CreditUtilizationWidget() {
                         <PieChart>
                             <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} isAnimationActive={false} stroke="none">
                                 <Cell fill={color} />
-                                <Cell fill="var(--border)" />
+                                <Cell fill="var(--border-subtle)" />
                             </Pie>
                         </PieChart>
                     </ResponsiveContainer>
@@ -108,7 +108,7 @@ export function CreditUtilizationWidget() {
             </div>
 
             {data.recommendation && (
-                <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--accent-light)', borderRadius: 8, fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
                     <Sparkles size={12} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
                     {data.recommendation}
                 </div>

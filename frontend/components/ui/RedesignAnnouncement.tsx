@@ -58,11 +58,11 @@ export function RedesignAnnouncement() {
 
     return createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', boxShadow: 'var(--shadow-modal)' }}>
+            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '460px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', boxShadow: 'var(--shadow-modal)' }}>
 
                 {/* Hero */}
-                <div style={{ padding: '28px 28px 20px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <div style={{ padding: '28px 28px 20px', textAlign: 'center', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'color-mix(in srgb, var(--color-info) 15%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--color-info) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                         <Sparkles size={24} color="var(--color-info)" />
                     </div>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>
@@ -81,7 +81,7 @@ export function RedesignAnnouncement() {
                             <div key={item.title} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                                 <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0, marginTop: '1px' }}>{item.icon}</span>
                                 <div>
-                                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 1px', fontFamily: 'var(--font-head)' }}>{item.title}</p>
+                                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 1px', fontFamily: 'var(--font-display)' }}>{item.title}</p>
                                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{item.desc}</p>
                                 </div>
                             </div>
@@ -89,7 +89,7 @@ export function RedesignAnnouncement() {
                     </div>
 
                     {/* Divider */}
-                    <div style={{ height: '1px', background: 'var(--border)' }} />
+                    <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
 
                     {/* Colour picker */}
                     <div>
@@ -116,10 +116,10 @@ export function RedesignAnnouncement() {
                         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
                             Mode
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>
                             {([{ key: 'light' as const, label: '☀️ Light' }, { key: 'dark' as const, label: '🌙 Dark' }]).map(m => (
                                 <button key={m.key} type="button" onClick={() => setLocalTheme(m.key)}
-                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: localTheme === m.key ? 'var(--bg-card)' : 'transparent', boxShadow: localTheme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: localTheme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
+                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: localTheme === m.key ? 'var(--bg-surface-1)' : 'transparent', boxShadow: localTheme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: localTheme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
                                     {m.label}
                                 </button>
                             ))}
@@ -131,7 +131,7 @@ export function RedesignAnnouncement() {
 
                     {/* CTA */}
                     <button type="button" onClick={handleDone}
-                        style={{ width: '100%', padding: '13px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-head)', transition: 'opacity 0.15s' }}
+                        style={{ width: '100%', padding: '13px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-display)', transition: 'opacity 0.15s' }}
                         onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
                         onMouseLeave={e => (e.currentTarget.style.opacity = '1')}>
                         Explore the new FinTrack →

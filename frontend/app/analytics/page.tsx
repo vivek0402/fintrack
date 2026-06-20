@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -19,16 +20,18 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Tabs } from '@/components/ui/Tabs';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
     Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award,
     ChevronLeft, ChevronDown, ChevronRight, Brain, CheckCircle2, AlertTriangle,
     Utensils, Home, Car, Tv, ShoppingBag, HeartPulse, GraduationCap, PiggyBank,
-    FileText, Search, Camera, AlertCircle, Lightbulb, Loader2,
+    FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
-import { SpendingHeatmap } from '@/components/analytics/SpendingHeatmap';
-import { SankeyFlow } from '@/components/analytics/SankeyFlow';
-import { CategoryTrajectory } from '@/components/analytics/CategoryTrajectory';
-import { RegretAnalysis } from '@/components/analytics/RegretAnalysis';
+const vizSkeleton = (h: number) => () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
+const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
+const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
+const RegretAnalysis = dynamic(() => import('@/components/analytics/RegretAnalysis').then(m => m.RegretAnalysis), { ssr: false, loading: vizSkeleton(150) });
 import { exportToCSV, formatCurrency, formatDate } from '@/lib/utils';
 
 const OUTER_TABS = [
@@ -1750,10 +1753,12 @@ function YearReviewTab() {
                 {loading ? (
                     <><SkeletonCard height={200} /><SkeletonCard height={200} /></>
                 ) : !stats ? (
-                    <div style={{ ...sCard, textAlign: 'center', padding: '48px 24px' }}>
-                        <p style={{ fontSize: '40px', margin: '0 0 12px' }}>📊</p>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No data for {selectedYear}</p>
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Add transactions for this year to see your review.</p>
+                    <div style={{ ...sCard, padding: 0 }}>
+                        <EmptyState
+                            icon={BarChart3}
+                            title={`No data for ${selectedYear}`}
+                            subtitle="Add transactions for this year to see your review."
+                        />
                     </div>
                 ) : (
                     <>

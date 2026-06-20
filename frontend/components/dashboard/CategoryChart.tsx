@@ -12,7 +12,7 @@ function CustomTooltip({ active, payload, total, currency }: { active?: boolean;
     const item = payload[0];
     const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
     return (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--bg-border-strong)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-visible)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
             <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{item.name}</p>
             <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
                 {formatCurrency(item.value, currency)} <span style={{ color: 'var(--text-secondary)' }}>({pct}%)</span>
@@ -26,7 +26,7 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
     const chartData = data.map((c, i) => ({ name: c.name, value: parseFloat(c.total), color: c.color || PALETTE[i % PALETTE.length] }));
 
     return (
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--bg-border)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
+        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
             <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
                 Spending by Category
             </h3>

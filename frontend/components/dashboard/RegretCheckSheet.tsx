@@ -87,18 +87,18 @@ export function RegretCheckSheet() {
             />
             <div style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1101,
-                background: 'var(--bg-card)',
+                background: 'var(--bg-surface-1)',
                 borderRadius: '20px 20px 0 0',
-                borderTop: '1px solid var(--border)',
+                borderTop: '1px solid var(--border-subtle)',
                 maxHeight: '82vh',
                 overflowY: 'auto',
                 paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
                 animation: `${exiting ? 'rsSheetOut' : 'rsSheetIn'} 320ms cubic-bezier(0.32, 0.72, 0, 1) forwards`,
             }}>
-                <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 0' }} />
+                <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border-subtle)', margin: '12px auto 0' }} />
 
                 <div style={{ padding: '16px 20px 0' }}>
-                    <p style={{ fontFamily: 'var(--font-head)', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
+                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '17px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
                         Weekly Regret Check 😬
                     </p>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
@@ -113,12 +113,12 @@ export function RegretCheckSheet() {
                             ? 'color-mix(in srgb, var(--color-exp) 40%, transparent)'
                             : mark === 'keep'
                             ? 'color-mix(in srgb, var(--color-inc) 40%, transparent)'
-                            : 'var(--border)';
+                            : 'var(--border-subtle)';
                         return (
                             <div key={tx.id} style={{
                                 display: 'flex', alignItems: 'center', gap: '12px',
                                 padding: '12px 14px', marginBottom: '8px',
-                                background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)',
+                                background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)',
                                 border: `1px solid ${borderColor}`,
                                 transition: 'border-color 0.15s',
                             }}>
@@ -150,7 +150,7 @@ export function RegretCheckSheet() {
                                                     ? v === 'keep'
                                                         ? '1.5px solid color-mix(in srgb, var(--color-inc) 40%, transparent)'
                                                         : '1.5px solid color-mix(in srgb, var(--color-exp) 40%, transparent)'
-                                                    : '1.5px solid var(--border)',
+                                                    : '1.5px solid var(--border-subtle)',
                                                 cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 transition: 'all 0.15s',
                                             }}
@@ -168,7 +168,7 @@ export function RegretCheckSheet() {
                         onClick={dismiss}
                         style={{
                             flex: 1, padding: '12px', borderRadius: 'var(--radius-md)',
-                            background: 'var(--bg-alt)', border: '1px solid var(--border)',
+                            background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
                             color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500,
                             cursor: 'pointer', fontFamily: 'var(--font-body)',
                         }}

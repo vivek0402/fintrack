@@ -33,7 +33,7 @@ const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Ico
     accelerating:      { label: 'Accelerating',     color: 'var(--color-inc)',  bg: 'color-mix(in srgb, var(--color-inc) 12%, transparent)',  Icon: ArrowUp },
     decelerating:      { label: 'Decelerating',     color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)',  Icon: ArrowDown },
     steady:            { label: 'Steady',           color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', Icon: Minus },
-    insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--bg-alt)', Icon: Minus },
+    insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--bg-surface-2)', Icon: Minus },
 };
 
 export function WealthVelocityWidget() {

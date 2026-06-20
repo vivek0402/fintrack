@@ -17,12 +17,12 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
     const spendingPct = income > 0 ? Math.min((projected_expenses / income) * 100, 150) : 0;
     const isOverBudget = projected_expenses > income;
     const statusBorder = is_on_track ? 'var(--accent-green-border)' : 'var(--accent-red-border)';
-    const statusBg = is_on_track ? 'var(--accent-green-bg)' : 'var(--accent-red-bg)';
-    const statusColor = is_on_track ? 'var(--accent-green)' : 'var(--accent-red)';
+    const statusBg = is_on_track ? 'var(--color-inc-subtle)' : 'var(--color-exp-subtle)';
+    const statusColor = is_on_track ? 'var(--color-inc)' : 'var(--color-exp)';
     const statusGradient = is_on_track ? 'var(--gradient-green)' : 'var(--gradient-red)';
 
     return (
-        <div style={{ background: 'var(--bg-secondary)', border: `1px solid ${statusBorder}`, borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: 'var(--shadow-card)' }}>
+        <div style={{ background: 'var(--bg-surface-2)', border: `1px solid ${statusBorder}`, borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: 'var(--shadow-card)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: statusBg, border: `1px solid ${statusBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -40,8 +40,8 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '14px' }}>
                 {[
-                    { label: 'Projected Total', value: formatCurrency(projected_expenses, currency), color: isOverBudget ? 'var(--accent-red)' : 'var(--accent-yellow)', icon: Calendar },
-                    { label: 'Projected Savings', value: formatCurrency(Math.max(projected_savings, 0), currency), color: projected_savings >= 0 ? 'var(--accent-green)' : 'var(--accent-red)', icon: TrendingUp },
+                    { label: 'Projected Total', value: formatCurrency(projected_expenses, currency), color: isOverBudget ? 'var(--color-exp)' : 'var(--color-warn)', icon: Calendar },
+                    { label: 'Projected Savings', value: formatCurrency(Math.max(projected_savings, 0), currency), color: projected_savings >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', icon: TrendingUp },
                 ].map(stat => {
                     const Icon = stat.icon;
                     return (
@@ -59,31 +59,31 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
             <div style={{ marginBottom: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Projected vs income</span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isOverBudget ? 'var(--accent-red)' : 'var(--accent-green)' }}>{spendingPct.toFixed(0)}%</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isOverBudget ? 'var(--color-exp)' : 'var(--color-inc)' }}>{spendingPct.toFixed(0)}%</span>
                 </div>
-                <div style={{ height: '7px', background: 'var(--bg-border)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(spendingPct, 100)}%`, background: isOverBudget ? 'var(--accent-red)' : 'var(--accent-yellow)', borderRadius: '4px', transition: 'width var(--transition-slow)' }} />
+                <div style={{ height: '7px', background: 'var(--border-subtle)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${Math.min(spendingPct, 100)}%`, background: isOverBudget ? 'var(--color-exp)' : 'var(--color-warn)', borderRadius: '4px', transition: 'width var(--transition-slow)' }} />
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '16px', padding: '10px 14px', background: 'var(--bg-surface-1)', borderRadius: '10px', flexWrap: 'wrap' }}>
                 {[
                     { label: 'Your daily spend', value: formatCurrency(daily_rate, currency) + '/day', warn: daily_rate > ideal_daily_budget },
                     { label: 'Ideal daily budget', value: formatCurrency(ideal_daily_budget, currency) + '/day', positive: true },
                     { label: 'Projected savings rate', value: savings_rate + '%', positive: parseFloat(savings_rate) >= 20, warn: parseFloat(savings_rate) < 20 },
                 ].map((item, i) => (
                     <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {i > 0 && <div style={{ width: '1px', height: '30px', background: 'var(--bg-border)' }} />}
+                        {i > 0 && <div style={{ width: '1px', height: '30px', background: 'var(--border-subtle)' }} />}
                         <div>
                             <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', margin: '0 0 2px 0' }}>{item.label}</p>
-                            <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.85rem', fontWeight: 700, color: item.warn ? 'var(--accent-red)' : item.positive ? 'var(--accent-green)' : 'var(--text-primary)', margin: 0 }}>{item.value}</p>
+                            <p style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.85rem', fontWeight: 700, color: item.warn ? 'var(--color-exp)' : item.positive ? 'var(--color-inc)' : 'var(--text-primary)', margin: 0 }}>{item.value}</p>
                         </div>
                     </div>
                 ))}
             </div>
 
             {isOverBudget && (
-                <div style={{ marginTop: '10px', padding: '10px 14px', background: 'var(--gradient-red)', border: '1px solid var(--accent-red-border)', borderRadius: '10px', fontSize: '0.78rem', color: 'var(--accent-red)' }}>
+                <div style={{ marginTop: '10px', padding: '10px 14px', background: 'var(--gradient-red)', border: '1px solid var(--accent-red-border)', borderRadius: '10px', fontSize: '0.78rem', color: 'var(--color-exp)' }}>
                     ⚠️ At this rate you will overspend by <strong>{formatCurrency(projected_expenses - income, currency)}</strong> this month.
                 </div>
             )}

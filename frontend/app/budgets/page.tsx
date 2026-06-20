@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Plus, Trash2, Pencil, AlertCircle, BarChart2, CopyPlus,
     RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkles, X, Brain,
-    Check, Calendar,
+    Check, Calendar, Target,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
@@ -20,6 +20,7 @@ import { Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui/Skeleton
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
 import { Tabs } from '@/components/ui/Tabs';
@@ -986,22 +987,24 @@ function BudgetsPageInner() {
                                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={110} />)}
                                 </div>
                             ) : budgets.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px 24px' }}>
-                                    <p style={{ fontSize: '40px', marginBottom: '10px' }}>🎯</p>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No budgets set</p>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Set monthly limits to stay on track</p>
-                                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                        {prevMonthBudgets.length > 0 && (
-                                            <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
-                                                style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
-                                                <CopyPlus size={14} /> {copying ? 'Copying…' : `Copy from last month (${prevMonthBudgets.length})`}
+                                <EmptyState
+                                    icon={Target}
+                                    title="No budgets set"
+                                    subtitle="Set monthly limits to stay on track"
+                                    action={
+                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                            {prevMonthBudgets.length > 0 && (
+                                                <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
+                                                    style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
+                                                    <CopyPlus size={14} /> {copying ? 'Copying…' : `Copy from last month (${prevMonthBudgets.length})`}
+                                                </button>
+                                            )}
+                                            <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                Set your first budget
                                             </button>
-                                        )}
-                                        <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                            Set your first budget
-                                        </button>
-                                    </div>
-                                </div>
+                                        </div>
+                                    }
+                                />
                             ) : filteredBudgets.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
                                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No budgets match this filter</p>

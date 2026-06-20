@@ -128,10 +128,10 @@ const borderCol = (s: Alert['severity']) =>
 
 const bgCol = (s: Alert['severity']) =>
   s === 'danger'
-    ? 'color-mix(in srgb, var(--color-exp) 6%, var(--bg-card))'
+    ? 'color-mix(in srgb, var(--color-exp) 6%, var(--bg-surface-1))'
     : s === 'warning'
-    ? 'color-mix(in srgb, var(--color-warn) 6%, var(--bg-card))'
-    : 'color-mix(in srgb, var(--accent) 6%, var(--bg-card))';
+    ? 'color-mix(in srgb, var(--color-warn) 6%, var(--bg-surface-1))'
+    : 'color-mix(in srgb, var(--accent) 6%, var(--bg-surface-1))';
 
 export function CoachAlerts({ summary, budgets, goals, loading }: CoachAlertsProps) {
   const { user } = useAuthStore();

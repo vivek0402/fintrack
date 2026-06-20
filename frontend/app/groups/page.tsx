@@ -9,6 +9,7 @@ import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import {
     Plus, Users, X, Check, ChevronRight,
@@ -163,12 +164,14 @@ export default function GroupsPage() {
                             {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
                         </div>
                     ) : groups.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                            <p style={{ fontSize: '40px', marginBottom: '10px' }}>👥</p>
-                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No groups yet</p>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Create a group to split expenses with friends or family</p>
-                            <button type="button" onClick={openCreate} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>New Group</button>
-                        </div>
+                        <EmptyState
+                            icon={Users}
+                            title="No groups yet"
+                            subtitle="Create a group to split expenses with friends or family"
+                            action={
+                                <button type="button" onClick={openCreate} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>New Group</button>
+                            }
+                        />
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {groups.map(g => {

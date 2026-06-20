@@ -18,7 +18,7 @@ export function PageShell({ title, subtitle, headerRight, children }: PageShellP
             {/* Page Header */}
             <div style={{
                 padding: `var(--space-6) var(--space-6) var(--space-4)`,
-                borderBottom: '1px solid var(--bg-border)',
+                borderBottom: '1px solid var(--border-subtle)',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',

@@ -423,18 +423,18 @@ export default function FirePage() {
                                         <AreaChart data={fireResult.portfolio_projection}>
                                             <defs>
                                                 <linearGradient id="fireGrowth" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="0%" stopColor="var(--accent-mint, #00e5a0)" stopOpacity={0.2} />
-                                                    <stop offset="100%" stopColor="var(--accent-mint, #00e5a0)" stopOpacity={0} />
+                                                    <stop offset="0%" stopColor="var(--color-inc)" stopOpacity={0.2} />
+                                                    <stop offset="100%" stopColor="var(--color-inc)" stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid vertical={false} stroke="var(--bg-border)" />
+                                            <CartesianGrid vertical={false} stroke="var(--border-subtle)" />
                                             <XAxis dataKey="year" tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} label={{ value: 'Years from today', position: 'insideBottom', offset: -2, fontSize: 11, fill: 'var(--text-muted)' }} />
                                             <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={70} />
                                             <Tooltip content={<ChartTooltip />} />
                                             <Area type="monotone" dataKey="portfolio_value" name="Portfolio" stroke="var(--color-inc)" strokeWidth={1.5} fill="url(#fireGrowth)" animationDuration={600} />
-                                            <ReferenceLine y={fireResult.corpus_needed_real} stroke="var(--accent-amber, #f59e0b)" strokeDasharray="4 4" label={{ value: 'FIRE number', position: 'insideTopRight', fontSize: 11, fill: 'var(--accent-amber, #f59e0b)' }} />
+                                            <ReferenceLine y={fireResult.corpus_needed_real} stroke="var(--color-warn)" strokeDasharray="4 4" label={{ value: 'FIRE number', position: 'insideTopRight', fontSize: 11, fill: 'var(--color-warn)' }} />
                                             {crossingYear !== null && (
-                                                <ReferenceDot x={crossingYear} y={fireResult.corpus_needed_real} r={5} fill="var(--accent-amber, #f59e0b)" stroke="var(--bg-surface-1)" strokeWidth={2} />
+                                                <ReferenceDot x={crossingYear} y={fireResult.corpus_needed_real} r={5} fill="var(--color-warn)" stroke="var(--bg-surface-1)" strokeWidth={2} />
                                             )}
                                         </AreaChart>
                                     </ResponsiveContainer>

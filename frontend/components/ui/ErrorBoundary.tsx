@@ -36,7 +36,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                     justifyContent: 'center', padding: 'var(--space-12)',
                     gap: 'var(--space-4)', textAlign: 'center',
                 }}>
-                    <AlertTriangle size={32} color="var(--accent-yellow)" />
+                    <AlertTriangle size={32} color="var(--color-warn)" />
                     <p style={{ fontFamily: "'Cabinet Grotesk', sans-serif", fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                         Something went wrong
                     </p>
@@ -46,7 +46,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                     <button
                         type="button"
                         onClick={() => this.setState({ hasError: false, message: '' })}
-                        style={{ padding: '8px 20px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', border: '1px solid var(--bg-border)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: "'Satoshi', sans-serif" }}
+                        style={{ padding: '8px 20px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: "'Satoshi', sans-serif" }}
                     >
                         Try again
                     </button>

@@ -46,8 +46,8 @@ function CatOption({ cat, selected, onSelect, onDelete }: { cat: any; selected: 
     return (
         <div
             onClick={onSelect}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'var(--bg-hover)' : 'transparent', transition: 'background 0.1s' }}
-            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'var(--bg-surface-3)' : 'transparent', transition: 'background 0.1s' }}
+            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
             onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
             <CategoryIcon name={cat.icon} size={14} color={cat.color} />
@@ -382,7 +382,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     };
 
     const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-body)' };
-    const inputBase: React.CSSProperties  = { background: 'var(--bg-alt)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
+    const inputBase: React.CSSProperties  = { background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
 
     return (
         <Modal
@@ -414,7 +414,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
             {/* AI new-category prompt */}
             {showNewCategoryPrompt && (
-                <div style={{ background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <div>
                         <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>✨ New category detected</div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI suggested: <strong>"{pendingNewCategory}"</strong></div>
@@ -425,7 +425,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             {approvingCat ? '…' : 'Add it'}
                         </button>
                         <button type="button" onClick={() => setShowNewCategoryPrompt(false)}
-                            style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            style={{ background: 'var(--bg-surface-1)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                             Skip
                         </button>
                     </div>
@@ -437,11 +437,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {/* ── Type toggle — dark pill ── */}
                 <div>
                     <label style={labelStyle}>Type</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', padding: '4px', background: 'var(--bg-alt)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', padding: '4px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                         {(['expense', 'income', 'transfer'] as const).map(t => {
                             const active = form.type === t;
                             const bg = active ? (t === 'income' ? 'var(--color-inc)' : t === 'transfer' ? 'var(--accent)' : 'var(--text-primary)') : 'transparent';
-                            const color = active ? (t === 'expense' ? 'var(--bg-card)' : 'white') : 'var(--text-muted)';
+                            const color = active ? (t === 'expense' ? 'var(--bg-surface-1)' : 'white') : 'var(--text-muted)';
                             const label = t === 'income' ? '↑ Income' : t === 'transfer' ? '⇄ Transfer' : '↓ Expense';
                             return (
                                 <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
@@ -471,7 +471,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                             {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
                                 <button key={m} type="button" onClick={() => setForm({ ...form, payment_method: m })}
-                                    style={{ padding: '7px 14px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s', border: `1px solid ${form.payment_method === m ? 'var(--accent)' : 'var(--border)'}`, background: form.payment_method === m ? 'var(--accent-light)' : 'var(--bg-card)', color: form.payment_method === m ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                    style={{ padding: '7px 14px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s', border: `1px solid ${form.payment_method === m ? 'var(--accent)' : 'var(--border-subtle)'}`, background: form.payment_method === m ? 'var(--accent-subtle)' : 'var(--bg-surface-1)', color: form.payment_method === m ? 'var(--accent)' : 'var(--text-muted)' }}>
                                     {m}
                                 </button>
                             ))}
@@ -500,7 +500,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     <label style={labelStyle}>Category</label>
                     <div ref={catDropdownRef} style={{ position: 'relative' }}>
                         <button type="button" onClick={() => setCatDropdownOpen(v => !v)}
-                            style={{ width: '100%', padding: '10px 14px', ...inputBase, border: `1px solid ${catDropdownOpen ? 'var(--accent)' : 'var(--border)'}`, color: selectedCat ? 'var(--text-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'border-color 0.15s' }}>
+                            style={{ width: '100%', padding: '10px 14px', ...inputBase, border: `1px solid ${catDropdownOpen ? 'var(--accent)' : 'var(--border-subtle)'}`, color: selectedCat ? 'var(--text-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'border-color 0.15s' }}>
                             {selectedCat ? (
                                 <><CategoryIcon name={selectedCat.icon} size={14} color={selectedCat.color} /><span style={{ flex: 1, textAlign: 'left' }}>{selectedCat.name}</span></>
                             ) : (
@@ -509,14 +509,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <ChevronDown size={14} style={{ transform: catDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
                         </button>
                         {catDropdownOpen && (
-                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', zIndex: 60, maxHeight: '220px', overflowY: 'auto', boxShadow: 'var(--shadow-elevated)' }}>
+                            <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '10px', zIndex: 60, maxHeight: '220px', overflowY: 'auto', boxShadow: 'var(--shadow-card)' }}>
                                 {sortedCategories.length === 0 ? (
                                     <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading…</div>
                                 ) : (
                                     <>
                                         {frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Frequently Used</div>}
                                         {frequentCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} onDelete={() => handleDeleteCategory(cat)} />))}
-                                        {neverUsedCats.length > 0 && frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--border)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'var(--font-body)' }}>All Categories</div>}
+                                        {neverUsedCats.length > 0 && frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--border-subtle)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'var(--font-body)' }}>All Categories</div>}
                                         {neverUsedCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} onDelete={() => handleDeleteCategory(cat)} />))}
                                     </>
                                 )}
@@ -531,9 +531,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
                             <input type="text" placeholder="Category name" value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }} autoFocus
                                 style={{ flex: 1, padding: '7px 12px', ...inputBase, fontSize: '0.8rem' }} />
-                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer', background: 'none' }} />
+                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--border-subtle)', borderRadius: '6px', cursor: 'pointer', background: 'none' }} />
                             <button type="button" onClick={handleAddCategory} disabled={addCatLoading || !newCatName.trim()} style={{ padding: '7px 12px', background: 'var(--accent)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '0.8rem', cursor: addCatLoading || !newCatName.trim() ? 'not-allowed' : 'pointer', opacity: addCatLoading || !newCatName.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>{addCatLoading ? '…' : 'Add'}</button>
-                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
+                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
                         </div>
                     )}
                 </div>}
@@ -550,10 +550,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             </svg>
                         </div>
                         {calOpen && (
-                            <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: '100%', minWidth: '300px', zIndex: 9999, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px', boxShadow: 'var(--shadow-modal)', boxSizing: 'border-box' }}>
+                            <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: '100%', minWidth: '300px', zIndex: 9999, backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', boxShadow: 'var(--shadow-modal)', boxSizing: 'border-box' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                     <button type="button" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}>‹</button>
-                                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', fontFamily: 'var(--font-head)' }}>{MONTHS[calMonth]} {calYear}</span>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
                                     <button type="button" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}>›</button>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
@@ -570,7 +570,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                         return (
                                             <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
                                                 style={{ width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
-                                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-hover)'; }}
+                                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-surface-3)'; }}
                                                 onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
                                             >{cell.day}</div>
                                         );
@@ -610,7 +610,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {form.tags.map(tag => (
                                 <span key={tag} onClick={() => setForm({ ...form, tags: form.tags.filter(t => t !== tag) })}
-                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent)', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', padding: '3px 10px', borderRadius: '20px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', padding: '3px 10px', borderRadius: '20px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                     #{tag} ×
                                 </span>
                             ))}
@@ -619,7 +619,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <input type="text" placeholder="Add tag (press Enter)" value={tagInput} onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))} onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}
                             style={{ flex: 1, padding: '10px 16px', ...inputBase }} />
-                        <button type="button" onClick={addTag} style={{ padding: '10px 16px', background: 'var(--accent-light)', border: '1px solid var(--accent-border)', borderRadius: '10px', color: 'var(--accent)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500, fontFamily: 'var(--font-body)' }}>Add</button>
+                        <button type="button" onClick={addTag} style={{ padding: '10px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: '10px', color: 'var(--accent)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500, fontFamily: 'var(--font-body)' }}>Add</button>
                     </div>
                 </div>
 

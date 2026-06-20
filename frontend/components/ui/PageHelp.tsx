@@ -46,7 +46,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
             <div
                 onClick={e => e.stopPropagation()}
                 style={{
-                    background: 'var(--bg-secondary)',
+                    background: 'var(--bg-surface-2)',
                     borderRadius: '20px 20px 0 0',
                     maxHeight: '80vh',
                     display: 'flex',
@@ -58,7 +58,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                 {/* Sticky header */}
                 <div style={{
                     padding: '16px 20px 12px',
-                    borderBottom: '1px solid var(--bg-border)',
+                    borderBottom: '1px solid var(--border-subtle)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -68,7 +68,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                         <div style={{
                             width: '40px',
                             height: '4px',
-                            background: 'var(--bg-border)',
+                            background: 'var(--border-subtle)',
                             borderRadius: '2px',
                             margin: '0 auto 12px',
                         }} />
@@ -111,8 +111,8 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                         <div
                             key={i}
                             style={{
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--bg-border)',
+                                background: 'var(--bg-surface-1)',
+                                border: '1px solid var(--border-subtle)',
                                 borderRadius: '14px',
                                 padding: '16px',
                                 display: 'flex',
@@ -124,7 +124,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                                 width: '40px',
                                 height: '40px',
                                 borderRadius: '10px',
-                                background: 'var(--bg-hover)',
+                                background: 'var(--bg-surface-3)',
                                 fontSize: '20px',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -166,8 +166,8 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                     width: '36px',
                     height: '36px',
                     borderRadius: '50%',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--bg-border)',
+                    background: 'var(--bg-surface-1)',
+                    border: '1px solid var(--border-subtle)',
                     color: 'var(--text-secondary)',
                     fontSize: '16px',
                     fontWeight: 700,
