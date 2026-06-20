@@ -1663,14 +1663,17 @@ async function getDailyBriefData(userId) {
                      WHERE user_id=$1 AND is_active=true AND next_due_date BETWEEN $2 AND $3`, [userId, todayStr, in2days]),
         pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3`, [userId, monthStart, todayStr]),
         pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='income' AND date >= $2`, [userId, monthStart]),
-        pool.query(`SELECT DISTINCT date::text AS date FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2`, [userId, streakWindowStart]),
+        // Any transaction type counts as "logged activity" for that day — a streak of
+        // consistent tracking, not a streak of not spending (which would be gameable
+        // by simply not logging real expenses).
+        pool.query(`SELECT DISTINCT date::text AS date FROM transactions WHERE user_id=$1 AND date >= $2`, [userId, streakWindowStart]),
     ]);
 
-    const spendDates = new Set(spendDatesRows.rows.map(r => r.date));
+    const loggedDates = new Set(spendDatesRows.rows.map(r => r.date));
     let streak = 0;
     for (let i = 1; i <= 30; i++) {
         const d = dateStr(new Date(now.getTime() - i * 86400000));
-        if (spendDates.has(d)) break;
+        if (!loggedDates.has(d)) break;
         streak++;
     }
 
@@ -1699,12 +1702,12 @@ async function getDailyBriefData(userId) {
             ideal_daily_budget: idealDailyBudget,
             avg_daily_so_far: avgDailySoFar,
         },
-        no_spend_streak: streak,
+        logging_streak: streak,
     };
 }
 
 function buildDailyBriefPoints(data) {
-    const { yesterday, today_so_far, bills_due_soon, pace, no_spend_streak } = data;
+    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak } = data;
 
     const paceDelta = pace.ideal_daily_budget > 0 ? pace.avg_daily_so_far - pace.ideal_daily_budget : null;
     const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
@@ -1746,11 +1749,11 @@ function buildDailyBriefPoints(data) {
         },
         {
             key: 'streak',
-            label: 'No-Spend Streak',
-            value: `${no_spend_streak} day${no_spend_streak !== 1 ? 's' : ''}`,
-            insight: no_spend_streak > 0
-                ? `${no_spend_streak} day${no_spend_streak !== 1 ? 's' : ''} without an expense — keep it going!`
-                : 'Spent yesterday — start a fresh streak today',
+            label: 'Logging Streak',
+            value: `${logging_streak} day${logging_streak !== 1 ? 's' : ''}`,
+            insight: logging_streak > 0
+                ? `${logging_streak} day${logging_streak !== 1 ? 's' : ''} of staying on top of your money — keep it going!`
+                : 'Log a transaction today to start your streak',
         },
     ];
 
@@ -1778,9 +1781,9 @@ ${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 
     const actionOfTheDay = data.bills_due_soon.count > 0
         ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
-        : data.no_spend_streak > 0
-            ? `Keep your ${data.no_spend_streak}-day no-spend streak alive today!`
-            : "Log today's transactions to keep your numbers accurate.";
+        : data.logging_streak > 0
+            ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
+            : "Log today's transactions to start a streak and keep your numbers accurate.";
 
     const { rows } = await pool.query(
         `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day)

@@ -569,7 +569,6 @@ export default function DashboardPage() {
 
                 {netBalanceHero}
                 {dailyBriefCard}
-                {sixMonthTrendCard}
 
                 {/* ── STAT TILES — 4×2 grid (desktop) / 2×3 (mobile) ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
@@ -673,6 +672,8 @@ export default function DashboardPage() {
                         </p>
                     </div>
                 )}
+
+                {sixMonthTrendCard}
 
                 {/* ── WEEKLY BRIEFING WIDGET ── */}
                 {showBriefing && (
