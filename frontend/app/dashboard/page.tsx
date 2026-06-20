@@ -206,6 +206,7 @@ export default function DashboardPage() {
     const [dailyBriefRefreshing, setDailyBriefRefreshing] = useState(false);
     const [dailyBriefCooldown, setDailyBriefCooldown] = useState(0);
     const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const dailyBriefRefreshTimesRef = useRef<number[]>([]);
     const [salaryData, setSalaryData]   = useState<any>(null);
     const [salaryDismissed, setSalaryDismissed] = useState(false);
     const [coachEnabled, setCoachEnabled] = useState(true);
@@ -510,11 +511,21 @@ export default function DashboardPage() {
                     <button type="button" title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
                         onClick={async () => {
                             if (dailyBriefCooldown > 0) return;
+                            const now = Date.now();
+                            const recent = dailyBriefRefreshTimesRef.current.filter(t => now - t < 60000);
+                            if (recent.length >= 2) {
+                                startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
+                                return;
+                            }
                             setDailyBriefRefreshing(true);
                             try {
                                 const res = await dailyBriefingAPI.generate();
                                 setDailyBrief(res.data);
-                                startDailyBriefCooldown(60);
+                                recent.push(now);
+                                dailyBriefRefreshTimesRef.current = recent;
+                                if (recent.length >= 2) {
+                                    startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
+                                }
                             } catch (err: any) {
                                 const wait = err.response?.data?.wait;
                                 if (wait) startDailyBriefCooldown(wait);

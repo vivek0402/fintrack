@@ -1866,24 +1866,36 @@ router.get('/briefing/history', authMiddleware, async (req, res) => {
     }
 });
 
-// POST /briefing/daily/generate — manual refresh, rate-limited to 1/minute
-const DAILY_BRIEF_REFRESH_COOLDOWN_MS = 60 * 1000;
+// POST /briefing/daily/generate — manual refresh, rate-limited to 2/minute (sliding window)
+const DAILY_BRIEF_REFRESH_WINDOW_MS = 60 * 1000;
+const DAILY_BRIEF_REFRESH_MAX = 2;
 
 router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
     try {
         const today = dateStr(new Date());
         const { rows: existing } = await pool.query(
-            `SELECT updated_at FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+            `SELECT refresh_log FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
             [req.user.id, today]
         );
-        const lastUpdated = existing[0]?.updated_at ? new Date(existing[0].updated_at).getTime() : 0;
-        const msSinceUpdate = Date.now() - lastUpdated;
-        if (lastUpdated && msSinceUpdate < DAILY_BRIEF_REFRESH_COOLDOWN_MS) {
-            const waitSec = Math.ceil((DAILY_BRIEF_REFRESH_COOLDOWN_MS - msSinceUpdate) / 1000);
+        const now = Date.now();
+        const recentRefreshes = (existing[0]?.refresh_log || [])
+            .map(t => new Date(t).getTime())
+            .filter(t => now - t < DAILY_BRIEF_REFRESH_WINDOW_MS)
+            .sort((a, b) => a - b);
+
+        if (recentRefreshes.length >= DAILY_BRIEF_REFRESH_MAX) {
+            const waitSec = Math.ceil((DAILY_BRIEF_REFRESH_WINDOW_MS - (now - recentRefreshes[0])) / 1000);
             return res.status(429).json({ error: 'Please wait before refreshing again.', wait: waitSec });
         }
 
         const briefing = await generateDailyBriefing(req.user.id);
+
+        const updatedLog = [...recentRefreshes, now].map(t => new Date(t).toISOString());
+        await pool.query(
+            `UPDATE daily_briefings SET refresh_log=$1 WHERE user_id=$2 AND brief_date=$3`,
+            [updatedLog, req.user.id, today]
+        );
+
         res.json(briefing);
     } catch (err) {
         console.error('[DailyBrief] generate error:', err);

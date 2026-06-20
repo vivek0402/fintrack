@@ -1,0 +1,1 @@
+ALTER TABLE daily_briefings ADD COLUMN IF NOT EXISTS refresh_log TIMESTAMPTZ[] DEFAULT '{}';
