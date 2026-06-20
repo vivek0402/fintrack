@@ -123,11 +123,14 @@ const authLimiter = rateLimit({
 });
 
 // AI endpoint limiter — 30 req/hour per user (uses JWT id as key when available)
+// Skips /agent/* — the Fin chatbot has its own, more generous limiter (see routes/agents.js)
+// since a single conversation naturally involves many more round-trips than a one-shot report.
 const aiLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.path.startsWith('/agent'),
     keyGenerator: (req) => {
         // Try to use authenticated user id; fall back to IP
         const auth = req.headers['authorization'];

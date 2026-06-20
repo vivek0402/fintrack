@@ -76,7 +76,7 @@ const moreGroups = [
     {
         label: 'Tools',
         items: [
-            { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
+            { href: '/ai-advisor',  icon: Bot,           label: 'AI Chat' },
             { href: '/personality', icon: Sparkles,      label: 'Personality' },
             { href: '/documents',   icon: FolderOpen,    label: 'Documents' },
             { href: '/groups',      icon: Users,         label: 'Groups' },

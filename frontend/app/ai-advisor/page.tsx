@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Bot, TrendingDown, LineChart, Receipt, Wallet, Plus, Menu, X } from 'lucide-react';
+import { Send, Sparkles, Plus, Menu, X, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { agentAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { AppLayout } from '@/components/layout/AppLayout';
-
-type AgentType = 'debt_coach' | 'investment_advisor' | 'tax_planner' | 'budget_master';
+import { renderChatMarkdown } from '@/lib/chatMarkdown';
 
 interface AgentMessage {
     role: 'user' | 'assistant';
@@ -18,75 +17,18 @@ interface AgentMessage {
 
 interface ConversationSummary {
     id: string;
-    agent_type: AgentType;
     title: string;
     updated_at: string;
     message_count: number;
 }
 
-interface AgentDef {
-    type: AgentType;
-    name: string;
-    shortDesc: string;
-    longDesc: string;
-    icon: typeof TrendingDown;
-    color: string;
-    starters: string[];
-}
+const FIN_COLOR = 'var(--accent)';
 
-const AGENTS: AgentDef[] = [
-    {
-        type: 'debt_coach',
-        name: 'Debt Coach',
-        shortDesc: 'Debt elimination, EMIs & payoff strategy',
-        longDesc: 'A no-nonsense coach focused on getting you debt-free as fast as possible — loan prioritization, prepayment strategy, and credit utilization.',
-        icon: TrendingDown,
-        color: 'var(--color-exp)',
-        starters: [
-            'Which loan should I pay off first?',
-            'How much can I save by prepaying my home loan?',
-            'Create a 2-year debt elimination plan for me',
-        ],
-    },
-    {
-        type: 'investment_advisor',
-        name: 'Investment Advisor',
-        shortDesc: 'Portfolio, allocation & wealth building',
-        longDesc: 'A calm, data-driven advisor for long-term compounding — portfolio review, asset allocation, and progress toward your FIRE goal.',
-        icon: LineChart,
-        color: 'var(--color-inc)',
-        starters: [
-            'How should I rebalance my portfolio?',
-            'Am I on track for my FIRE goal?',
-            'What’s the ideal asset allocation for me right now?',
-        ],
-    },
-    {
-        type: 'tax_planner',
-        name: 'Tax Planner',
-        shortDesc: 'Deductions, regimes & ITR readiness',
-        longDesc: 'A meticulous tax professional who cites the exact sections of Indian tax law — 80C, HRA exemptions, regime comparison, and ITR readiness.',
-        icon: Receipt,
-        color: 'var(--color-warn)',
-        starters: [
-            'How can I save more tax this year?',
-            'Should I switch to the new tax regime?',
-            'What’s my ITR readiness status?',
-        ],
-    },
-    {
-        type: 'budget_master',
-        name: 'Budget Master',
-        shortDesc: 'Spending habits & budget adherence',
-        longDesc: 'An empathetic behavioral finance coach focused on progress, not perfection — spending patterns, budget adherence, and savings rate.',
-        icon: Wallet,
-        color: 'var(--color-info)',
-        starters: [
-            'Where am I overspending this month?',
-            'How can I improve my savings rate?',
-            'Why do I keep overspending in the same category?',
-        ],
-    },
+const STARTER_PROMPTS = [
+    'Which loan should I pay off first?',
+    'How can I save more tax this year?',
+    'Where am I overspending this month?',
+    'Am I on track for my FIRE goal?',
 ];
 
 function timeAgo(dateStr: string): string {
@@ -106,13 +48,14 @@ export default function AiAdvisorPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
-    const [selectedAgent, setSelectedAgent] = useState<AgentType | null>(null);
     const [conversations, setConversations] = useState<ConversationSummary[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<AgentMessage[]>([]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true);
+    const [conversationsLoaded, setConversationsLoaded] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -123,22 +66,18 @@ export default function AiAdvisorPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, sending]);
 
-    const loadConversations = async (agentType: AgentType) => {
+    const loadConversations = async () => {
         try {
-            const res = await agentAPI.getConversations(agentType);
+            const res = await agentAPI.getConversations();
             setConversations(res.data.conversations ?? []);
         } catch {
             setConversations([]);
+        } finally {
+            setConversationsLoaded(true);
         }
     };
 
-    const handleSelectAgent = (agentType: AgentType) => {
-        setSelectedAgent(agentType);
-        setActiveConversationId(null);
-        setMessages([]);
-        if (isMobile) setMobileSidebarOpen(false);
-        loadConversations(agentType);
-    };
+    useEffect(() => { loadConversations(); }, []);
 
     const handleNewConversation = () => {
         setActiveConversationId(null);
@@ -158,9 +97,28 @@ export default function AiAdvisorPage() {
         }
     };
 
+    const handleDeleteConversation = async (conv: ConversationSummary, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!window.confirm(`Delete "${conv.title || 'this conversation'}"? This cannot be undone.`)) return;
+
+        setDeletingId(conv.id);
+        try {
+            await agentAPI.deleteConversation(conv.id);
+            setConversations(prev => prev.filter(c => c.id !== conv.id));
+            if (activeConversationId === conv.id) {
+                setActiveConversationId(null);
+                setMessages([]);
+            }
+        } catch {
+            // ignore — leave list as-is
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const handleSend = async (text: string) => {
         const trimmed = text.trim();
-        if (!trimmed || sending || !selectedAgent) return;
+        if (!trimmed || sending) return;
 
         const userMsg: AgentMessage = { role: 'user', content: trimmed, timestamp: new Date().toISOString() };
         setMessages(prev => [...prev, userMsg]);
@@ -168,12 +126,12 @@ export default function AiAdvisorPage() {
         setSending(true);
 
         try {
-            const res = await agentAPI.sendMessage(selectedAgent, trimmed, activeConversationId ?? undefined);
+            const res = await agentAPI.sendMessage(trimmed, activeConversationId ?? undefined);
             setMessages((res.data.messages ?? []) as AgentMessage[]);
             if (!activeConversationId && res.data.conversation_id) {
                 setActiveConversationId(res.data.conversation_id);
             }
-            loadConversations(selectedAgent);
+            loadConversations();
         } catch (err: any) {
             const serverMsg = err?.response?.data?.error || err?.response?.data?.message;
             setMessages(prev => [...prev, {
@@ -188,9 +146,9 @@ export default function AiAdvisorPage() {
 
     if (isLoading || !user) return <AppLayout><div /></AppLayout>;
 
-    const agentDef = AGENTS.find(a => a.type === selectedAgent) || null;
-    const canSend = !!input.trim() && !sending && !!selectedAgent;
+    const canSend = !!input.trim() && !sending;
     const containerHeight = isMobile ? 'calc(100dvh - 160px)' : 'calc(100dvh - 72px)';
+    const showWelcome = conversationsLoaded && messages.length === 0;
 
     return (
         <AppLayout>
@@ -221,7 +179,7 @@ export default function AiAdvisorPage() {
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                AI Advisor
+                                Fin
                             </h2>
                             {isMobile && (
                                 <button type="button" onClick={() => setMobileSidebarOpen(false)}
@@ -231,66 +189,38 @@ export default function AiAdvisorPage() {
                             )}
                         </div>
 
-                        {/* Agent selector cards */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {AGENTS.map(agent => {
-                                const Icon = agent.icon;
-                                const active = selectedAgent === agent.type;
-                                return (
-                                    <button key={agent.type} type="button" onClick={() => handleSelectAgent(agent.type)}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px',
-                                            borderRadius: '12px', textAlign: 'left', cursor: 'pointer',
-                                            border: active ? `1px solid color-mix(in srgb, ${agent.color} 35%, transparent)` : '1px solid var(--border-subtle)',
-                                            background: active ? `color-mix(in srgb, ${agent.color} 10%, var(--bg-surface-1))` : 'var(--bg-surface-2)',
-                                            transition: 'all var(--transition-fast)',
-                                        }}>
-                                        <div style={{
-                                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                                            background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
-                                            border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            <Icon size={17} color={agent.color} />
-                                        </div>
-                                        <div style={{ minWidth: 0 }}>
-                                            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
-                                                {agent.name}
-                                            </p>
-                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {agent.shortDesc}
-                                            </p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <button type="button" onClick={handleNewConversation}
+                            style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 35%, transparent)`,
+                                background: `color-mix(in srgb, ${FIN_COLOR} 10%, var(--bg-surface-1))`,
+                                color: 'var(--accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)',
+                            }}>
+                            <Plus size={15} /> New chat
+                        </button>
 
-                        {/* Conversation history */}
-                        {selectedAgent && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0 8px' }} />
-                                <button type="button" onClick={handleNewConversation}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '4px 2px', fontFamily: 'var(--font-body)' }}>
-                                    <Plus size={14} /> New conversation
-                                </button>
-                                {conversations.length === 0 ? (
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 2px', fontFamily: 'var(--font-body)' }}>
-                                        No conversations yet.
-                                    </p>
-                                ) : conversations.map(conv => {
-                                    const active = activeConversationId === conv.id;
-                                    return (
-                                        <button key={conv.id} type="button" onClick={() => handleSelectConversation(conv)}
-                                            style={{
-                                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px',
-                                                padding: '8px 10px', borderRadius: '8px', textAlign: 'left', cursor: 'pointer',
-                                                border: 'none',
-                                                background: active ? 'var(--accent-subtle)' : 'transparent',
-                                                width: '100%',
-                                            }}
-                                            onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
-                                            onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0 8px' }} />
+                            {conversationsLoaded && conversations.length === 0 ? (
+                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 2px', fontFamily: 'var(--font-body)' }}>
+                                    No conversations yet.
+                                </p>
+                            ) : conversations.map(conv => {
+                                const active = activeConversationId === conv.id;
+                                return (
+                                    <div key={conv.id} role="button" tabIndex={0}
+                                        onClick={() => handleSelectConversation(conv)}
+                                        onKeyDown={e => { if (e.key === 'Enter') handleSelectConversation(conv); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '6px',
+                                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                                            background: active ? 'var(--accent-subtle)' : 'transparent',
+                                            width: '100%',
+                                        }}
+                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+                                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', minWidth: 0, flex: 1 }}>
                                             <span style={{
                                                 fontSize: '12px', fontWeight: active ? 600 : 500,
                                                 color: active ? 'var(--accent)' : 'var(--text-primary)',
@@ -302,11 +232,23 @@ export default function AiAdvisorPage() {
                                             <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                                 {timeAgo(conv.updated_at)}
                                             </span>
+                                        </div>
+                                        <button type="button" title="Delete conversation"
+                                            onClick={e => handleDeleteConversation(conv, e)}
+                                            disabled={deletingId === conv.id}
+                                            style={{
+                                                background: 'none', border: 'none', flexShrink: 0, padding: '4px',
+                                                color: 'var(--text-muted)', cursor: deletingId === conv.id ? 'default' : 'pointer',
+                                                display: 'flex', opacity: deletingId === conv.id ? 0.4 : 1,
+                                            }}
+                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'}
+                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}>
+                                            <Trash2 size={13} />
                                         </button>
-                                    );
-                                })}
-                            </div>
-                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
 
@@ -316,175 +258,111 @@ export default function AiAdvisorPage() {
                     background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)',
                     overflow: 'hidden',
                 }}>
+                    <ChatHeader isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
 
-                    {/* No agent selected — welcome screen */}
-                    {!selectedAgent && (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '20px', overflowY: 'auto' }}>
-                            <div style={{ textAlign: 'center' }}>
-                                <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    Choose an advisor to get started
-                                </h2>
-                                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                    Each agent specializes in a different area of your finances.
+                    {showWelcome ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '18px', overflowY: 'auto' }}>
+                            <div style={{
+                                width: 56, height: 56, borderRadius: '50%',
+                                background: `color-mix(in srgb, ${FIN_COLOR} 12%, var(--bg-surface-1))`,
+                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <Sparkles size={26} color={FIN_COLOR} />
+                            </div>
+                            <div style={{ textAlign: 'center', maxWidth: '380px' }}>
+                                <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    Hi, I&apos;m Fin
+                                </h3>
+                                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                                    Ask me about your debt, investments, taxes, or spending — anything about your finances.
                                 </p>
                             </div>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-                                gap: '14px',
-                                width: '100%',
-                                maxWidth: '620px',
-                            }}>
-                                {AGENTS.map(agent => {
-                                    const Icon = agent.icon;
-                                    return (
-                                        <button key={agent.type} type="button" onClick={() => handleSelectAgent(agent.type)}
-                                            style={{
-                                                display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px',
-                                                padding: '18px', borderRadius: '14px', textAlign: 'left', cursor: 'pointer',
-                                                border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)',
-                                                transition: 'all var(--transition-fast)',
-                                            }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `color-mix(in srgb, ${agent.color} 35%, transparent)`; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'; }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '380px' }}>
+                                {STARTER_PROMPTS.map(q => (
+                                    <button key={q} type="button" onClick={() => handleSend(q)}
+                                        style={{
+                                            padding: '10px 14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
+                                            border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, var(--border-subtle))`,
+                                            background: `color-mix(in srgb, ${FIN_COLOR} 6%, var(--bg-surface-1))`,
+                                            color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)',
+                                            transition: 'all var(--transition-fast)',
+                                        }}>
+                                        {q}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
+                            {messages.map((msg, i) => (
+                                <div key={msg.timestamp ? `${msg.role}-${msg.timestamp}` : i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
+                                    {msg.role === 'assistant' ? (
+                                        <>
                                             <div style={{
-                                                width: 44, height: 44, borderRadius: 12,
-                                                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
-                                                border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
+                                                width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginBottom: 2,
+                                                background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             }}>
-                                                <Icon size={22} color={agent.color} />
+                                                <Sparkles size={14} color={FIN_COLOR} />
                                             </div>
-                                            <div>
-                                                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                                                    {agent.name}
-                                                </p>
-                                                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                                    {agent.longDesc}
-                                                </p>
+                                            <div style={{
+                                                maxWidth: isMobile ? '88%' : '72%', padding: '10px 14px', borderRadius: '15px 15px 15px 4px',
+                                                background: `color-mix(in srgb, ${FIN_COLOR} 8%, var(--bg-surface-1))`,
+                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--border-subtle))`,
+                                                color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6,
+                                                fontFamily: 'var(--font-body)',
+                                            }}>
+                                                {renderChatMarkdown(msg.content)}
                                             </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                        </>
+                                    ) : (
+                                        <div style={{
+                                            maxWidth: isMobile ? '82%' : '68%', padding: '10px 14px', borderRadius: '15px 15px 4px 15px',
+                                            background: 'var(--accent)', color: 'white', fontSize: '14px', lineHeight: 1.55,
+                                            whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)',
+                                        }}>
+                                            {msg.content}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {sending && (
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                                    <div style={{
+                                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                                        background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                                        border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    }}>
+                                        <Sparkles size={14} color={FIN_COLOR} />
+                                    </div>
+                                    <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {[0, 1, 2].map(j => (
+                                            <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: FIN_COLOR, animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={messagesEndRef} />
                         </div>
                     )}
 
-                    {/* Agent selected, no active conversation, no messages — new conversation view */}
-                    {selectedAgent && agentDef && messages.length === 0 && (
-                        <>
-                            <ChatHeader agent={agentDef} isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '18px', overflowY: 'auto' }}>
-                                <div style={{
-                                    width: 56, height: 56, borderRadius: '50%',
-                                    background: `color-mix(in srgb, ${agentDef.color} 12%, var(--bg-surface-1))`,
-                                    border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <agentDef.icon size={26} color={agentDef.color} />
-                                </div>
-                                <div style={{ textAlign: 'center', maxWidth: '380px' }}>
-                                    <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                        {agentDef.name}
-                                    </h3>
-                                    <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                                        {agentDef.longDesc}
-                                    </p>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '380px' }}>
-                                    {agentDef.starters.map(q => (
-                                        <button key={q} type="button" onClick={() => handleSend(q)}
-                                            style={{
-                                                padding: '10px 14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
-                                                border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, var(--border-subtle))`,
-                                                background: `color-mix(in srgb, ${agentDef.color} 6%, var(--bg-surface-1))`,
-                                                color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)',
-                                                transition: 'all var(--transition-fast)',
-                                            }}>
-                                            {q}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <ChatInput input={input} setInput={setInput} sending={sending} canSend={canSend} onSend={handleSend} />
-                        </>
-                    )}
-
-                    {/* Active conversation — chat interface */}
-                    {selectedAgent && agentDef && messages.length > 0 && (
-                        <>
-                            <ChatHeader agent={agentDef} isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
-                                {messages.map((msg, i) => (
-                                    <div key={msg.timestamp ? `${msg.role}-${msg.timestamp}` : i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-                                        {msg.role === 'assistant' ? (
-                                            <>
-                                                <div style={{
-                                                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginBottom: 2,
-                                                    background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-surface-1))`,
-                                                    border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                }}>
-                                                    <agentDef.icon size={14} color={agentDef.color} />
-                                                </div>
-                                                <div style={{
-                                                    maxWidth: isMobile ? '88%' : '72%', padding: '10px 14px', borderRadius: '15px 15px 15px 4px',
-                                                    background: `color-mix(in srgb, ${agentDef.color} 8%, var(--bg-surface-1))`,
-                                                    border: `1px solid color-mix(in srgb, ${agentDef.color} 18%, var(--border-subtle))`,
-                                                    color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6,
-                                                    whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)',
-                                                }}>
-                                                    {msg.content}
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div style={{
-                                                maxWidth: isMobile ? '82%' : '68%', padding: '10px 14px', borderRadius: '15px 15px 4px 15px',
-                                                background: 'var(--accent)', color: 'white', fontSize: '14px', lineHeight: 1.55,
-                                                whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)',
-                                            }}>
-                                                {msg.content}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
-                                {/* Typing indicator */}
-                                {sending && (
-                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                                        <div style={{
-                                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                                            background: `color-mix(in srgb, ${agentDef.color} 15%, var(--bg-surface-1))`,
-                                            border: `1px solid color-mix(in srgb, ${agentDef.color} 25%, transparent)`,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            <agentDef.icon size={14} color={agentDef.color} />
-                                        </div>
-                                        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                            {[0, 1, 2].map(j => (
-                                                <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: agentDef.color, animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                <div ref={messagesEndRef} />
-                            </div>
-                            <ChatInput input={input} setInput={setInput} sending={sending} canSend={canSend} onSend={handleSend} />
-                        </>
-                    )}
+                    <ChatInput input={input} setInput={setInput} sending={sending} canSend={canSend} onSend={handleSend} />
                 </div>
             </div>
         </AppLayout>
     );
 }
 
-function ChatHeader({ agent, isMobile, onMenu }: { agent: AgentDef; isMobile: boolean; onMenu: () => void }) {
-    const Icon = agent.icon;
+function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => void }) {
     return (
         <div style={{
             display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', flexShrink: 0,
             borderBottom: '1px solid var(--border-subtle)',
-            background: `color-mix(in srgb, ${agent.color} 6%, var(--bg-surface-1))`,
+            background: `color-mix(in srgb, ${FIN_COLOR} 6%, var(--bg-surface-1))`,
         }}>
             {isMobile && (
                 <button type="button" onClick={onMenu}
@@ -494,18 +372,18 @@ function ChatHeader({ agent, isMobile, onMenu }: { agent: AgentDef; isMobile: bo
             )}
             <div style={{
                 width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                background: `color-mix(in srgb, ${agent.color} 15%, var(--bg-surface-1))`,
-                border: `1px solid color-mix(in srgb, ${agent.color} 25%, transparent)`,
+                background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-                <Icon size={16} color={agent.color} />
+                <Sparkles size={16} color={FIN_COLOR} />
             </div>
             <div>
                 <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                    {agent.name}
+                    Fin
                 </p>
                 <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                    {agent.shortDesc}
+                    Your AI financial assistant
                 </p>
             </div>
         </div>

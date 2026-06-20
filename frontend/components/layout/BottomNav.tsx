@@ -14,6 +14,7 @@ import {
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
     { href: '/transactions', icon: ArrowLeftRight,  label: 'Money' },
+    { href: '/ai-advisor',   icon: Bot,             label: 'AI Chat' },
     { href: '/analytics',    icon: PieChart,        label: 'Insights' },
 ];
 
@@ -66,7 +67,6 @@ const moreGroups = [
     {
         label: 'Tools',
         items: [
-            { href: '/ai-advisor',  icon: Bot,           label: 'AI Advisor' },
             { href: '/personality', icon: Sparkles,      label: 'Personality' },
             { href: '/accounts',    icon: CreditCard,    label: 'Accounts' },
             { href: '/documents',   icon: FolderOpen,    label: 'Documents' },

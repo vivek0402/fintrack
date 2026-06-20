@@ -355,10 +355,9 @@ export const documentAPI = {
 };
 
 export const agentAPI = {
-    sendMessage: (agent_type: string, message: string, conversation_id?: string) =>
-        api.post('/api/ai/agent/message', { agent_type, message, conversation_id }),
-    getConversations: (agent_type?: string) =>
-        api.get('/api/ai/agent/conversations', { params: agent_type ? { agent_type } : undefined }),
+    sendMessage: (message: string, conversation_id?: string) =>
+        api.post('/api/ai/agent/message', { message, conversation_id }),
+    getConversations: () => api.get('/api/ai/agent/conversations'),
     getConversation: (id: string) => api.get(`/api/ai/agent/conversations/${id}`),
     deleteConversation: (id: string) => api.delete(`/api/ai/agent/conversations/${id}`),
 };

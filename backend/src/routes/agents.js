@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
@@ -8,7 +9,19 @@ const router = express.Router();
 
 router.use(auth);
 
-const AGENT_TYPES = ['debt_coach', 'investment_advisor', 'tax_planner', 'budget_master'];
+// A conversation naturally involves many more round-trips than a one-shot AI
+// report, so it gets its own, more generous budget instead of sharing the
+// global 30/hour AI limiter (which still governs every other /api/ai route).
+const agentChatLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `agent-chat:user:${req.user.id}`,
+    message: { error: 'You’ve reached the chat limit for this hour. Please try again later.' },
+});
+
+const AGENT_TYPES = ['debt_coach', 'investment_advisor', 'tax_planner', 'budget_master', 'general'];
 const isValidAgentType = (value) => AGENT_TYPES.includes(value);
 
 const fmt = (n) => parseFloat((Number(n) || 0).toFixed(2));
@@ -351,13 +364,6 @@ async function fetchBudgetMasterData(userId) {
     };
 }
 
-const DATA_FETCHERS = {
-    debt_coach: fetchDebtCoachData,
-    investment_advisor: fetchInvestmentAdvisorData,
-    tax_planner: fetchTaxPlannerData,
-    budget_master: fetchBudgetMasterData,
-};
-
 // ─── System prompt builders ────────────────────────────────────────────────
 
 const COMMON_RULES = `
@@ -496,23 +502,68 @@ ${regretText}
 ${COMMON_RULES}`;
 }
 
-const PROMPT_BUILDERS = {
-    debt_coach: buildDebtCoachPrompt,
-    investment_advisor: buildInvestmentAdvisorPrompt,
-    tax_planner: buildTaxPlannerPrompt,
-    budget_master: buildBudgetMasterPrompt,
-};
+// Fetching all 4 domains is ~17 queries; a back-and-forth conversation would
+// otherwise re-run all of them on every single turn even though the user's
+// underlying financial data rarely changes mid-conversation.
+const UNIFIED_DATA_CACHE_TTL_MS = 60 * 1000;
+const unifiedDataCache = new Map(); // userId -> { data, expiresAt }
+
+async function fetchUnifiedData(userId) {
+    const cached = unifiedDataCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+    const [debt, investing, tax, budget] = await Promise.all([
+        fetchDebtCoachData(userId),
+        fetchInvestmentAdvisorData(userId),
+        fetchTaxPlannerData(userId),
+        fetchBudgetMasterData(userId),
+    ]);
+    const data = { debt, investing, tax, budget };
+    unifiedDataCache.set(userId, { data, expiresAt: Date.now() + UNIFIED_DATA_CACHE_TTL_MS });
+    return data;
+}
+
+function buildUnifiedPrompt({ debt, investing, tax, budget }) {
+    // Reuse each domain's "USER'S FINANCIAL DATA" block by stripping the persona
+    // line and COMMON_RULES suffix off the existing per-agent prompt builders.
+    const stripToData = (fullPrompt) =>
+        fullPrompt
+            .slice(fullPrompt.indexOf('\n') + 1)
+            .replace(COMMON_RULES, '')
+            .replace(/^USER'S FINANCIAL DATA[^\n]*\n/m, '')
+            .trim();
+
+    const debtSection = stripToData(buildDebtCoachPrompt(debt));
+    const investingSection = stripToData(buildInvestmentAdvisorPrompt(investing));
+    const taxSection = stripToData(buildTaxPlannerPrompt(tax));
+    const budgetSection = stripToData(buildBudgetMasterPrompt(budget));
+
+    return `You are Fin, FinTrack's all-in-one AI financial assistant for an Indian personal finance app. You combine the expertise of a no-nonsense debt elimination coach, a calm data-driven investment advisor, a meticulous Indian tax professional (cite specific sections like 80C, 87A, HRA rules when relevant), and an empathetic behavioral budget coach — all in one conversation. Read the user's question and respond in whichever voice fits the topic; for mixed questions, blend them naturally. Never make the user pick a "mode" — just answer.
+
+USER'S FINANCIAL DATA:
+
+— DEBT —
+${debtSection}
+
+— INVESTMENTS —
+${investingSection}
+
+— TAX (FY ${tax.financial_year}) —
+${taxSection}
+
+— BUDGET & SPENDING —
+${budgetSection}
+${COMMON_RULES}`;
+}
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
-router.post('/message', async (req, res) => {
+router.post('/message', agentChatLimiter, async (req, res) => {
     try {
-        const { agent_type, message, conversation_id } = req.body;
+        const { message, conversation_id } = req.body;
 
-        if (!agent_type || !message)
-            return res.status(400).json({ error: 'agent_type and message are required.' });
-        if (!isValidAgentType(agent_type))
-            return res.status(400).json({ error: 'Invalid agent_type.' });
+        if (!message)
+            return res.status(400).json({ error: 'message is required.' });
 
         let messages = [];
         let existingConversation = null;
@@ -530,12 +581,17 @@ router.post('/message', async (req, res) => {
             messages = existingConversation.messages || [];
         }
 
-        const data = await DATA_FETCHERS[agent_type](req.user.id);
-        const systemPrompt = PROMPT_BUILDERS[agent_type](data);
+        const data = await fetchUnifiedData(req.user.id);
+        const systemPrompt = buildUnifiedPrompt(data);
+
+        // Cap how much history we send to the model — full transcript still
+        // lives in the DB and is returned to the client untouched.
+        const CONTEXT_HISTORY_LIMIT = 20;
+        const recentMessages = messages.slice(-CONTEXT_HISTORY_LIMIT);
 
         const aiMessages = [
             { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
+            ...recentMessages.map(m => ({ role: m.role, content: m.content })),
             { role: 'user', content: message },
         ];
 
@@ -559,15 +615,14 @@ router.post('/message', async (req, res) => {
             const title = message.trim().slice(0, 60);
             const insertRes = await pool.query(
                 `INSERT INTO agent_conversations (user_id, agent_type, title, messages)
-                 VALUES ($1, $2, $3, $4::jsonb) RETURNING id`,
-                [req.user.id, agent_type, title, JSON.stringify(updatedMessages)]
+                 VALUES ($1, 'general', $2, $3::jsonb) RETURNING id`,
+                [req.user.id, title, JSON.stringify(updatedMessages)]
             );
             resultConversationId = insertRes.rows[0].id;
         }
 
         res.json({
             conversation_id: resultConversationId,
-            agent_type,
             response: responseText,
             messages: updatedMessages,
         });

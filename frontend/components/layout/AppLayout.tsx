@@ -19,8 +19,8 @@ import { toast } from '@/store/toastStore';
 import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 
-const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/profile'];
-const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-chat', '/transactions'];
+const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
+const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/transactions'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
@@ -217,7 +217,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         </div>
                     )}
                     <button
-                        onClick={() => router.push('/ai-chat')}
+                        onClick={() => router.push('/ai-advisor')}
                         onMouseEnter={() => setAiFabHover(true)}
                         onMouseLeave={() => setAiFabHover(false)}
                         style={{
