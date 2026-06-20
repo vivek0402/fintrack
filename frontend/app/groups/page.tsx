@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -140,7 +139,7 @@ export default function GroupsPage() {
     // ── LIST VIEW ─────────────────────────────────────────────────────────────
     if (!selectedGroup) {
         return (
-            <AppLayout>
+            <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                     {/* Header */}
@@ -212,7 +211,7 @@ export default function GroupsPage() {
                 </div>
 
                 {showModal && (<GroupModal editing={editingGroup} formName={formName} setFormName={setFormName} formEmoji={formEmoji} setFormEmoji={setFormEmoji} formDesc={formDesc} setFormDesc={setFormDesc} formBudget={formBudget} setFormBudget={setFormBudget} formMembers={formMembers} setFormMembers={setFormMembers} saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)} />)}
-            </AppLayout>
+            </>
         );
     }
 
@@ -232,7 +231,7 @@ export default function GroupsPage() {
     const budgetPct = selectedGroup.budget ? (Number(selectedGroup.total_spent) / Number(selectedGroup.budget)) * 100 : null;
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* Back + header */}
@@ -492,7 +491,7 @@ export default function GroupsPage() {
                 </div>,
                 document.body
             )}
-        </AppLayout>
+        </>
     );
 }
 

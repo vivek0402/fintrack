@@ -6,7 +6,6 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer
 import { Info, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
@@ -142,13 +141,13 @@ function NetWorthPageInner() {
 
     if (isLoading || !user || loading || !current) {
         return (
-            <AppLayout>
+            <>
                 <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
                 </div>
                 <SkeletonCard height={260} />
-            </AppLayout>
+            </>
         );
     }
 
@@ -164,7 +163,6 @@ function NetWorthPageInner() {
     const allocations = (allocation?.allocations || []).filter(a => a.amount > 0);
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER ── */}
@@ -429,7 +427,6 @@ function NetWorthPageInner() {
                     )
                 )}
             </div>
-        </AppLayout>
     );
 }
 

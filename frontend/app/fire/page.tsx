@@ -8,7 +8,6 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -196,11 +195,9 @@ export default function FirePage() {
 
     if (isLoading || !user) {
         return (
-            <AppLayout>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={140} />)}
                 </div>
-            </AppLayout>
         );
     }
 
@@ -246,7 +243,6 @@ export default function FirePage() {
     }
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -569,6 +565,5 @@ export default function FirePage() {
                     </>
                 )}
             </div>
-        </AppLayout>
     );
 }

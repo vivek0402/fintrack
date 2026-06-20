@@ -6,7 +6,6 @@ import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer, ReferenceLine } f
 import { Heart, ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, budgetsAPI, goalsAPI, debtAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { calculateHealthScore, HealthScoreResult } from '@/lib/healthScore';
 import { getCurrentMonthYear } from '@/lib/utils';
@@ -146,10 +145,9 @@ export default function HealthScorePage() {
     return result.score - history[history.length - 2].score;
   }, [history, result]);
 
-  if (isLoading || !user) return <AppLayout><Skeleton width="100%" height={300} borderRadius={12} /></AppLayout>;
+  if (isLoading || !user) return <Skeleton width="100%" height={300} borderRadius={12} />;
 
   return (
-    <AppLayout>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px', animation: 'fadeUp 200ms ease forwards' }}>
 
         {/* Header */}
@@ -256,6 +254,5 @@ export default function HealthScorePage() {
         </div>
 
       </div>
-    </AppLayout>
   );
 }

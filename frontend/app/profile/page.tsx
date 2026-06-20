@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, Download, Trash2, FileText, Bell, Receipt, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -160,7 +159,7 @@ export default function ProfilePage() {
     };
 
     if (isLoading || !user) return (
-        <AppLayout>
+        <>
             <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 <SkeletonCard height={64} />
@@ -168,7 +167,7 @@ export default function ProfilePage() {
                 <SkeletonCard height={64} />
             </div>
             {[1, 2, 3].map(i => <SkeletonCard key={i} height={80} style={{ marginBottom: '12px' }} />)}
-        </AppLayout>
+        </>
     );
 
     const initials = profile?.full_name
@@ -187,7 +186,6 @@ export default function ProfilePage() {
     const divider: React.CSSProperties = { height: '1px', background: 'var(--border-subtle)', margin: '8px 0' };
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '32px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -393,6 +391,5 @@ export default function ProfilePage() {
                 </button>
 
             </div>
-        </AppLayout>
     );
 }

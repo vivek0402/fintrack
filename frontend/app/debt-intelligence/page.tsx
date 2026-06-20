@@ -6,7 +6,6 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { Sparkles, CreditCard, Gauge, Calculator, TrendingDown, Snowflake, Mountain, Plus, Landmark, Wallet, Percent, Layers, Pencil, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { debtAPI, loanAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -448,18 +447,16 @@ function DebtIntelligencePageInner() {
 
     if (isLoading || !user) {
         return (
-            <AppLayout>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
                 </div>
-            </AppLayout>
         );
     }
 
     const hasLoans = loans.length > 0;
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -1087,7 +1084,7 @@ function DebtIntelligencePageInner() {
                     </div>
                 </form>
             </Modal>
-        </AppLayout>
+        </>
     );
 }
 

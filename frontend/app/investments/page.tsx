@@ -6,7 +6,6 @@ import { Plus, Briefcase, Wallet, TrendingUp, Layers, FileUp } from 'lucide-reac
 import { useAuthStore } from '@/store/authStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { investmentAPI, CreateInvestmentPayload } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -181,17 +180,17 @@ export default function InvestmentsPage() {
 
     if (isLoading || !user) {
         return (
-            <AppLayout>
+            <>
                 <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={100} />)}
                 </div>
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -428,6 +427,6 @@ export default function InvestmentsPage() {
                     )}
                 </div>
             </Modal>
-        </AppLayout>
+        </>
     );
 }

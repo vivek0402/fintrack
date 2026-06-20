@@ -7,7 +7,6 @@ import { Plus, Download, Zap, X, CheckSquare, FileUp, ChevronLeft, ChevronRight,
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -193,18 +192,18 @@ function TransactionsPageInner() {
     }, []);
 
     if (isLoading || !user) return (
-        <AppLayout>
+        <>
             <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
                 <SkeletonCard height={36} style={{ flex: 1 }} />
                 <SkeletonCard height={36} style={{ flex: 1 }} />
             </div>
             <SkeletonCard height={300} />
-        </AppLayout>
+        </>
     );
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -434,7 +433,7 @@ function TransactionsPageInner() {
                 document.body
             )}
 
-        </AppLayout>
+        </>
     );
 }
 

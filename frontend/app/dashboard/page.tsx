@@ -11,7 +11,6 @@ import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { toast } from '@/store/toastStore';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -446,7 +445,7 @@ export default function DashboardPage() {
     }, [summary, budgets, goals, isCurrentMonth]);
 
     if (isLoading || !user) return (
-        <AppLayout>
+        <>
             <SkeletonCard height={60} style={{ marginBottom: '24px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '16px' }}>
                 {[1,2,3,4].map(i => <SkeletonCard key={i} height={100} />)}
@@ -454,7 +453,7 @@ export default function DashboardPage() {
             <SkeletonCard height={220} style={{ marginBottom: '16px' }} />
             <SkeletonCard height={100} style={{ marginBottom: '16px' }} />
             <SkeletonCard height={260} />
-        </AppLayout>
+        </>
     );
 
     // ── Net Balance hero (rendered above tiles on mobile, below on desktop) ──
@@ -574,7 +573,6 @@ export default function DashboardPage() {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER (no card) ── */}
@@ -1032,6 +1030,5 @@ export default function DashboardPage() {
                 </div>
 
             </div>
-        </AppLayout>
     );
 }

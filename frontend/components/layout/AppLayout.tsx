@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sparkles, Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -39,41 +39,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         runNotificationCheck();
     }, []);
 
-    // Keep a ref so the back-button closure always sees the current pathname.
-    // Updated synchronously in the render body so it's never stale when the
-    // Capacitor handler fires between a render and its effects.
-    const pathnameRef = useRef(pathname);
-    pathnameRef.current = pathname;
-
-    // Android hardware/gesture back button — go home first, exit from home.
-    // Dynamic imports avoid SSR module-init failures that break the bundle.
-    useEffect(() => {
-        let cancelled = false;
-        let handle: { remove: () => void } | null = null;
-
-        const setup = async () => {
-            try {
-                const { Capacitor } = await import('@capacitor/core');
-                if (!Capacitor.isNativePlatform() || cancelled) return;
-                const { App } = await import('@capacitor/app');
-                if (cancelled) return;
-                handle = await App.addListener('backButton', () => {
-                    if (pathnameRef.current === '/dashboard') {
-                        App.exitApp();
-                    } else {
-                        router.replace('/dashboard');
-                    }
-                });
-            } catch { /* not in Capacitor environment */ }
-        };
-
-        setup();
-        return () => {
-            cancelled = true;
-            handle?.remove();
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // register once — listener is permanent for the app's lifecycle
+    // Android hardware/gesture back button now lives in CapacitorBridge (mounted
+    // once at the true app root) — AppLayout remounts on every page navigation,
+    // which used to leave a registration gap on every nav where a back press
+    // would fall through to the native default (exit) instead of our handler.
 
     // Warm up the backend + Supabase on first app load (free-tier cold-start mitigation)
     useEffect(() => {

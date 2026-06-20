@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Target, Brain, ChevronRight, Pencil } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { goalsAPI, aiAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -162,17 +161,17 @@ export default function GoalsPage() {
     // ── Loading skeleton ──────────────────────────────────────────────────────
 
     if (isLoading || !user) return (
-        <AppLayout>
+        <>
             <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
             <SkeletonCard height={64} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[1, 2, 3].map(i => <SkeletonCard key={i} height={120} />)}
             </div>
-        </AppLayout>
+        </>
     );
 
     return (
-        <AppLayout>
+        <>
             {showBurst && <MilestoneBurst onDone={() => setShowBurst(false)} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
@@ -507,6 +506,6 @@ export default function GoalsPage() {
                 )}
             </Modal>
 
-        </AppLayout>
+        </>
     );
 }

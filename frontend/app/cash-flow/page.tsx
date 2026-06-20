@@ -8,7 +8,6 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { StatTile } from '@/components/ui/StatTile';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -118,11 +117,9 @@ export default function CashFlowPage() {
 
     if (isLoading || !user || loading || !data) {
         return (
-            <AppLayout>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
                 </div>
-            </AppLayout>
         );
     }
 
@@ -134,7 +131,6 @@ export default function CashFlowPage() {
     const balanceLineColor = balanceEnd >= balanceStart ? 'var(--color-inc)' : 'var(--color-exp)';
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -301,6 +297,5 @@ export default function CashFlowPage() {
                     )}
                 </Card>
             </div>
-        </AppLayout>
     );
 }

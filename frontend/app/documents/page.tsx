@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { documentAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -211,17 +210,17 @@ export default function DocumentsPage() {
 
     if (isLoading || !user || loading) {
         return (
-            <AppLayout>
+            <>
                 <SkeletonCard height={60} style={{ marginBottom: '16px' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={160} />)}
                 </div>
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER ── */}
@@ -441,6 +440,6 @@ export default function DocumentsPage() {
                     {uploadError && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{uploadError}</p>}
                 </div>
             </Modal>
-        </AppLayout>
+        </>
     );
 }

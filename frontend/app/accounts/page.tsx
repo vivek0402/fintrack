@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, X, Plus, Star } from 'lucide-react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -228,7 +227,7 @@ export default function AccountsPage() {
     if (isLoading) return null;
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── Toast ── */}
@@ -552,6 +551,6 @@ export default function AccountsPage() {
                 document.body
             )}
 
-        </AppLayout>
+        </>
     );
 }

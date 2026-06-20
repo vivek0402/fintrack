@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { Plus, Pencil, Trash2, Info, Sparkles, Lock, Check, Clock, Minus, CheckSquare, Square, ChevronDown, ChevronUp, AlertTriangle, Receipt, Loader2, PiggyBank, Banknote, Lightbulb, Home, ShoppingBag, Car, TrendingUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { taxAPI, aiAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -1764,16 +1763,15 @@ function TaxPageInner() {
 
     if (isLoading || !user) {
         return (
-            <AppLayout>
+            <>
                 <SkeletonCard height={60} style={{ marginBottom: '16px' }} />
                 <SkeletonCard height={180} style={{ marginBottom: '16px' }} />
                 <SkeletonCard height={260} />
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 <Tabs tabs={OUTER_TABS} active={tab} onChange={setTab} />
@@ -1782,7 +1780,6 @@ function TaxPageInner() {
                 {tab === 'estimate' && <TaxEstimateTab />}
                 {tab === 'salary' && <SalaryIntelligenceTab />}
             </div>
-        </AppLayout>
     );
 }
 

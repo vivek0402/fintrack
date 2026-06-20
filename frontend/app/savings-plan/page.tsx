@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, goalsAPI, transactionsAPI, aiAPI, milestoneAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -496,10 +495,10 @@ function SavingsPlanPageInner() {
 
     const childCountOf = (id: string) => milestones.filter(m => m.parent_id === id).length;
 
-    if (isLoading || !user) return <AppLayout><div /></AppLayout>;
+    if (isLoading || !user) return <div />;
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24, animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -988,7 +987,7 @@ function SavingsPlanPageInner() {
                     </p>
                 )}
             </Modal>
-        </AppLayout>
+        </>
     );
 }
 

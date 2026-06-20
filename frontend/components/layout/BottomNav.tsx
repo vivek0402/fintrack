@@ -287,16 +287,16 @@ export function BottomNav() {
             )}
 
             {/* Bottom nav bar */}
-            <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-surface-1)', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '6px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', zIndex: 997 }}>
+            <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--bg-surface-1)', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '6px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', paddingLeft: 'env(safe-area-inset-left, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', zIndex: 997 }}>
                 {mainTabs.map(({ href, icon: Icon, label }) => {
                     const active = isActive(href);
                     return (
                         <a key={href} href={href} onClick={e => { e.preventDefault(); router.push(href); }}
-                            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', flex: 1 }}>
+                            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 6px', flex: 1, minWidth: 0 }}>
                             <div key={active ? 'active' : 'inactive'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: active ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                                 <Icon size={22} color={active ? '#fff' : 'var(--text-muted)'} />
                             </div>
-                            <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--accent)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
+                            <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--accent)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                 {label}
                             </span>
                         </a>
@@ -305,11 +305,11 @@ export function BottomNav() {
 
                 {/* More button */}
                 <button ref={moreButtonRef} type="button" onClick={handleMoreButtonClick}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 16px', flex: 1, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 6px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
                     <div key={moreOpen ? 'open' : 'closed'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: moreActive || moreOpen ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                         <MoreHorizontal size={22} color={moreActive || moreOpen ? '#fff' : 'var(--text-muted)'} />
                     </div>
-                    <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--accent)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)' }}>
+                    <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--accent)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                         More
                     </span>
                 </button>

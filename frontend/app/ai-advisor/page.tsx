@@ -6,7 +6,6 @@ import { Send, Sparkles, Plus, Menu, X, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { agentAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { renderChatMarkdown } from '@/lib/chatMarkdown';
 
 interface AgentMessage {
@@ -144,14 +143,13 @@ export default function AiAdvisorPage() {
         }
     };
 
-    if (isLoading || !user) return <AppLayout><div /></AppLayout>;
+    if (isLoading || !user) return <div />;
 
     const canSend = !!input.trim() && !sending;
     const containerHeight = isMobile ? 'calc(100dvh - 160px)' : 'calc(100dvh - 72px)';
     const showWelcome = conversationsLoaded && messages.length === 0;
 
     return (
-        <AppLayout>
             <div style={{
                 display: 'flex',
                 height: containerHeight,
@@ -353,7 +351,6 @@ export default function AiAdvisorPage() {
                     <ChatInput input={input} setInput={setInput} sending={sending} canSend={canSend} onSend={handleSend} />
                 </div>
             </div>
-        </AppLayout>
     );
 }
 

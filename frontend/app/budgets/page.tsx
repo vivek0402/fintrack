@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -799,7 +798,7 @@ function BudgetsPageInner() {
     // ── LOADING SKELETON (auth gate) ──
     // ════════════════════════════════════════════════════════════════════════
     if (isLoading || !user) return (
-        <AppLayout>
+        <>
             <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                 <SkeletonCard height={64} />
@@ -809,11 +808,10 @@ function BudgetsPageInner() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={110} />)}
             </div>
-        </AppLayout>
+        </>
     );
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER ── */}
@@ -1979,7 +1977,6 @@ function BudgetsPageInner() {
                 )}
 
             </div>
-        </AppLayout>
     );
 }
 

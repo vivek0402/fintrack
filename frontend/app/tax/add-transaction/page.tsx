@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { taxAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
@@ -97,7 +96,6 @@ export default function AddCapitalTransactionPage() {
     };
 
     return (
-        <AppLayout>
             <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 <button
@@ -203,6 +201,5 @@ export default function AddCapitalTransactionPage() {
                     </form>
                 </Card>
             </div>
-        </AppLayout>
     );
 }

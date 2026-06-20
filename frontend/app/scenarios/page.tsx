@@ -7,7 +7,6 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -260,16 +259,14 @@ export default function ScenariosPage() {
 
     if (isLoading || !user || loading) {
         return (
-            <AppLayout>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {[1, 2, 3].map(i => <SkeletonCard key={i} height={100} />)}
                 </div>
-            </AppLayout>
         );
     }
 
     return (
-        <AppLayout>
+        <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
@@ -425,7 +422,7 @@ export default function ScenariosPage() {
                     autoFocus
                 />
             </Modal>
-        </AppLayout>
+        </>
     );
 }
 

@@ -10,7 +10,6 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI } from '@/lib/api';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -2151,19 +2150,18 @@ function AnalyticsPageInner() {
 
     if (isLoading || !user) {
         return (
-            <AppLayout>
+            <>
                 <SkeletonCard height={80} style={{ marginBottom: '16px' }} />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
                     {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={72} />)}
                 </div>
                 <SkeletonCard height={240} style={{ marginBottom: '16px' }} />
                 <SkeletonCard height={180} />
-            </AppLayout>
+            </>
         );
     }
 
     return (
-        <AppLayout>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 <Tabs tabs={OUTER_TABS} active={tab} onChange={setTab} />
@@ -2174,7 +2172,6 @@ function AnalyticsPageInner() {
                 {tab === 'year-review' && <YearReviewTab />}
                 {tab === 'personality' && <PersonalityTab />}
             </div>
-        </AppLayout>
     );
 }
 
