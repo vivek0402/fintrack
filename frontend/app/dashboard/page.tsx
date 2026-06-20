@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
@@ -202,6 +202,7 @@ export default function DashboardPage() {
     const [dataLoading, setDataLoading] = useState(true);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
+    const [dailyBriefRefreshing, setDailyBriefRefreshing] = useState(false);
     const [salaryData, setSalaryData]   = useState<any>(null);
     const [salaryDismissed, setSalaryDismissed] = useState(false);
     const [coachEnabled, setCoachEnabled] = useState(true);
@@ -494,7 +495,22 @@ export default function DashboardPage() {
                         {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </p>
                 </div>
-                <Sparkles size={16} color="var(--accent)" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                    <button type="button" title="Refresh daily brief"
+                        onClick={async () => {
+                            setDailyBriefRefreshing(true);
+                            try {
+                                const res = await dailyBriefingAPI.generate();
+                                setDailyBrief(res.data);
+                            } catch { /* keep showing the existing brief on failure */ }
+                            finally { setDailyBriefRefreshing(false); }
+                        }}
+                        disabled={dailyBriefRefreshing}
+                        style={{ background: 'none', border: 'none', cursor: dailyBriefRefreshing ? 'default' : 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: dailyBriefRefreshing ? 0.5 : 1 }}>
+                        <RefreshCw size={13} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
+                    </button>
+                    <Sparkles size={16} color="var(--accent)" />
+                </div>
             </div>
 
             {dailyBriefLoading && !dailyBrief ? (
