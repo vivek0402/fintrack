@@ -376,6 +376,11 @@ export const briefingAPI = {
     getHistory: () => api.get('/api/ai/briefing/history'),
 };
 
+export const dailyBriefingAPI = {
+    generate: () => api.post('/api/ai/briefing/daily/generate'),
+    getLatest: () => api.get('/api/ai/briefing/daily/latest'),
+};
+
 export const insightsAPI = {
     getPeerBenchmarks: () => api.get('/api/insights/peer-benchmarks'),
     getBehavioralPatterns: () => api.get('/api/insights/behavioral-patterns'),

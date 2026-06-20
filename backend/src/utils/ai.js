@@ -58,6 +58,7 @@ const ROUTES = {
     'health-report':      { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'agent-chat':         { model: MODELS.LLAMA70B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'briefing':           { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
+    'daily-briefing':     { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 200,  temp: 0.6 },
     'behavioral-insight': { model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.7 },
 };
 

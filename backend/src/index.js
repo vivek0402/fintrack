@@ -684,6 +684,36 @@ cron.schedule('0 8 * * 1', async () => {
     }
 }, { timezone: 'Asia/Kolkata' });
 
+// ─── Cron: daily AI briefing — every day at 7am IST ───────────────────────────
+cron.schedule('0 7 * * *', async () => {
+    console.log('[Cron] Generating daily briefings...');
+    let success = 0, failed = 0, skipped = 0;
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+
+        for (const { user_id } of users) {
+            try {
+                const { rows: existing } = await pool.query(
+                    `SELECT 1 FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+                    [user_id, today]
+                );
+                if (existing.length) { skipped++; continue; }
+
+                await aiRoutes.generateDailyBriefing(user_id);
+                success++;
+            } catch (err) {
+                failed++;
+                console.error(`[Cron:DailyBrief] user ${user_id}:`, err.message);
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        console.log(`[Cron:DailyBrief] done — success: ${success}, skipped: ${skipped}, failed: ${failed}`);
+    } catch (err) {
+        console.error('[Cron:DailyBrief] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
 // ─── Cron: weekend spending spike — Sunday 8pm ────────────────────────────────
 cron.schedule('0 20 * * 0', async () => {
     console.log('[Cron] Checking weekend spending spike...');

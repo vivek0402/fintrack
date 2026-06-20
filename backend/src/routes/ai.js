@@ -1632,6 +1632,182 @@ ${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
     return briefing;
 }
 
+// ─── FEATURE: Daily Briefing ─────────────────────────────────────────
+const dateStr = (d) => d.toISOString().split('T')[0];
+
+async function getDailyBriefData(userId) {
+    const now = new Date();
+    const todayStr = dateStr(now);
+    const yesterday = dateStr(new Date(now.getTime() - 86400000));
+    const in2days = dateStr(new Date(now.getTime() + 2 * 86400000));
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const streakWindowStart = dateStr(new Date(now.getTime() - 30 * 86400000));
+
+    const [
+        yesterdaySpend,
+        yesterdayTopCat,
+        todaySpend,
+        billsDueSoon,
+        monthExpenseSoFar,
+        monthIncomeSoFar,
+        spendDatesRows,
+    ] = await Promise.all([
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, yesterday]),
+        pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS category_name, SUM(t.amount) AS total
+                     FROM transactions t LEFT JOIN categories c ON t.category_id=c.id
+                     WHERE t.user_id=$1 AND t.type='expense' AND t.date=$2
+                     GROUP BY category_name ORDER BY total DESC LIMIT 1`, [userId, yesterday]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, todayStr]),
+        pool.query(`SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total FROM recurring_transactions
+                     WHERE user_id=$1 AND is_active=true AND next_due_date BETWEEN $2 AND $3`, [userId, todayStr, in2days]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3`, [userId, monthStart, todayStr]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='income' AND date >= $2`, [userId, monthStart]),
+        pool.query(`SELECT DISTINCT date::text AS date FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2`, [userId, streakWindowStart]),
+    ]);
+
+    const spendDates = new Set(spendDatesRows.rows.map(r => r.date));
+    let streak = 0;
+    for (let i = 1; i <= 30; i++) {
+        const d = dateStr(new Date(now.getTime() - i * 86400000));
+        if (spendDates.has(d)) break;
+        streak++;
+    }
+
+    const income = parseFloat(monthIncomeSoFar.rows[0]?.total || 0);
+    const idealDailyBudget = income > 0 ? income / daysInMonth : 0;
+    const daysElapsedBeforeToday = Math.max(0, now.getDate() - 1);
+    const avgDailySoFar = daysElapsedBeforeToday > 0
+        ? parseFloat(monthExpenseSoFar.rows[0]?.total || 0) / daysElapsedBeforeToday
+        : 0;
+
+    return {
+        yesterday: {
+            total: parseFloat(yesterdaySpend.rows[0]?.total || 0),
+            count: parseInt(yesterdaySpend.rows[0]?.cnt || 0),
+            top_category: yesterdayTopCat.rows[0]?.category_name || null,
+        },
+        today_so_far: {
+            total: parseFloat(todaySpend.rows[0]?.total || 0),
+            count: parseInt(todaySpend.rows[0]?.cnt || 0),
+        },
+        bills_due_soon: {
+            count: parseInt(billsDueSoon.rows[0]?.cnt || 0),
+            total: parseFloat(billsDueSoon.rows[0]?.total || 0),
+        },
+        pace: {
+            ideal_daily_budget: idealDailyBudget,
+            avg_daily_so_far: avgDailySoFar,
+        },
+        no_spend_streak: streak,
+    };
+}
+
+function buildDailyBriefPoints(data) {
+    const { yesterday, today_so_far, bills_due_soon, pace, no_spend_streak } = data;
+
+    const paceDelta = pace.ideal_daily_budget > 0 ? pace.avg_daily_so_far - pace.ideal_daily_budget : null;
+    const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
+
+    const points = [
+        {
+            key: 'yesterday',
+            label: "Yesterday's Spend",
+            value: yesterday.count > 0 ? inr(yesterday.total) : 'Nothing logged',
+            insight: yesterday.count > 0
+                ? `Mostly on ${yesterday.top_category || 'Uncategorized'}, across ${yesterday.count} transaction${yesterday.count !== 1 ? 's' : ''}`
+                : 'No expenses recorded yesterday',
+        },
+        {
+            key: 'today',
+            label: 'Today So Far',
+            value: today_so_far.count > 0 ? inr(today_so_far.total) : 'Nothing yet',
+            insight: today_so_far.count > 0
+                ? `${today_so_far.count} transaction${today_so_far.count !== 1 ? 's' : ''} logged today`
+                : 'Nothing logged today yet',
+        },
+        {
+            key: 'bills',
+            label: 'Bills Due Soon',
+            value: bills_due_soon.count > 0 ? inr(bills_due_soon.total) : 'None due',
+            insight: bills_due_soon.count > 0
+                ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due in the next 2 days`
+                : 'No bills due in the next 2 days',
+        },
+        {
+            key: 'pace',
+            label: 'Pace Check',
+            value: pace.ideal_daily_budget > 0 ? inr(pace.avg_daily_so_far) + '/day' : 'N/A',
+            insight: paceDirection === null
+                ? 'Add your income to see your ideal daily budget'
+                : paceDirection === 'under'
+                    ? `Running ${inr(Math.abs(paceDelta))} under your ${inr(pace.ideal_daily_budget)}/day budget`
+                    : `Running ${inr(Math.abs(paceDelta))} over your ${inr(pace.ideal_daily_budget)}/day budget`,
+        },
+        {
+            key: 'streak',
+            label: 'No-Spend Streak',
+            value: `${no_spend_streak} day${no_spend_streak !== 1 ? 's' : ''}`,
+            insight: no_spend_streak > 0
+                ? `${no_spend_streak} day${no_spend_streak !== 1 ? 's' : ''} without an expense — keep it going!`
+                : 'Spent yesterday — start a fresh streak today',
+        },
+    ];
+
+    return points;
+}
+
+async function generateDailyBriefing(userId) {
+    const briefDate = dateStr(new Date());
+    const data = await getDailyBriefData(userId);
+    const points = buildDailyBriefPoints(data);
+
+    const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
+Based on the following data points, write a warm, encouraging 2-3 sentence narrative about their day.
+Be specific and reference the numbers naturally. No markdown, no headings, no bullet points — just plain prose.
+
+${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
+
+    let narrative;
+    try {
+        narrative = (await aiComplete('daily-briefing', [{ role: 'user', content: prompt }])).trim();
+    } catch (err) {
+        console.error('[DailyBrief] AI narrative failed:', err.message);
+        narrative = `Here's your daily brief: ${points[0].label.toLowerCase()} was ${points[0].value}, and today so far you've spent ${points[1].value}.`;
+    }
+
+    const actionOfTheDay = data.bills_due_soon.count > 0
+        ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
+        : data.no_spend_streak > 0
+            ? `Keep your ${data.no_spend_streak}-day no-spend streak alive today!`
+            : "Log today's transactions to keep your numbers accurate.";
+
+    const { rows } = await pool.query(
+        `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (user_id, brief_date)
+         DO UPDATE SET points=$3, narrative=$4, action_of_the_day=$5
+         RETURNING *`,
+        [userId, briefDate, JSON.stringify(points), narrative, actionOfTheDay]
+    );
+
+    const briefing = rows[0];
+
+    const hasTokens = await userHasTokens(userId);
+    if (hasTokens) {
+        const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
+        await sendToUser(userId, {
+            title: 'Your Daily Money Brief',
+            body: firstSentence,
+            data: { type: 'daily_briefing', briefing_id: briefing.id },
+        });
+        await pool.query(`UPDATE daily_briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
+        briefing.push_sent_at = new Date().toISOString();
+    }
+
+    return briefing;
+}
+
 // POST /briefing/generate — idempotent, regenerates this week's briefing
 router.post('/briefing/generate', authMiddleware, async (req, res) => {
     try {
@@ -1682,6 +1858,43 @@ router.get('/briefing/history', authMiddleware, async (req, res) => {
     }
 });
 
+// POST /briefing/daily/generate — idempotent, regenerates today's briefing
+router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
+    try {
+        const briefing = await generateDailyBriefing(req.user.id);
+        res.json(briefing);
+    } catch (err) {
+        console.error('[DailyBrief] generate error:', err);
+        res.status(500).json({ error: 'Failed to generate daily briefing.' });
+    }
+});
+
+// GET /briefing/daily/latest — today's briefing, auto-generates if missing
+router.get('/briefing/daily/latest', authMiddleware, async (req, res) => {
+    try {
+        const today = dateStr(new Date());
+        const { rows } = await pool.query(
+            `SELECT * FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+            [req.user.id, today]
+        );
+
+        let briefing = rows[0];
+        if (!briefing) {
+            briefing = await generateDailyBriefing(req.user.id);
+        } else if (!briefing.opened_at) {
+            const updated = await pool.query(
+                `UPDATE daily_briefings SET opened_at=NOW() WHERE id=$1 RETURNING *`,
+                [briefing.id]
+            );
+            briefing = updated.rows[0];
+        }
+        res.json(briefing);
+    } catch (err) {
+        console.error('[DailyBrief] latest error:', err);
+        res.status(500).json({ error: 'Failed to fetch daily briefing.' });
+    }
+});
+
 // ─── Cache-bust endpoint ─────────────────────────────────────────────
 const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence']);
 
@@ -1706,3 +1919,4 @@ router.delete('/cache/:key', authMiddleware, async (req, res) => {
 module.exports = router;
 module.exports.generateWeeklyBriefing = generateWeeklyBriefing;
 module.exports.mondayOf = mondayOf;
+module.exports.generateDailyBriefing = generateDailyBriefing;
