@@ -108,7 +108,7 @@ export function WealthVelocityWidget() {
             )}
 
             <div style={{ marginTop: 14 }}>
-                <Link href="/wealth-intelligence" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+                <Link href="/net-worth?tab=velocity" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
                     View details →
                 </Link>
             </div>

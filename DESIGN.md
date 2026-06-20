@@ -69,7 +69,7 @@
   /* Text */
   --text-primary:   #f5f5f5;
   --text-secondary: #a0a0a0;
-  --text-muted:     #555555;
+  --text-muted:     #808080;   /* was #555555 — failed WCAG AA (2.66:1); now ~4.4-5:1 */
   --text-inverse:   #0a0a0a;
 
   /* Semantic colors */
@@ -108,7 +108,7 @@
 
   --text-primary:   #111111;
   --text-secondary: #555555;
-  --text-muted:     #aaaaaa;
+  --text-muted:     #707070;   /* was #aaaaaa — failed WCAG AA (2.19:1); now ~4.5-4.9:1 */
   --text-inverse:   #ffffff;
 
   --color-inc:   #16a34a;   /* same green works on light */
@@ -288,3 +288,5 @@ Error text: `11px / var(--color-exp)`
 | 2026-06-12 | **`--color-info: #0891b2` added** | Needed for neutral informational states (loan DTI, ITR readiness) without overloading warn or accent |
 | 2026-06-12 | **Spacing + radius tokens added** (`--space-*`, `--radius-*`) | Enforce consistent spatial rhythm across the component library |
 | 2026-06-12 | **Category palette tokens** (`--cat-0` through `--cat-7`) | Consistent colors across all charts — no per-chart hardcoded hex |
+| 2026-06-20 | **`--text-muted` darkened/lightened for contrast** | Both themes' `--text-muted` failed WCAG AA (dark: 2.66:1, light: 2.19:1) on surface backgrounds — used for the 11px `xs` scale (timestamps, captions, labels) where it mattered most |
+| 2026-06-20 | **IA consolidation — hub/tab pages** | Net Worth + Wealth Intelligence merged into one tabbed page; 33 nav entries were causing choice paralysis. New `Tabs` component added for reuse across remaining hub merges |

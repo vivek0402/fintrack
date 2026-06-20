@@ -109,7 +109,7 @@ export function AssetAllocationWidget() {
             )}
 
             <div style={{ marginTop: 12 }}>
-                <Link href="/wealth-intelligence" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+                <Link href="/net-worth?tab=allocation" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
                     View full breakdown →
                 </Link>
             </div>

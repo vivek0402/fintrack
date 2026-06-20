@@ -358,7 +358,7 @@ export default function ProfilePage() {
                 <div style={sectionCard}>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>App</h2>
                     <div style={divider} />
-                    <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax-estimate')} />
+                    <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax?tab=estimate')} />
                     <div style={divider} />
                     {/* Coach toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>

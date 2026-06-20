@@ -130,7 +130,6 @@ export const goalsAPI = {
 };
 
 export const aiAPI = {
-    report: () => api.post('/api/ai/report'),
     afford: (query: string) => api.post('/api/ai/afford', { query }),
     chat: (message: string, history: { role: string; content: string }[]) =>
         api.post('/api/ai/chat', { message, history }),

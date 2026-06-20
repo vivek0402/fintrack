@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
-    LogOut, CalendarDays, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
-    Repeat, Split, Receipt, Waves, Lightbulb, FileText, Award, HeartPulse,
-    Landmark, Gem, Flame, GitBranch, Percent, Calculator, Wallet, PiggyBank,
-    TrendingUp, Milestone, Sparkles, CreditCard, FolderOpen, Users,
+    LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
+    Waves, Flame, GitBranch, Percent, PiggyBank,
+    CreditCard, FolderOpen, Users,
     MoreHorizontal, ChevronUp,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -32,54 +31,34 @@ const coreItems = [
 // Everything else — tucked behind "More", grouped for scannability
 const moreGroups = [
     {
-        label: 'Track',
-        items: [
-            { href: '/recurring',         icon: Repeat,  label: 'Recurring' },
-            { href: '/splits',            icon: Split,   label: 'Splits' },
-            { href: '/one-time-expenses', icon: Receipt, label: 'One-Time Expenses' },
-        ],
-    },
-    {
         label: 'Understand',
         items: [
-            { href: '/net-worth',   icon: LineChart,    label: 'Net Worth' },
-            { href: '/calendar',    icon: CalendarDays, label: 'Calendar' },
-            { href: '/cash-flow',   icon: Waves,        label: 'Cash Flow' },
-            { href: '/insights',    icon: Lightbulb,    label: 'Insights' },
-            { href: '/reports',     icon: FileText,     label: 'Reports' },
-            { href: '/year-review', icon: Award,        label: 'Year Review' },
-            { href: '/health-score', icon: HeartPulse,  label: 'Health Score' },
+            { href: '/net-worth', icon: LineChart, label: 'Net Worth' },
+            { href: '/cash-flow', icon: Waves,     label: 'Cash Flow' },
         ],
     },
     {
         label: 'Grow',
         items: [
-            { href: '/investments',         icon: Briefcase, label: 'Investments' },
-            { href: '/debt-intelligence',   icon: Gauge,     label: 'Debt' },
-            { href: '/loans',               icon: Landmark,  label: 'Loans' },
-            { href: '/wealth-intelligence', icon: Gem,       label: 'Wealth Intelligence' },
-            { href: '/fire',                icon: Flame,     label: 'FIRE' },
-            { href: '/scenarios',           icon: GitBranch, label: 'Scenarios' },
+            { href: '/investments',       icon: Briefcase, label: 'Investments' },
+            { href: '/debt-intelligence', icon: Gauge,     label: 'Debt' },
+            { href: '/fire',              icon: Flame,     label: 'FIRE' },
+            { href: '/scenarios',         icon: GitBranch, label: 'Scenarios' },
         ],
     },
     {
         label: 'Plan',
         items: [
-            { href: '/tax',                 icon: Percent,    label: 'Tax' },
-            { href: '/tax-estimate',        icon: Calculator, label: 'Tax Estimate' },
-            { href: '/salary-intelligence', icon: Wallet,     label: 'Salary Intelligence' },
-            { href: '/savings-plan',        icon: PiggyBank,  label: 'Savings Plan' },
-            { href: '/forecast',            icon: TrendingUp, label: 'Forecast' },
-            { href: '/milestones',          icon: Milestone,  label: 'Milestones' },
+            { href: '/tax',          icon: Percent,   label: 'Tax' },
+            { href: '/savings-plan', icon: PiggyBank, label: 'Savings Plan' },
         ],
     },
     {
         label: 'Tools',
         items: [
-            { href: '/ai-advisor',  icon: Bot,           label: 'AI Chat' },
-            { href: '/personality', icon: Sparkles,      label: 'Personality' },
-            { href: '/documents',   icon: FolderOpen,    label: 'Documents' },
-            { href: '/groups',      icon: Users,         label: 'Groups' },
+            { href: '/ai-advisor', icon: Bot,        label: 'AI Chat' },
+            { href: '/documents',  icon: FolderOpen, label: 'Documents' },
+            { href: '/groups',     icon: Users,      label: 'Groups' },
         ],
     },
 ];
