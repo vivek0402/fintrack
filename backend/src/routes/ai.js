@@ -1769,10 +1769,13 @@ async function generateDailyBriefing(userId) {
     // its own chip in the UI, and the AI tends to fixate on it if given the chance.
     const narrativePoints = points.filter(p => p.key !== 'streak');
 
+    const NARRATIVE_WORD_LIMIT = 50;
+
     const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
 Based on the following data points, write a warm, encouraging 2-3 sentence narrative about their day.
 Be specific and reference the numbers naturally. No markdown, no headings, no bullet points — just plain prose.
 Do not mention logging streaks, habits, or consistency — focus only on the spending and bill data below.
+Keep it to ${NARRATIVE_WORD_LIMIT} words or fewer.
 
 ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 
@@ -1782,6 +1785,12 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
     } catch (err) {
         console.error('[DailyBrief] AI narrative failed:', err.message);
         narrative = `Here's your daily brief: ${points[0].label.toLowerCase()} was ${points[0].value}, and today so far you've spent ${points[1].value}.`;
+    }
+
+    // Hard backstop — truncate if the model ignores the word-limit instruction
+    const words = narrative.split(/\s+/).filter(Boolean);
+    if (words.length > NARRATIVE_WORD_LIMIT) {
+        narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
     }
 
     const actionOfTheDay = data.bills_due_soon.count > 0
