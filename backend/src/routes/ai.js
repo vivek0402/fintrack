@@ -1791,10 +1791,10 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
             : "Log today's transactions to start a streak and keep your numbers accurate.";
 
     const { rows } = await pool.query(
-        `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (user_id, brief_date)
-         DO UPDATE SET points=$3, narrative=$4, action_of_the_day=$5
+         DO UPDATE SET points=$3, narrative=$4, action_of_the_day=$5, updated_at=NOW()
          RETURNING *`,
         [userId, briefDate, JSON.stringify(points), narrative, actionOfTheDay]
     );
@@ -1866,9 +1866,23 @@ router.get('/briefing/history', authMiddleware, async (req, res) => {
     }
 });
 
-// POST /briefing/daily/generate — idempotent, regenerates today's briefing
+// POST /briefing/daily/generate — manual refresh, rate-limited to 1/minute
+const DAILY_BRIEF_REFRESH_COOLDOWN_MS = 60 * 1000;
+
 router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
     try {
+        const today = dateStr(new Date());
+        const { rows: existing } = await pool.query(
+            `SELECT updated_at FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+            [req.user.id, today]
+        );
+        const lastUpdated = existing[0]?.updated_at ? new Date(existing[0].updated_at).getTime() : 0;
+        const msSinceUpdate = Date.now() - lastUpdated;
+        if (lastUpdated && msSinceUpdate < DAILY_BRIEF_REFRESH_COOLDOWN_MS) {
+            const waitSec = Math.ceil((DAILY_BRIEF_REFRESH_COOLDOWN_MS - msSinceUpdate) / 1000);
+            return res.status(429).json({ error: 'Please wait before refreshing again.', wait: waitSec });
+        }
+
         const briefing = await generateDailyBriefing(req.user.id);
         res.json(briefing);
     } catch (err) {

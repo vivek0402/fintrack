@@ -10,6 +10,7 @@ import { getCurrentMonthYear } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
+import { toast } from '@/store/toastStore';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
@@ -203,6 +204,8 @@ export default function DashboardPage() {
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
     const [dailyBriefRefreshing, setDailyBriefRefreshing] = useState(false);
+    const [dailyBriefCooldown, setDailyBriefCooldown] = useState(0);
+    const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [salaryData, setSalaryData]   = useState<any>(null);
     const [salaryDismissed, setSalaryDismissed] = useState(false);
     const [coachEnabled, setCoachEnabled] = useState(true);
@@ -283,6 +286,14 @@ export default function DashboardPage() {
             ccUtilizationPct:  creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
         });
     }, [summary, budgets, goals, trends, investmentRatio, dti, creditUtilization]);
+
+    function startDailyBriefCooldown(seconds = 60) {
+        setDailyBriefCooldown(seconds);
+        dailyBriefCooldownRef.current = setInterval(() => {
+            setDailyBriefCooldown(prev => { if (prev <= 1) { clearInterval(dailyBriefCooldownRef.current!); return 0; } return prev - 1; });
+        }, 1000);
+    }
+    useEffect(() => { return () => { if (dailyBriefCooldownRef.current) clearInterval(dailyBriefCooldownRef.current); }; }, []);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -496,17 +507,22 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    <button type="button" title="Refresh daily brief"
+                    <button type="button" title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
                         onClick={async () => {
+                            if (dailyBriefCooldown > 0) return;
                             setDailyBriefRefreshing(true);
                             try {
                                 const res = await dailyBriefingAPI.generate();
                                 setDailyBrief(res.data);
-                            } catch { /* keep showing the existing brief on failure */ }
-                            finally { setDailyBriefRefreshing(false); }
+                                startDailyBriefCooldown(60);
+                            } catch (err: any) {
+                                const wait = err.response?.data?.wait;
+                                if (wait) startDailyBriefCooldown(wait);
+                                toast.error(err.response?.data?.error || 'Unable to refresh right now.');
+                            } finally { setDailyBriefRefreshing(false); }
                         }}
-                        disabled={dailyBriefRefreshing}
-                        style={{ background: 'none', border: 'none', cursor: dailyBriefRefreshing ? 'default' : 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: dailyBriefRefreshing ? 0.5 : 1 }}>
+                        disabled={dailyBriefRefreshing || dailyBriefCooldown > 0}
+                        style={{ background: 'none', border: 'none', cursor: (dailyBriefRefreshing || dailyBriefCooldown > 0) ? 'default' : 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: (dailyBriefRefreshing || dailyBriefCooldown > 0) ? 0.5 : 1 }}>
                         <RefreshCw size={13} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
                     </button>
                     <Sparkles size={16} color="var(--accent)" />
