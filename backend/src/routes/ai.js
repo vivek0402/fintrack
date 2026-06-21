@@ -1672,18 +1672,34 @@ function buildDailyBriefPoints(data) {
     return points;
 }
 
-async function generateDailyBriefing(userId) {
+async function generateDailyBriefing(userId, { sendPush = true } = {}) {
     const briefDate = dateStr(new Date());
     const data = await getDailyBriefData(userId);
     const points = buildDailyBriefPoints(data);
+    const pointsJson = JSON.stringify(points);
 
-    // Exclude the logging-streak point from the narrative prompt — it already has
-    // its own chip in the UI, and the AI tends to fixate on it if given the chance.
-    const narrativePoints = points.filter(p => p.key !== 'streak');
+    // Skip the LLM call entirely if nothing driving the brief has changed since
+    // the last generation today (e.g. an intraday refresh for a user who hasn't
+    // logged anything new) — reuse the cached narrative instead of paying for it again.
+    const { rows: existingRows } = await pool.query(
+        `SELECT narrative, action_of_the_day, points FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+        [userId, briefDate]
+    );
+    const existing = existingRows[0];
+    const unchanged = existing && JSON.stringify(existing.points) === pointsJson;
 
-    const NARRATIVE_WORD_LIMIT = 50;
+    let narrative, actionOfTheDay;
+    if (unchanged) {
+        narrative = existing.narrative;
+        actionOfTheDay = existing.action_of_the_day;
+    } else {
+        // Exclude the logging-streak point from the narrative prompt — it already has
+        // its own chip in the UI, and the AI tends to fixate on it if given the chance.
+        const narrativePoints = points.filter(p => p.key !== 'streak');
 
-    const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
+        const NARRATIVE_WORD_LIMIT = 50;
+
+        const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
 Based on the following data points, write a warm, encouraging 2-3 sentence narrative about their day.
 Be specific and reference the numbers naturally. No markdown, no headings, no bullet points — just plain prose.
 Do not mention logging streaks, habits, or consistency — focus only on the spending and bill data below.
@@ -1691,25 +1707,25 @@ Keep it to ${NARRATIVE_WORD_LIMIT} words or fewer.
 
 ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 
-    let narrative;
-    try {
-        narrative = (await aiComplete('daily-briefing', [{ role: 'user', content: prompt }])).trim();
-    } catch (err) {
-        console.error('[DailyBrief] AI narrative failed:', err.message);
-        narrative = `Here's your daily brief: ${points[0].label.toLowerCase()} was ${points[0].value}, and today so far you've spent ${points[1].value}.`;
-    }
+        try {
+            narrative = (await aiComplete('daily-briefing', [{ role: 'user', content: prompt }])).trim();
+        } catch (err) {
+            console.error('[DailyBrief] AI narrative failed:', err.message);
+            narrative = `Here's your daily brief: ${points[0].label.toLowerCase()} was ${points[0].value}, and today so far you've spent ${points[1].value}.`;
+        }
 
-    // Hard backstop — truncate if the model ignores the word-limit instruction
-    const words = narrative.split(/\s+/).filter(Boolean);
-    if (words.length > NARRATIVE_WORD_LIMIT) {
-        narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
-    }
+        // Hard backstop — truncate if the model ignores the word-limit instruction
+        const words = narrative.split(/\s+/).filter(Boolean);
+        if (words.length > NARRATIVE_WORD_LIMIT) {
+            narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
+        }
 
-    const actionOfTheDay = data.bills_due_soon.count > 0
-        ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
-        : data.logging_streak > 0
-            ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
-            : "Log today's transactions to start a streak and keep your numbers accurate.";
+        actionOfTheDay = data.bills_due_soon.count > 0
+            ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
+            : data.logging_streak > 0
+                ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
+                : "Log today's transactions to start a streak and keep your numbers accurate.";
+    }
 
     const { rows } = await pool.query(
         `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day, updated_at)
@@ -1717,12 +1733,12 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
          ON CONFLICT (user_id, brief_date)
          DO UPDATE SET points=$3, narrative=$4, action_of_the_day=$5, updated_at=NOW()
          RETURNING *`,
-        [userId, briefDate, JSON.stringify(points), narrative, actionOfTheDay]
+        [userId, briefDate, pointsJson, narrative, actionOfTheDay]
     );
 
     const briefing = rows[0];
 
-    const hasTokens = await userHasTokens(userId);
+    const hasTokens = sendPush && await userHasTokens(userId);
     if (hasTokens) {
         const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
         await sendToUser(userId, {

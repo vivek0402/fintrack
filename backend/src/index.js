@@ -687,8 +687,42 @@ cron.schedule('0 8 * * 1', async () => {
     }
 }, { timezone: 'Asia/Kolkata' });
 
-// ─── Cron: daily AI briefing — every day at 7am IST ───────────────────────────
-cron.schedule('0 7 * * *', async () => {
+// ─── Cron: daily brief intraday refresh — every 3h (9am/12pm/3pm/6pm IST), silent ──
+// Keeps the dashboard's daily brief content fresh through the day. No push —
+// the 9pm job below is the only one that notifies.
+cron.schedule('0 9,12,15,18 * * *', async () => {
+    console.log('[Cron] Refreshing daily briefs (intraday)...');
+    let success = 0, failed = 0;
+    try {
+        // Scope to users active in the last 2 days (logged a transaction or opened
+        // a daily brief) — skips the AI cost for accounts nobody is looking at.
+        const { rows: users } = await pool.query(
+            `SELECT id AS user_id FROM users u
+             WHERE EXISTS (
+                 SELECT 1 FROM transactions t WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '2 days'
+             ) OR EXISTS (
+                 SELECT 1 FROM daily_briefings b WHERE b.user_id = u.id AND b.opened_at > NOW() - INTERVAL '2 days'
+             )`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                await aiRoutes.generateDailyBriefing(user_id, { sendPush: false });
+                success++;
+            } catch (err) {
+                failed++;
+                console.error(`[Cron:DailyBriefRefresh] user ${user_id}:`, err.message);
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        console.log(`[Cron:DailyBriefRefresh] done — success: ${success}, failed: ${failed}`);
+    } catch (err) {
+        console.error('[Cron:DailyBriefRefresh] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: daily AI briefing — every day at 9pm IST ───────────────────────────
+cron.schedule('0 21 * * *', async () => {
     console.log('[Cron] Generating daily briefings...');
     let success = 0, failed = 0, skipped = 0;
     try {
@@ -698,10 +732,10 @@ cron.schedule('0 7 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const { rows: existing } = await pool.query(
-                    `SELECT 1 FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+                    `SELECT push_sent_at FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
                     [user_id, today]
                 );
-                if (existing.length) { skipped++; continue; }
+                if (existing[0]?.push_sent_at) { skipped++; continue; }
 
                 await aiRoutes.generateDailyBriefing(user_id);
                 success++;
