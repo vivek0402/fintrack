@@ -256,10 +256,10 @@ function SavingsPlanPageInner() {
         } catch { /* stale / corrupt — ignore */ }
     }, [user]);
 
-    const fetchForecast = async () => {
+    const fetchForecast = async (force = false) => {
         setForecastError(''); setForecastLoading(true);
         try {
-            const res = await aiAPI.forecastCalendar(true);
+            const res = await aiAPI.forecastCalendar(force);
             const data: ForecastData = res.data.data;
             setForecast(data); setForecastGenerated(true);
             // Persist to cache
@@ -739,7 +739,7 @@ function SavingsPlanPageInner() {
                 {tab === 'forecast' && (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            {forecastGenerated && !forecastLoading && <Button variant="secondary" size="md" onClick={fetchForecast}>Regenerate</Button>}
+                            {forecastGenerated && !forecastLoading && <Button variant="secondary" size="md" onClick={() => fetchForecast(true)}>Regenerate</Button>}
                         </div>
 
                         {/* Error */}
@@ -748,7 +748,7 @@ function SavingsPlanPageInner() {
                                 <AlertCircle size={28} color="var(--color-exp)" />
                                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>Could not generate forecast</p>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{forecastError}</p>
-                                <button type="button" onClick={fetchForecast} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 20px', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try Again</button>
+                                <button type="button" onClick={() => fetchForecast(true)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 20px', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try Again</button>
                             </div>
                         )}
 
@@ -766,7 +766,7 @@ function SavingsPlanPageInner() {
                                 <p style={{ fontSize: '48px', marginBottom: '12px' }}>📅</p>
                                 <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No forecast yet</p>
                                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Uses your last 3 months of transactions to predict this month's spending — no guesswork</p>
-                                <Button variant="primary" size="md" onClick={fetchForecast}>Generate Forecast</Button>
+                                <Button variant="primary" size="md" onClick={() => fetchForecast()}>Generate Forecast</Button>
                             </div>
                         )}
 

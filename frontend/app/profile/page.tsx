@@ -152,8 +152,12 @@ export default function ProfilePage() {
     const handleClearCache = async () => {
         setClearingCache(true);
         try {
-            await Promise.allSettled(['report', 'personality', 'salary-intelligence', 'forecast-calendar', 'health-report'].map(k => aiAPI.clearCache(k)));
-            toast.success('AI cache cleared');
+            const results = await Promise.allSettled(
+                ['forecast', 'personality', 'tax_estimate', 'salary_intelligence', 'behavioral_patterns'].map(k => aiAPI.clearCache(k))
+            );
+            const failed = results.filter(r => r.status === 'rejected').length;
+            if (failed > 0) toast.error(`AI cache partially cleared (${failed} failed)`);
+            else toast.success('AI cache cleared');
         } catch { toast.error('Failed to clear cache'); }
         finally { setClearingCache(false); }
     };

@@ -6,25 +6,9 @@ const authMiddleware = require('../middleware/auth');
 const { getVisionModel } = require('../utils/gemini');
 const { aiComplete } = require('../utils/ai');
 const { sendToUser, userHasTokens } = require('../utils/fcm');
+const { getCached, setCached } = require('../utils/aiCache');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-// ─── AI Cache Helpers (configurable TTL stored in users.ai_cache) ───
-const getCached = async (pool, userId, key, ttlMs = 6 * 60 * 60 * 1000) => {
-    const result = await pool.query('SELECT ai_cache FROM users WHERE id = $1', [userId]);
-    const cache = result.rows[0]?.ai_cache || {};
-    const entry = cache[key];
-    if (!entry) return null;
-    if (Date.now() - new Date(entry.generated_at).getTime() > ttlMs) return null;
-    return entry.data;
-};
-
-const setCached = async (pool, userId, key, data) => {
-    const result = await pool.query('SELECT ai_cache FROM users WHERE id = $1', [userId]);
-    const cache = result.rows[0]?.ai_cache || {};
-    cache[key] = { data, generated_at: new Date().toISOString() };
-    await pool.query('UPDATE users SET ai_cache = $1 WHERE id = $2', [JSON.stringify(cache), userId]);
-};
 
 // ─── FEATURE 4: Parse SMS ───────────────────────────────────────────
 router.post('/parse-sms', authMiddleware, async (req, res) => {
@@ -711,6 +695,11 @@ Limit milestones to 6 key checkpoints. Data: ${context}`,
 router.get('/forecast-calendar', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
+
+        if (!req.query.force) {
+            const cached = await getCached(pool, userId, 'forecast');
+            if (cached) return res.json({ success: true, data: cached, from_cache: true });
+        }
 
         // Require at least 7 days of data (check oldest transaction)
         const { rows: oldestRows } = await pool.query(
@@ -1867,7 +1856,7 @@ router.get('/briefing/daily/latest', authMiddleware, async (req, res) => {
 });
 
 // ─── Cache-bust endpoint ─────────────────────────────────────────────
-const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence']);
+const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence', 'behavioral_patterns']);
 
 router.delete('/cache/:key', authMiddleware, async (req, res) => {
     try {

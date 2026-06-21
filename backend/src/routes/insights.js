@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
+const { getCached, setCached } = require('../utils/aiCache');
 const router = express.Router();
 
 router.use(auth);
@@ -405,6 +406,11 @@ router.get('/behavioral-patterns', async (req, res) => {
     try {
         const userId = req.user.id;
 
+        if (!req.query.force) {
+            const cached = await getCached(pool, userId, 'behavioral_patterns');
+            if (cached) return res.json({ ...cached, from_cache: true });
+        }
+
         const patterns = await Promise.all([
             detectBudgetAnchoring(userId),
             detectPresentBias(userId),
@@ -437,11 +443,13 @@ Keep the response to 3-4 short sentences. No markdown, no headings.`;
             }
         }
 
-        res.json({
+        const result = {
             patterns,
             ai_insight: aiInsight,
             detected_count: detectedPatterns.length,
-        });
+        };
+        await setCached(pool, userId, 'behavioral_patterns', result);
+        res.json({ ...result, from_cache: false });
     } catch (err) {
         console.error('[Insights] behavioral-patterns error:', err);
         res.status(500).json({ error: 'Failed to analyze behavioral patterns.' });

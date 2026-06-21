@@ -381,7 +381,7 @@ export const dailyBriefingAPI = {
 
 export const insightsAPI = {
     getPeerBenchmarks: () => api.get('/api/insights/peer-benchmarks'),
-    getBehavioralPatterns: () => api.get('/api/insights/behavioral-patterns'),
+    getBehavioralPatterns: (force?: boolean) => api.get(`/api/insights/behavioral-patterns${force ? '?force=true' : ''}`),
 };
 
 export default api;

@@ -1077,7 +1077,7 @@ function InsightsTab() {
     const refreshPatterns = async () => {
         setRefreshing(true);
         try {
-            const res = await insightsAPI.getBehavioralPatterns();
+            const res = await insightsAPI.getBehavioralPatterns(true);
             setPatterns(res.data);
         } catch {} finally { setRefreshing(false); }
     };
