@@ -73,69 +73,96 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space2),
+                horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2),
             ) {
-                Row(
-                    modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2),
-                ) {
-                    FilterChip(selected = state.filterType == null, onClick = { viewModel.setFilterType(null) }, label = { Text("All") })
-                    FilterChip(selected = state.filterType == "income", onClick = { viewModel.setFilterType("income") }, label = { Text("Income") })
-                    FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
-                    FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
-                }
-                IconButton(onClick = { searchExpanded = !searchExpanded }) {
-                    Icon(Icons.Filled.Search, contentDescription = "Search transactions")
-                }
-                IconButton(onClick = viewModel::toggleSelectMode) {
-                    Icon(
-                        if (state.selectMode) Icons.Filled.Close else Icons.Filled.Checklist,
-                        contentDescription = if (state.selectMode) "Cancel selection" else "Select transactions",
-                    )
-                }
-            }
-
-            if (searchExpanded) {
-                SearchBar(
-                    state = state,
-                    onQueryChange = viewModel::setSearchQuery,
-                    onCategoryChange = viewModel::setSearchCategoryId,
+                FilterChip(
+                    selected = state.viewMode == TransactionsViewMode.LIST,
+                    onClick = { viewModel.setViewMode(TransactionsViewMode.LIST) },
+                    label = { Text("List") },
+                )
+                FilterChip(
+                    selected = state.viewMode == TransactionsViewMode.CALENDAR,
+                    onClick = { viewModel.setViewMode(TransactionsViewMode.CALENDAR) },
+                    label = { Text("Calendar") },
                 )
             }
 
-            when {
-                state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
+            if (state.viewMode == TransactionsViewMode.CALENDAR) {
+                TransactionsCalendarView(
+                    year = state.selectedYear,
+                    month = state.selectedMonth,
+                    transactions = state.transactions,
+                    recurring = state.recurring,
+                    onPreviousMonth = viewModel::previousMonth,
+                    onNextMonth = viewModel::nextMonth,
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2),
+                    ) {
+                        FilterChip(selected = state.filterType == null, onClick = { viewModel.setFilterType(null) }, label = { Text("All") })
+                        FilterChip(selected = state.filterType == "income", onClick = { viewModel.setFilterType("income") }, label = { Text("Income") })
+                        FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
+                        FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
+                    }
+                    IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search transactions")
+                    }
+                    IconButton(onClick = viewModel::toggleSelectMode) {
+                        Icon(
+                            if (state.selectMode) Icons.Filled.Close else Icons.Filled.Checklist,
+                            contentDescription = if (state.selectMode) "Cancel selection" else "Select transactions",
+                        )
+                    }
                 }
-                state.visibleTransactions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        if (state.transactions.isEmpty()) "No transactions yet" else "No transactions match your search",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                if (searchExpanded) {
+                    SearchBar(
+                        state = state,
+                        onQueryChange = viewModel::setSearchQuery,
+                        onCategoryChange = viewModel::setSearchCategoryId,
                     )
                 }
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space2),
-                ) {
-                    items(state.visibleTransactions, key = { it.id }) { tx ->
-                        TransactionRow(
-                            tx = tx,
-                            selectMode = state.selectMode,
-                            isSelected = tx.id in state.selectedIds,
-                            onClick = { if (state.selectMode) viewModel.toggleSelected(tx.id) else viewModel.openEditForm(tx) },
-                            onDelete = { pendingDeleteId = tx.id },
-                            onToggleRegret = { viewModel.toggleRegret(tx.id) },
-                            onToggleSelect = { viewModel.toggleSelected(tx.id) },
+
+                when {
+                    state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                    state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                    }
+                    state.visibleTransactions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            if (state.transactions.isEmpty()) "No transactions yet" else "No transactions match your search",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        HorizontalDivider()
+                    }
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space2),
+                    ) {
+                        items(state.visibleTransactions, key = { it.id }) { tx ->
+                            TransactionRow(
+                                tx = tx,
+                                selectMode = state.selectMode,
+                                isSelected = tx.id in state.selectedIds,
+                                onClick = { if (state.selectMode) viewModel.toggleSelected(tx.id) else viewModel.openEditForm(tx) },
+                                onDelete = { pendingDeleteId = tx.id },
+                                onToggleRegret = { viewModel.toggleRegret(tx.id) },
+                                onToggleSelect = { viewModel.toggleSelected(tx.id) },
+                            )
+                            HorizontalDivider()
+                        }
                     }
                 }
             }
         }
 
-        if (state.selectMode) {
+        if (state.viewMode == TransactionsViewMode.LIST && state.selectMode) {
             Surface(
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -152,7 +179,7 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
                     }
                 }
             }
-        } else {
+        } else if (state.viewMode == TransactionsViewMode.LIST) {
             Column(
                 modifier = Modifier.align(Alignment.BottomEnd).padding(FinTrackSpacing.space5),
                 horizontalAlignment = Alignment.End,

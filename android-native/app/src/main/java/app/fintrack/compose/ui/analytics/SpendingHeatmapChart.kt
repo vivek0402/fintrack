@@ -86,7 +86,7 @@ private fun buildHeatmapData(transactions: List<TransactionDto>): HeatmapData {
     return HeatmapData(weeks, monthMarks, maxOf(maxValue, 1.0))
 }
 
-private fun heatmapCellColor(total: Double, maxValue: Double, surfaceColor: Color, expColor: Color): Color {
+internal fun heatmapCellColor(total: Double, maxValue: Double, surfaceColor: Color, expColor: Color): Color {
     if (total <= 0) return surfaceColor
     val t = sqrt((total / maxValue).coerceIn(0.0, 1.0))
     val fraction = (0.15 + t * 0.70).toFloat()

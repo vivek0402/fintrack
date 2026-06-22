@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.fintrack.compose.data.ai.AiRepository
 import app.fintrack.compose.data.api.CategoryDto
+import app.fintrack.compose.data.api.RecurringDto
 import app.fintrack.compose.data.api.TransactionDto
 import app.fintrack.compose.data.api.toUserMessage
 import app.fintrack.compose.data.categories.CategoriesRepository
+import app.fintrack.compose.data.recurring.RecurringRepository
 import app.fintrack.compose.data.transactions.TransactionsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
@@ -16,6 +18,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+enum class TransactionsViewMode { LIST, CALENDAR }
 
 data class TransactionFormState(
     val editingId: String? = null,
@@ -53,6 +57,8 @@ data class TransactionsUiState(
     val selectedIds: Set<String> = emptySet(),
     val searchQuery: String = "",
     val searchCategoryId: String? = null,
+    val viewMode: TransactionsViewMode = TransactionsViewMode.LIST,
+    val recurring: List<RecurringDto> = emptyList(),
 ) {
     val visibleTransactions: List<TransactionDto>
         get() = transactions.filter { tx ->
@@ -66,12 +72,44 @@ class TransactionsViewModel @Inject constructor(
     private val transactionsRepository: TransactionsRepository,
     private val categoriesRepository: CategoriesRepository,
     private val aiRepository: AiRepository,
+    private val recurringRepository: RecurringRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TransactionsUiState())
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
 
     init {
         loadCategories()
+        loadTransactions()
+        loadRecurring()
+    }
+
+    private fun loadRecurring() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(recurring = recurringRepository.getAll()) }
+            } catch (_: Exception) { /* calendar bill dots just stay empty; not fatal */ }
+        }
+    }
+
+    fun setViewMode(mode: TransactionsViewMode) {
+        _uiState.update {
+            if (mode == TransactionsViewMode.CALENDAR && it.isAllTime) it.copy(viewMode = mode, isAllTime = false)
+            else it.copy(viewMode = mode)
+        }
+        if (_uiState.value.viewMode == TransactionsViewMode.CALENDAR) loadTransactions()
+    }
+
+    fun previousMonth() {
+        val state = _uiState.value
+        val date = LocalDate.of(state.selectedYear, state.selectedMonth, 1).minusMonths(1)
+        _uiState.update { it.copy(selectedMonth = date.monthValue, selectedYear = date.year, isAllTime = false) }
+        loadTransactions()
+    }
+
+    fun nextMonth() {
+        val state = _uiState.value
+        val date = LocalDate.of(state.selectedYear, state.selectedMonth, 1).plusMonths(1)
+        _uiState.update { it.copy(selectedMonth = date.monthValue, selectedYear = date.year, isAllTime = false) }
         loadTransactions()
     }
 
