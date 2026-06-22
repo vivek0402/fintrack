@@ -67,6 +67,7 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
                 FilterChip(selected = state.filterType == null, onClick = { viewModel.setFilterType(null) }, label = { Text("All") })
                 FilterChip(selected = state.filterType == "income", onClick = { viewModel.setFilterType("income") }, label = { Text("Income") })
                 FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
+                FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
             }
 
             when {

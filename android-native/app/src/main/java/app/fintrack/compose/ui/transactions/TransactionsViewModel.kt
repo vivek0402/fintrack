@@ -35,6 +35,9 @@ data class TransactionsUiState(
     val transactions: List<TransactionDto> = emptyList(),
     val categories: List<CategoryDto> = emptyList(),
     val filterType: String? = null,
+    val selectedMonth: Int = LocalDate.now().monthValue,
+    val selectedYear: Int = LocalDate.now().year,
+    val isAllTime: Boolean = false,
     val showForm: Boolean = false,
     val form: TransactionFormState = TransactionFormState(),
 )
@@ -57,11 +60,21 @@ class TransactionsViewModel @Inject constructor(
         loadTransactions()
     }
 
+    fun toggleAllTime() {
+        _uiState.update { it.copy(isAllTime = !it.isAllTime) }
+        loadTransactions()
+    }
+
     fun loadTransactions() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val txs = transactionsRepository.getAll(type = _uiState.value.filterType)
+                val current = _uiState.value
+                val txs = transactionsRepository.getAll(
+                    type = current.filterType,
+                    month = if (current.isAllTime) null else current.selectedMonth,
+                    year = if (current.isAllTime) null else current.selectedYear,
+                )
                 _uiState.update { it.copy(isLoading = false, transactions = txs) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.toUserMessage("Couldn't load transactions.")) }
