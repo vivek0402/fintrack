@@ -14,13 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +41,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -59,17 +66,30 @@ import app.fintrack.compose.ui.theme.FinTrackSpacing
 fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var pendingBulkDelete by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4),
-                horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilterChip(selected = state.filterType == null, onClick = { viewModel.setFilterType(null) }, label = { Text("All") })
-                FilterChip(selected = state.filterType == "income", onClick = { viewModel.setFilterType("income") }, label = { Text("Income") })
-                FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
-                FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
+                Row(
+                    modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2),
+                ) {
+                    FilterChip(selected = state.filterType == null, onClick = { viewModel.setFilterType(null) }, label = { Text("All") })
+                    FilterChip(selected = state.filterType == "income", onClick = { viewModel.setFilterType("income") }, label = { Text("Income") })
+                    FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
+                    FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
+                }
+                IconButton(onClick = viewModel::toggleSelectMode) {
+                    Icon(
+                        if (state.selectMode) Icons.Filled.Close else Icons.Filled.Checklist,
+                        contentDescription = if (state.selectMode) "Cancel selection" else "Select transactions",
+                    )
+                }
             }
 
             when {
@@ -86,9 +106,12 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
                     items(state.transactions, key = { it.id }) { tx ->
                         TransactionRow(
                             tx = tx,
-                            onClick = { viewModel.openEditForm(tx) },
+                            selectMode = state.selectMode,
+                            isSelected = tx.id in state.selectedIds,
+                            onClick = { if (state.selectMode) viewModel.toggleSelected(tx.id) else viewModel.openEditForm(tx) },
                             onDelete = { pendingDeleteId = tx.id },
                             onToggleRegret = { viewModel.toggleRegret(tx.id) },
+                            onToggleSelect = { viewModel.toggleSelected(tx.id) },
                         )
                         HorizontalDivider()
                     }
@@ -96,16 +119,35 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
             }
         }
 
-        Column(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(FinTrackSpacing.space5),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(FinTrackSpacing.space3),
-        ) {
-            SmallFloatingActionButton(onClick = viewModel::openQuickAdd) {
-                Icon(Icons.Filled.AutoAwesome, contentDescription = "Quick add with AI")
+        if (state.selectMode) {
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space3),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = viewModel::selectAll) { Text("Select all") }
+                    Text("${state.selectedIds.size} selected", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    IconButton(onClick = { pendingBulkDelete = true }, enabled = state.selectedIds.isNotEmpty()) {
+                        Icon(Icons.Filled.DeleteSweep, contentDescription = "Delete selected")
+                    }
+                }
             }
-            FloatingActionButton(onClick = viewModel::openCreateForm) {
-                Icon(Icons.Filled.Add, contentDescription = "Add transaction")
+        } else {
+            Column(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(FinTrackSpacing.space5),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(FinTrackSpacing.space3),
+            ) {
+                SmallFloatingActionButton(onClick = viewModel::openQuickAdd) {
+                    Icon(Icons.Filled.AutoAwesome, contentDescription = "Quick add with AI")
+                }
+                FloatingActionButton(onClick = viewModel::openCreateForm) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add transaction")
+                }
             }
         }
     }
@@ -139,10 +181,30 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
             dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("Cancel") } },
         )
     }
+
+    if (pendingBulkDelete) {
+        AlertDialog(
+            onDismissRequest = { pendingBulkDelete = false },
+            title = { Text("Delete ${state.selectedIds.size} transactions?") },
+            text = { Text("This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.bulkDelete(); pendingBulkDelete = false }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { pendingBulkDelete = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 @Composable
-private fun TransactionRow(tx: TransactionDto, onClick: () -> Unit, onDelete: () -> Unit, onToggleRegret: () -> Unit) {
+private fun TransactionRow(
+    tx: TransactionDto,
+    selectMode: Boolean,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onToggleRegret: () -> Unit,
+    onToggleSelect: () -> Unit,
+) {
     val color = if (tx.type == "income") FinTrackColors.Dark.colorInc else FinTrackColors.Dark.colorExp
     Row(
         modifier = Modifier
@@ -151,6 +213,9 @@ private fun TransactionRow(tx: TransactionDto, onClick: () -> Unit, onDelete: ()
             .padding(vertical = FinTrackSpacing.space3),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selectMode) {
+            Checkbox(checked = isSelected, onCheckedChange = { onToggleSelect() })
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(tx.description, style = MaterialTheme.typography.bodyLarge)
             Text(
@@ -164,17 +229,19 @@ private fun TransactionRow(tx: TransactionDto, onClick: () -> Unit, onDelete: ()
             style = MaterialTheme.typography.bodyLarge,
             color = color,
         )
-        if (tx.type == "expense") {
-            IconButton(onClick = onToggleRegret) {
-                Icon(
-                    Icons.Filled.SentimentVeryDissatisfied,
-                    contentDescription = if (tx.is_regretted) "Unmark regret" else "Mark as regretted",
-                    tint = if (tx.is_regretted) FinTrackColors.Dark.colorExp else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        if (!selectMode) {
+            if (tx.type == "expense") {
+                IconButton(onClick = onToggleRegret) {
+                    Icon(
+                        Icons.Filled.SentimentVeryDissatisfied,
+                        contentDescription = if (tx.is_regretted) "Unmark regret" else "Mark as regretted",
+                        tint = if (tx.is_regretted) FinTrackColors.Dark.colorExp else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

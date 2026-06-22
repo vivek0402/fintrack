@@ -49,6 +49,8 @@ data class TransactionsUiState(
     val showForm: Boolean = false,
     val form: TransactionFormState = TransactionFormState(),
     val quickAdd: QuickAddState = QuickAddState(),
+    val selectMode: Boolean = false,
+    val selectedIds: Set<String> = emptySet(),
 )
 
 @HiltViewModel
@@ -216,6 +218,45 @@ class TransactionsViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.toUserMessage("Couldn't delete transaction.")) }
             }
+        }
+    }
+
+    fun toggleSelectMode() {
+        _uiState.update {
+            if (it.selectMode) it.copy(selectMode = false, selectedIds = emptySet())
+            else it.copy(selectMode = true)
+        }
+    }
+
+    fun toggleSelected(id: String) {
+        _uiState.update { state ->
+            val current = state.selectedIds
+            state.copy(selectedIds = if (id in current) current - id else current + id)
+        }
+    }
+
+    fun selectAll() = _uiState.update { it.copy(selectedIds = it.transactions.map { tx -> tx.id }.toSet()) }
+
+    fun bulkDelete() {
+        val ids = _uiState.value.selectedIds
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            var failures = 0
+            for (id in ids) {
+                try {
+                    transactionsRepository.delete(id)
+                } catch (_: Exception) {
+                    failures++
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    selectMode = false,
+                    selectedIds = emptySet(),
+                    error = if (failures > 0) "Deleted ${ids.size - failures} of ${ids.size}; $failures failed." else null,
+                )
+            }
+            loadTransactions()
         }
     }
 
