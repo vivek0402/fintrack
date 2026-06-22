@@ -157,58 +157,82 @@ router.post('/', async (req, res) => {
                     }
                 }
 
-                // Match an existing holding: mutual_fund by scheme_code first, else by name;
-                // everything else by ticker_or_folio first, else by name (scoped to type).
-                let existing;
-                if (invType === 'mutual_fund' && scheme_code) {
-                    existing = await client.query(
-                        `SELECT * FROM investments WHERE user_id = $1 AND scheme_code = $2`,
-                        [req.user.id, scheme_code]
-                    );
-                } else if (ticker_or_folio) {
-                    existing = await client.query(
-                        `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND ticker_or_folio = $3`,
-                        [req.user.id, invType, ticker_or_folio]
-                    );
-                } else {
-                    existing = await client.query(
-                        `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND LOWER(name) = LOWER($3)`,
-                        [req.user.id, invType, name.trim()]
-                    );
-                }
-
                 let investment, isNewHolding;
-                if (existing.rows.length > 0) {
-                    const row = existing.rows[0];
-                    const { newUnits, newPrice } = weightedAverageBuy(
-                        parseFloat(row.units), parseFloat(row.purchase_price_per_unit),
-                        parseFloat(units), parseFloat(price_per_unit)
-                    );
-                    const updateResult = await client.query(
-                        `UPDATE investments SET
-                            units = $1, purchase_price_per_unit = $2, current_nav_or_price = $3,
-                            last_price_updated_at = CASE WHEN $4::text = 'mutual_fund' THEN NOW() ELSE last_price_updated_at END,
-                            price_source = CASE WHEN $4::text = 'mutual_fund' THEN 'mfapi' ELSE price_source END,
-                            scheme_code = COALESCE($5, scheme_code),
-                            updated_at = NOW()
-                         WHERE id = $6 RETURNING *`,
-                        [newUnits, newPrice, price_per_unit, invType, scheme_code || null, row.id]
-                    );
-                    investment = updateResult.rows[0];
-                    isNewHolding = false;
-                } else {
-                    const insertResult = await client.query(
+
+                if (invType === 'mutual_fund' && scheme_code) {
+                    // Race-free path: a unique index on (user_id, scheme_code) lets Postgres
+                    // resolve concurrent/double-submitted buys of the same fund atomically —
+                    // no separate SELECT-then-branch window for two requests to both "see" no
+                    // existing holding and both INSERT a duplicate.
+                    const upsertResult = await client.query(
                         `INSERT INTO investments
                             (user_id, type, name, ticker_or_folio, units, purchase_price_per_unit, current_nav_or_price,
                              purchase_date, account_label, notes, scheme_code, last_price_updated_at, price_source)
-                         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-                        [req.user.id, invType, name.trim(), ticker_or_folio || null, units, price_per_unit, price_per_unit,
-                         date, account_label || null, invNotes || null, scheme_code || null,
-                         invType === 'mutual_fund' ? new Date() : null,
-                         invType === 'mutual_fund' ? 'mfapi' : 'manual']
+                         VALUES ($1,'mutual_fund',$2,$3,$4,$5,$5,$6,$7,$8,$9,NOW(),'mfapi')
+                         ON CONFLICT (user_id, scheme_code) WHERE scheme_code IS NOT NULL
+                         DO UPDATE SET
+                            units = investments.units + EXCLUDED.units,
+                            purchase_price_per_unit = (investments.units * investments.purchase_price_per_unit
+                                + EXCLUDED.units * EXCLUDED.purchase_price_per_unit) / (investments.units + EXCLUDED.units),
+                            current_nav_or_price = EXCLUDED.current_nav_or_price,
+                            last_price_updated_at = NOW(),
+                            price_source = 'mfapi',
+                            updated_at = NOW()
+                         RETURNING *, (created_at = updated_at) AS is_new_holding`,
+                        [req.user.id, name.trim(), ticker_or_folio || null, units, price_per_unit,
+                         date, account_label || null, invNotes || null, scheme_code]
                     );
-                    investment = insertResult.rows[0];
-                    isNewHolding = true;
+                    investment = upsertResult.rows[0];
+                    isNewHolding = investment.is_new_holding;
+                } else {
+                    // No scheme_code (non-MF types, or MF entered without autocomplete): no unique
+                    // constraint backs the match (free-text ticker/name could legitimately collide
+                    // with pre-existing rows from manual entry or CAMS import), so serialize
+                    // concurrent buys of the same identifier with a transaction-scoped advisory
+                    // lock instead of a schema constraint.
+                    const lockKey = `${req.user.id}:${invType}:${(ticker_or_folio || name.trim()).toLowerCase()}`;
+                    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [lockKey]);
+
+                    let existing;
+                    if (ticker_or_folio) {
+                        existing = await client.query(
+                            `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND ticker_or_folio = $3`,
+                            [req.user.id, invType, ticker_or_folio]
+                        );
+                    } else {
+                        existing = await client.query(
+                            `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND LOWER(name) = LOWER($3)`,
+                            [req.user.id, invType, name.trim()]
+                        );
+                    }
+
+                    if (existing.rows.length > 0) {
+                        const row = existing.rows[0];
+                        const { newUnits, newPrice } = weightedAverageBuy(
+                            parseFloat(row.units), parseFloat(row.purchase_price_per_unit),
+                            parseFloat(units), parseFloat(price_per_unit)
+                        );
+                        const updateResult = await client.query(
+                            `UPDATE investments SET
+                                units = $1, purchase_price_per_unit = $2, current_nav_or_price = $3,
+                                updated_at = NOW()
+                             WHERE id = $4 RETURNING *`,
+                            [newUnits, newPrice, price_per_unit, row.id]
+                        );
+                        investment = updateResult.rows[0];
+                        isNewHolding = false;
+                    } else {
+                        const insertResult = await client.query(
+                            `INSERT INTO investments
+                                (user_id, type, name, ticker_or_folio, units, purchase_price_per_unit, current_nav_or_price,
+                                 purchase_date, account_label, notes, price_source)
+                             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'manual') RETURNING *`,
+                            [req.user.id, invType, name.trim(), ticker_or_folio || null, units, price_per_unit, price_per_unit,
+                             date, account_label || null, invNotes || null]
+                        );
+                        investment = insertResult.rows[0];
+                        isNewHolding = true;
+                    }
                 }
 
                 // First writer to investment_transactions — every buy made via this flow
