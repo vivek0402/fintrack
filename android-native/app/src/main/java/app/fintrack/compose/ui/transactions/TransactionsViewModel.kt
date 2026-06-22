@@ -51,7 +51,15 @@ data class TransactionsUiState(
     val quickAdd: QuickAddState = QuickAddState(),
     val selectMode: Boolean = false,
     val selectedIds: Set<String> = emptySet(),
-)
+    val searchQuery: String = "",
+    val searchCategoryId: String? = null,
+) {
+    val visibleTransactions: List<TransactionDto>
+        get() = transactions.filter { tx ->
+            (searchQuery.isBlank() || tx.description.contains(searchQuery, ignoreCase = true)) &&
+                (searchCategoryId == null || tx.category_id == searchCategoryId)
+        }
+}
 
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
@@ -235,7 +243,11 @@ class TransactionsViewModel @Inject constructor(
         }
     }
 
-    fun selectAll() = _uiState.update { it.copy(selectedIds = it.transactions.map { tx -> tx.id }.toSet()) }
+    fun selectAll() = _uiState.update { it.copy(selectedIds = it.visibleTransactions.map { tx -> tx.id }.toSet()) }
+
+    fun setSearchQuery(query: String) = _uiState.update { it.copy(searchQuery = query) }
+
+    fun setSearchCategoryId(categoryId: String?) = _uiState.update { it.copy(searchCategoryId = categoryId) }
 
     fun bulkDelete() {
         val ids = _uiState.value.selectedIds

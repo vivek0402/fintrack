@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -67,6 +68,7 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     var pendingBulkDelete by remember { mutableStateOf(false) }
+    var searchExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -84,6 +86,9 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
                     FilterChip(selected = state.filterType == "expense", onClick = { viewModel.setFilterType("expense") }, label = { Text("Expense") })
                     FilterChip(selected = state.isAllTime, onClick = viewModel::toggleAllTime, label = { Text("All time") })
                 }
+                IconButton(onClick = { searchExpanded = !searchExpanded }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Search transactions")
+                }
                 IconButton(onClick = viewModel::toggleSelectMode) {
                     Icon(
                         if (state.selectMode) Icons.Filled.Close else Icons.Filled.Checklist,
@@ -92,18 +97,29 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
                 }
             }
 
+            if (searchExpanded) {
+                SearchBar(
+                    state = state,
+                    onQueryChange = viewModel::setSearchQuery,
+                    onCategoryChange = viewModel::setSearchCategoryId,
+                )
+            }
+
             when {
                 state.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
                 }
-                state.transactions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No transactions yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                state.visibleTransactions.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        if (state.transactions.isEmpty()) "No transactions yet" else "No transactions match your search",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space2),
                 ) {
-                    items(state.transactions, key = { it.id }) { tx ->
+                    items(state.visibleTransactions, key = { it.id }) { tx ->
                         TransactionRow(
                             tx = tx,
                             selectMode = state.selectMode,
@@ -192,6 +208,49 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
             },
             dismissButton = { TextButton(onClick = { pendingBulkDelete = false }) { Text("Cancel") } },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchBar(
+    state: TransactionsUiState,
+    onQueryChange: (String) -> Unit,
+    onCategoryChange: (String?) -> Unit,
+) {
+    var categoryMenuExpanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4, vertical = FinTrackSpacing.space2)) {
+        OutlinedTextField(
+            value = state.searchQuery,
+            onValueChange = onQueryChange,
+            label = { Text("Search description") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(FinTrackSpacing.space2))
+        ExposedDropdownMenuBox(expanded = categoryMenuExpanded, onExpandedChange = { categoryMenuExpanded = it }) {
+            OutlinedTextField(
+                value = state.categories.find { it.id == state.searchCategoryId }?.name ?: "Any category",
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Category") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryMenuExpanded) },
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+            )
+            ExposedDropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
+                DropdownMenuItem(
+                    text = { Text("Any category") },
+                    onClick = { onCategoryChange(null); categoryMenuExpanded = false },
+                )
+                state.categories.forEach { category ->
+                    DropdownMenuItem(
+                        text = { Text(category.name) },
+                        onClick = { onCategoryChange(category.id); categoryMenuExpanded = false },
+                    )
+                }
+            }
+        }
     }
 }
 
