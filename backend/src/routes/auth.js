@@ -41,6 +41,10 @@ async function seedDefaultCategories(userId) {
                 [userId, cat.name, cat.icon, cat.color]
             )
         ));
+        await pool.query(
+            `UPDATE categories SET is_investment_category = true WHERE user_id = $1 AND name = 'Investments'`,
+            [userId]
+        );
     }
 }
 

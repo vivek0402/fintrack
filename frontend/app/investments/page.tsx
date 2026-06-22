@@ -20,6 +20,15 @@ import { Investment, InvestmentSummary, INVESTMENT_TYPES, GROUP_LABELS } from '@
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
+const relativeTime = (iso?: string | null) => {
+    if (!iso) return null;
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const hrs = Math.floor(diffMs / 3_600_000);
+    if (hrs < 1) return 'just now';
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+};
+
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
@@ -277,12 +286,22 @@ export default function InvestmentsPage() {
                                                     }}
                                                 >
                                                     <div style={{ minWidth: 0, flex: '1 1 140px' }}>
-                                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {inv.name}
-                                                        </p>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {inv.name}
+                                                            </p>
+                                                            {inv.price_source === 'mfapi' && (
+                                                                <Badge color="var(--color-inc)" bg="var(--bg-surface-2)">Live</Badge>
+                                                            )}
+                                                        </div>
                                                         {inv.ticker_or_folio && (
                                                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
                                                                 {inv.ticker_or_folio}
+                                                            </p>
+                                                        )}
+                                                        {inv.price_source === 'mfapi' && inv.last_price_updated_at && (
+                                                            <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
+                                                                Updated {relativeTime(inv.last_price_updated_at)}
                                                             </p>
                                                         )}
                                                     </div>
