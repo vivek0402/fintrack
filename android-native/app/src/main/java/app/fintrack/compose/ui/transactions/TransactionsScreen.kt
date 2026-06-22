@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
 import androidx.compose.material3.AlertDialog
@@ -33,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -94,11 +96,17 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
             }
         }
 
-        FloatingActionButton(
-            onClick = viewModel::openCreateForm,
+        Column(
             modifier = Modifier.align(Alignment.BottomEnd).padding(FinTrackSpacing.space5),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(FinTrackSpacing.space3),
         ) {
-            Icon(Icons.Filled.Add, contentDescription = "Add transaction")
+            SmallFloatingActionButton(onClick = viewModel::openQuickAdd) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = "Quick add with AI")
+            }
+            FloatingActionButton(onClick = viewModel::openCreateForm) {
+                Icon(Icons.Filled.Add, contentDescription = "Add transaction")
+            }
         }
     }
 
@@ -108,6 +116,15 @@ fun TransactionsScreen(viewModel: TransactionsViewModel = hiltViewModel()) {
             onDismiss = viewModel::closeForm,
             onUpdate = viewModel::updateForm,
             onSave = viewModel::save,
+        )
+    }
+
+    if (state.quickAdd.isOpen) {
+        QuickAddSheet(
+            state = state.quickAdd,
+            onTextChange = viewModel::updateQuickAddText,
+            onDismiss = viewModel::closeQuickAdd,
+            onSubmit = viewModel::submitQuickAdd,
         )
     }
 
@@ -158,6 +175,52 @@ private fun TransactionRow(tx: TransactionDto, onClick: () -> Unit, onDelete: ()
         }
         IconButton(onClick = onDelete) {
             Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun QuickAddSheet(
+    state: QuickAddState,
+    onTextChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
+            Text("Quick Add", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(FinTrackSpacing.space2))
+            Text(
+                "Describe a transaction in plain English, e.g. \"500 for groceries yesterday\"",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(FinTrackSpacing.space4))
+
+            OutlinedTextField(
+                value = state.text,
+                onValueChange = onTextChange,
+                label = { Text("What did you spend on?") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            state.error?.let {
+                Spacer(Modifier.height(FinTrackSpacing.space3))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
+            Spacer(Modifier.height(FinTrackSpacing.space5))
+            Button(onClick = onSubmit, enabled = !state.isLoading && state.text.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                if (state.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.padding(2.dp), color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text("Parse")
+                }
+            }
+            Spacer(Modifier.height(FinTrackSpacing.space5))
         }
     }
 }

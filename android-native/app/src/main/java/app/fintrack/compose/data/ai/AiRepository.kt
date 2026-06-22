@@ -6,6 +6,8 @@ import app.fintrack.compose.data.api.HealthReportRequest
 import app.fintrack.compose.data.api.HealthReportResponse
 import app.fintrack.compose.data.api.ParseSplitTextRequest
 import app.fintrack.compose.data.api.ParsedSplitDto
+import app.fintrack.compose.data.api.QuickAddParsedDto
+import app.fintrack.compose.data.api.QuickAddRequest
 import app.fintrack.compose.data.api.RegretPatternsResponse
 import app.fintrack.compose.data.api.SalaryIntelligenceResponse
 import app.fintrack.compose.data.api.TaxEstimateDataDto
@@ -34,4 +36,6 @@ class AiRepository @Inject constructor(
     suspend fun getSalaryIntelligence(): SalaryIntelligenceResponse = api.getSalaryIntelligence()
 
     suspend fun parseSplit(text: String): ParsedSplitDto? = api.parseSplit(ParseSplitTextRequest(text)).parsed
+
+    suspend fun quickAdd(text: String): QuickAddParsedDto? = api.quickAdd(QuickAddRequest(text)).data
 }

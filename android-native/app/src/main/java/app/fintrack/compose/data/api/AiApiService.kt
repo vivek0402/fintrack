@@ -29,4 +29,7 @@ interface AiApiService {
 
     @POST("api/ai/parse-split")
     suspend fun parseSplit(@Body body: ParseSplitTextRequest): ParseSplitResponse
+
+    @POST("api/ai/quick-add")
+    suspend fun quickAdd(@Body body: QuickAddRequest): QuickAddResponse
 }

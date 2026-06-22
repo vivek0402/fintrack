@@ -2,6 +2,7 @@ package app.fintrack.compose.ui.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.fintrack.compose.data.ai.AiRepository
 import app.fintrack.compose.data.api.CategoryDto
 import app.fintrack.compose.data.api.TransactionDto
 import app.fintrack.compose.data.api.toUserMessage
@@ -29,6 +30,13 @@ data class TransactionFormState(
     val error: String? = null,
 )
 
+data class QuickAddState(
+    val isOpen: Boolean = false,
+    val text: String = "",
+    val isLoading: Boolean = false,
+    val error: String? = null,
+)
+
 data class TransactionsUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -40,12 +48,14 @@ data class TransactionsUiState(
     val isAllTime: Boolean = false,
     val showForm: Boolean = false,
     val form: TransactionFormState = TransactionFormState(),
+    val quickAdd: QuickAddState = QuickAddState(),
 )
 
 @HiltViewModel
 class TransactionsViewModel @Inject constructor(
     private val transactionsRepository: TransactionsRepository,
     private val categoriesRepository: CategoriesRepository,
+    private val aiRepository: AiRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TransactionsUiState())
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
@@ -112,6 +122,47 @@ class TransactionsViewModel @Inject constructor(
 
     fun updateForm(transform: (TransactionFormState) -> TransactionFormState) =
         _uiState.update { it.copy(form = transform(it.form).copy(error = null)) }
+
+    fun openQuickAdd() = _uiState.update { it.copy(quickAdd = QuickAddState(isOpen = true)) }
+
+    fun closeQuickAdd() = _uiState.update { it.copy(quickAdd = QuickAddState()) }
+
+    fun updateQuickAddText(text: String) =
+        _uiState.update { it.copy(quickAdd = it.quickAdd.copy(text = text, error = null)) }
+
+    fun submitQuickAdd() {
+        val text = _uiState.value.quickAdd.text
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(quickAdd = it.quickAdd.copy(isLoading = true, error = null)) }
+            try {
+                val parsed = aiRepository.quickAdd(text)
+                if (parsed == null) {
+                    _uiState.update { it.copy(quickAdd = it.quickAdd.copy(isLoading = false, error = "Couldn't understand that. Try rephrasing.")) }
+                    return@launch
+                }
+                val categoryId = parsed.category?.let { name ->
+                    _uiState.value.categories.find { it.name.equals(name, ignoreCase = true) }?.id
+                }
+                _uiState.update {
+                    it.copy(
+                        quickAdd = QuickAddState(),
+                        showForm = true,
+                        form = TransactionFormState(
+                            type = parsed.type,
+                            amount = parsed.amount.toString(),
+                            description = parsed.description,
+                            date = parsed.date.take(10),
+                            categoryId = categoryId,
+                            notes = parsed.notes.orEmpty(),
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(quickAdd = it.quickAdd.copy(isLoading = false, error = e.toUserMessage("Couldn't parse that."))) }
+            }
+        }
+    }
 
     fun save() {
         val form = _uiState.value.form

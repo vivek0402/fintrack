@@ -6,6 +6,23 @@ import kotlinx.serialization.Serializable
 data class HealthReportRequest(val month: Int? = null, val year: Int? = null)
 
 @Serializable
+data class QuickAddRequest(val text: String)
+
+/** Parsed straight from the LLM's JSON.parse() output server-side — amount is a real JSON number, not a NUMERIC passthrough. */
+@Serializable
+data class QuickAddParsedDto(
+    val type: String,
+    val amount: Double,
+    val description: String,
+    val category: String? = null,
+    val date: String,
+    val notes: String? = null,
+)
+
+@Serializable
+data class QuickAddResponse(val success: Boolean, val data: QuickAddParsedDto? = null)
+
+@Serializable
 data class HealthScoresDto(
     val income_stability: Double,
     val expense_control: Double,
