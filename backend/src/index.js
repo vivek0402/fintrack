@@ -19,6 +19,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = require('./db/pool');
+const { getLatestNav } = require('./utils/marketData');
 const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const app = express();
@@ -186,6 +187,7 @@ app.use('/api/credit-cards',      require('./routes/creditCards'));
 app.use('/api/wallets',           require('./routes/wallets'));
 app.use('/api/notifications',    require('./routes/notifications'));
 app.use('/api/investments',      require('./routes/investments'));
+app.use('/api/market-data',      require('./routes/marketData'));
 app.use('/api/import',           require('./routes/pdfImport'));
 app.use('/api/import',           require('./routes/camsImport'));
 app.use('/api/tax',              require('./routes/tax'));
@@ -748,6 +750,36 @@ cron.schedule('0 21 * * *', async () => {
         console.log(`[Cron:DailyBrief] done — success: ${success}, skipped: ${skipped}, failed: ${failed}`);
     } catch (err) {
         console.error('[Cron:DailyBrief] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: daily mutual fund NAV refresh — 9:30pm IST ─────────────────────────
+cron.schedule('30 21 * * *', async () => {
+    console.log('[Cron] Refreshing mutual fund NAVs...');
+    let updated = 0, failed = 0;
+    try {
+        const { rows: schemes } = await pool.query(
+            `SELECT DISTINCT scheme_code FROM investments WHERE scheme_code IS NOT NULL AND type = 'mutual_fund'`
+        );
+        for (const { scheme_code } of schemes) {
+            try {
+                const nav = await getLatestNav(scheme_code);
+                if (!nav) { failed++; continue; }
+                const result = await pool.query(
+                    `UPDATE investments
+                     SET current_nav_or_price = $1, last_price_updated_at = NOW(), price_source = 'mfapi', updated_at = NOW()
+                     WHERE scheme_code = $2 AND type = 'mutual_fund'`,
+                    [nav.nav, scheme_code]
+                );
+                updated += result.rowCount;
+            } catch (err) {
+                failed++;
+                console.error(`[Cron] NAV refresh failed for scheme ${scheme_code}:`, err.message);
+            }
+        }
+        console.log(`[Cron] NAV refresh complete: ${updated} rows updated across schemes, ${failed} scheme lookups failed.`);
+    } catch (err) {
+        console.error('[Cron] NAV refresh job failed:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 
