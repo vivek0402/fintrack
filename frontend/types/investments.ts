@@ -13,6 +13,21 @@ export interface Investment {
     total_invested: number;
     unrealized_gain: number;
     unrealized_gain_pct: number;
+    scheme_code?: string;
+    last_price_updated_at?: string | null;
+    price_source: 'manual' | 'mfapi';
+}
+
+export interface MfSearchResult {
+    schemeCode: string;
+    schemeName: string;
+}
+
+export interface LatestNav {
+    schemeCode: string;
+    schemeName: string | null;
+    nav: number;
+    navDate: string;
 }
 
 export interface InvestmentSummary {

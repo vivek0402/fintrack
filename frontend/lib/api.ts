@@ -95,12 +95,28 @@ export interface CreateInvestmentPayload {
     notes?: string;
 }
 
+export interface InvestmentDetailsPayload {
+    type: string;
+    name: string;
+    ticker_or_folio?: string;
+    units: number;
+    price_per_unit: number;
+    scheme_code?: string;
+    account_label?: string;
+    notes?: string;
+}
+
 export const investmentAPI = {
     getAll: () => api.get('/api/investments'),
     getSummary: () => api.get('/api/investments/summary'),
     create: (data: CreateInvestmentPayload) => api.post('/api/investments', data),
     update: (id: string, data: Partial<CreateInvestmentPayload>) => api.patch(`/api/investments/${id}`, data),
     delete: (id: string) => api.delete(`/api/investments/${id}`),
+};
+
+export const marketDataAPI = {
+    searchMutualFunds: (q: string) => api.get('/api/market-data/mf/search', { params: { q } }),
+    getLatestNav: (schemeCode: string) => api.get(`/api/market-data/mf/${schemeCode}/nav`),
 };
 
 export const profileAPI = {

@@ -7,13 +7,14 @@ import {
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, accountsAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, accountsAPI, marketDataAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
+import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
 
 // ─── Category icon helpers ────────────────────────────────────────────────────
 
@@ -105,12 +106,22 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         payment_method: 'Cash',
         account_id: null as number | null,
         to_account_id: null as number | null,
+        investment: {
+            type: 'mutual_fund' as string,
+            name: '', ticker_or_folio: '', units: '', price_per_unit: '',
+            scheme_code: '', account_label: '',
+        },
     });
     const [tagInput, setTagInput] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
     const [accounts, setAccounts]     = useState<any[]>([]);
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
+
+    const [mfResults, setMfResults]       = useState<MfSearchResult[]>([]);
+    const [mfDropdownOpen, setMfDropdownOpen] = useState(false);
+    const [mfLoading, setMfLoading]       = useState(false);
+    const mfSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [catDropdownOpen, setCatDropdownOpen]   = useState(false);
     const catDropdownRef = useRef<HTMLDivElement>(null);
@@ -157,15 +168,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     // Populate form
      
+    const blankInvestment = { type: 'mutual_fund', name: '', ticker_or_folio: '', units: '', price_per_unit: '', scheme_code: '', account_label: '' };
+
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null });
+            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, investment: blankInvestment });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, investment: blankInvestment });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, investment: blankInvestment });
             setTagInput('');
         }
         setError('');
@@ -175,6 +188,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setPendingNewCategory('');
         setDupWarning(null);
         dupBypassRef.current = false;
+        setMfResults([]);
+        setMfDropdownOpen(false);
     }, [transaction, isOpen, defaultDate, prefill]);
 
     // Default account
@@ -290,10 +305,22 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             finally { setLoading(false); }
             return;
         }
-        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined };
+        const investmentDetails = (isInvestmentCategory && !isEditing && form.investment.units && form.investment.price_per_unit && form.investment.name)
+            ? {
+                type: form.investment.type,
+                name: form.investment.name,
+                ticker_or_folio: form.investment.ticker_or_folio || undefined,
+                units: parseFloat(form.investment.units),
+                price_per_unit: parseFloat(form.investment.price_per_unit),
+                scheme_code: form.investment.scheme_code || undefined,
+                account_label: form.investment.account_label || undefined,
+            }
+            : undefined;
+        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, investment_details: investmentDetails };
+        let createdInvestment: { is_new_holding: boolean } | undefined;
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
-            else await transactionsAPI.create(payload);
+            else { const res = await transactionsAPI.create(payload); createdInvestment = res.data.investment; }
             if (user) {
                 const now = new Date(); const cm = now.getMonth() + 1; const cy = now.getFullYear();
                 localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
@@ -313,7 +340,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 const fKey = `forecast-cache-${user?.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
                 localStorage.removeItem(fKey);
             } catch { /* silent */ }
-            toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
+            if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
+            else toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
         } catch (err: any) {
             const isNetworkErr = !err.response;
@@ -350,6 +378,30 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         } catch { } finally { setAddCatLoading(false); }
     };
 
+    const handleMfNameChange = (value: string) => {
+        setForm(prev => ({ ...prev, investment: { ...prev.investment, name: value, scheme_code: '' } }));
+        if (mfSearchTimer.current) clearTimeout(mfSearchTimer.current);
+        if (value.trim().length < 2) { setMfResults([]); setMfDropdownOpen(false); return; }
+        mfSearchTimer.current = setTimeout(async () => {
+            setMfLoading(true);
+            try {
+                const res = await marketDataAPI.searchMutualFunds(value.trim());
+                setMfResults(res.data.results || []);
+                setMfDropdownOpen(true);
+            } catch { setMfResults([]); } finally { setMfLoading(false); }
+        }, 300);
+    };
+
+    const handleMfSelect = async (result: MfSearchResult) => {
+        setForm(prev => ({ ...prev, investment: { ...prev.investment, name: result.schemeName, scheme_code: result.schemeCode } }));
+        setMfDropdownOpen(false);
+        try {
+            const res = await marketDataAPI.getLatestNav(result.schemeCode);
+            const nav = res.data.nav?.nav;
+            if (nav) setForm(prev => ({ ...prev, investment: { ...prev.investment, price_per_unit: String(nav) } }));
+        } catch { /* soft-fail: price stays manual */ }
+    };
+
     const isIncome = form.type === 'income';
     const isTransfer = form.type === 'transfer';
     const safeCats = categories || [];
@@ -366,6 +418,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const frequentCats  = sortedCategories.filter(c => Number(c.usage_count) > 0);
     const neverUsedCats = sortedCategories.filter(c => !Number(c.usage_count));
     const selectedCat   = safeCats.find(c => String(c.id) === form.category_id);
+    const isInvestmentCategory = !isTransfer && !!selectedCat?.is_investment_category;
 
     const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -537,6 +590,76 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         </div>
                     )}
                 </div>}
+
+                {/* ── Investment details (shown when Investments category is selected) ── */}
+                {isInvestmentCategory && !isEditing && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--bg-surface-2)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                        <label style={labelStyle}>Fund / Asset details (optional)</label>
+                        <div>
+                            <select value={form.investment.type}
+                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, type: e.target.value, name: '', ticker_or_folio: '', scheme_code: '' } }))}
+                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                {INVESTMENT_TYPES.map(t => <option key={t} value={t}>{GROUP_LABELS[t]}</option>)}
+                            </select>
+                        </div>
+
+                        {form.investment.type === 'mutual_fund' ? (
+                            <div style={{ position: 'relative' }}>
+                                <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                    value={form.investment.name}
+                                    onChange={e => handleMfNameChange(e.target.value)}
+                                    placeholder="Search fund name, e.g. Axis Bluechip" />
+                                {mfDropdownOpen && (mfLoading || mfResults.length > 0) && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '10px', zIndex: 60, maxHeight: '200px', overflowY: 'auto', boxShadow: 'var(--shadow-card)' }}>
+                                        {mfLoading ? (
+                                            <div style={{ padding: '10px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Searching…</div>
+                                        ) : mfResults.map(r => (
+                                            <div key={r.schemeCode} onClick={() => handleMfSelect(r)}
+                                                style={{ padding: '9px 14px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+                                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                                                {r.schemeName}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                    value={form.investment.name}
+                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, name: e.target.value } }))}
+                                    placeholder="e.g. Reliance, SBI FD…" />
+                                <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                    value={form.investment.ticker_or_folio}
+                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, ticker_or_folio: e.target.value } }))}
+                                    placeholder="Ticker / Folio (optional)" />
+                            </>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                value={form.investment.units}
+                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, units: e.target.value } }))}
+                                placeholder="Units" />
+                            <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                value={form.investment.price_per_unit}
+                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, price_per_unit: e.target.value } }))}
+                                placeholder="Price / unit" />
+                        </div>
+                        <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                            value={form.investment.account_label}
+                            onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, account_label: e.target.value } }))}
+                            placeholder="Account label, e.g. Zerodha (optional)" />
+                        {form.investment.units && form.investment.price_per_unit && (
+                            <button type="button"
+                                onClick={() => setForm(prev => ({ ...prev, amount: (parseFloat(prev.investment.units) * parseFloat(prev.investment.price_per_unit)).toFixed(2) }))}
+                                style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-body)' }}>
+                                Use units × price (₹{(parseFloat(form.investment.units) * parseFloat(form.investment.price_per_unit)).toFixed(2)}) as amount
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* ── Date picker ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
