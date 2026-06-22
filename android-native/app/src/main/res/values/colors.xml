@@ -1,0 +1,5 @@
+<resources>
+    <!-- Mirrors DESIGN.md's bg-base token (dark theme, AMOLED) — used only for the
+         pre-Compose system window background/status bar, not for any UI content. -->
+    <color name="amoled_black">#0a0a0a</color>
+</resources>
