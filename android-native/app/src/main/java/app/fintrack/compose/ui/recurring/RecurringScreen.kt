@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +19,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -49,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.fintrack.compose.data.api.RECURRING_FREQUENCIES
 import app.fintrack.compose.data.api.RecurringDto
+import app.fintrack.compose.data.api.RecurringPatternDto
 import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
@@ -67,19 +73,50 @@ fun RecurringScreen(viewModel: RecurringViewModel = hiltViewModel()) {
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
             )
-            state.recurring.isEmpty() -> Text(
-                "No recurring transactions yet — add a bill or subscription",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
-            )
             else -> LazyColumn(contentPadding = PaddingValues(FinTrackSpacing.space4)) {
-                items(state.recurring, key = { it.id }) { item ->
-                    RecurringRow(
-                        item = item,
-                        onToggle = { viewModel.toggle(item.id) },
-                        onDelete = { pendingDeleteId = item.id },
-                    )
+                item {
+                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = viewModel::processRecurring, enabled = !state.isProcessing) {
+                            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(FinTrackSpacing.space1))
+                            Text(if (state.isProcessing) "Processing…" else "Process Due")
+                        }
+                    }
                     Spacer(Modifier.height(FinTrackSpacing.space3))
+                }
+                if (state.visiblePatterns.isNotEmpty()) {
+                    item {
+                        Text("AI found ${state.visiblePatterns.size} potential recurring transaction${if (state.visiblePatterns.size != 1) "s" else ""}", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(FinTrackSpacing.space2))
+                    }
+                    items(state.visiblePatterns, key = { it.first }) { (index, pattern) ->
+                        PatternSuggestionCard(
+                            pattern = pattern,
+                            isAdding = state.addingPatternIndex == index,
+                            onAdd = { viewModel.addPattern(index, pattern) },
+                            onDismiss = { viewModel.dismissPattern(index) },
+                        )
+                        Spacer(Modifier.height(FinTrackSpacing.space3))
+                    }
+                    item { Spacer(Modifier.height(FinTrackSpacing.space2)) }
+                }
+                if (state.recurring.isEmpty()) {
+                    item {
+                        Text(
+                            "No recurring transactions yet — add a bill or subscription",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    items(state.recurring, key = { it.id }) { item ->
+                        RecurringRow(
+                            item = item,
+                            onToggle = { viewModel.toggle(item.id) },
+                            onEdit = { viewModel.openEditForm(item) },
+                            onDelete = { pendingDeleteId = item.id },
+                        )
+                        Spacer(Modifier.height(FinTrackSpacing.space3))
+                    }
                 }
             }
         }
@@ -93,7 +130,27 @@ fun RecurringScreen(viewModel: RecurringViewModel = hiltViewModel()) {
     }
 
     if (state.showForm) {
-        RecurringFormSheet(state = state, onDismiss = viewModel::closeForm, onUpdate = viewModel::updateForm, onSave = viewModel::save)
+        RecurringFormSheet(
+            title = "Add Recurring Transaction",
+            saveLabel = "Add",
+            form = state.form,
+            categories = state.categories,
+            onDismiss = viewModel::closeForm,
+            onUpdate = viewModel::updateForm,
+            onSave = viewModel::save,
+        )
+    }
+
+    if (state.editingId != null) {
+        RecurringFormSheet(
+            title = "Edit Recurring Transaction",
+            saveLabel = "Save",
+            form = state.editForm,
+            categories = state.categories,
+            onDismiss = viewModel::closeEditForm,
+            onUpdate = viewModel::updateEditForm,
+            onSave = viewModel::saveEdit,
+        )
     }
 
     pendingDeleteId?.let { id ->
@@ -110,7 +167,7 @@ fun RecurringScreen(viewModel: RecurringViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun RecurringRow(item: RecurringDto, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun RecurringRow(item: RecurringDto, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val amountColor = if (item.type == "income") FinTrackColors.Dark.colorInc else FinTrackColors.Dark.colorExp
 
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
@@ -132,8 +189,31 @@ private fun RecurringRow(item: RecurringDto, onToggle: () -> Unit, onDelete: () 
                 )
             }
             Switch(checked = item.is_active, onCheckedChange = { onToggle() })
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PatternSuggestionCard(pattern: RecurringPatternDto, isAdding: Boolean, onAdd: () -> Unit, onDismiss: () -> Unit) {
+    Surface(shape = RoundedCornerShape(16.dp), color = FinTrackColors.Dark.accent.copy(alpha = 0.08f)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4)) {
+            Text(pattern.description ?: pattern.merchant ?: "Recurring transaction", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(FinTrackSpacing.space1))
+            Text(
+                "${formatInr(pattern.amount)} · ${pattern.frequency.replaceFirstChar { it.uppercase() }}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(FinTrackSpacing.space3))
+            Row(horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2)) {
+                Button(onClick = onAdd, enabled = !isAdding) { Text(if (isAdding) "Adding…" else "Add as Recurring") }
+                TextButton(onClick = onDismiss, enabled = !isAdding) { Text("Dismiss") }
             }
         }
     }
@@ -142,19 +222,21 @@ private fun RecurringRow(item: RecurringDto, onToggle: () -> Unit, onDelete: () 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecurringFormSheet(
-    state: RecurringUiState,
+    title: String,
+    saveLabel: String,
+    form: RecurringFormState,
+    categories: List<app.fintrack.compose.data.api.CategoryDto>,
     onDismiss: () -> Unit,
     onUpdate: ((RecurringFormState) -> RecurringFormState) -> Unit,
     onSave: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
-    val form = state.form
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var frequencyMenuExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
-            Text("Add Recurring Transaction", style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
 
             Row(horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2)) {
@@ -197,7 +279,7 @@ private fun RecurringFormSheet(
 
             ExposedDropdownMenuBox(expanded = categoryMenuExpanded, onExpandedChange = { categoryMenuExpanded = it }) {
                 OutlinedTextField(
-                    value = state.categories.find { it.id == form.categoryId }?.name ?: "Choose category (optional)",
+                    value = categories.find { it.id == form.categoryId }?.name ?: "Choose category (optional)",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Category") },
@@ -205,7 +287,7 @@ private fun RecurringFormSheet(
                     modifier = Modifier.fillMaxWidth().menuAnchor(),
                 )
                 ExposedDropdownMenu(expanded = categoryMenuExpanded, onDismissRequest = { categoryMenuExpanded = false }) {
-                    state.categories.forEach { category ->
+                    categories.forEach { category ->
                         DropdownMenuItem(
                             text = { Text(category.name) },
                             onClick = { onUpdate { it.copy(categoryId = category.id) }; categoryMenuExpanded = false },
@@ -256,7 +338,7 @@ private fun RecurringFormSheet(
                 if (form.isSaving) {
                     CircularProgressIndicator(modifier = Modifier.padding(2.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Add")
+                    Text(saveLabel)
                 }
             }
             Spacer(Modifier.height(FinTrackSpacing.space5))

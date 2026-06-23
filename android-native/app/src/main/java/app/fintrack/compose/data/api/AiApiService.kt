@@ -32,4 +32,7 @@ interface AiApiService {
 
     @POST("api/ai/quick-add")
     suspend fun quickAdd(@Body body: QuickAddRequest): QuickAddResponse
+
+    @GET("api/ai/detect-patterns")
+    suspend fun detectPatterns(): DetectPatternsResponse
 }

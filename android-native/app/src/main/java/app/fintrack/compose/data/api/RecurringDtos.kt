@@ -47,4 +47,7 @@ data class UpdateRecurringRequest(
     val category_id: String? = null,
 )
 
+@Serializable
+data class ProcessRecurringResponse(val processed: Int = 0, val created: List<String> = emptyList())
+
 val RECURRING_FREQUENCIES = listOf("daily", "weekly", "monthly")

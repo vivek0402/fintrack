@@ -8,6 +8,7 @@ import app.fintrack.compose.data.api.ParseSplitTextRequest
 import app.fintrack.compose.data.api.ParsedSplitDto
 import app.fintrack.compose.data.api.QuickAddParsedDto
 import app.fintrack.compose.data.api.QuickAddRequest
+import app.fintrack.compose.data.api.RecurringPatternDto
 import app.fintrack.compose.data.api.RegretPatternsResponse
 import app.fintrack.compose.data.api.SalaryIntelligenceResponse
 import app.fintrack.compose.data.api.TaxEstimateDataDto
@@ -38,4 +39,6 @@ class AiRepository @Inject constructor(
     suspend fun parseSplit(text: String): ParsedSplitDto? = api.parseSplit(ParseSplitTextRequest(text)).parsed
 
     suspend fun quickAdd(text: String): QuickAddParsedDto? = api.quickAdd(QuickAddRequest(text)).data
+
+    suspend fun detectPatterns(): List<RecurringPatternDto> = api.detectPatterns().patterns
 }

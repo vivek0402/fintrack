@@ -2,8 +2,10 @@ package app.fintrack.compose.ui.recurring
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.fintrack.compose.data.ai.AiRepository
 import app.fintrack.compose.data.api.CategoryDto
 import app.fintrack.compose.data.api.RecurringDto
+import app.fintrack.compose.data.api.RecurringPatternDto
 import app.fintrack.compose.data.api.toUserMessage
 import app.fintrack.compose.data.categories.CategoriesRepository
 import app.fintrack.compose.data.recurring.RecurringRepository
@@ -33,12 +35,22 @@ data class RecurringUiState(
     val categories: List<CategoryDto> = emptyList(),
     val showForm: Boolean = false,
     val form: RecurringFormState = RecurringFormState(),
-)
+    val editingId: String? = null,
+    val editForm: RecurringFormState = RecurringFormState(),
+    val isProcessing: Boolean = false,
+    val patterns: List<RecurringPatternDto> = emptyList(),
+    val dismissedPatternIndices: Set<Int> = emptySet(),
+    val addingPatternIndex: Int? = null,
+) {
+    val visiblePatterns: List<Pair<Int, RecurringPatternDto>>
+        get() = patterns.withIndex().filter { it.index !in dismissedPatternIndices }.map { it.index to it.value }
+}
 
 @HiltViewModel
 class RecurringViewModel @Inject constructor(
     private val recurringRepository: RecurringRepository,
     private val categoriesRepository: CategoriesRepository,
+    private val aiRepository: AiRepository,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RecurringUiState())
     val uiState: StateFlow<RecurringUiState> = _uiState.asStateFlow()
@@ -46,6 +58,7 @@ class RecurringViewModel @Inject constructor(
     init {
         loadCategories()
         load()
+        loadPatterns()
     }
 
     fun load() {
@@ -123,6 +136,108 @@ class RecurringViewModel @Inject constructor(
                 load()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.toUserMessage("Couldn't delete.")) }
+            }
+        }
+    }
+
+    fun openEditForm(item: RecurringDto) {
+        _uiState.update {
+            it.copy(
+                editingId = item.id,
+                editForm = RecurringFormState(
+                    type = item.type,
+                    amount = item.amount,
+                    description = item.description,
+                    categoryId = item.category_id,
+                    frequency = item.frequency,
+                    dayOfMonth = (item.day_of_month ?: 1).toString(),
+                ),
+            )
+        }
+    }
+
+    fun closeEditForm() = _uiState.update { it.copy(editingId = null) }
+
+    fun updateEditForm(transform: (RecurringFormState) -> RecurringFormState) =
+        _uiState.update { it.copy(editForm = transform(it.editForm).copy(error = null)) }
+
+    fun saveEdit() {
+        val id = _uiState.value.editingId ?: return
+        val form = _uiState.value.editForm
+        val amount = form.amount.toDoubleOrNull()
+        if (form.description.isBlank()) {
+            updateEditForm { it.copy(error = "Enter a description.") }
+            return
+        }
+        if (amount == null || amount <= 0) {
+            updateEditForm { it.copy(error = "Enter a valid amount.") }
+            return
+        }
+        val dayOfMonth = form.dayOfMonth.toIntOrNull()?.takeIf { it in 1..31 }
+        viewModelScope.launch {
+            updateEditForm { it.copy(isSaving = true, error = null) }
+            try {
+                recurringRepository.update(
+                    id = id,
+                    type = form.type,
+                    amount = amount,
+                    description = form.description.trim(),
+                    categoryId = form.categoryId,
+                    frequency = form.frequency,
+                    dayOfMonth = if (form.frequency == "monthly") dayOfMonth else null,
+                )
+                _uiState.update { it.copy(editingId = null) }
+                load()
+            } catch (e: Exception) {
+                updateEditForm { it.copy(isSaving = false, error = e.toUserMessage("Couldn't update.")) }
+            }
+        }
+    }
+
+    fun processRecurring() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProcessing = true) }
+            try {
+                recurringRepository.process()
+                load()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.toUserMessage("Couldn't process recurring transactions.")) }
+            } finally {
+                _uiState.update { it.copy(isProcessing = false) }
+            }
+        }
+    }
+
+    private fun loadPatterns() {
+        viewModelScope.launch {
+            try {
+                val patterns = aiRepository.detectPatterns()
+                _uiState.update { it.copy(patterns = patterns, dismissedPatternIndices = emptySet()) }
+            } catch (_: Exception) { /* pattern suggestions are best-effort, not fatal */ }
+        }
+    }
+
+    fun dismissPattern(index: Int) =
+        _uiState.update { it.copy(dismissedPatternIndices = it.dismissedPatternIndices + index) }
+
+    fun addPattern(index: Int, pattern: RecurringPatternDto) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(addingPatternIndex = index) }
+            try {
+                recurringRepository.create(
+                    type = "expense",
+                    amount = pattern.amount,
+                    description = pattern.description ?: pattern.merchant ?: "Recurring",
+                    categoryId = null,
+                    frequency = pattern.frequency,
+                    dayOfMonth = null,
+                )
+                _uiState.update { it.copy(dismissedPatternIndices = it.dismissedPatternIndices + index) }
+                load()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.toUserMessage("Couldn't add as recurring.")) }
+            } finally {
+                _uiState.update { it.copy(addingPatternIndex = null) }
             }
         }
     }

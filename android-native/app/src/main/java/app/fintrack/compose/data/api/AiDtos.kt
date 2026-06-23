@@ -173,6 +173,19 @@ data class ParseSplitResponse(
     val error: String? = null,
 )
 
+/** LLM-emitted JSON.parse() output — amount is a real JSON number, not a NUMERIC passthrough. */
+@Serializable
+data class RecurringPatternDto(
+    val description: String? = null,
+    val amount: Double,
+    val frequency: String,
+    val merchant: String? = null,
+    val confidence: String? = null,
+)
+
+@Serializable
+data class DetectPatternsResponse(val patterns: List<RecurringPatternDto> = emptyList())
+
 @Serializable
 data class HealthReportResponse(
     val health_score: Double,
