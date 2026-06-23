@@ -116,6 +116,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
                 <button
                     onClick={() => router.push('/transactions?add=true')}
+                    aria-label="Add transaction"
                     style={{
                         position: 'fixed',
                         bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)',
@@ -156,6 +157,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         onClick={() => router.push('/transactions?add=true')}
                         onMouseEnter={() => setAddFabHover(true)}
                         onMouseLeave={() => setAddFabHover(false)}
+                        aria-label="Add transaction"
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
                             background: 'var(--accent)',
@@ -189,6 +191,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         onClick={() => router.push('/ai-advisor')}
                         onMouseEnter={() => setAiFabHover(true)}
                         onMouseLeave={() => setAiFabHover(false)}
+                        aria-label="Open AI chat"
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
                             background: 'var(--accent)',

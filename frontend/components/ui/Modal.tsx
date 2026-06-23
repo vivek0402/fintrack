@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -15,18 +15,44 @@ interface ModalProps {
     maxWidth?: string;
 }
 
+const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px' }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => { setMounted(true); }, []);
 
     useEffect(() => {
         if (!isOpen) return;
-        const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { onClose(); return; }
+            if (e.key !== 'Tab' || !dialogRef.current) return;
+            // Best-effort focus trap: wrap Tab/Shift+Tab at the dialog's edges.
+            const focusables = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+            if (focusables.length === 0) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault(); last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault(); first.focus();
+            }
+        };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
     }, [isOpen, onClose]);
+
+    // Move focus into the dialog on open, and back to the trigger element on close.
+    useEffect(() => {
+        if (!isOpen) return;
+        previouslyFocusedRef.current = document.activeElement as HTMLElement;
+        const focusable = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+        (focusable ?? dialogRef.current)?.focus();
+        return () => { previouslyFocusedRef.current?.focus?.(); };
+    }, [isOpen]);
 
     useEffect(() => {
         document.body.style.overflow = isOpen ? 'hidden' : '';
@@ -63,7 +89,12 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
             }}
         >
             <div
+                ref={dialogRef}
                 onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                tabIndex={-1}
                 style={{
                     position: 'relative',
                     width: '90%',

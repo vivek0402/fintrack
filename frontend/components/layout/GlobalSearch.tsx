@@ -96,7 +96,7 @@ export function GlobalSearch() {
                                 style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}
                             />
                             {query
-                                ? <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
+                                ? <button onClick={() => setQuery('')} aria-label="Clear search" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
                                 : <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '2px 6px' }}>ESC</span>
                             }
                         </div>

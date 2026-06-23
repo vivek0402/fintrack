@@ -17,8 +17,8 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
 import { toast } from '@/store/toastStore';
 import { Loan, AmortizationEntry, AmortizationSummary, LoanPrepayment, LOAN_TYPES, LOAN_TYPE_LABELS } from '@/types/loans';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const today = () => new Date().toISOString().split('T')[0];
 const PAGE_SIZE = 12;
 
@@ -767,7 +767,10 @@ function DebtIntelligencePageInner() {
                                     return (
                                         <Card key={loan.id} padding={0}>
                                             {/* Collapsed header */}
-                                            <div onClick={() => toggleExpand(loan.id)} style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div onClick={() => toggleExpand(loan.id)}
+                                                role="button" tabIndex={0} aria-expanded={isExpanded}
+                                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(loan.id); } }}
+                                                style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                                                     <div style={{ minWidth: 0 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
