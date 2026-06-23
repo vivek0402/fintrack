@@ -106,7 +106,7 @@ export default function ProfilePage() {
         profileAPI.get().then(res => {
             setProfile(res.data.profile);
             setProfileForm({ full_name: res.data.profile.full_name, email: res.data.profile.email, currency: res.data.profile.currency });
-        }).catch(console.error).finally(() => setLoading(false));
+        }).catch(err => { console.error(err); toast.error('Failed to load profile'); }).finally(() => setLoading(false));
     }, [user]);
 
     // ── Handlers (logic unchanged) ────────────────────────────────────────────
