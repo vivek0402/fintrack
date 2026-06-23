@@ -35,6 +35,11 @@ class AdvisorViewModel @Inject constructor(
 
     fun updateInput(value: String) = _uiState.update { it.copy(input = value, error = null) }
 
+    fun sendStarterPrompt(prompt: String) {
+        updateInput(prompt)
+        send()
+    }
+
     fun send() {
         val state = _uiState.value
         val text = state.input.trim()
