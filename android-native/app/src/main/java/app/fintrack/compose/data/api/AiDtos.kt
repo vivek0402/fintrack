@@ -187,6 +187,30 @@ data class RecurringPatternDto(
 data class DetectPatternsResponse(val patterns: List<RecurringPatternDto> = emptyList())
 
 @Serializable
+data class LifeEventRequest(val event_type: String, val target_amount: Double, val target_date: String)
+
+@Serializable
+data class LifeEventMilestoneDto(
+    val month: Int,
+    val label: String,
+    val target_saved: Double,
+    val action: String? = null,
+)
+
+@Serializable
+data class LifeEventPlanDto(
+    val monthly_required: Double = 0.0,
+    val is_achievable: Boolean = true,
+    val difficulty: String? = null,
+    val milestones: List<LifeEventMilestoneDto> = emptyList(),
+    val tips: List<String> = emptyList(),
+    val summary: String? = null,
+)
+
+@Serializable
+data class LifeEventResponse(val goal: GoalDto, val plan: LifeEventPlanDto)
+
+@Serializable
 data class HealthReportResponse(
     val health_score: Double,
     val grade: String,

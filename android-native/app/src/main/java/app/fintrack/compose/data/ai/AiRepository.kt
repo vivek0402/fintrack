@@ -4,6 +4,8 @@ import app.fintrack.compose.data.api.AiApiService
 import app.fintrack.compose.data.api.DailyBriefingDto
 import app.fintrack.compose.data.api.HealthReportRequest
 import app.fintrack.compose.data.api.HealthReportResponse
+import app.fintrack.compose.data.api.LifeEventRequest
+import app.fintrack.compose.data.api.LifeEventResponse
 import app.fintrack.compose.data.api.ParseSplitTextRequest
 import app.fintrack.compose.data.api.ParsedSplitDto
 import app.fintrack.compose.data.api.QuickAddParsedDto
@@ -41,4 +43,7 @@ class AiRepository @Inject constructor(
     suspend fun quickAdd(text: String): QuickAddParsedDto? = api.quickAdd(QuickAddRequest(text)).data
 
     suspend fun detectPatterns(): List<RecurringPatternDto> = api.detectPatterns().patterns
+
+    suspend fun planLifeEvent(eventType: String, targetAmount: Double, targetDate: String): LifeEventResponse =
+        api.lifeEvent(LifeEventRequest(eventType, targetAmount, targetDate))
 }

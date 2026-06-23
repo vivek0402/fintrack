@@ -35,4 +35,7 @@ interface AiApiService {
 
     @GET("api/ai/detect-patterns")
     suspend fun detectPatterns(): DetectPatternsResponse
+
+    @POST("api/ai/life-event")
+    suspend fun lifeEvent(@Body body: LifeEventRequest): LifeEventResponse
 }

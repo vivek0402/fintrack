@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,8 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +56,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.fintrack.compose.data.api.GoalDto
+import app.fintrack.compose.ui.common.MilestoneBurst
 import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
@@ -79,6 +83,10 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
                 modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
             )
             else -> LazyColumn(contentPadding = PaddingValues(FinTrackSpacing.space4)) {
+                item {
+                    LifeEventPlannerBanner(onClick = viewModel::openLifeEventForm)
+                    Spacer(Modifier.height(FinTrackSpacing.space3))
+                }
                 items(state.goals, key = { it.id }) { goal ->
                     GoalRow(
                         goal = goal,
@@ -96,6 +104,12 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
             modifier = Modifier.align(Alignment.BottomEnd).padding(FinTrackSpacing.space5),
         ) {
             Icon(Icons.Filled.Add, contentDescription = "Add goal")
+        }
+
+        if (state.showBurst) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                MilestoneBurst(onDone = viewModel::dismissBurst)
+            }
         }
     }
 
@@ -121,6 +135,17 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
         )
     }
 
+    if (state.showLifeEvent) {
+        GoalsLifeEventSheet(
+            form = state.lifeEventForm,
+            plan = state.lifeEventPlan,
+            onDismiss = viewModel::closeLifeEventForm,
+            onUpdate = viewModel::updateLifeEventForm,
+            onSubmit = viewModel::submitLifeEvent,
+            onPlanAnother = viewModel::planAnother,
+        )
+    }
+
     state.fundsForm?.let { form ->
         AddFundsSheet(
             form = form,
@@ -140,6 +165,29 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
             },
             dismissButton = { TextButton(onClick = { pendingDeleteId = null }) { Text("Cancel") } },
         )
+    }
+}
+
+@Composable
+private fun LifeEventPlannerBanner(onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = FinTrackColors.Dark.accent.copy(alpha = 0.08f),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4)) {
+            Icon(Icons.Outlined.Bolt, contentDescription = null, tint = FinTrackColors.Dark.accent)
+            Spacer(Modifier.width(FinTrackSpacing.space3))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("AI Life Event Planner", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Get a savings plan for a wedding, home, or other big milestone",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
