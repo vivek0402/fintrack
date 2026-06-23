@@ -3,15 +3,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, X, Plus, Star } from 'lucide-react';
+import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon } from 'lucide-react';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useCountUp } from '@/hooks/useCountUp';
+import { fmt as fmtBase } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,7 +32,7 @@ interface Wallet { id: number; name: string; emoji: string; balance: number; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmt(n: number) { return '₹' + Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 0 }); }
+function fmt(n: number) { return fmtBase(Math.abs(n)); }
 
 function getDueDays(billingDate: number | null, dueDays: number): number | null {
     if (!billingDate) return null;
@@ -308,6 +310,9 @@ export default function AccountsPage() {
                                 </div>
                             </div>
                         ))}
+                        {!dataLoading && banks.length === 0 && (
+                            <EmptyState icon={Landmark} title="No bank accounts yet" subtitle="Add a bank account to start tracking your balances." />
+                        )}
                         {!dataLoading && (
                             <button type="button" onClick={openAddBank} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> Add Bank Account
@@ -380,6 +385,9 @@ export default function AccountsPage() {
                                 </div>
                             );
                         })}
+                        {!dataLoading && cards.length === 0 && (
+                            <EmptyState icon={CreditCardIcon} title="No cards yet" subtitle="Add a credit card to track balances and due dates." />
+                        )}
                         {!dataLoading && (
                             <button type="button" onClick={openAddCard} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
                                 <Plus size={14} /> Add Credit Card
@@ -420,6 +428,9 @@ export default function AccountsPage() {
                             </GCard>
                         ))}
                     </div>
+                    {!dataLoading && wallets.length === 0 && (
+                        <EmptyState icon={WalletIcon} title="No wallets yet" subtitle="Add a wallet to track UPI apps, cash, or prepaid balances." />
+                    )}
                     {!dataLoading && (
                         <button type="button" onClick={openAddWallet} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)', marginTop: '10px' }}>
                             <Plus size={14} /> Add Wallet

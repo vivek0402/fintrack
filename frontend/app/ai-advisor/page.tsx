@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Sparkles, Plus, Menu, X, Trash2 } from 'lucide-react';
+import { Send, Sparkles, Plus, Menu, X, Trash2, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { agentAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { renderChatMarkdown } from '@/lib/chatMarkdown';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 interface AgentMessage {
     role: 'user' | 'assistant';
@@ -143,7 +145,23 @@ export default function AiAdvisorPage() {
         }
     };
 
-    if (isLoading || !user) return <div />;
+    if (isLoading || !user) {
+        return (
+            <div style={{ display: 'flex', height: isMobile ? 'calc(100dvh - 160px)' : 'calc(100dvh - 72px)', gap: '12px' }}>
+                {!isMobile && (
+                    <div style={{ width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <SkeletonCard height={40} />
+                        <SkeletonCard height={80} />
+                        <SkeletonCard height={80} />
+                        <SkeletonCard height={80} />
+                    </div>
+                )}
+                <div style={{ flex: 1 }}>
+                    <SkeletonCard height="100%" />
+                </div>
+            </div>
+        );
+    }
 
     const canSend = !!input.trim() && !sending;
     const containerHeight = isMobile ? 'calc(100dvh - 160px)' : 'calc(100dvh - 72px)';
@@ -201,9 +219,11 @@ export default function AiAdvisorPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0 8px' }} />
                             {conversationsLoaded && conversations.length === 0 ? (
-                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 2px', fontFamily: 'var(--font-body)' }}>
-                                    No conversations yet.
-                                </p>
+                                <EmptyState
+                                    icon={MessageSquare}
+                                    title="No conversations yet"
+                                    subtitle="Start a new chat to get personalized financial advice."
+                                />
                             ) : conversations.map(conv => {
                                 const active = activeConversationId === conv.id;
                                 return (
