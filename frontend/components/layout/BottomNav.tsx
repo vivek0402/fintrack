@@ -8,7 +8,7 @@ import {
     Briefcase, Bot, Gauge,
     Waves,
     Flame, GitBranch, Percent, PiggyBank,
-    CreditCard, FolderOpen, Users,
+    CreditCard, FolderOpen, Users, HelpCircle,
 } from 'lucide-react';
 
 const mainTabs = [
@@ -58,7 +58,7 @@ const moreGroups = [
 
 const moreItems = moreGroups.flatMap(g => g.items);
 
-export function BottomNav() {
+export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const pathname  = usePathname();
     const router    = useRouter();
 
@@ -242,9 +242,17 @@ export function BottomNav() {
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 20px 12px' }}>
                         <span style={{ fontSize: 'var(--text-h2)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>More</span>
-                        <button type="button" onClick={() => setMoreOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <X size={20} />
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            {onOpenTour && (
+                                <button type="button" onClick={() => { setMoreOpen(false); onOpenTour(); }} title="Replay the app tour" aria-label="Replay the app tour"
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <HelpCircle size={20} />
+                                </button>
+                            )}
+                            <button type="button" onClick={() => setMoreOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Grouped 2-column grids */}

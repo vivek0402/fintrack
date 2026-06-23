@@ -88,7 +88,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <OfflineBanner />
-            <Sidebar />
+            <Sidebar onOpenTour={() => setShowTour(true)} />
             <main
                 key={pathname}
                 style={{
@@ -110,7 +110,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
                 </div>
             </main>
-            {isMobile && <BottomNav />}
+            {isMobile && <BottomNav onOpenTour={() => setShowTour(true)} />}
 
             {/* Mobile Add Transaction FAB */}
             {isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
