@@ -13,8 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Flame, TrendingUp, Calculator, Info } from 'lucide-react';
-
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+import { fmt } from '@/lib/utils';
 
 const fmtAbbrev = (n: number) => {
     const sign = n < 0 ? '-' : '';

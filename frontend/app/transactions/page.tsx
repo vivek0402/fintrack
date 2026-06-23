@@ -18,7 +18,7 @@ import { BankStatementImporter } from '@/components/transactions/BankStatementIm
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
-import { exportToCSV, formatCurrency } from '@/lib/utils';
+import { exportToCSV, formatCurrency, fmt as fmtBase } from '@/lib/utils';
 
 const VIEW_TABS = [
     { key: 'list', label: 'List' },
@@ -27,7 +27,7 @@ const VIEW_TABS = [
 
 const getNowYear  = () => new Date().getFullYear();
 const getNowMonth = () => new Date().getMonth() + 1;
-const fmt = (n: number) => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+const fmt = (n: number) => fmtBase(Math.abs(n));
 
 function TransactionsPageInner() {
     const router       = useRouter();

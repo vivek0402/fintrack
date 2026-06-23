@@ -15,12 +15,12 @@ import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { toast } from '@/store/toastStore';
+import { fmt } from '@/lib/utils';
 import {
     Plus, Trash2, TrendingUp, Landmark, Scissors, Wallet,
     Sparkles, ArrowLeft,
 } from 'lucide-react';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 const fmtAbbrev = (n: number) => {

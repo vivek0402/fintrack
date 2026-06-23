@@ -22,8 +22,8 @@ import { StatTile } from '@/components/ui/StatTile';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const AUTO_SAVE_KEY = 'fintrack-auto-save-plan';
 const CH_KEY = (id: string) => `fintrack-challenge-${id}`;
 

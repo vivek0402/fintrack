@@ -10,8 +10,8 @@ import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
 

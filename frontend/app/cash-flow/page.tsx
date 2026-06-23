@@ -12,8 +12,8 @@ import { Card } from '@/components/ui/Card';
 import { StatTile } from '@/components/ui/StatTile';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { AlertTriangle, ChevronDown, Wallet, TrendingUp, Landmark } from 'lucide-react';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 const fmtAbbrev = (n: number) => {

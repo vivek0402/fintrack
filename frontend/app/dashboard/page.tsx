@@ -6,7 +6,7 @@ import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
-import { getCurrentMonthYear } from '@/lib/utils';
+import { getCurrentMonthYear, fmt } from '@/lib/utils';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
@@ -27,8 +27,6 @@ import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 function getDateLabel(dateStr: string): string {
     const today     = new Date().toISOString().split('T')[0];

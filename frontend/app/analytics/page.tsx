@@ -32,7 +32,7 @@ const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHea
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
 const RegretAnalysis = dynamic(() => import('@/components/analytics/RegretAnalysis').then(m => m.RegretAnalysis), { ssr: false, loading: vizSkeleton(150) });
-import { exportToCSV, formatCurrency, formatDate } from '@/lib/utils';
+import { exportToCSV, formatCurrency, formatDate, fmt } from '@/lib/utils';
 
 const OUTER_TABS = [
     { key: 'overview', label: 'Overview' },
@@ -44,7 +44,6 @@ const OUTER_TABS = [
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 // ── Chart colour state read from CSS custom properties at runtime ─────────────
 // This ensures charts update when the theme changes.

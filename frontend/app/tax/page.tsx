@@ -15,8 +15,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { Tabs } from '@/components/ui/Tabs';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 const SECTION_80C_LIMIT = 150000;
