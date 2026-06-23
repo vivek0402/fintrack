@@ -28,9 +28,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.fintrack.compose.data.api.BudgetDto
 import app.fintrack.compose.data.api.GoalDto
-import app.fintrack.compose.data.api.HealthReportResponse
 import app.fintrack.compose.data.api.SummaryDto
 import app.fintrack.compose.data.api.TransactionDto
+import app.fintrack.compose.domain.HealthGrade
+import app.fintrack.compose.domain.HealthScoreResult
 import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
@@ -41,25 +42,33 @@ import kotlin.math.roundToInt
 // ─── Health Score ───────────────────────────────────────────────────────
 
 @Composable
-fun HealthScoreTile(report: HealthReportResponse?, isLoading: Boolean) {
-    val score = report?.health_score?.roundToInt() ?: 0
-    val color = when {
-        score >= 80 -> FinTrackColors.Dark.colorInc
-        score >= 60 -> FinTrackColors.Dark.accent
-        score >= 40 -> FinTrackColors.Dark.colorWarn
-        else -> FinTrackColors.Dark.colorExp
+fun HealthScoreTile(result: HealthScoreResult?, isLoading: Boolean) {
+    val color = when (result?.grade) {
+        HealthGrade.EXCELLENT -> FinTrackColors.Dark.colorInc
+        HealthGrade.GOOD -> FinTrackColors.Dark.accent
+        HealthGrade.FAIR -> FinTrackColors.Dark.colorWarn
+        HealthGrade.NEEDS_ATTENTION, HealthGrade.CRITICAL -> FinTrackColors.Dark.colorExp
+        null -> FinTrackColors.Dark.accent
+    }
+    val label = when (result?.grade) {
+        HealthGrade.EXCELLENT -> "Excellent"
+        HealthGrade.GOOD -> "Good"
+        HealthGrade.FAIR -> "Fair"
+        HealthGrade.NEEDS_ATTENTION -> "Needs Attention"
+        HealthGrade.CRITICAL -> "Critical"
+        null -> "—"
     }
 
     Surface(shape = RoundedCornerShape(16.dp), color = color.copy(alpha = 0.10f), modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(FinTrackSpacing.space4)) {
             Text("HEALTH SCORE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(FinTrackSpacing.space2))
-            if (isLoading && report == null) {
+            if (isLoading && result == null) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
-                Text("$score/100", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
+                Text("${result?.score ?: 0}/100", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
                 Spacer(Modifier.height(FinTrackSpacing.space1))
-                Text(report?.grade ?: "—", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

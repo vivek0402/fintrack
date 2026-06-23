@@ -9,7 +9,6 @@ import app.fintrack.compose.data.api.CreditUtilizationResponse
 import app.fintrack.compose.data.api.DailyBriefingDto
 import app.fintrack.compose.data.api.DtiResponse
 import app.fintrack.compose.data.api.GoalDto
-import app.fintrack.compose.data.api.HealthReportResponse
 import app.fintrack.compose.data.api.InvestmentRatioResponse
 import app.fintrack.compose.data.api.NetWorthResponse
 import app.fintrack.compose.data.api.OpportunityDto
@@ -26,6 +25,11 @@ import app.fintrack.compose.data.goals.GoalsRepository
 import app.fintrack.compose.data.opportunities.OpportunitiesRepository
 import app.fintrack.compose.data.profile.ProfileRepository
 import app.fintrack.compose.data.transactions.TransactionsRepository
+import app.fintrack.compose.domain.HealthBudgetInput
+import app.fintrack.compose.domain.HealthGoalInput
+import app.fintrack.compose.domain.HealthScoreInput
+import app.fintrack.compose.domain.HealthScoreResult
+import app.fintrack.compose.domain.calculateHealthScore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -63,13 +67,37 @@ data class DashboardUiState(
     val isWeeklyBriefLoading: Boolean = true,
     val weeklyBriefError: String? = null,
 
-    val healthReport: HealthReportResponse? = null,
-    val isHealthReportLoading: Boolean = true,
-    val healthReportError: String? = null,
-
     val opportunities: List<OpportunityDto> = emptyList(),
     val isOpportunitiesLoading: Boolean = true,
-)
+) {
+    /** Deterministic port of web's calculateHealthScore() — see HealthScoreCalculator.kt. */
+    val healthScoreResult: HealthScoreResult?
+        get() {
+            val s = summary?.summary ?: return null
+            val trendRows = trends?.trends.orEmpty()
+            val monthMap = LinkedHashMap<String, Pair<Double, Double>>()
+            trendRows.sortedWith(compareBy({ it.year }, { it.month })).forEach { row ->
+                val key = "${row.year.toInt()}-${row.month.toInt()}"
+                val (inc, exp) = monthMap[key] ?: (0.0 to 0.0)
+                val total = row.total.toDoubleOrNull() ?: 0.0
+                monthMap[key] = if (row.type == "income") (total to exp) else (inc to total)
+            }
+            val lastSix = monthMap.values.toList().takeLast(6)
+            return calculateHealthScore(
+                HealthScoreInput(
+                    income = s.total_income,
+                    expenses = s.total_expenses,
+                    budgets = budgets.map { HealthBudgetInput(it.amount.toDoubleOrNull() ?: 0.0, it.spent.toDoubleOrNull() ?: 0.0) },
+                    goals = goals.map { HealthGoalInput(it.saved_amount.toDoubleOrNull() ?: 0.0, it.target_amount.toDoubleOrNull() ?: 0.0, it.deadline) },
+                    monthlyIncome = lastSix.map { it.first },
+                    monthlyExpenses = lastSix.map { it.second },
+                    investedThisMonth = investmentRatio?.invested_this_month ?: 0.0,
+                    dtiRatio = dti?.dti_ratio ?: 0.0,
+                    ccUtilizationPct = creditUtilization?.aggregate?.overall_utilization_pct ?: 0.0,
+                ),
+            )
+        }
+}
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -89,7 +117,6 @@ class DashboardViewModel @Inject constructor(
         load()
         loadDailyBrief()
         loadWeeklyBrief()
-        loadHealthReport()
         loadOpportunities()
     }
 
@@ -165,18 +192,6 @@ class DashboardViewModel @Inject constructor(
                 _uiState.update { it.copy(isWeeklyBriefLoading = false, weeklyBrief = brief) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isWeeklyBriefLoading = false, weeklyBriefError = e.toUserMessage("Couldn't load your weekly brief.")) }
-            }
-        }
-    }
-
-    private fun loadHealthReport() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isHealthReportLoading = true, healthReportError = null) }
-            try {
-                val report = aiRepository.getHealthReport()
-                _uiState.update { it.copy(isHealthReportLoading = false, healthReport = report) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isHealthReportLoading = false, healthReportError = e.toUserMessage("Couldn't load your health score.")) }
             }
         }
     }

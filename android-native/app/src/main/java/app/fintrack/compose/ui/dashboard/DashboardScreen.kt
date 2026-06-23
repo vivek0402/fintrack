@@ -138,7 +138,7 @@ private fun DashboardContent(
         }
         items(tiles) { tile -> StatTileCard(tile) }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-            HealthScoreTile(state.healthReport, state.isHealthReportLoading)
+            HealthScoreTile(state.healthScoreResult, state.isLoading)
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             GuiltFreeBudgetCard(summary, state.budgets, state.goals)
