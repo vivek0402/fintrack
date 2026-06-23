@@ -30,7 +30,7 @@ data class AccountsUiState(
     val form: AccountFormState = AccountFormState(),
 )
 
-val ACCOUNT_TYPES = listOf("Savings", "Current", "Salary", "Credit", "Wallet", "Other")
+val ACCOUNT_TYPES = listOf("Savings", "Current", "Salary", "FD", "Credit", "Wallet", "Other")
 
 @HiltViewModel
 class AccountsViewModel @Inject constructor(
