@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -84,6 +85,12 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
                     }
                     Spacer(Modifier.height(FinTrackSpacing.space4))
                 }
+                item {
+                    OutlinedButton(onClick = viewModel::openCamsImport, modifier = Modifier.fillMaxWidth()) {
+                        Text("Import CAMS Statement")
+                    }
+                    Spacer(Modifier.height(FinTrackSpacing.space4))
+                }
                 if (state.investments.isEmpty()) {
                     item {
                         Text(
@@ -114,6 +121,18 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
 
     if (state.showForm) {
         InvestmentFormSheet(state = state, onDismiss = viewModel::closeForm, onUpdate = viewModel::updateForm, onSave = viewModel::save)
+    }
+
+    if (state.showCamsImport) {
+        CamsImportSheet(
+            state = state.camsImport,
+            onDismiss = viewModel::closeCamsImport,
+            onFilePicked = viewModel::onCamsFilePicked,
+            onParse = viewModel::parseCamsStatement,
+            onRemoveHolding = viewModel::removeCamsHolding,
+            onConfirm = viewModel::confirmCamsImport,
+            onReset = viewModel::resetCamsImport,
+        )
     }
 
     pendingDeleteId?.let { id ->

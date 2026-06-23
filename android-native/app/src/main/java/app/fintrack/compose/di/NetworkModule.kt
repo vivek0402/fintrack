@@ -7,6 +7,7 @@ import app.fintrack.compose.data.api.AiApiService
 import app.fintrack.compose.data.api.AnalyticsApiService
 import app.fintrack.compose.data.api.AuthApiService
 import app.fintrack.compose.data.api.BudgetsApiService
+import app.fintrack.compose.data.api.CamsImportApiService
 import app.fintrack.compose.data.api.CategoriesApiService
 import app.fintrack.compose.data.api.DebtApiService
 import app.fintrack.compose.data.api.DocumentsApiService
@@ -156,4 +157,8 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOpportunitiesApiService(retrofit: Retrofit): OpportunitiesApiService = retrofit.create()
+
+    @Provides
+    @Singleton
+    fun provideCamsImportApiService(retrofit: Retrofit): CamsImportApiService = retrofit.create()
 }
