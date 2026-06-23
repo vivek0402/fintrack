@@ -48,7 +48,7 @@ fun CashFlowScreen(viewModel: CashFlowViewModel = hiltViewModel()) {
     }
 }
 
-private fun statusColor(status: String): Color = when (status) {
+internal fun statusColor(status: String): Color = when (status) {
     "surplus" -> FinTrackColors.Dark.colorInc
     "healthy" -> FinTrackColors.Dark.accent
     "tight" -> FinTrackColors.Dark.colorWarn
@@ -86,6 +86,12 @@ private fun CashFlowContent(cashflow: app.fintrack.compose.data.api.CashflowResp
                 MiniStat("Months Surplus", "${cashflow.summary.months_surplus}/12", FinTrackColors.Dark.colorInc, Modifier.weight(1f))
                 MiniStat("Months At Risk", "${cashflow.summary.months_at_risk}/12", FinTrackColors.Dark.colorExp, Modifier.weight(1f))
             }
+            Spacer(Modifier.height(FinTrackSpacing.space4))
+        }
+        item {
+            CashFlowWaterfallCard(cashflow.months)
+            Spacer(Modifier.height(FinTrackSpacing.space3))
+            CashFlowRunningBalanceCard(cashflow.months)
             Spacer(Modifier.height(FinTrackSpacing.space4))
         }
         item {
