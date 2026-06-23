@@ -7,6 +7,7 @@ const { getVisionModel } = require('../utils/gemini');
 const { aiComplete } = require('../utils/ai');
 const { sendToUser, userHasTokens } = require('../utils/fcm');
 const { getCached, setCached } = require('../utils/aiCache');
+const { isPositiveNumber, isValidDateString } = require('../utils/validation');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -623,8 +624,12 @@ Transactions: ${context}`,
 router.post('/life-event', authMiddleware, async (req, res) => {
     try {
         const { event_type, target_amount, target_date } = req.body;
-        if (!event_type || !target_amount || !target_date)
+        if (!event_type || target_amount === undefined || !target_date)
             return res.status(400).json({ error: 'event_type, target_amount, and target_date are required.' });
+        if (!isPositiveNumber(target_amount))
+            return res.status(400).json({ error: 'target_amount must be greater than 0.' });
+        if (!isValidDateString(target_date))
+            return res.status(400).json({ error: 'target_date must be a valid date.' });
 
         const userId = req.user.id;
 
@@ -1030,27 +1035,28 @@ router.get('/tax-estimate', authMiddleware, async (req, res) => {
             ? `${now.getFullYear() + 1}-03-31`
             : `${now.getFullYear()}-03-31`;
 
-        const { rows: incomeTx } = await pool.query(
-            `SELECT amount, description, date,
-                    COALESCE(c.name, 'Salary') as category_name
-             FROM transactions t
-             LEFT JOIN categories c ON c.id = t.category_id
-             WHERE t.user_id = $1 AND t.type = 'income'
-               AND t.date >= $2 AND t.date <= $3
-             ORDER BY t.date DESC`,
-            [userId, fyStart, fyEnd]
-        );
-
-        const { rows: investmentTx } = await pool.query(
-            `SELECT t.amount, t.description, c.name as category_name
-             FROM transactions t
-             LEFT JOIN categories c ON c.id = t.category_id
-             WHERE t.user_id = $1 AND t.type = 'expense'
-               AND t.date >= $2 AND t.date <= $3
-               AND LOWER(COALESCE(c.name,'')) IN ('investments','insurance','education')
-             ORDER BY t.date DESC`,
-            [userId, fyStart, fyEnd]
-        );
+        const [{ rows: incomeTx }, { rows: investmentTx }] = await Promise.all([
+            pool.query(
+                `SELECT amount, description, date,
+                        COALESCE(c.name, 'Salary') as category_name
+                 FROM transactions t
+                 LEFT JOIN categories c ON c.id = t.category_id
+                 WHERE t.user_id = $1 AND t.type = 'income'
+                   AND t.date >= $2 AND t.date <= $3
+                 ORDER BY t.date DESC`,
+                [userId, fyStart, fyEnd]
+            ),
+            pool.query(
+                `SELECT t.amount, t.description, c.name as category_name
+                 FROM transactions t
+                 LEFT JOIN categories c ON c.id = t.category_id
+                 WHERE t.user_id = $1 AND t.type = 'expense'
+                   AND t.date >= $2 AND t.date <= $3
+                   AND LOWER(COALESCE(c.name,'')) IN ('investments','insurance','education')
+                 ORDER BY t.date DESC`,
+                [userId, fyStart, fyEnd]
+            ),
+        ]);
 
         const grossIncome = incomeTx.reduce((s, t) => s + parseFloat(t.amount), 0);
         const potentialDeductions = investmentTx.reduce((s, t) => s + parseFloat(t.amount), 0);
@@ -1797,10 +1803,19 @@ const DAILY_BRIEF_REFRESH_WINDOW_MS = 60 * 1000;
 const DAILY_BRIEF_REFRESH_MAX = 2;
 
 router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
+    // The original read-then-write on refresh_log raced under concurrent refresh
+    // clicks (same shape as the aiCache.js bug): two requests could both read the
+    // same recentRefreshes, both pass the rate-limit check, and both write back
+    // a log missing the other's timestamp. SELECT ... FOR UPDATE serializes
+    // concurrent requests for the same (user_id, brief_date) row so the second
+    // request sees the first's committed refresh_log before deciding.
+    const client = await pool.connect();
     try {
         const today = dateStr(new Date());
-        const { rows: existing } = await pool.query(
-            `SELECT refresh_log FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
+        await client.query('BEGIN');
+
+        const { rows: existing } = await client.query(
+            `SELECT refresh_log FROM daily_briefings WHERE user_id=$1 AND brief_date=$2 FOR UPDATE`,
             [req.user.id, today]
         );
         const now = Date.now();
@@ -1810,6 +1825,7 @@ router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
             .sort((a, b) => a - b);
 
         if (recentRefreshes.length >= DAILY_BRIEF_REFRESH_MAX) {
+            await client.query('ROLLBACK');
             const waitSec = Math.ceil((DAILY_BRIEF_REFRESH_WINDOW_MS - (now - recentRefreshes[0])) / 1000);
             return res.status(429).json({ error: 'Please wait before refreshing again.', wait: waitSec });
         }
@@ -1817,15 +1833,19 @@ router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
         const briefing = await generateDailyBriefing(req.user.id);
 
         const updatedLog = [...recentRefreshes, now].map(t => new Date(t).toISOString());
-        await pool.query(
+        await client.query(
             `UPDATE daily_briefings SET refresh_log=$1 WHERE user_id=$2 AND brief_date=$3`,
             [updatedLog, req.user.id, today]
         );
+        await client.query('COMMIT');
 
         res.json(briefing);
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error('[DailyBrief] generate error:', err);
         res.status(500).json({ error: 'Failed to generate daily briefing.' });
+    } finally {
+        client.release();
     }
 });
 

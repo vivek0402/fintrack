@@ -9,10 +9,14 @@ const getCached = async (pool, userId, key, ttlMs = 6 * 60 * 60 * 1000) => {
 };
 
 const setCached = async (pool, userId, key, data) => {
-    const result = await pool.query('SELECT ai_cache FROM users WHERE id = $1', [userId]);
-    const cache = result.rows[0]?.ai_cache || {};
-    cache[key] = { data, generated_at: new Date().toISOString() };
-    await pool.query('UPDATE users SET ai_cache = $1 WHERE id = $2', [JSON.stringify(cache), userId]);
+    // Atomic jsonb_set instead of read-modify-write — concurrent setCached calls for
+    // different keys (e.g. dashboard firing several AI endpoints in parallel) would
+    // otherwise race and silently drop each other's entries.
+    const entry = { data, generated_at: new Date().toISOString() };
+    await pool.query(
+        `UPDATE users SET ai_cache = jsonb_set(COALESCE(ai_cache, '{}'::jsonb), $1::text[], $2::jsonb) WHERE id = $3`,
+        [[key], JSON.stringify(entry), userId]
+    );
 };
 
 module.exports = { getCached, setCached };

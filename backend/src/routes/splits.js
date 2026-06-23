@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
+const { isPositiveNumber } = require('../utils/validation');
 
 // GET /api/splits — list all splits for the user
 router.get('/', authMiddleware, async (req, res) => {
@@ -21,8 +22,11 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { description, total_amount, participants, date } = req.body;
-        if (!description || !total_amount || !participants || !Array.isArray(participants) || participants.length === 0) {
+        if (!description || !participants || !Array.isArray(participants) || participants.length === 0) {
             return res.status(400).json({ error: 'description, total_amount, and participants are required' });
+        }
+        if (!isPositiveNumber(total_amount)) {
+            return res.status(400).json({ error: 'total_amount must be greater than 0' });
         }
 
         const splitCount = participants.length + 1; // +1 for the user
@@ -66,8 +70,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         const { id } = req.params;
         const { description, total_amount, participants, date } = req.body;
 
-        if (!description || !total_amount || !participants || !Array.isArray(participants) || participants.length === 0) {
+        if (!description || !participants || !Array.isArray(participants) || participants.length === 0) {
             return res.status(400).json({ error: 'description, total_amount, and participants are required' });
+        }
+        if (!isPositiveNumber(total_amount)) {
+            return res.status(400).json({ error: 'total_amount must be greater than 0' });
         }
 
         const { rows } = await pool.query(

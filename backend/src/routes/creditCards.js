@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const pool    = require('../db/pool');
 const auth    = require('../middleware/auth');
+const { isNonNegativeNumber } = require('../utils/validation');
 
 router.use(auth);
 
@@ -35,6 +36,9 @@ router.post('/', async (req, res) => {
 
         if (!bank_name?.trim()) return res.status(400).json({ error: 'bank_name is required' });
         if (!card_name?.trim()) return res.status(400).json({ error: 'card_name is required' });
+        if (!isNonNegativeNumber(credit_limit)) return res.status(400).json({ error: 'credit_limit must be >= 0' });
+        if (!isNonNegativeNumber(outstanding_balance)) return res.status(400).json({ error: 'outstanding_balance must be >= 0' });
+        if (!isNonNegativeNumber(due_days)) return res.status(400).json({ error: 'due_days must be >= 0' });
 
         const { rows } = await pool.query(
             `INSERT INTO credit_cards
@@ -65,6 +69,10 @@ router.put('/:id', async (req, res) => {
             credit_limit, outstanding_balance,
             billing_date, due_days, network, color,
         } = req.body;
+
+        if (credit_limit !== undefined && !isNonNegativeNumber(credit_limit)) return res.status(400).json({ error: 'credit_limit must be >= 0' });
+        if (outstanding_balance !== undefined && !isNonNegativeNumber(outstanding_balance)) return res.status(400).json({ error: 'outstanding_balance must be >= 0' });
+        if (due_days !== undefined && !isNonNegativeNumber(due_days)) return res.status(400).json({ error: 'due_days must be >= 0' });
 
         const { rows } = await pool.query(
             `UPDATE credit_cards SET

@@ -195,7 +195,7 @@ router.patch('/:id', async (req, res) => {
                 name = $1, description = $2, target_date = $3, target_amount = $4,
                 current_amount = $5, parent_id = $6, priority = $7, notes = $8,
                 status = $9, updated_at = NOW()
-             WHERE id = $10 RETURNING *`,
+             WHERE id = $10 AND user_id = $11 RETURNING *`,
             [
                 name !== undefined ? name : existing.name,
                 description !== undefined ? description : existing.description,
@@ -207,6 +207,7 @@ router.patch('/:id', async (req, res) => {
                 notes !== undefined ? notes : existing.notes,
                 status !== undefined ? status : existing.status,
                 req.params.id,
+                req.user.id,
             ]
         );
 
@@ -255,8 +256,8 @@ router.patch('/:id/progress', async (req, res) => {
 
         const result = await pool.query(
             `UPDATE milestones SET current_amount = $1, status = $2, updated_at = NOW()
-             WHERE id = $3 RETURNING *`,
-            [resolvedAmount, resolvedStatus, req.params.id]
+             WHERE id = $3 AND user_id = $4 RETURNING *`,
+            [resolvedAmount, resolvedStatus, req.params.id, req.user.id]
         );
 
         const average_monthly_savings = await getAverageMonthlySavings(req.user.id);
@@ -278,7 +279,7 @@ router.delete('/:id', async (req, res) => {
         const childrenRes = await pool.query('SELECT COUNT(*)::int AS count FROM milestones WHERE parent_id = $1', [req.params.id]);
         const children_unlinked = childrenRes.rows[0].count;
 
-        await pool.query('DELETE FROM milestones WHERE id = $1', [req.params.id]);
+        await pool.query('DELETE FROM milestones WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
 
         res.json({ message: 'Milestone deleted', children_unlinked });
     } catch (err) {

@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const pool    = require('../db/pool');
 const auth    = require('../middleware/auth');
+const { isNonNegativeNumber } = require('../utils/validation');
 
 router.use(auth);
 
@@ -24,6 +25,7 @@ router.post('/', async (req, res) => {
     try {
         const { name, emoji = '👛', balance = 0 } = req.body;
         if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
+        if (!isNonNegativeNumber(balance)) return res.status(400).json({ error: 'balance must be >= 0' });
 
         const { rows } = await pool.query(
             `INSERT INTO wallets (user_id, name, emoji, balance)
@@ -47,6 +49,7 @@ router.put('/:id', async (req, res) => {
         if (!existing.length) return res.status(404).json({ error: 'Wallet not found' });
 
         const { name, emoji, balance } = req.body;
+        if (balance !== undefined && !isNonNegativeNumber(balance)) return res.status(400).json({ error: 'balance must be >= 0' });
 
         const { rows } = await pool.query(
             `UPDATE wallets SET

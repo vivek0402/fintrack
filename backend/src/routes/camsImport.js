@@ -3,6 +3,7 @@ const pdfParse = require('pdf-parse');
 const { aiComplete } = require('../utils/ai');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { isPositiveNumber } = require('../utils/validation');
 const router = require('express').Router();
 
 router.use(auth);
@@ -111,25 +112,36 @@ router.post('/cams-statement/:jobId/confirm', async (req, res) => {
         if (!Array.isArray(holdings))
             return res.status(400).json({ error: 'holdings must be an array.' });
 
+        // Batch the existence check (one query for all folios) instead of one
+        // SELECT per holding inside the loop.
+        const folioNumbers = holdings.map(h => h.folio_number).filter(Boolean);
+        const existingRes = await pool.query(
+            'SELECT id, ticker_or_folio FROM investments WHERE user_id=$1 AND ticker_or_folio = ANY($2)',
+            [req.user.id, folioNumbers]
+        );
+        const existingByFolio = new Map(existingRes.rows.map(r => [r.ticker_or_folio, r.id]));
+
         const client = await pool.connect();
         let created = 0;
         let updated = 0;
+        let skipped = 0;
         try {
             await client.query('BEGIN');
             for (const h of holdings) {
                 const units = parseFloat(h.units);
                 const nav = parseFloat(h.nav);
+                if (!isPositiveNumber(units) || !isPositiveNumber(nav)) {
+                    skipped++;
+                    continue;
+                }
                 const purchaseDetails = Array.isArray(h.purchase_details) ? h.purchase_details : [];
 
-                const existing = await client.query(
-                    'SELECT id FROM investments WHERE user_id=$1 AND ticker_or_folio=$2',
-                    [req.user.id, h.folio_number]
-                );
+                const existingId = existingByFolio.get(h.folio_number);
 
-                if (existing.rows.length > 0) {
+                if (existingId) {
                     await client.query(
                         'UPDATE investments SET units=$1, current_nav_or_price=$2, updated_at=NOW() WHERE id=$3',
-                        [units, nav, existing.rows[0].id]
+                        [units, nav, existingId]
                     );
                     updated++;
                 } else {
@@ -140,7 +152,8 @@ router.post('/cams-statement/:jobId/confirm', async (req, res) => {
                             new Date(p.date) < new Date(min.date) ? p : min
                         );
                         purchaseDate = earliest.date;
-                        purchasePrice = parseFloat(earliest.price_per_unit);
+                        const earliestPrice = parseFloat(earliest.price_per_unit);
+                        if (isPositiveNumber(earliestPrice)) purchasePrice = earliestPrice;
                     }
 
                     await client.query(
@@ -166,7 +179,7 @@ router.post('/cams-statement/:jobId/confirm', async (req, res) => {
             client.release();
         }
 
-        res.json({ created, updated, imported: created + updated });
+        res.json({ created, updated, skipped, imported: created + updated });
     } catch (err) {
         console.error('[CamsImport]', err.message);
         res.status(500).json({ error: 'Server error.' });

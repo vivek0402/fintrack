@@ -232,18 +232,41 @@ router.post('/:id/prepayments', async (req, res) => {
         const months_saved = before.summary.total_months - after.summary.total_months;
         const interest_saved = parseFloat((before.summary.total_interest - after.summary.total_interest).toFixed(2));
 
-        const inserted = await pool.query(
-            `INSERT INTO loan_prepayments (loan_id, user_id, amount, prepayment_date, months_saved, interest_saved, notes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-            [req.params.id, req.user.id, amount, prepayment_date, months_saved, interest_saved, notes || null]
-        );
+        // The amount > outstanding_balance check above reads a value fetched at the
+        // top of this handler — under concurrent requests that's stale. Make the
+        // decrement itself the authoritative check (atomic, race-proof) inside a
+        // transaction, so two simultaneous prepayments can't both pass a check
+        // against the same stale balance and drive it negative.
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
 
-        await pool.query(
-            'UPDATE loans SET outstanding_balance = outstanding_balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-            [amount, req.params.id, req.user.id]
-        );
+            const decremented = await client.query(
+                `UPDATE loans SET outstanding_balance = outstanding_balance - $1, updated_at = NOW()
+                 WHERE id = $2 AND user_id = $3 AND outstanding_balance >= $1
+                 RETURNING outstanding_balance`,
+                [amount, req.params.id, req.user.id]
+            );
 
-        res.status(201).json({ prepayment: inserted.rows[0] });
+            if (decremented.rowCount === 0) {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'amount cannot exceed the outstanding balance.' });
+            }
+
+            const inserted = await client.query(
+                `INSERT INTO loan_prepayments (loan_id, user_id, amount, prepayment_date, months_saved, interest_saved, notes)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+                [req.params.id, req.user.id, amount, prepayment_date, months_saved, interest_saved, notes || null]
+            );
+
+            await client.query('COMMIT');
+            res.status(201).json({ prepayment: inserted.rows[0] });
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     } catch (err) {
         console.error('[Loans]', err.message);
         res.status(500).json({ error: 'Server error.' });

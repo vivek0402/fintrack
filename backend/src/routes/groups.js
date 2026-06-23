@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { isPositiveNumber, isNonNegativeNumber } = require('../utils/validation');
 
 router.use(auth);
 
@@ -228,8 +229,14 @@ router.delete('/:id/transactions/:txId', async (req, res) => {
 router.post('/:id/splits', async (req, res) => {
     try {
         const { description, total_amount, paid_by, date, shares } = req.body;
-        if (!description || !total_amount || !paid_by || !shares || !Array.isArray(shares)) {
+        if (!description || !paid_by || !shares || !Array.isArray(shares)) {
             return res.status(400).json({ error: 'description, total_amount, paid_by, and shares are required' });
+        }
+        if (!isPositiveNumber(total_amount)) {
+            return res.status(400).json({ error: 'total_amount must be greater than 0' });
+        }
+        if (shares.some(s => !isNonNegativeNumber(s.amount))) {
+            return res.status(400).json({ error: 'each share amount must be >= 0' });
         }
         const { rows } = await pool.query(
             `SELECT id FROM expense_groups WHERE id = $1 AND user_id = $2`,
@@ -291,8 +298,14 @@ router.post('/:id/splits', async (req, res) => {
 router.put('/:id/splits/:splitId', async (req, res) => {
     try {
         const { description, total_amount, paid_by, date, shares } = req.body;
-        if (!description || !total_amount || !paid_by || !shares || !Array.isArray(shares)) {
+        if (!description || !paid_by || !shares || !Array.isArray(shares)) {
             return res.status(400).json({ error: 'description, total_amount, paid_by, and shares are required' });
+        }
+        if (!isPositiveNumber(total_amount)) {
+            return res.status(400).json({ error: 'total_amount must be greater than 0' });
+        }
+        if (shares.some(s => !isNonNegativeNumber(s.amount))) {
+            return res.status(400).json({ error: 'each share amount must be >= 0' });
         }
         const { rows } = await pool.query(
             `SELECT gs.id FROM group_splits gs

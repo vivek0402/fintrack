@@ -325,25 +325,19 @@ router.post('/detect', async (req, res) => {
     try {
         const detected = await detectOpportunities(req.user.id);
 
+        // Single upsert per opportunity instead of a SELECT-then-INSERT/UPDATE loop —
+        // removes the N+1 and the race where two concurrent /detect calls could both
+        // pass the existence check and create duplicate active rows of the same type.
+        // Backed by the partial unique index idx_opportunities_user_type_active.
         for (const opp of detected) {
-            const existing = await pool.query(
-                `SELECT id FROM opportunities WHERE user_id = $1 AND type = $2 AND status = 'active'`,
-                [req.user.id, opp.type]
+            await pool.query(
+                `INSERT INTO opportunities (user_id, type, title, description, amount_saved, priority, action_label, action_route, expires_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 ON CONFLICT (user_id, type) WHERE status = 'active'
+                 DO UPDATE SET title=$3, description=$4, amount_saved=$5, priority=$6,
+                     action_label=$7, action_route=$8, expires_at=$9, detected_at=NOW()`,
+                [req.user.id, opp.type, opp.title, opp.description, opp.amount_saved, opp.priority, opp.action_label, opp.action_route, opp.expires_at]
             );
-            if (existing.rows.length > 0) {
-                await pool.query(
-                    `UPDATE opportunities SET title=$1, description=$2, amount_saved=$3, priority=$4,
-                        action_label=$5, action_route=$6, expires_at=$7, detected_at=NOW()
-                     WHERE id=$8`,
-                    [opp.title, opp.description, opp.amount_saved, opp.priority, opp.action_label, opp.action_route, opp.expires_at, existing.rows[0].id]
-                );
-            } else {
-                await pool.query(
-                    `INSERT INTO opportunities (user_id, type, title, description, amount_saved, priority, action_label, action_route, expires_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                    [req.user.id, opp.type, opp.title, opp.description, opp.amount_saved, opp.priority, opp.action_label, opp.action_route, opp.expires_at]
-                );
-            }
         }
 
         const activeRes = await pool.query(

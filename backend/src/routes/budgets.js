@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { isNonNegativeNumber } = require('../utils/validation');
 const router = express.Router();
 
 router.use(auth);
@@ -35,8 +36,10 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { category_id, amount, month, year } = req.body;
-        if (!category_id || !amount || !month || !year)
+        if (!category_id || !month || !year)
             return res.status(400).json({ error: 'All fields required.' });
+        if (!isNonNegativeNumber(amount))
+            return res.status(400).json({ error: 'amount must be >= 0.' });
 
         const result = await pool.query(
             `INSERT INTO budgets (user_id, category_id, amount, month, year)
