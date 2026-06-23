@@ -135,6 +135,15 @@ export const recurringAPI = {
     process: () => api.post('/api/recurring/process'),
 };
 
+export const notificationsAPI = {
+    list: (params?: { limit?: number; unread_only?: boolean }) => api.get('/api/notifications', { params }),
+    create: (data: { id: string; title: string; body?: string; type?: string; deepLink?: string }) =>
+        api.post('/api/notifications', data),
+    markRead: (id: string) => api.patch(`/api/notifications/${id}`),
+    markAllRead: () => api.post('/api/notifications/read-all'),
+    clearAll: () => api.delete('/api/notifications'),
+};
+
 export const goalsAPI = {
     getAll: () => api.get('/api/goals'),
     create: (data: object) => api.post('/api/goals', data),

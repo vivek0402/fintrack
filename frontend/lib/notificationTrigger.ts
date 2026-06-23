@@ -1,5 +1,5 @@
 import { analyticsAPI, budgetsAPI, goalsAPI, recurringAPI } from './api';
-import { addInAppNotification, getNotifications } from './notifications';
+import { addInAppNotification } from './notifications';
 
 interface Budget { category_id: string; name: string; amount: number; spent: number; }
 interface RecurringItem { id: string; description: string; amount: number; next_due: string; is_active: boolean; }
@@ -22,8 +22,10 @@ export async function runNotificationCheck(): Promise<void> {
   if (lastCheck && Date.now() - Number(lastCheck) < 6 * 60 * 60 * 1000) return;
   localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
 
-  const existing = getNotifications().map(n => n.id);
-
+  // No client-side dedup check here — addInAppNotification's POST is deduped
+  // server-side by (user_id, id) via ON CONFLICT DO NOTHING, since every id
+  // below is a deterministic key per alert (category+month, bill+due-date,
+  // goal+milestone, week-of).
   try {
     const now = new Date();
     const month = now.getMonth() + 1;
@@ -45,7 +47,7 @@ export async function runNotificationCheck(): Promise<void> {
       budgets.forEach((b) => {
         const pct = b.amount > 0 ? (b.spent / b.amount) * 100 : 0;
         const id = `budget-${b.category_id}-${month}-${year}`;
-        if (pct >= 80 && !existing.includes(id)) {
+        if (pct >= 80) {
           addInAppNotification({
             id,
             title: pct >= 100 ? `${b.name} budget exceeded` : `${b.name} budget at ${Math.round(pct)}%`,
@@ -68,7 +70,7 @@ export async function runNotificationCheck(): Promise<void> {
           (new Date(r.next_due).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
         );
         const id = `bill-${r.id}-${r.next_due}`;
-        if (daysUntil >= 0 && daysUntil <= 3 && !existing.includes(id)) {
+        if (daysUntil >= 0 && daysUntil <= 3) {
           addInAppNotification({
             id,
             title: daysUntil === 0 ? `${r.description} due today` : `${r.description} due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`,
@@ -87,7 +89,7 @@ export async function runNotificationCheck(): Promise<void> {
         const pct = g.target_amount > 0 ? (g.current_amount / g.target_amount) * 100 : 0;
         [25, 50, 75, 100].forEach(milestone => {
           const id = `goal-${g.id}-${milestone}pct`;
-          if (pct >= milestone && !existing.includes(id)) {
+          if (pct >= milestone) {
             addInAppNotification({
               id,
               title: milestone === 100 ? `Goal achieved: ${g.name}!` : `${g.name} is ${milestone}% funded`,
@@ -109,7 +111,7 @@ export async function runNotificationCheck(): Promise<void> {
       const weekStart = new Date(now);
       weekStart.setDate(now.getDate() - dayOfWeek);
       const weekKey = `weekly-summary-${weekStart.toISOString().split('T')[0]}`;
-      if (dayOfWeek === 0 && !existing.includes(weekKey) && summary) {
+      if (dayOfWeek === 0 && summary) {
         addInAppNotification({
           id: weekKey,
           title: 'Weekly spending summary',
