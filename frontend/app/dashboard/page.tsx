@@ -348,7 +348,10 @@ export default function DashboardPage() {
                 setBudgets(data.budgets);
                 setGoals(data.goals);
                 try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
-            } catch (err) { console.error('[Dashboard]', err); }
+            } catch (err) {
+                console.error('[Dashboard]', err);
+                toast.error('Failed to load dashboard data');
+            }
             finally { setDataLoading(false); }
         };
 

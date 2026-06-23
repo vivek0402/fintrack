@@ -24,6 +24,7 @@ const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
+const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
 const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
@@ -64,6 +65,7 @@ export default function GoalsPage() {
     const [form, setForm] = useState({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState('');
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
     const [editLoading, setEditLoading] = useState(false);
@@ -74,6 +76,7 @@ export default function GoalsPage() {
     const [lifeEventResult, setLifeEventResult] = useState<any>(null);
     const [lifeEventError, setLifeEventError] = useState('');
     const [showBurst, setShowBurst] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -81,18 +84,38 @@ export default function GoalsPage() {
     const fetchGoals = async () => {
         setLoading(true);
         try { const res = await goalsAPI.getAll(); setGoals(res.data.goals); }
-        catch (err) { console.error(err); }
+        catch (err) { console.error(err); toast.error('Failed to load goals'); }
         finally { setLoading(false); }
     };
     useEffect(() => { if (user) fetchGoals(); }, [user]);
 
     // ── Handlers (logic unchanged) ────────────────────────────────────────────
 
+    const validateField = (name: 'name' | 'target_amount', value: string): string => {
+        if (name === 'name') return value.trim() ? '' : 'Name is required.';
+        const amount = parseFloat(value);
+        return !Number.isFinite(amount) || amount <= 0 ? 'Target amount must be greater than 0.' : '';
+    };
+
+    const handleFieldBlur = (name: 'name' | 'target_amount') => {
+        setFormErrors(prev => ({ ...prev, [name]: validateField(name, form[name]) }));
+    };
+
+    const handleFieldChange = (name: 'name' | 'target_amount', value: string) => {
+        setForm(prev => ({ ...prev, [name]: value }));
+        setFormErrors(prev => (prev[name] ? { ...prev, [name]: validateField(name, value) } : prev));
+    };
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault(); setFormError(''); setFormLoading(true);
+        const errors = { name: validateField('name', form.name), target_amount: validateField('target_amount', form.target_amount) };
+        setFormErrors(errors);
+        if (errors.name || errors.target_amount) { setFormLoading(false); return; }
+        if (!navigator.onLine) { setFormError("You're offline — try again when connected"); setFormLoading(false); return; }
         try {
             await goalsAPI.create({ name: form.name, target_amount: parseFloat(form.target_amount), deadline: form.deadline || undefined, color: form.color });
             setForm({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
+            setFormErrors({});
             setShowForm(false); fetchGoals();
         } catch (err: any) { setFormError(err.response?.data?.error || 'Failed to create goal.'); }
         finally { setFormLoading(false); }
@@ -156,6 +179,9 @@ export default function GoalsPage() {
     const totalRemaining = Math.max(totalTargets - totalSaved, 0);
     const overallPct     = totalTargets > 0 ? Math.min(Math.round((totalSaved / totalTargets) * 100), 100) : 0;
     const completed      = goals.filter(g => parseFloat(g.saved_amount) >= parseFloat(g.target_amount)).length;
+    const filteredGoals  = searchQuery.trim()
+        ? goals.filter(g => (g.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+        : goals;
     const activeCount    = goals.length - completed;
 
     // ── Loading skeleton ──────────────────────────────────────────────────────
@@ -232,6 +258,17 @@ export default function GoalsPage() {
                     <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                 </div>
 
+                {/* ── SEARCH ── */}
+                {!loading && goals.length > 0 && (
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search goals by name…"
+                        style={inputSt}
+                    />
+                )}
+
                 {/* ── GOAL CARDS ── */}
                 {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -248,9 +285,16 @@ export default function GoalsPage() {
                             </button>
                         }
                     />
+                ) : filteredGoals.length === 0 ? (
+                    <EmptyState
+                        icon={Target}
+                        title="No goals match your search"
+                        subtitle={`Nothing found for "${searchQuery}".`}
+                        action={<button type="button" onClick={() => setSearchQuery('')} style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear search</button>}
+                    />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {goals.map(goal => {
+                        {filteredGoals.map(goal => {
                             const saved     = parseFloat(goal.saved_amount);
                             const target    = parseFloat(goal.target_amount);
                             const pct       = Math.min((saved / target) * 100, 100);
@@ -339,10 +383,10 @@ export default function GoalsPage() {
             {/* ═══ MODALS ═══ */}
 
             {/* New Goal Modal */}
-            <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); }} title="New Goal" maxWidth="460px"
+            <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} title="New Goal" maxWidth="460px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="new-goal-form" disabled={formLoading || !form.name.trim() || !form.target_amount} style={{ padding: 10, background: formLoading || !form.name.trim() || !form.target_amount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {formLoading ? 'Creating…' : 'Create Goal'}
                         </button>
@@ -350,13 +394,18 @@ export default function GoalsPage() {
                 }
             >
                 <form id="new-goal-form" onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div><label style={labelSt}>Goal Name *</label><input style={inputSt} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. New Laptop, Emergency Fund…" required /></div>
+                    <div>
+                        <label style={labelSt}>Goal Name *</label>
+                        <input style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. New Laptop, Emergency Fund…" required />
+                        {formErrors.name && <p style={errSt}>{formErrors.name}</p>}
+                    </div>
                     <div>
                         <label style={labelSt}>Target Amount *</label>
                         <div style={{ position: 'relative' }}>
                             <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>₹</span>
-                            <input type="number" min="1" placeholder="100000" value={form.target_amount} onChange={e => setForm({ ...form, target_amount: e.target.value })} required style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 15, fontVariantNumeric: 'tabular-nums' }} />
+                            <input type="number" min="1" placeholder="100000" value={form.target_amount} onChange={e => handleFieldChange('target_amount', e.target.value)} onBlur={() => handleFieldBlur('target_amount')} required style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 15, fontVariantNumeric: 'tabular-nums' }} />
                         </div>
+                        {formErrors.target_amount && <p style={errSt}>{formErrors.target_amount}</p>}
                     </div>
                     <DatePicker label="Target Date (optional)" value={form.deadline} onChange={date => setForm({ ...form, deadline: date })} minDate={new Date().toISOString().split('T')[0]} />
                     <div>

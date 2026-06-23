@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Bell, BellRing, Target, Flag, Receipt, BarChart3, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
-    getNotifications, markAllRead, clearAll,
+    getCachedNotifications, getNotifications, markAllRead, clearAll,
     AppNotification, NotificationType,
 } from '@/lib/notifications';
 
@@ -42,9 +42,11 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
     const router = useRouter();
     const wrapRef = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
-    const [items, setItems] = useState<AppNotification[]>([]);
+    const [items, setItems] = useState<AppNotification[]>(() => getCachedNotifications());
 
-    const refresh = () => setItems(getNotifications());
+    const refresh = () => {
+        getNotifications().then(({ notifications }) => setItems(notifications)).catch(() => {});
+    };
 
     useEffect(() => {
         refresh();
@@ -67,13 +69,13 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
     const handleToggle = () => {
         const next = !open;
         setOpen(next);
-        if (next) { markAllRead(); setTimeout(refresh, 30); }
+        if (next) { markAllRead().then(refresh).catch(() => {}); }
     };
 
     const handleClear = (e: React.MouseEvent) => {
         e.stopPropagation();
-        clearAll();
-        refresh();
+        setItems([]);
+        clearAll().catch(() => refresh());
     };
 
     const handleItemClick = (n: AppNotification) => {

@@ -9,6 +9,7 @@ import {
     ResponsiveContainer,
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
+import { toast } from '@/store/toastStore';
 import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
@@ -197,7 +198,10 @@ function AnalyticsOverviewTab() {
                 setPaymentTotal(pmRes.data.total ?? 0);
                 // Read chart colours after DOM has updated with any new theme
                 setCc(readChartColors());
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                toast.error('Failed to load analytics data');
+            }
             finally { setDataLoading(false); }
         };
         fetchData();
@@ -909,7 +913,7 @@ function AnalyticsOverviewTab() {
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Mark transactions as regretted using 🤦 in your transaction list</p>
                             </div>
                             <button type="button"
-                                onClick={async () => { setRegretLoading(true); try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); } catch { } finally { setRegretLoading(false); } }}
+                                onClick={async () => { setRegretLoading(true); try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); } catch { toast.error('Failed to analyse regrets — try again'); } finally { setRegretLoading(false); } }}
                                 disabled={regretLoading}
                                 style={{ padding: '8px 16px', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-md)', color: 'var(--color-exp)', fontSize: '13px', fontWeight: 600, cursor: regretLoading ? 'wait' : 'pointer', opacity: regretLoading ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
                                 {regretLoading ? 'Analysing…' : regretData ? 'Refresh' : 'Analyse Regrets'}
@@ -1079,7 +1083,7 @@ function InsightsTab() {
         try {
             const res = await insightsAPI.getBehavioralPatterns(true);
             setPatterns(res.data);
-        } catch {} finally { setRefreshing(false); }
+        } catch { toast.error('Failed to refresh patterns — try again'); } finally { setRefreshing(false); }
     };
 
     return (
@@ -1320,7 +1324,7 @@ function ReportsTab() {
         if (!from || !to) return;
         setLoading(true);
         try { const res = await analyticsAPI.report(from, to); setData(res.data); setSearched(true); }
-        catch (err) { console.error(err); }
+        catch (err) { console.error(err); toast.error('Failed to generate report — try again'); }
         finally { setLoading(false); }
     };
 
@@ -1485,7 +1489,7 @@ function ReportsTab() {
                                 <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🏆</div>
                                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>Financial Health Report Card</h3>
                                 <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>AI analyses your current month's transactions, budgets, and goals to give you an overall financial health score.</p>
-                                <Button onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); } finally { setHealthLoading(false); } }} isLoading={healthLoading} size="md">
+                                <Button onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); toast.error('Failed to generate health report — try again'); } finally { setHealthLoading(false); } }} isLoading={healthLoading} size="md">
                                     <Sparkles size={15} />Generate Health Report
                                 </Button>
                             </div>
@@ -1502,7 +1506,7 @@ function ReportsTab() {
                                         {healthReport.health_score}<span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 400, fontFamily: 'var(--font-body)' }}>/100</span>
                                     </div>
                                     <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '8px auto 0', maxWidth: '480px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{healthReport.narrative}</p>
-                                    <Button variant="secondary" size="sm" onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); } finally { setHealthLoading(false); } }} isLoading={healthLoading} style={{ marginTop: '16px' }}>
+                                    <Button variant="secondary" size="sm" onClick={async () => { setHealthLoading(true); try { const res = await aiAPI.healthReport(); setHealthReport(res.data); } catch (e) { console.error(e); toast.error('Failed to generate health report — try again'); } finally { setHealthLoading(false); } }} isLoading={healthLoading} style={{ marginTop: '16px' }}>
                                         <Sparkles size={13} />Regenerate
                                     </Button>
                                 </div>
@@ -1653,7 +1657,7 @@ function YearReviewTab() {
         setLoading(true);
         transactionsAPI.getAll()
             .then(res => setAllTxs(res.data.transactions ?? []))
-            .catch(() => {})
+            .catch(() => toast.error('Failed to load transaction data'))
             .finally(() => setLoading(false));
         // Try to read cached personality label
         try {

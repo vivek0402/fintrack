@@ -169,14 +169,14 @@ function BudgetsPageInner() {
         try {
             const res = await budgetsAPI.getAll({ month: currentMonth, year: currentYear });
             setBudgets(res.data.budgets);
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error(err); toast.error('Failed to load budgets'); }
         finally { setBudgetsLoading(false); }
     };
 
     useEffect(() => {
         if (!user) return;
         fetchBudgets();
-        categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(console.error);
+        categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(err => { console.error(err); toast.error('Failed to load categories'); });
 
         const pm  = currentMonth === 1 ? 12 : currentMonth - 1;
         const py  = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -237,6 +237,7 @@ function BudgetsPageInner() {
         e.preventDefault();
         setFormError('');
         if (!formCategory || !formAmount) { setFormError('Please select a category and enter an amount.'); return; }
+        if (!navigator.onLine) { setFormError("You're offline — try again when connected"); return; }
         setFormLoading(true);
         try {
             await budgetsAPI.create({ category_id: formCategory, amount: parseFloat(formAmount), month: currentMonth, year: currentYear });
@@ -327,6 +328,7 @@ function BudgetsPageInner() {
     const [recurring, setRecurring]         = useState<any[]>([]);
     const [recCategories, setRecCategories] = useState<any[]>([]);
     const [recurringLoading, setRecurringLoading] = useState(true);
+    const [processingRecurring, setProcessingRecurring] = useState(false);
     const [showRecForm, setShowRecForm]     = useState(false);
     const [recDeletingId, setRecDeletingId] = useState<string | null>(null);
     const [togglingId, setTogglingId]       = useState<string | null>(null);
@@ -346,8 +348,22 @@ function BudgetsPageInner() {
     const fetchRecurringData = async () => {
         setRecurringLoading(true);
         try { const [recRes, catRes] = await Promise.all([recurringAPI.getAll(), categoriesAPI.getAll()]); setRecurring(recRes.data.recurring); setRecCategories(catRes.data.categories); }
-        catch (err) { console.error(err); }
+        catch (err) { console.error(err); toast.error('Failed to load recurring transactions'); }
         finally { setRecurringLoading(false); }
+    };
+
+    const handleProcessRecurring = async () => {
+        setProcessingRecurring(true);
+        try {
+            const res = await recurringAPI.process();
+            const processed = res.data?.processed ?? 0;
+            toast.success(processed > 0 ? `Processed ${processed} item${processed > 1 ? 's' : ''}` : 'All caught up — nothing due');
+            if (processed > 0) fetchRecurringData();
+        } catch {
+            toast.error('Failed to process recurring transactions — try again');
+        } finally {
+            setProcessingRecurring(false);
+        }
     };
 
     const fetchPatterns = async () => {
@@ -402,7 +418,7 @@ function BudgetsPageInner() {
         try {
             await recurringAPI.create({ type: 'expense', amount: pattern.amount, description: pattern.description || pattern.merchant, frequency: pattern.frequency });
             setDismissedPatterns(prev => new Set([...prev, idx])); fetchRecurringData();
-        } catch { }
+        } catch { toast.error('Failed to add as recurring — try again'); }
         finally { setAddingPattern(null); }
     };
 
@@ -451,7 +467,7 @@ function BudgetsPageInner() {
     const fetchSplits = async () => {
         setSplitsLoading(true);
         try { const res = await splitsAPI.getAll(); setSplits(res.data.splits); }
-        catch { setSplits([]); }
+        catch { setSplits([]); toast.error('Failed to load splits'); }
         finally { setSplitsLoading(false); }
     };
 
@@ -502,7 +518,7 @@ function BudgetsPageInner() {
 
     const handleSettle = async (splitId: string, idx: number) => {
         try { const res = await splitsAPI.settle(splitId, idx); setSplits(splits.map(s => s.id === splitId ? res.data.split : s)); }
-        catch { /* silent */ }
+        catch { toast.error('Failed to settle split — try again'); }
     };
 
     const handleSplitDelete = async (id: string) => {
@@ -555,6 +571,7 @@ function BudgetsPageInner() {
             setOtAccounts(aData.accounts  || []);
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to load one-time expenses');
         }
         try {
             const catRes = await categoriesAPI.getAll();
@@ -629,6 +646,7 @@ function BudgetsPageInner() {
             setOtEditingExp(null);
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to save expense — try again');
         } finally {
             setOtSavingExp(false);
         }
@@ -649,6 +667,7 @@ function BudgetsPageInner() {
             );
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to delete expense — try again');
         }
     };
 
@@ -676,6 +695,7 @@ function BudgetsPageInner() {
             setOtItemForm(otEmptyItemForm());
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to add item — try again');
         } finally {
             setOtAddingItem(false);
         }
@@ -719,6 +739,7 @@ function BudgetsPageInner() {
             setOtItemForm(otEmptyItemForm());
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to update item — try again');
         } finally {
             setOtAddingItem(false);
         }
@@ -736,6 +757,7 @@ function BudgetsPageInner() {
             }));
         } catch (err) {
             console.error(err);
+            otShowToast('Failed to delete item — try again');
         }
     };
 
@@ -1198,7 +1220,12 @@ function BudgetsPageInner() {
                                             {recurring.length > 0 ? `${activeCount} active schedule${activeCount !== 1 ? 's' : ''}` : 'Automate your regular income and expenses'}
                                         </p>
                                     </div>
-                                    <Button onClick={() => setShowRecForm(!showRecForm)} size="md"><Plus size={16} />Add Recurring</Button>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button onClick={handleProcessRecurring} isLoading={processingRecurring} variant="secondary" size="md">
+                                            <RefreshCw size={16} />Process now
+                                        </Button>
+                                        <Button onClick={() => setShowRecForm(!showRecForm)} size="md"><Plus size={16} />Add Recurring</Button>
+                                    </div>
                                 </div>
                             </div>
 

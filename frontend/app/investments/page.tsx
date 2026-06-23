@@ -67,6 +67,7 @@ export default function InvestmentsPage() {
     const [priceLoading, setPriceLoading] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -86,18 +87,49 @@ export default function InvestmentsPage() {
 
     // ── Add Investment ──────────────────────────────────────────────────────
 
+    const validateField = (name: keyof typeof emptyForm, value: string): string => {
+        switch (name) {
+            case 'name':
+                return value.trim() ? '' : 'Name is required.';
+            case 'units': {
+                const units = parseFloat(value);
+                return !Number.isFinite(units) || units <= 0 ? 'Units must be greater than 0.' : '';
+            }
+            case 'purchase_price_per_unit': {
+                const purchasePrice = parseFloat(value);
+                return !Number.isFinite(purchasePrice) || purchasePrice < 0 ? 'Must be 0 or greater.' : '';
+            }
+            case 'current_nav_or_price': {
+                const currentPrice = parseFloat(value);
+                return !Number.isFinite(currentPrice) || currentPrice < 0 ? 'Must be 0 or greater.' : '';
+            }
+            case 'purchase_date':
+                if (!value) return 'Purchase date is required.';
+                return new Date(value) > new Date() ? 'Date cannot be in the future.' : '';
+            default:
+                return '';
+        }
+    };
+
     const validateForm = () => {
         const errors: Record<string, string> = {};
-        if (!form.name.trim()) errors.name = 'Name is required.';
-        const units = parseFloat(form.units);
-        if (!Number.isFinite(units) || units <= 0) errors.units = 'Units must be greater than 0.';
-        const purchasePrice = parseFloat(form.purchase_price_per_unit);
-        if (!Number.isFinite(purchasePrice) || purchasePrice < 0) errors.purchase_price_per_unit = 'Must be 0 or greater.';
-        const currentPrice = parseFloat(form.current_nav_or_price);
-        if (!Number.isFinite(currentPrice) || currentPrice < 0) errors.current_nav_or_price = 'Must be 0 or greater.';
-        if (!form.purchase_date) errors.purchase_date = 'Purchase date is required.';
-        else if (new Date(form.purchase_date) > new Date()) errors.purchase_date = 'Date cannot be in the future.';
+        (['name', 'units', 'purchase_price_per_unit', 'current_nav_or_price', 'purchase_date'] as const).forEach(field => {
+            const message = validateField(field, form[field]);
+            if (message) errors[field] = message;
+        });
         return errors;
+    };
+
+    const handleFieldBlur = (name: keyof typeof emptyForm) => {
+        setFormErrors(prev => ({ ...prev, [name]: validateField(name, form[name]) }));
+    };
+
+    // Re-validates on every keystroke only once a field already has a visible
+    // error, so it clears live as soon as the value becomes valid instead of
+    // waiting for the next blur.
+    const handleFieldChange = (name: keyof typeof emptyForm, value: string) => {
+        setForm(prev => ({ ...prev, [name]: value }));
+        setFormErrors(prev => (prev[name] ? { ...prev, [name]: validateField(name, value) } : prev));
     };
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -105,6 +137,7 @@ export default function InvestmentsPage() {
         const errors = validateForm();
         setFormErrors(errors);
         if (Object.keys(errors).length > 0) return;
+        if (!navigator.onLine) { toast.error("You're offline — try again when connected"); return; }
 
         setFormLoading(true);
         try {
@@ -179,11 +212,20 @@ export default function InvestmentsPage() {
 
     // ── Derived: group holdings by type ─────────────────────────────────────
 
+    const filteredInvestments = searchQuery.trim()
+        ? investments.filter(inv => {
+              const q = searchQuery.trim().toLowerCase();
+              return inv.name.toLowerCase().includes(q)
+                  || (inv.ticker_or_folio || '').toLowerCase().includes(q)
+                  || (GROUP_LABELS[inv.type] || '').toLowerCase().includes(q);
+          })
+        : investments;
+
     const groups = Object.keys(GROUP_LABELS)
         .map(type => ({
             type,
             label: GROUP_LABELS[type],
-            holdings: investments.filter(inv => inv.type === type),
+            holdings: filteredInvestments.filter(inv => inv.type === type),
         }))
         .filter(g => g.holdings.length > 0);
 
@@ -242,6 +284,17 @@ export default function InvestmentsPage() {
                     )}
                 </div>
 
+                {/* ── SEARCH ── */}
+                {!loading && investments.length > 0 && (
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search by name, ticker, or type…"
+                        style={{ width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }}
+                    />
+                )}
+
                 {/* ── HOLDINGS ── */}
                 {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -253,6 +306,13 @@ export default function InvestmentsPage() {
                         title="No investments tracked yet"
                         subtitle="Add your first holding to start tracking your portfolio."
                         action={<Button onClick={() => setShowAdd(true)}><Plus size={14} /> Add Investment</Button>}
+                    />
+                ) : groups.length === 0 ? (
+                    <EmptyState
+                        icon={Briefcase}
+                        title="No holdings match your search"
+                        subtitle={`Nothing found for "${searchQuery}".`}
+                        action={<Button variant="secondary" onClick={() => setSearchQuery('')}>Clear search</Button>}
                     />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -368,36 +428,41 @@ export default function InvestmentsPage() {
                     </div>
                     <div>
                         <label style={labelSt}>Name *</label>
-                        <input style={inputSt} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Axis Bluechip Fund, Reliance, SBI FD…" />
+                        <input style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. Axis Bluechip Fund, Reliance, SBI FD…" />
                         {formErrors.name && <p style={errSt}>{formErrors.name}</p>}
                     </div>
                     <div>
                         <label style={labelSt}>Ticker / Folio (optional)</label>
                         <input style={inputSt} value={form.ticker_or_folio} onChange={e => setForm({ ...form, ticker_or_folio: e.target.value })} placeholder="e.g. RELIANCE, 123456789" />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                         <div>
                             <label style={labelSt}>Units *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={form.units} onChange={e => setForm({ ...form, units: e.target.value })} placeholder="10" />
+                            <input type="number" min="0" step="any" style={inputSt} value={form.units} onChange={e => handleFieldChange('units', e.target.value)} onBlur={() => handleFieldBlur('units')} placeholder="10" />
                             {formErrors.units && <p style={errSt}>{formErrors.units}</p>}
                         </div>
                         <div>
                             <label style={labelSt}>Purchase Date *</label>
-                            <input type="date" max={today()} style={inputSt} value={form.purchase_date} onChange={e => setForm({ ...form, purchase_date: e.target.value })} />
+                            <input type="date" max={today()} style={inputSt} value={form.purchase_date} onChange={e => handleFieldChange('purchase_date', e.target.value)} onBlur={() => handleFieldBlur('purchase_date')} />
                             {formErrors.purchase_date && <p style={errSt}>{formErrors.purchase_date}</p>}
                         </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                         <div>
                             <label style={labelSt}>Purchase Price / Unit *</label>
                             <input type="number" min="0" step="any" style={inputSt} value={form.purchase_price_per_unit}
-                                onChange={e => setForm({ ...form, purchase_price_per_unit: e.target.value, current_nav_or_price: form.current_nav_or_price || e.target.value })}
+                                onChange={e => {
+                                    const value = e.target.value;
+                                    setForm(prev => ({ ...prev, purchase_price_per_unit: value, current_nav_or_price: prev.current_nav_or_price || value }));
+                                    setFormErrors(prev => (prev.purchase_price_per_unit ? { ...prev, purchase_price_per_unit: validateField('purchase_price_per_unit', value) } : prev));
+                                }}
+                                onBlur={() => handleFieldBlur('purchase_price_per_unit')}
                                 placeholder="100" />
                             {formErrors.purchase_price_per_unit && <p style={errSt}>{formErrors.purchase_price_per_unit}</p>}
                         </div>
                         <div>
                             <label style={labelSt}>Current NAV / Price *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={form.current_nav_or_price} onChange={e => setForm({ ...form, current_nav_or_price: e.target.value })} placeholder="120" />
+                            <input type="number" min="0" step="any" style={inputSt} value={form.current_nav_or_price} onChange={e => handleFieldChange('current_nav_or_price', e.target.value)} onBlur={() => handleFieldBlur('current_nav_or_price')} placeholder="120" />
                             {formErrors.current_nav_or_price && <p style={errSt}>{formErrors.current_nav_or_price}</p>}
                         </div>
                     </div>

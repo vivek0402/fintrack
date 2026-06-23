@@ -8,7 +8,7 @@ import {
     LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
     Waves, Flame, GitBranch, Percent, PiggyBank,
     CreditCard, FolderOpen, Users,
-    MoreHorizontal, ChevronUp,
+    MoreHorizontal, ChevronUp, HelpCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -65,7 +65,7 @@ const moreGroups = [
 
 const moreItems = moreGroups.flatMap(g => g.items);
 
-export function Sidebar() {
+export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
@@ -172,7 +172,33 @@ export function Sidebar() {
                         Track
                     </span>
                 </div>
-                <NotificationBell panelAlign="left" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    {onOpenTour && (
+                        <button
+                            type="button"
+                            onClick={onOpenTour}
+                            title="Replay the app tour"
+                            aria-label="Replay the app tour"
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                padding: '6px',
+                                borderRadius: 'var(--radius-md)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'background var(--transition-fast)',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                            <HelpCircle size={18} />
+                        </button>
+                    )}
+                    <NotificationBell panelAlign="left" />
+                </div>
             </div>
 
             <GlobalSearch />

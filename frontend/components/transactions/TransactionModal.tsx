@@ -388,7 +388,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 const res = await marketDataAPI.searchMutualFunds(value.trim());
                 setMfResults(res.data.results || []);
                 setMfDropdownOpen(true);
-            } catch { setMfResults([]); } finally { setMfLoading(false); }
+            } catch {
+                setMfResults([]);
+                setMfDropdownOpen(false);
+                toast.error('Fund search failed — try again');
+            } finally { setMfLoading(false); }
         }, 300);
     };
 

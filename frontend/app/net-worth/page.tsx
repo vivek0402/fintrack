@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer, PieChart, Pie, Tooltip } from 'recharts';
 import { Info, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { toast } from '@/store/toastStore';
 import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -135,7 +136,10 @@ function NetWorthPageInner() {
                 setVelocity(velRes.data);
                 setAllocation(allocRes.data);
             })
-            .catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
+            .catch((err: any) => {
+                if (err.response?.status === 401) router.push('/login');
+                else toast.error('Failed to load net worth data');
+            })
             .finally(() => setLoading(false));
     }, [user]);
 
