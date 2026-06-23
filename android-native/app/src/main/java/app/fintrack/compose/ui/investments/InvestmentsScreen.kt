@@ -69,6 +69,19 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel = hiltViewModel()) {
             else -> LazyColumn(contentPadding = PaddingValues(FinTrackSpacing.space4)) {
                 item {
                     InvestmentsSummaryCard(state.summary)
+                    Spacer(Modifier.height(FinTrackSpacing.space3))
+                    Row(horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space3), modifier = Modifier.fillMaxWidth()) {
+                        InvestmentsMiniStat(
+                            label = "Total Invested",
+                            value = formatInr(state.summary?.total_invested ?: 0.0),
+                            modifier = Modifier.weight(1f),
+                        )
+                        InvestmentsMiniStat(
+                            label = "Holdings",
+                            value = "${state.investments.size}",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     Spacer(Modifier.height(FinTrackSpacing.space4))
                 }
                 if (state.investments.isEmpty()) {
@@ -150,6 +163,17 @@ private fun InvestmentsSummaryCard(summary: app.fintrack.compose.data.api.Invest
 }
 
 @Composable
+private fun InvestmentsMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = modifier) {
+        Column(modifier = Modifier.padding(FinTrackSpacing.space4)) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(FinTrackSpacing.space2))
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 private fun InvestmentRow(investment: InvestmentDto, onDelete: () -> Unit) {
     val isGain = investment.unrealized_gain >= 0
     val gainColor = if (isGain) FinTrackColors.Dark.colorInc else FinTrackColors.Dark.colorExp
@@ -170,6 +194,10 @@ private fun InvestmentRow(investment: InvestmentDto, onDelete: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = gainColor,
                 )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Avg. Buy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(formatInr(investment.purchase_price_per_unit), style = MaterialTheme.typography.bodySmall)
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
