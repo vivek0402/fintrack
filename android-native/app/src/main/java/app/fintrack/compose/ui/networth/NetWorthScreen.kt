@@ -16,10 +16,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -30,19 +35,30 @@ import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
 
+private val NET_WORTH_TABS = listOf("Overview", "Velocity")
+
 @Composable
 fun NetWorthScreen(viewModel: NetWorthViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
+    var selectedTab by remember { mutableIntStateOf(0) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        when {
-            state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            state.error != null -> Text(
-                state.error.orEmpty(),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
-            )
-            else -> NetWorthContent(state)
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            NET_WORTH_TABS.forEachIndexed { index, label ->
+                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(label) })
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                state.error != null -> Text(
+                    state.error.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
+                )
+                selectedTab == 1 -> NetWorthVelocityContent(state.wealthVelocity)
+                else -> NetWorthContent(state)
+            }
         }
     }
 }
