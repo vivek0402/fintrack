@@ -140,9 +140,13 @@ export function BulkOpsPanel({
     const handleSplit = async () => {
         if (!splitTx || !splitValid) return;
         setSplitLoading(true);
+        // Track created line ids so a failure after creation (either mid-loop, or
+        // on the final delete-original step) can be rolled back instead of
+        // silently leaving duplicated transactions behind.
+        const createdIds: string[] = [];
         try {
             for (const line of splitLines) {
-                await transactionsAPI.create({
+                const res = await transactionsAPI.create({
                     type: splitTx.type,
                     amount: parseFloat(line.amount),
                     description: line.description || splitTx.description,
@@ -152,14 +156,33 @@ export function BulkOpsPanel({
                     account_id: splitTx.account_id,
                     notes: `Split from: ${splitTx.description}`,
                 });
+                createdIds.push(res.data.transaction.id);
             }
-            await transactionsAPI.delete(splitTx.id);
+            try {
+                await transactionsAPI.delete(splitTx.id);
+            } catch {
+                // Creates succeeded but deleting the original failed — roll back the
+                // new lines instead of leaving the user with duplicated transactions.
+                try {
+                    await Promise.all(createdIds.map(id => transactionsAPI.delete(id)));
+                    toast.error('Split failed — no changes were made. Try again.');
+                } catch {
+                    toast.error(`Split partially failed — check transaction "${splitTx.description}" (${splitTx.date}) for duplicates.`);
+                }
+                onRefresh();
+                return;
+            }
             toast.success(`Split into ${splitLines.length} transactions`);
             setSplitOpen(false);
             onExit();
             onRefresh();
         } catch {
-            toast.error('Split failed');
+            // A create failed mid-loop — clean up whatever lines were created so
+            // far; the original transaction is untouched.
+            if (createdIds.length > 0) {
+                await Promise.all(createdIds.map(id => transactionsAPI.delete(id).catch(() => {})));
+            }
+            toast.error('Split failed — no changes were made.');
         } finally {
             setSplitLoading(false);
         }

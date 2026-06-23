@@ -16,8 +16,8 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/store/toastStore';
 import { Investment, InvestmentSummary, INVESTMENT_TYPES, GROUP_LABELS } from '@/types/investments';
+import { fmt } from '@/lib/utils';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 const relativeTime = (iso?: string | null) => {
@@ -66,8 +66,8 @@ export default function InvestmentsPage() {
     const [priceError, setPriceError] = useState('');
     const [priceLoading, setPriceLoading] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -194,32 +194,47 @@ export default function InvestmentsPage() {
         }
     };
 
-    const handleDelete = async () => {
+    const handleDelete = () => {
         if (!activeInvestment) return;
-        setDeleteLoading(true);
-        try {
-            await investmentAPI.delete(activeInvestment.id);
-            setActiveInvestment(null);
-            toast.success('Investment deleted');
-            fetchData();
-        } catch {
-            toast.error('Failed to delete investment.');
-        } finally {
-            setDeleteLoading(false);
-            setConfirmDelete(false);
-        }
+        const id = activeInvestment.id;
+
+        // Optimistically hide the holding and close the modal, then give the user
+        // an undo window before actually deleting — same pattern as goals/
+        // transactions delete.
+        setPendingDelete(prev => new Set([...prev, id]));
+        setActiveInvestment(null);
+        setConfirmDelete(false);
+
+        let cancelled = false;
+        toast.undo('Investment deleted', () => {
+            cancelled = true;
+            setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await investmentAPI.delete(id);
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                fetchData();
+            } catch {
+                toast.error('Failed to delete investment.');
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+            }
+        }, 4000);
     };
 
     // ── Derived: group holdings by type ─────────────────────────────────────
 
+    const visibleInvestments = investments.filter(inv => !pendingDelete.has(inv.id));
     const filteredInvestments = searchQuery.trim()
-        ? investments.filter(inv => {
+        ? visibleInvestments.filter(inv => {
               const q = searchQuery.trim().toLowerCase();
               return inv.name.toLowerCase().includes(q)
                   || (inv.ticker_or_folio || '').toLowerCase().includes(q)
                   || (GROUP_LABELS[inv.type] || '').toLowerCase().includes(q);
           })
-        : investments;
+        : visibleInvestments;
 
     const groups = Object.keys(GROUP_LABELS)
         .map(type => ({
@@ -495,9 +510,9 @@ export default function InvestmentsPage() {
                 <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
                     {confirmDelete ? (
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={handleDelete} disabled={deleteLoading}
+                            <button type="button" onClick={handleDelete}
                                 style={{ flex: 1, padding: 10, borderRadius: 10, background: 'color-mix(in srgb, var(--color-exp) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                {deleteLoading ? 'Deleting…' : 'Confirm Delete'}
+                                Confirm Delete
                             </button>
                             <button type="button" onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Cancel

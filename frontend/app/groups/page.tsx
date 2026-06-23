@@ -10,6 +10,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
+import { fmt } from '@/lib/utils';
 import {
     Plus, Users, X, Check, ChevronRight,
     ArrowLeft, Trash2, PlusCircle, SplitSquareHorizontal,
@@ -25,7 +26,6 @@ interface Split   { id: number; description: string; total_amount: number; paid_
 interface Settlement { from: string; to: string; amount: number }
 
 const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','🛒','💊','📚','🌿'];
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
 const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
@@ -132,7 +132,12 @@ export default function GroupsPage() {
     };
     const searchTx = async (q: string) => { setTxSearch(q); if (q.length < 2) { setTxResults([]); return; } const res = await transactionsAPI.search(q); setTxResults(res.data.transactions || []); };
     const linkTx = async (tx: Transaction) => { if (!selectedGroup) return; setLinkingTx(true); try { await groupsAPI.linkTransaction(String(selectedGroup.id), String(tx.id)); setShowTxModal(false); setTxSearch(''); setTxResults([]); await openGroup(selectedGroup); } finally { setLinkingTx(false); } };
-    const unlinkTx = async (tx: Transaction) => { if (!selectedGroup) return; await groupsAPI.unlinkTransaction(String(selectedGroup.id), String(tx.id)); await openGroup(selectedGroup); };
+    const unlinkTx = async (tx: Transaction) => {
+        if (!selectedGroup) return;
+        if (!confirm('Unlink this transaction from the group? Settlement totals will be recalculated.')) return;
+        await groupsAPI.unlinkTransaction(String(selectedGroup.id), String(tx.id));
+        await openGroup(selectedGroup);
+    };
 
     const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: active ? 600 : 400, border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent)' : 'var(--bg-surface-1)', color: active ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
 

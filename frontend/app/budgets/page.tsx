@@ -23,13 +23,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
 import { Tabs } from '@/components/ui/Tabs';
-import { formatDate } from '@/lib/utils';
+import { formatDate, fmt as fmtBase } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 
-const fmt = (n: number) => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
-const fmtSigned = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
+const fmt = (n: number) => fmtBase(Math.abs(n));
 
 const TABS = [
     { key: 'budgets',   label: 'Budgets' },
@@ -139,6 +138,9 @@ function BudgetsPageInner() {
     const [budgetsLoading, setBudgetsLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [pendingDeleteBudget, setPendingDeleteBudget] = useState<Set<string>>(new Set());
+    const [pendingDeleteRecurring, setPendingDeleteRecurring] = useState<Set<string>>(new Set());
+    const [pendingDeleteSplit, setPendingDeleteSplit] = useState<Set<string>>(new Set());
     const [showForm, setShowForm]         = useState(false);
     const [formCategory, setFormCategory] = useState('');
     const [formAmount, setFormAmount]     = useState('');
@@ -246,11 +248,32 @@ function BudgetsPageInner() {
         finally { setFormLoading(false); }
     };
 
-    const handleDelete = async (id: string) => {
-        setDeletingId(id);
-        try { await budgetsAPI.delete(id); fetchBudgets(); toast.success('Budget deleted'); }
-        catch { toast.error('Failed to delete budget'); }
-        finally { setDeletingId(null); setConfirmDeleteId(null); }
+    const handleDelete = (id: string) => {
+        // Optimistically hide, then give the user an undo window before actually
+        // deleting — same pattern as goals/investments delete.
+        setPendingDeleteBudget(prev => new Set([...prev, id]));
+        setConfirmDeleteId(null);
+
+        let cancelled = false;
+        toast.undo('Budget deleted', () => {
+            cancelled = true;
+            setPendingDeleteBudget(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            setDeletingId(id);
+            try {
+                await budgetsAPI.delete(id);
+                setPendingDeleteBudget(prev => { const s = new Set(prev); s.delete(id); return s; });
+                fetchBudgets();
+            } catch {
+                toast.error('Failed to delete budget');
+                setPendingDeleteBudget(prev => { const s = new Set(prev); s.delete(id); return s; });
+            } finally {
+                setDeletingId(null);
+            }
+        }, 4000);
     };
 
     const handleEditSave = async (budget: any) => {
@@ -308,10 +331,11 @@ function BudgetsPageInner() {
     const onTrackCount    = budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount)).length;
     const unallocated     = monthlyIncome - totalBudgeted;
     const copyableCount   = prevMonthBudgets.filter(pb => !budgets.find(b => b.category_id === pb.category_id)).length;
-    const filteredBudgets = healthFilter === 'all'       ? budgets
-        : healthFilter === 'on-track'                    ? budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount))
-        : healthFilter === 'over'                        ? budgets.filter(b => parseFloat(b.spent) >  parseFloat(b.amount))
-        : budgets.filter(b => suggestions.some(s => s.categoryId === b.category_id));
+    const visibleBudgets  = budgets.filter(b => !pendingDeleteBudget.has(b.id));
+    const filteredBudgets = healthFilter === 'all'       ? visibleBudgets
+        : healthFilter === 'on-track'                    ? visibleBudgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount))
+        : healthFilter === 'over'                        ? visibleBudgets.filter(b => parseFloat(b.spent) >  parseFloat(b.amount))
+        : visibleBudgets.filter(b => suggestions.some(s => s.categoryId === b.category_id));
 
     const openAdd = () => { setShowForm(true); setFormError(''); setFormCategory(''); setFormAmount(''); };
     const chipStyle = (active: boolean): React.CSSProperties => ({
@@ -406,11 +430,32 @@ function BudgetsPageInner() {
         finally { setRecEditLoading(false); }
     };
 
-    const handleRecDelete = async (id: string) => {
-        if (!confirm('Delete this recurring transaction?')) return;
-        setRecDeletingId(id);
-        try { await recurringAPI.delete(id); fetchRecurringData(); }
-        finally { setRecDeletingId(null); }
+    const handleRecDelete = (id: string) => {
+        // Optimistically hide, then give the user an undo window before actually
+        // deleting — replaces the native confirm() with the same undo pattern used
+        // for goals/investments/budgets delete.
+        setPendingDeleteRecurring(prev => new Set([...prev, id]));
+
+        let cancelled = false;
+        toast.undo('Recurring transaction deleted', () => {
+            cancelled = true;
+            setPendingDeleteRecurring(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            setRecDeletingId(id);
+            try {
+                await recurringAPI.delete(id);
+                setPendingDeleteRecurring(prev => { const s = new Set(prev); s.delete(id); return s; });
+                fetchRecurringData();
+            } catch {
+                toast.error('Failed to delete recurring transaction');
+                setPendingDeleteRecurring(prev => { const s = new Set(prev); s.delete(id); return s; });
+            } finally {
+                setRecDeletingId(null);
+            }
+        }, 4000);
     };
 
     const handleAddPattern = async (pattern: any, idx: number) => {
@@ -521,11 +566,32 @@ function BudgetsPageInner() {
         catch { toast.error('Failed to settle split — try again'); }
     };
 
-    const handleSplitDelete = async (id: string) => {
-        if (!confirm('Delete this split?')) return;
-        setSplitDeletingId(id);
-        try { await splitsAPI.delete(id); fetchSplits(); }
-        finally { setSplitDeletingId(null); }
+    const handleSplitDelete = (id: string) => {
+        // Optimistically hide, then give the user an undo window before actually
+        // deleting (this also removes the linked transaction on the backend, so
+        // the undo window matters more here than for most deletes).
+        setPendingDeleteSplit(prev => new Set([...prev, id]));
+
+        let cancelled = false;
+        toast.undo('Split deleted', () => {
+            cancelled = true;
+            setPendingDeleteSplit(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            setSplitDeletingId(id);
+            try {
+                await splitsAPI.delete(id);
+                setPendingDeleteSplit(prev => { const s = new Set(prev); s.delete(id); return s; });
+                fetchSplits();
+            } catch {
+                toast.error('Failed to delete split');
+                setPendingDeleteSplit(prev => { const s = new Set(prev); s.delete(id); return s; });
+            } finally {
+                setSplitDeletingId(null);
+            }
+        }, 4000);
     };
 
     const allSettled = (split: any) => split.participants.every((p: any) => p.settled);
@@ -1327,7 +1393,7 @@ function BudgetsPageInner() {
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {recurring.map(r => {
+                                    {recurring.filter(r => !pendingDeleteRecurring.has(r.id)).map(r => {
                                         const isIncome = r.type === 'income';
                                         return (
                                             <div key={r.id}>
@@ -1463,7 +1529,7 @@ function BudgetsPageInner() {
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {splits.map(split => {
+                                    {splits.filter(split => !pendingDeleteSplit.has(split.id)).map(split => {
                                         const settled = allSettled(split);
                                         return (
                                             <div key={split.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${settled ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>

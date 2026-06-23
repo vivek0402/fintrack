@@ -17,10 +17,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { MilestoneBurst } from '@/components/ui/MilestoneBurst';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
+import { fmt } from '@/lib/utils';
 
 const GOAL_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2'];
-
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
@@ -58,6 +57,7 @@ export default function GoalsPage() {
     const [showForm, setShowForm] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
     const [fundsGoalId, setFundsGoalId] = useState<string | null>(null);
     const [fundsAmount, setFundsAmount] = useState('');
     const [fundsType, setFundsType] = useState<'add' | 'withdraw'>('add');
@@ -151,11 +151,32 @@ export default function GoalsPage() {
         finally { setFundsLoading(false); }
     };
 
-    const handleDelete = async (id: string) => {
-        setDeletingId(id);
-        try { await goalsAPI.delete(id); fetchGoals(); toast.success('Goal deleted'); }
-        catch { toast.error('Failed to delete goal'); }
-        finally { setDeletingId(null); setConfirmDeleteId(null); }
+    const handleDelete = (id: string) => {
+        // Optimistically hide the row, then give the user an undo window before
+        // actually deleting — same pattern as TransactionList's delete.
+        setPendingDelete(prev => new Set([...prev, id]));
+        setConfirmDeleteId(null);
+
+        let cancelled = false;
+        toast.undo('Goal deleted', () => {
+            cancelled = true;
+            setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            setDeletingId(id);
+            try {
+                await goalsAPI.delete(id);
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                fetchGoals();
+            } catch {
+                toast.error('Failed to delete goal');
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+            } finally {
+                setDeletingId(null);
+            }
+        }, 4000);
     };
 
     const handleLifeEvent = async (e: React.FormEvent) => {
@@ -179,9 +200,10 @@ export default function GoalsPage() {
     const totalRemaining = Math.max(totalTargets - totalSaved, 0);
     const overallPct     = totalTargets > 0 ? Math.min(Math.round((totalSaved / totalTargets) * 100), 100) : 0;
     const completed      = goals.filter(g => parseFloat(g.saved_amount) >= parseFloat(g.target_amount)).length;
+    const visibleGoals   = goals.filter(g => !pendingDelete.has(g.id));
     const filteredGoals  = searchQuery.trim()
-        ? goals.filter(g => (g.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
-        : goals;
+        ? visibleGoals.filter(g => (g.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+        : visibleGoals;
     const activeCount    = goals.length - completed;
 
     // ── Loading skeleton ──────────────────────────────────────────────────────
