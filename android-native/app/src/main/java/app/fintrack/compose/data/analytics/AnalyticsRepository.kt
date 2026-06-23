@@ -13,7 +13,7 @@ import javax.inject.Singleton
 class AnalyticsRepository @Inject constructor(
     private val api: AnalyticsApiService,
 ) {
-    suspend fun getSummary(): SummaryResponse = api.getSummary()
+    suspend fun getSummary(month: Int? = null, year: Int? = null): SummaryResponse = api.getSummary(month, year)
     suspend fun getNetWorth(): NetWorthResponse = api.getNetWorth()
     suspend fun getWealthVelocity(): WealthVelocityResponse = api.getWealthVelocity()
     suspend fun getTrends(): TrendsResponse = api.getTrends()

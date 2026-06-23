@@ -1,5 +1,6 @@
 package app.fintrack.compose.ui.budgets
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -100,9 +103,44 @@ private fun BudgetsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.align(Alignment.Center),
             )
-            else -> LazyColumn(contentPadding = PaddingValues(FinTrackSpacing.space4)) {
-                items(state.budgets, key = { it.id }) { budget ->
-                    BudgetRow(budget = budget, onDelete = { onPendingDeleteChange(budget.id) })
+            else -> LazyColumn(contentPadding = PaddingValues(vertical = FinTrackSpacing.space4)) {
+                item { BudgetSummaryCards(state) }
+                item { Spacer(Modifier.height(FinTrackSpacing.space3)) }
+                item { BudgetOverallProgressCard(state) }
+                item { Spacer(Modifier.height(FinTrackSpacing.space3)) }
+                item { ZeroBasedModeBanner(state, onAllocate = viewModel::openCreateForm) }
+                item { OverBudgetAlertBanner(state.overBudgetList) }
+                item { BudgetSuggestionsBanner(state.suggestions, state.adjustingSuggestionId, viewModel::adjustSuggestion, viewModel::dismissSuggestion) }
+                item { CopyFromLastMonthButton(state.copyableCount, state.isCopying, viewModel::copyFromLastMonth) }
+                item { Spacer(Modifier.height(FinTrackSpacing.space2)) }
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4),
+                    ) {
+                        Text("Categories", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = viewModel::toggleZeroBasedMode) {
+                            Text(if (state.zeroBasedMode) "Exit zero-based" else "Zero-based")
+                        }
+                    }
+                }
+                item { BudgetHealthFilterChips(state, viewModel::setHealthFilter) }
+                items(state.filteredBudgets, key = { it.id }) { budget ->
+                    Box(modifier = Modifier.padding(horizontal = FinTrackSpacing.space4)) {
+                        BudgetRow(
+                            budget = budget,
+                            isEditing = state.editingId == budget.id,
+                            editAmount = state.editAmount,
+                            isRolloverEnabled = budget.category_id in state.rolloverEnabled,
+                            onDelete = { onPendingDeleteChange(budget.id) },
+                            onStartEdit = { viewModel.startEdit(budget) },
+                            onEditAmountChange = viewModel::updateEditAmount,
+                            onSaveEdit = { viewModel.saveEdit(budget.category_id) },
+                            onCancelEdit = viewModel::cancelEdit,
+                            onToggleRollover = { viewModel.toggleRollover(budget.category_id) },
+                        )
+                    }
                     Spacer(Modifier.height(FinTrackSpacing.space3))
                 }
             }
@@ -139,7 +177,18 @@ private fun BudgetsContent(
 }
 
 @Composable
-private fun BudgetRow(budget: BudgetDto, onDelete: () -> Unit) {
+private fun BudgetRow(
+    budget: BudgetDto,
+    isEditing: Boolean,
+    editAmount: String,
+    isRolloverEnabled: Boolean,
+    onDelete: () -> Unit,
+    onStartEdit: () -> Unit,
+    onEditAmountChange: (String) -> Unit,
+    onSaveEdit: () -> Unit,
+    onCancelEdit: () -> Unit,
+    onToggleRollover: () -> Unit,
+) {
     val spent = budget.spent.toDoubleOrNull() ?: 0.0
     val amount = budget.amount.toDoubleOrNull()?.takeIf { it > 0 } ?: 1.0
     val progress = (spent / amount).toFloat().coerceIn(0f, 1f)
@@ -153,8 +202,17 @@ private fun BudgetRow(budget: BudgetDto, onDelete: () -> Unit) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                 Text(budget.category_name ?: "Uncategorized", style = MaterialTheme.typography.titleMedium)
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onToggleRollover) {
+                        Icon(
+                            if (isRolloverEnabled) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder,
+                            contentDescription = if (isRolloverEnabled) "Rollover enabled" else "Enable rollover",
+                            tint = if (isRolloverEnabled) FinTrackColors.Dark.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
             Spacer(Modifier.height(FinTrackSpacing.space2))
@@ -164,11 +222,27 @@ private fun BudgetRow(budget: BudgetDto, onDelete: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(FinTrackSpacing.space2))
-            Text(
-                "${formatInr(budget.spent)} of ${formatInr(budget.amount)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (isEditing) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2)) {
+                    OutlinedTextField(
+                        value = editAmount,
+                        onValueChange = onEditAmountChange,
+                        label = { Text("Amount") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = onSaveEdit) { Text("Save") }
+                    TextButton(onClick = onCancelEdit) { Text("Cancel") }
+                }
+            } else {
+                Text(
+                    "${formatInr(budget.spent)} of ${formatInr(budget.amount)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clickable(onClick = onStartEdit),
+                )
+            }
         }
     }
 }
