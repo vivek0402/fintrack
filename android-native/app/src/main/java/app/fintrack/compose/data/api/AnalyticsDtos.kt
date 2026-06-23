@@ -92,3 +92,21 @@ data class InvestmentRatioResponse(
     val income_this_month: Double,
     val ratio_pct: Double,
 )
+
+@Serializable
+data class AssetAllocationItemDto(
+    val category: String,
+    val label: String,
+    val amount: Double,
+    val actual_pct: Double,
+    val recommended_pct: Double,
+    val deviation: Double,
+)
+
+@Serializable
+data class AssetAllocationResponse(
+    val allocations: List<AssetAllocationItemDto>,
+    val total_assets: Double,
+    val deviation_score: Double,
+    val recommendation_note: String,
+)

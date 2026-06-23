@@ -18,4 +18,7 @@ interface AnalyticsApiService {
 
     @GET("api/analytics/investment-ratio")
     suspend fun getInvestmentRatio(): InvestmentRatioResponse
+
+    @GET("api/analytics/asset-allocation")
+    suspend fun getAssetAllocation(): AssetAllocationResponse
 }

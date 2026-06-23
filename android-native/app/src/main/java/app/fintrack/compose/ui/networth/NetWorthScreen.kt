@@ -35,7 +35,7 @@ import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
 
-private val NET_WORTH_TABS = listOf("Overview", "Velocity")
+private val NET_WORTH_TABS = listOf("Overview", "Velocity", "Allocation")
 
 @Composable
 fun NetWorthScreen(viewModel: NetWorthViewModel = hiltViewModel()) {
@@ -57,6 +57,7 @@ fun NetWorthScreen(viewModel: NetWorthViewModel = hiltViewModel()) {
                     modifier = Modifier.align(Alignment.Center).padding(FinTrackSpacing.space6),
                 )
                 selectedTab == 1 -> NetWorthVelocityContent(state.wealthVelocity)
+                selectedTab == 2 -> NetWorthAllocationContent(state.assetAllocation)
                 else -> NetWorthContent(state)
             }
         }

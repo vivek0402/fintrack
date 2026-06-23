@@ -3,6 +3,7 @@ package app.fintrack.compose.ui.networth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.fintrack.compose.data.analytics.AnalyticsRepository
+import app.fintrack.compose.data.api.AssetAllocationResponse
 import app.fintrack.compose.data.api.NetWorthResponse
 import app.fintrack.compose.data.api.WealthVelocityResponse
 import app.fintrack.compose.data.api.toUserMessage
@@ -21,6 +22,7 @@ data class NetWorthUiState(
     val error: String? = null,
     val netWorth: NetWorthResponse? = null,
     val wealthVelocity: WealthVelocityResponse? = null,
+    val assetAllocation: AssetAllocationResponse? = null,
 )
 
 @HiltViewModel
@@ -41,8 +43,14 @@ class NetWorthViewModel @Inject constructor(
                 coroutineScope {
                     val netWorthDeferred = async { analyticsRepository.getNetWorth() }
                     val velocityDeferred = async { analyticsRepository.getWealthVelocity() }
+                    val allocationDeferred = async { runCatching { analyticsRepository.getAssetAllocation() }.getOrNull() }
                     _uiState.update {
-                        it.copy(isLoading = false, netWorth = netWorthDeferred.await(), wealthVelocity = velocityDeferred.await())
+                        it.copy(
+                            isLoading = false,
+                            netWorth = netWorthDeferred.await(),
+                            wealthVelocity = velocityDeferred.await(),
+                            assetAllocation = allocationDeferred.await(),
+                        )
                     }
                 }
             } catch (e: Exception) {

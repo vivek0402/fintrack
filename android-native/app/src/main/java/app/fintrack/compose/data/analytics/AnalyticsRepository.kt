@@ -1,6 +1,7 @@
 package app.fintrack.compose.data.analytics
 
 import app.fintrack.compose.data.api.AnalyticsApiService
+import app.fintrack.compose.data.api.AssetAllocationResponse
 import app.fintrack.compose.data.api.InvestmentRatioResponse
 import app.fintrack.compose.data.api.NetWorthResponse
 import app.fintrack.compose.data.api.SummaryResponse
@@ -18,4 +19,5 @@ class AnalyticsRepository @Inject constructor(
     suspend fun getWealthVelocity(): WealthVelocityResponse = api.getWealthVelocity()
     suspend fun getTrends(): TrendsResponse = api.getTrends()
     suspend fun getInvestmentRatio(): InvestmentRatioResponse = api.getInvestmentRatio()
+    suspend fun getAssetAllocation(): AssetAllocationResponse = api.getAssetAllocation()
 }
