@@ -4,6 +4,7 @@ import app.fintrack.compose.data.api.CreateGoalRequest
 import app.fintrack.compose.data.api.GoalDto
 import app.fintrack.compose.data.api.GoalsApiService
 import app.fintrack.compose.data.api.UpdateFundsRequest
+import app.fintrack.compose.data.api.UpdateGoalRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +16,9 @@ class GoalsRepository @Inject constructor(
 
     suspend fun create(name: String, targetAmount: Double, deadline: String?, color: String?): GoalDto =
         api.create(CreateGoalRequest(name, targetAmount, deadline, color)).goal
+
+    suspend fun update(id: String, name: String, targetAmount: Double, deadline: String?, color: String?): GoalDto =
+        api.update(id, UpdateGoalRequest(name, targetAmount, deadline, color)).goal
 
     suspend fun addFunds(id: String, amount: Double): GoalDto = api.updateFunds(id, UpdateFundsRequest(amount)).goal
 

@@ -13,9 +13,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+val GOAL_COLORS = listOf("#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2")
+
 data class GoalFormState(
     val name: String = "",
     val targetAmount: String = "",
+    val deadline: String = "",
+    val color: String = GOAL_COLORS.first(),
     val isSaving: Boolean = false,
     val error: String? = null,
 )
@@ -34,6 +38,8 @@ data class GoalsUiState(
     val showForm: Boolean = false,
     val form: GoalFormState = GoalFormState(),
     val fundsForm: AddFundsFormState? = null,
+    val editingId: String? = null,
+    val editForm: GoalFormState = GoalFormState(),
 )
 
 @HiltViewModel
@@ -79,11 +85,54 @@ class GoalsViewModel @Inject constructor(
         viewModelScope.launch {
             updateForm { it.copy(isSaving = true, error = null) }
             try {
-                goalsRepository.create(form.name.trim(), target, deadline = null, color = null)
+                goalsRepository.create(form.name.trim(), target, deadline = form.deadline.trim().ifBlank { null }, color = form.color)
                 _uiState.update { it.copy(showForm = false) }
                 load()
             } catch (e: Exception) {
                 updateForm { it.copy(isSaving = false, error = e.toUserMessage("Couldn't save goal.")) }
+            }
+        }
+    }
+
+    fun openEditForm(goal: GoalDto) {
+        _uiState.update {
+            it.copy(
+                editingId = goal.id,
+                editForm = GoalFormState(
+                    name = goal.name,
+                    targetAmount = goal.target_amount,
+                    deadline = goal.deadline?.take(10) ?: "",
+                    color = goal.color ?: GOAL_COLORS.first(),
+                ),
+            )
+        }
+    }
+
+    fun closeEditForm() = _uiState.update { it.copy(editingId = null) }
+
+    fun updateEditForm(transform: (GoalFormState) -> GoalFormState) =
+        _uiState.update { it.copy(editForm = transform(it.editForm).copy(error = null)) }
+
+    fun saveEdit() {
+        val id = _uiState.value.editingId ?: return
+        val form = _uiState.value.editForm
+        val target = form.targetAmount.toDoubleOrNull()
+        if (form.name.isBlank()) {
+            updateEditForm { it.copy(error = "Enter a goal name.") }
+            return
+        }
+        if (target == null || target <= 0) {
+            updateEditForm { it.copy(error = "Enter a valid target amount.") }
+            return
+        }
+        viewModelScope.launch {
+            updateEditForm { it.copy(isSaving = true, error = null) }
+            try {
+                goalsRepository.update(id, form.name.trim(), target, deadline = form.deadline.trim().ifBlank { null }, color = form.color)
+                _uiState.update { it.copy(editingId = null) }
+                load()
+            } catch (e: Exception) {
+                updateEditForm { it.copy(isSaving = false, error = e.toUserMessage("Couldn't update goal.")) }
             }
         }
     }

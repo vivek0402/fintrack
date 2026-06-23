@@ -1,5 +1,8 @@
 package app.fintrack.compose.ui.goals
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,13 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +46,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -48,6 +56,8 @@ import app.fintrack.compose.data.api.GoalDto
 import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +83,7 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
                     GoalRow(
                         goal = goal,
                         onAddFunds = { viewModel.openAddFunds(goal.id) },
+                        onEdit = { viewModel.openEditForm(goal) },
                         onDelete = { pendingDeleteId = goal.id },
                     )
                     Spacer(Modifier.height(FinTrackSpacing.space3))
@@ -89,7 +100,25 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
     }
 
     if (state.showForm) {
-        GoalFormSheet(state = state, onDismiss = viewModel::closeForm, onUpdate = viewModel::updateForm, onSave = viewModel::save)
+        GoalFormSheet(
+            title = "Add Goal",
+            saveLabel = "Add Goal",
+            form = state.form,
+            onDismiss = viewModel::closeForm,
+            onUpdate = viewModel::updateForm,
+            onSave = viewModel::save,
+        )
+    }
+
+    if (state.editingId != null) {
+        GoalFormSheet(
+            title = "Edit Goal",
+            saveLabel = "Save",
+            form = state.editForm,
+            onDismiss = viewModel::closeEditForm,
+            onUpdate = viewModel::updateEditForm,
+            onSave = viewModel::saveEdit,
+        )
     }
 
     state.fundsForm?.let { form ->
@@ -114,11 +143,22 @@ fun GoalsScreen(viewModel: GoalsViewModel = hiltViewModel()) {
     }
 }
 
+private fun daysRemaining(deadline: String?): Long? {
+    if (deadline.isNullOrBlank()) return null
+    return try {
+        java.time.temporal.ChronoUnit.DAYS.between(LocalDate.now(), LocalDate.parse(deadline.take(10)))
+    } catch (_: DateTimeParseException) {
+        null
+    }
+}
+
 @Composable
-private fun GoalRow(goal: GoalDto, onAddFunds: () -> Unit, onDelete: () -> Unit) {
+private fun GoalRow(goal: GoalDto, onAddFunds: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val target = goal.target_amount.toDoubleOrNull()?.takeIf { it > 0 } ?: 1.0
     val saved = goal.saved_amount.toDoubleOrNull() ?: 0.0
     val progress = (saved / target).toFloat().coerceIn(0f, 1f)
+    val ringColor = goal.color?.let { runCatching { Color(android.graphics.Color.parseColor(it)) }.getOrNull() } ?: FinTrackColors.Dark.accent
+    val days = daysRemaining(goal.deadline)
 
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4)) {
@@ -126,15 +166,29 @@ private fun GoalRow(goal: GoalDto, onAddFunds: () -> Unit, onDelete: () -> Unit)
                 Text(goal.name, style = MaterialTheme.typography.titleMedium)
                 Row {
                     IconButton(onClick = onAddFunds) {
-                        Icon(Icons.Filled.Add, contentDescription = "Add funds", tint = FinTrackColors.Dark.accent)
+                        Icon(Icons.Filled.Add, contentDescription = "Add funds", tint = ringColor)
+                    }
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onDelete) {
                         Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
+            if (days != null) {
+                Text(
+                    when {
+                        days > 0 -> "📅 $days days left"
+                        days == 0L -> "📅 Due today"
+                        else -> "📅 Deadline passed"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (days in 0..30) FinTrackColors.Dark.colorExp else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(FinTrackSpacing.space2))
-            LinearProgressIndicator(progress = { progress }, color = FinTrackColors.Dark.accent, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { progress }, color = ringColor, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(FinTrackSpacing.space2))
             Text(
                 "${formatInr(saved)} of ${formatInr(target)} · ${(progress * 100).toInt()}%",
@@ -148,17 +202,18 @@ private fun GoalRow(goal: GoalDto, onAddFunds: () -> Unit, onDelete: () -> Unit)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun GoalFormSheet(
-    state: GoalsUiState,
+    title: String,
+    saveLabel: String,
+    form: GoalFormState,
     onDismiss: () -> Unit,
     onUpdate: ((GoalFormState) -> GoalFormState) -> Unit,
     onSave: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
-    val form = state.form
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
-            Text("Add Goal", style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
 
             OutlinedTextField(
@@ -178,6 +233,34 @@ private fun GoalFormSheet(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(FinTrackSpacing.space3))
+
+            OutlinedTextField(
+                value = form.deadline,
+                onValueChange = { v -> onUpdate { it.copy(deadline = v) } },
+                label = { Text("Target date (optional)") },
+                placeholder = { Text("YYYY-MM-DD") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(FinTrackSpacing.space3))
+
+            Text("Color", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(FinTrackSpacing.space2))
+            Row(horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space2)) {
+                GOAL_COLORS.forEach { hex ->
+                    val swatchColor = Color(android.graphics.Color.parseColor(hex))
+                    val selected = form.color == hex
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(swatchColor)
+                            .border(width = 3.dp, color = if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent, shape = CircleShape)
+                            .clickable { onUpdate { it.copy(color = hex) } },
+                    )
+                }
+            }
 
             form.error?.let {
                 Spacer(Modifier.height(FinTrackSpacing.space3))
@@ -189,7 +272,7 @@ private fun GoalFormSheet(
                 if (form.isSaving) {
                     CircularProgressIndicator(modifier = Modifier.padding(2.dp), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
-                    Text("Add Goal")
+                    Text(saveLabel)
                 }
             }
             Spacer(Modifier.height(FinTrackSpacing.space5))
