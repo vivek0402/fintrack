@@ -23,6 +23,9 @@ async function getAverageMonthlySavings(userId) {
     const result = await pool.query(
         `SELECT type, COALESCE(SUM(amount), 0) AS total FROM transactions
          WHERE user_id = $1 AND date >= $2 AND date < $3
+         AND NOT (type = 'expense' AND EXISTS (
+             SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true
+         ))
          GROUP BY type`,
         [userId, start, end]
     );

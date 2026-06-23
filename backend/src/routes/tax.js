@@ -39,6 +39,20 @@ function fyToDateRange(fy) {
     };
 }
 
+// LTA exemption (Sec 10(5)) runs on calendar-year 4-year blocks fixed by the IT
+// Department, anchored at 2014: 2014-17, 2018-21, 2022-25, 2026-29, 2030-33, ...
+// Independent of the April-March financial year used elsewhere in this file.
+const LTA_BLOCK_ANCHOR_YEAR = 2014;
+const LTA_BLOCK_LENGTH_YEARS = 4;
+
+function getCurrentLtaBlock() {
+    const currentYear = new Date().getFullYear();
+    const blockStartYear = LTA_BLOCK_ANCHOR_YEAR
+        + Math.floor((currentYear - LTA_BLOCK_ANCHOR_YEAR) / LTA_BLOCK_LENGTH_YEARS) * LTA_BLOCK_LENGTH_YEARS;
+    const blockEndYear = blockStartYear + LTA_BLOCK_LENGTH_YEARS - 1;
+    return { blockStartYear, blockEndYear };
+}
+
 router.get('/profile', async (req, res) => {
     try {
         const fy = req.query.fy && isValidFinancialYear(req.query.fy) ? req.query.fy : getCurrentFY();
@@ -230,16 +244,17 @@ router.get('/lta', async (req, res) => {
         const claims_used = profile.lta_claims_used_in_block;
         const claims_remaining = Math.max(0, 2 - claims_used);
 
-        const blockEnd = new Date('2026-03-31');
+        const { blockEndYear } = getCurrentLtaBlock();
+        const blockEnd = new Date(blockEndYear, 11, 31); // Dec 31 of block end year
         const now = new Date();
         const next_claim_expires_in_months = Math.max(0, Math.round(
             (blockEnd.getFullYear() - now.getFullYear()) * 12 + (blockEnd.getMonth() - now.getMonth())
         ));
-        const next_block_start = '2026-04-01';
+        const next_block_start = `${blockEndYear + 1}-01-01`;
 
         let recommendation = null;
         if (claims_remaining > 0 && next_claim_expires_in_months < 12) {
-            recommendation = `You have ${claims_remaining} LTA claim(s) remaining. The current block ends in ${next_claim_expires_in_months} months. Plan a trip to utilize your LTA before March 31, 2026.`;
+            recommendation = `You have ${claims_remaining} LTA claim(s) remaining. The current block ends in ${next_claim_expires_in_months} months. Plan a trip to utilize your LTA before December 31, ${blockEndYear}.`;
         }
 
         res.json({

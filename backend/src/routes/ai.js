@@ -121,13 +121,14 @@ router.post('/chat', authMiddleware, async (req, res) => {
                   DATE_TRUNC('month', t.date) AS month,
                   t.type,
                   c.name AS category,
+                  c.is_investment_category,
                   SUM(t.amount) AS total,
                   COUNT(*) AS count
                 FROM transactions t
                 JOIN categories c ON t.category_id = c.id
                 WHERE t.user_id = $1
                   AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '6 months'
-                GROUP BY DATE_TRUNC('month', t.date), t.type, c.name
+                GROUP BY DATE_TRUNC('month', t.date), t.type, c.name, c.is_investment_category
                 ORDER BY month DESC, t.type, total DESC
             `, [userId]),
             pool.query(`
@@ -163,13 +164,17 @@ router.post('/chat', authMiddleware, async (req, res) => {
             ),
         ]);
 
-        // Build monthly summary text
+        // Build monthly summary text. Investment-category spend is tracked separately
+        // from "expenses" so the AI's stated Total Expenses matches what the dashboard
+        // shows the user (consistent with analytics.js excluding it from savings rate),
+        // while still letting the AI answer questions about investing activity.
         const monthlyMap = {};
         for (const row of monthlySummary.rows) {
             const label = row.month_label.trim();
-            if (!monthlyMap[label]) monthlyMap[label] = { income: [], expenses: [] };
+            if (!monthlyMap[label]) monthlyMap[label] = { income: [], expenses: [], investments: [] };
             if (row.type === 'income') monthlyMap[label].income.push(`${row.category}: ₹${Math.round(row.total)}`);
-            if (row.type === 'expense') monthlyMap[label].expenses.push(`${row.category}: ₹${Math.round(row.total)}`);
+            if (row.type === 'expense' && row.is_investment_category) monthlyMap[label].investments.push(`${row.category}: ₹${Math.round(row.total)}`);
+            else if (row.type === 'expense') monthlyMap[label].expenses.push(`${row.category}: ₹${Math.round(row.total)}`);
         }
 
         let monthlySummaryText = '';
@@ -178,14 +183,19 @@ router.post('/chat', authMiddleware, async (req, res) => {
                 .filter(r => r.month_label.trim() === month && r.type === 'income')
                 .reduce((s, r) => s + parseFloat(r.total), 0);
             const totalExpense = monthlySummary.rows
-                .filter(r => r.month_label.trim() === month && r.type === 'expense')
+                .filter(r => r.month_label.trim() === month && r.type === 'expense' && !r.is_investment_category)
+                .reduce((s, r) => s + parseFloat(r.total), 0);
+            const totalInvestment = monthlySummary.rows
+                .filter(r => r.month_label.trim() === month && r.type === 'expense' && r.is_investment_category)
                 .reduce((s, r) => s + parseFloat(r.total), 0);
 
             monthlySummaryText += `\n### ${month}\n`;
             monthlySummaryText += `Total Income: ₹${Math.round(totalIncome)}\n`;
             monthlySummaryText += `Total Expenses: ₹${Math.round(totalExpense)}\n`;
+            if (totalInvestment > 0) monthlySummaryText += `Investment Activity: ₹${Math.round(totalInvestment)}\n`;
             if (data.income.length) monthlySummaryText += `Income breakdown: ${data.income.join(', ')}\n`;
             if (data.expenses.length) monthlySummaryText += `Expense breakdown: ${data.expenses.join(', ')}\n`;
+            if (data.investments.length) monthlySummaryText += `Investment breakdown: ${data.investments.join(', ')}\n`;
         }
 
         const recentTxText = recentTransactions.rows
@@ -378,7 +388,7 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
             `SELECT t.*, c.name as category_name
              FROM transactions t
              LEFT JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id = $1 AND t.type = 'expense'
+             WHERE t.user_id = $1 AND t.type = 'expense' AND c.is_investment_category IS NOT TRUE
                AND EXTRACT(MONTH FROM t.date) = $2 AND EXTRACT(YEAR FROM t.date) = $3`,
             [userId, month, year]
         );
@@ -723,6 +733,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
              FROM transactions
              WHERE user_id = $1
                AND type = 'expense'
+               AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
                AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())`,
             [userId]
         );
@@ -751,7 +762,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                  FROM transactions t
                  JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1
-                   AND t.type = 'expense'
+                   AND t.type = 'expense' AND c.is_investment_category = false
                    AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
                    AND t.date < DATE_TRUNC('month', NOW())
                  GROUP BY c.name, c.icon, c.color
@@ -766,7 +777,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                  FROM transactions t
                  JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1
-                   AND t.type = 'expense'
+                   AND t.type = 'expense' AND c.is_investment_category = false
                    AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
                  GROUP BY c.name`,
                 [userId]
@@ -778,6 +789,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                  FROM transactions
                  WHERE user_id = $1
                    AND type = 'expense'
+                   AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
                    AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
                  GROUP BY EXTRACT(DAY FROM date)
                  ORDER BY day`,
@@ -1356,7 +1368,7 @@ async function getBriefingData(userId) {
         pool.query(
             `SELECT COALESCE(c.name, 'Uncategorized') AS category_name, COALESCE(SUM(t.amount),0) AS total
              FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id=$1 AND t.type='expense' AND t.date >= $2
+             WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category IS NOT TRUE AND t.date >= $2
              GROUP BY category_name ORDER BY total DESC LIMIT 1`,
             [userId, monthStart]
         ),
@@ -1369,14 +1381,18 @@ async function getBriefingData(userId) {
         pool.query(
             `SELECT
                 COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
-                COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
+                COALESCE(SUM(amount) FILTER (WHERE type='expense' AND NOT EXISTS (
+                    SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true
+                )),0) AS expense
              FROM transactions WHERE user_id=$1 AND date >= $2`,
             [userId, monthStart]
         ),
         pool.query(
             `SELECT
                 COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
-                COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
+                COALESCE(SUM(amount) FILTER (WHERE type='expense' AND NOT EXISTS (
+                    SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true
+                )),0) AS expense
              FROM transactions WHERE user_id=$1 AND date >= $2 AND date < $3`,
             [userId, lastMonthStart, lastMonthEnd]
         ),
@@ -1554,15 +1570,15 @@ async function getDailyBriefData(userId) {
         monthIncomeSoFar,
         spendDatesRows,
     ] = await Promise.all([
-        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, yesterday]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2 AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)`, [userId, yesterday]),
         pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS category_name, SUM(t.amount) AS total
                      FROM transactions t LEFT JOIN categories c ON t.category_id=c.id
-                     WHERE t.user_id=$1 AND t.type='expense' AND t.date=$2
+                     WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category IS NOT TRUE AND t.date=$2
                      GROUP BY category_name ORDER BY total DESC LIMIT 1`, [userId, yesterday]),
-        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, todayStr]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2 AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)`, [userId, todayStr]),
         pool.query(`SELECT COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total FROM recurring_transactions
                      WHERE user_id=$1 AND is_active=true AND next_due_date BETWEEN $2 AND $3`, [userId, todayStr, in2days]),
-        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3`, [userId, monthStart, todayStr]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3 AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)`, [userId, monthStart, todayStr]),
         pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='income' AND date >= $2`, [userId, monthStart]),
         // Any transaction type counts as "logged activity" for that day — a streak of
         // consistent tracking, not a streak of not spending (which would be gameable

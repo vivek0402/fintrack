@@ -232,18 +232,47 @@ router.post('/:id/prepayments', async (req, res) => {
         const months_saved = before.summary.total_months - after.summary.total_months;
         const interest_saved = parseFloat((before.summary.total_interest - after.summary.total_interest).toFixed(2));
 
-        const inserted = await pool.query(
-            `INSERT INTO loan_prepayments (loan_id, user_id, amount, prepayment_date, months_saved, interest_saved, notes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-            [req.params.id, req.user.id, amount, prepayment_date, months_saved, interest_saved, notes || null]
-        );
+        const client = await pool.connect();
+        let prepayment;
+        try {
+            await client.query('BEGIN');
 
-        await pool.query(
-            'UPDATE loans SET outstanding_balance = outstanding_balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-            [amount, req.params.id, req.user.id]
-        );
+            // Idempotency guard: a double-submit (network retry, multi-tab) within a
+            // short window is treated as the same request rather than a second real
+            // prepayment — returns the existing row instead of double-deducting.
+            const dup = await client.query(
+                `SELECT * FROM loan_prepayments
+                 WHERE loan_id = $1 AND amount = $2 AND prepayment_date = $3
+                   AND created_at >= NOW() - INTERVAL '10 seconds'
+                 LIMIT 1`,
+                [req.params.id, amount, prepayment_date]
+            );
 
-        res.status(201).json({ prepayment: inserted.rows[0] });
+            if (dup.rows.length > 0) {
+                prepayment = dup.rows[0];
+            } else {
+                const inserted = await client.query(
+                    `INSERT INTO loan_prepayments (loan_id, user_id, amount, prepayment_date, months_saved, interest_saved, notes)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+                    [req.params.id, req.user.id, amount, prepayment_date, months_saved, interest_saved, notes || null]
+                );
+                prepayment = inserted.rows[0];
+
+                await client.query(
+                    'UPDATE loans SET outstanding_balance = outstanding_balance - $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+                    [amount, req.params.id, req.user.id]
+                );
+            }
+
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
+        res.status(201).json({ prepayment });
     } catch (err) {
         console.error('[Loans]', err.message);
         res.status(500).json({ error: 'Server error.' });
