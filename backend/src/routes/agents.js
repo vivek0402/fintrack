@@ -36,10 +36,37 @@ function emiForLoan(loan) {
 }
 
 async function fetchDebtCoachData(userId) {
-    const loansRes = await pool.query(
-        `SELECT * FROM loans WHERE user_id = $1 AND is_active = true ORDER BY interest_rate_pct DESC`,
-        [userId]
-    );
+    const now = new Date();
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+
+    // Four independent queries — none depends on another's result — run in parallel.
+    const [loansRes, cardsRes, incomeRes, prepaymentsRes] = await Promise.all([
+        pool.query(
+            `SELECT * FROM loans WHERE user_id = $1 AND is_active = true ORDER BY interest_rate_pct DESC`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT COALESCE(SUM(outstanding_balance), 0) AS total_outstanding,
+                    COALESCE(SUM(credit_limit), 0) AS total_limit
+             FROM credit_cards WHERE user_id = $1`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
+             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
+            [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
+        ),
+        pool.query(
+            `SELECT lp.amount, lp.prepayment_date, l.name AS loan_name
+             FROM loan_prepayments lp
+             JOIN loans l ON lp.loan_id = l.id
+             WHERE l.user_id = $1
+             ORDER BY lp.prepayment_date DESC LIMIT 3`,
+            [userId]
+        ),
+    ]);
+
     const loans = loansRes.rows.map(l => ({
         name: l.name,
         type: l.type,
@@ -49,38 +76,15 @@ async function fetchDebtCoachData(userId) {
         tenure_months: l.tenure_months,
     }));
 
-    const cardsRes = await pool.query(
-        `SELECT COALESCE(SUM(outstanding_balance), 0) AS total_outstanding,
-                COALESCE(SUM(credit_limit), 0) AS total_limit
-         FROM credit_cards WHERE user_id = $1`,
-        [userId]
-    );
     const total_outstanding = fmt(cardsRes.rows[0].total_outstanding);
     const total_limit = fmt(cardsRes.rows[0].total_limit);
     const overall_utilization_pct = total_limit > 0 ? fmt((total_outstanding / total_limit) * 100) : 0;
 
-    const now = new Date();
-    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const incomeRes = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-         WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
-        [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
-    );
     const monthly_income = fmt(parseFloat(incomeRes.rows[0].total) / 3);
     const monthly_loan_emi = fmt(loans.reduce((s, l) => s + l.emi_amount, 0));
     const monthly_credit_obligation = fmt(total_outstanding * 0.05);
     const total_monthly_debt_obligation = fmt(monthly_loan_emi + monthly_credit_obligation);
     const dti_ratio = monthly_income > 0 ? fmt((total_monthly_debt_obligation / monthly_income) * 100) : 0;
-
-    const prepaymentsRes = await pool.query(
-        `SELECT lp.amount, lp.prepayment_date, l.name AS loan_name
-         FROM loan_prepayments lp
-         JOIN loans l ON lp.loan_id = l.id
-         WHERE l.user_id = $1
-         ORDER BY lp.prepayment_date DESC LIMIT 3`,
-        [userId]
-    );
 
     return {
         loans,
@@ -95,11 +99,42 @@ async function fetchDebtCoachData(userId) {
 }
 
 async function fetchInvestmentAdvisorData(userId) {
-    const holdingsRes = await pool.query(
-        `SELECT name, type, units, purchase_price_per_unit, current_nav_or_price
-         FROM investments WHERE user_id = $1`,
-        [userId]
-    );
+    // Five independent queries — none depends on another's result — run in
+    // parallel. The fire_targets query keeps its own failure isolation (.catch)
+    // since fire_target is allowed to be null on error, same as the original
+    // try/catch behavior.
+    const [holdingsRes, topHoldingsRes, snapshotsRes, bankRes, fireRes] = await Promise.all([
+        pool.query(
+            `SELECT name, type, units, purchase_price_per_unit, current_nav_or_price
+             FROM investments WHERE user_id = $1`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT name, type, units, current_nav_or_price, (units * current_nav_or_price) AS current_value
+             FROM investments WHERE user_id = $1
+             ORDER BY current_value DESC LIMIT 5`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT snapshot_date, net_worth, total_assets, total_liabilities
+             FROM net_worth_snapshots WHERE user_id = $1
+             ORDER BY snapshot_date DESC LIMIT 4`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT COALESCE(SUM(
+                COALESCE(a.starting_balance, 0)
+                + COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'income' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+                - COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'expense' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
+             ), 0) AS total
+             FROM bank_accounts a WHERE a.user_id = $1`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT * FROM fire_targets WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+            [userId]
+        ).catch(() => ({ rows: [] })),
+    ]);
 
     let total_invested = 0;
     let total_current_value = 0;
@@ -122,24 +157,12 @@ async function fetchInvestmentAdvisorData(userId) {
         current_value: fmt(v.current_value),
     }));
 
-    const topHoldingsRes = await pool.query(
-        `SELECT name, type, units, current_nav_or_price, (units * current_nav_or_price) AS current_value
-         FROM investments WHERE user_id = $1
-         ORDER BY current_value DESC LIMIT 5`,
-        [userId]
-    );
     const top_holdings = topHoldingsRes.rows.map(r => ({
         name: r.name,
         type: r.type,
         current_value: fmt(r.current_value),
     }));
 
-    const snapshotsRes = await pool.query(
-        `SELECT snapshot_date, net_worth, total_assets, total_liabilities
-         FROM net_worth_snapshots WHERE user_id = $1
-         ORDER BY snapshot_date DESC LIMIT 4`,
-        [userId]
-    );
     const net_worth_snapshots = snapshotsRes.rows.map(r => ({
         date: r.snapshot_date,
         net_worth: fmt(r.net_worth),
@@ -148,31 +171,14 @@ async function fetchInvestmentAdvisorData(userId) {
     }));
 
     let fire_target = null;
-    try {
-        const fireRes = await pool.query(
-            `SELECT * FROM fire_targets WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-            [userId]
-        );
-        if (fireRes.rows.length > 0) {
-            const f = fireRes.rows[0];
-            fire_target = {
-                corpus_needed: f.corpus_needed != null ? fmt(f.corpus_needed) : null,
-                target_date: f.target_date || null,
-            };
-        }
-    } catch {
-        fire_target = null;
+    if (fireRes.rows.length > 0) {
+        const f = fireRes.rows[0];
+        fire_target = {
+            corpus_needed: f.corpus_needed != null ? fmt(f.corpus_needed) : null,
+            target_date: f.target_date || null,
+        };
     }
 
-    const bankRes = await pool.query(
-        `SELECT COALESCE(SUM(
-            COALESCE(a.starting_balance, 0)
-            + COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'income' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
-            - COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id AND t.type = 'expense' AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')), 0)
-         ), 0) AS total
-         FROM bank_accounts a WHERE a.user_id = $1`,
-        [userId]
-    );
     const bank_balance = fmt(bankRes.rows[0].total);
     const total_assets = bank_balance + total_current_value;
     const RECOMMENDED_PCT = { bank: 10, mutual_fund: 30, stock: 30, fd: 8.33, ppf: 8.33, nps: 8.34, gold: 5, crypto: 0, other: 0 };
@@ -199,10 +205,31 @@ async function fetchInvestmentAdvisorData(userId) {
 async function fetchTaxPlannerData(userId) {
     const fy = getCurrentFY();
 
-    const profileRes = await pool.query(
-        `SELECT * FROM tax_profiles WHERE user_id = $1 AND financial_year = $2`,
-        [userId, fy]
-    );
+    // All five lookups only depend on (userId, fy), not on each other's results —
+    // run them in parallel. Each keeps its own failure isolation via .catch,
+    // matching the original per-item try/catch fallbacks.
+    const [profileRes, eightyCRes, cgRes, itrReadinessResult, advanceTaxResult] = await Promise.all([
+        pool.query(
+            `SELECT * FROM tax_profiles WHERE user_id = $1 AND financial_year = $2`,
+            [userId, fy]
+        ),
+        pool.query(
+            `SELECT COALESCE(SUM(amount), 0) AS total FROM tax_investments
+             WHERE user_id = $1 AND financial_year = $2 AND deduction_section = '80C'`,
+            [userId, fy]
+        ),
+        pool.query(
+            `SELECT
+                COALESCE(SUM(CASE WHEN transaction_type = 'sell' THEN units * price_per_unit ELSE 0 END), 0)
+                - COALESCE(SUM(CASE WHEN transaction_type = 'buy' THEN units * price_per_unit ELSE 0 END), 0) AS net,
+                COUNT(*) AS txn_count
+             FROM capital_transactions WHERE user_id = $1 AND financial_year = $2`,
+            [userId, fy]
+        ).catch(() => null), // capital_transactions may not exist for this user/FY
+        computeItrReadiness(userId, fy).catch(() => null),
+        computeAdvanceTaxEstimate(userId, fy).catch(() => null),
+    ]);
+
     const profileRow = profileRes.rows[0] || null;
     const profile = profileRow ? {
         basic_salary_monthly: fmt(profileRow.basic_salary_monthly),
@@ -212,11 +239,6 @@ async function fetchTaxPlannerData(userId) {
         city_type: profileRow.city_type,
     } : null;
 
-    const eightyCRes = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM tax_investments
-         WHERE user_id = $1 AND financial_year = $2 AND deduction_section = '80C'`,
-        [userId, fy]
-    );
     const total_claimed = fmt(eightyCRes.rows[0].total);
     const section_80c = {
         total_claimed,
@@ -225,42 +247,22 @@ async function fetchTaxPlannerData(userId) {
     };
 
     let capital_gains_summary = { total_gains: 0, note: 'No capital transactions recorded this FY.' };
-    try {
-        const cgRes = await pool.query(
-            `SELECT
-                COALESCE(SUM(CASE WHEN transaction_type = 'sell' THEN units * price_per_unit ELSE 0 END), 0)
-                - COALESCE(SUM(CASE WHEN transaction_type = 'buy' THEN units * price_per_unit ELSE 0 END), 0) AS net,
-                COUNT(*) AS txn_count
-             FROM capital_transactions WHERE user_id = $1 AND financial_year = $2`,
-            [userId, fy]
-        );
-        if (parseInt(cgRes.rows[0].txn_count, 10) > 0) {
-            capital_gains_summary = { approximate_net_gain: fmt(cgRes.rows[0].net) };
-        }
-    } catch {
-        // capital_transactions may not exist for this user/FY
+    if (cgRes && parseInt(cgRes.rows[0].txn_count, 10) > 0) {
+        capital_gains_summary = { approximate_net_gain: fmt(cgRes.rows[0].net) };
     }
 
-    let itr_readiness = null;
-    try {
-        itr_readiness = await computeItrReadiness(userId, fy);
-    } catch {
-        itr_readiness = null;
-    }
+    const itr_readiness = itrReadinessResult || null;
 
     let advance_tax = null;
-    try {
-        const estimate = await computeAdvanceTaxEstimate(userId, fy);
+    if (advanceTaxResult) {
         advance_tax = {
-            is_applicable: estimate.is_applicable,
-            estimated_income: fmt(estimate.estimated_income),
-            recommended_regime: estimate.recommended_regime,
-            installments_paid: estimate.installment_schedule
+            is_applicable: advanceTaxResult.is_applicable,
+            estimated_income: fmt(advanceTaxResult.estimated_income),
+            recommended_regime: advanceTaxResult.recommended_regime,
+            installments_paid: advanceTaxResult.installment_schedule
                 .filter(i => i.amount_paid > 0)
                 .map(i => ({ installment_number: i.installment_number, amount_paid: fmt(i.amount_paid) })),
         };
-    } catch {
-        advance_tax = null;
     }
 
     return { financial_year: fy, profile, section_80c, capital_gains_summary, itr_readiness, advance_tax };
@@ -268,19 +270,54 @@ async function fetchTaxPlannerData(userId) {
 
 async function fetchBudgetMasterData(userId) {
     const now = new Date();
+    const m = now.getMonth() + 1;
+    const y = now.getFullYear();
 
-    const spendingRes = await pool.query(
-        `SELECT c.name AS category_name,
-                DATE_TRUNC('month', t.date) AS month,
-                COALESCE(SUM(t.amount), 0) AS total
-         FROM transactions t
-         LEFT JOIN categories c ON t.category_id = c.id
-         WHERE t.user_id = $1 AND t.type = 'expense'
-           AND t.date >= (CURRENT_DATE - INTERVAL '3 months')
-         GROUP BY c.name, DATE_TRUNC('month', t.date)
-         ORDER BY c.name, month`,
-        [userId]
-    );
+    // Four independent queries — none depends on another's result — run in parallel.
+    const [spendingRes, budgetsRes, savingsRes, regretRes] = await Promise.all([
+        pool.query(
+            `SELECT c.name AS category_name,
+                    DATE_TRUNC('month', t.date) AS month,
+                    COALESCE(SUM(t.amount), 0) AS total
+             FROM transactions t
+             LEFT JOIN categories c ON t.category_id = c.id
+             WHERE t.user_id = $1 AND t.type = 'expense'
+               AND t.date >= (CURRENT_DATE - INTERVAL '3 months')
+             GROUP BY c.name, DATE_TRUNC('month', t.date)
+             ORDER BY c.name, month`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT b.amount, c.name AS category_name,
+                    COALESCE(SUM(t.amount), 0) AS spent
+             FROM budgets b
+             JOIN categories c ON b.category_id = c.id
+             LEFT JOIN transactions t
+               ON t.category_id = b.category_id AND t.user_id = b.user_id
+               AND t.type = 'expense'
+               AND EXTRACT(MONTH FROM t.date) = $2
+               AND EXTRACT(YEAR FROM t.date) = $3
+             WHERE b.user_id = $1 AND b.month = $2 AND b.year = $3
+             GROUP BY b.amount, c.name`,
+            [userId, m, y]
+        ),
+        pool.query(
+            `SELECT DATE_TRUNC('month', date) AS month, type, COALESCE(SUM(amount), 0) AS total
+             FROM transactions WHERE user_id = $1 AND date >= (CURRENT_DATE - INTERVAL '3 months')
+             GROUP BY DATE_TRUNC('month', date), type
+             ORDER BY month`,
+            [userId]
+        ),
+        pool.query(
+            `SELECT t.description, t.amount, t.date, c.name AS category_name
+             FROM transactions t
+             LEFT JOIN categories c ON t.category_id = c.id
+             WHERE t.user_id = $1 AND t.is_regretted = true
+             ORDER BY t.date DESC LIMIT 5`,
+            [userId]
+        ),
+    ]);
+
     const byCategory = {};
     for (const row of spendingRes.rows) {
         const name = row.category_name || 'Uncategorized';
@@ -295,22 +332,6 @@ async function fetchBudgetMasterData(userId) {
         return { category_name, latest_month_amount: latest, mom_change_pct };
     });
 
-    const m = now.getMonth() + 1;
-    const y = now.getFullYear();
-    const budgetsRes = await pool.query(
-        `SELECT b.amount, c.name AS category_name,
-                COALESCE(SUM(t.amount), 0) AS spent
-         FROM budgets b
-         JOIN categories c ON b.category_id = c.id
-         LEFT JOIN transactions t
-           ON t.category_id = b.category_id AND t.user_id = b.user_id
-           AND t.type = 'expense'
-           AND EXTRACT(MONTH FROM t.date) = $2
-           AND EXTRACT(YEAR FROM t.date) = $3
-         WHERE b.user_id = $1 AND b.month = $2 AND b.year = $3
-         GROUP BY b.amount, c.name`,
-        [userId, m, y]
-    );
     const budget_adherence = budgetsRes.rows.map(r => ({
         category_name: r.category_name,
         budget_amount: fmt(r.amount),
@@ -322,13 +343,6 @@ async function fetchBudgetMasterData(userId) {
         .sort((a, b) => b.overage - a.overage)
         .slice(0, 3);
 
-    const savingsRes = await pool.query(
-        `SELECT DATE_TRUNC('month', date) AS month, type, COALESCE(SUM(amount), 0) AS total
-         FROM transactions WHERE user_id = $1 AND date >= (CURRENT_DATE - INTERVAL '3 months')
-         GROUP BY DATE_TRUNC('month', date), type
-         ORDER BY month`,
-        [userId]
-    );
     const monthMap = {};
     for (const row of savingsRes.rows) {
         const key = row.month.toISOString().slice(0, 7);
@@ -340,14 +354,6 @@ async function fetchBudgetMasterData(userId) {
         savings_rate_pct: v.income > 0 ? fmt(((v.income - (v.expense || 0)) / v.income) * 100) : null,
     }));
 
-    const regretRes = await pool.query(
-        `SELECT t.description, t.amount, t.date, c.name AS category_name
-         FROM transactions t
-         LEFT JOIN categories c ON t.category_id = c.id
-         WHERE t.user_id = $1 AND t.is_regretted = true
-         ORDER BY t.date DESC LIMIT 5`,
-        [userId]
-    );
     const recent_regretted_transactions = regretRes.rows.map(r => ({
         description: r.description,
         amount: fmt(r.amount),

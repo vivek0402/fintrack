@@ -124,12 +124,24 @@ router.post('/bank-statement/:jobId/confirm', async (req, res) => {
         let count = 0;
         try {
             await client.query('BEGIN');
-            for (const t of transactions) {
-                await client.query(
-                    'INSERT INTO transactions (user_id, amount, type, description, date, category_id) VALUES ($1,$2,$3,$4,$5,NULL)',
-                    [req.user.id, t.amount, t.type, t.description, t.date]
+            // Single multi-row INSERT via unnest instead of one INSERT per
+            // transaction — every row here is a plain insert with no per-row
+            // conditional logic, so there's nothing batching could break.
+            if (transactions.length > 0) {
+                const inserted = await client.query(
+                    `INSERT INTO transactions (user_id, amount, type, description, date, category_id)
+                     SELECT $1, t.amount, t.type, t.description, t.date, NULL
+                     FROM unnest($2::numeric[], $3::text[], $4::text[], $5::date[]) AS t(amount, type, description, date)
+                     RETURNING id`,
+                    [
+                        req.user.id,
+                        transactions.map(t => t.amount),
+                        transactions.map(t => t.type),
+                        transactions.map(t => t.description),
+                        transactions.map(t => t.date),
+                    ]
                 );
-                count++;
+                count = inserted.rowCount;
             }
             await client.query(
                 'UPDATE pdf_import_jobs SET status=$1, rows_imported=$2, updated_at=NOW() WHERE id=$3',

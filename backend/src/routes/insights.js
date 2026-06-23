@@ -252,16 +252,23 @@ async function detectBudgetAnchoring(userId) {
         [userId]
     );
 
+    // One GROUP BY query for all (category, month) spend totals instead of a
+    // per-budget-row SUM query in the loop below.
+    const { rows: spendRows } = await pool.query(
+        `SELECT category_id, EXTRACT(YEAR FROM date)::int AS year, EXTRACT(MONTH FROM date)::int AS month,
+                COALESCE(SUM(amount), 0) AS total
+         FROM transactions
+         WHERE user_id=$1 AND type='expense'
+           AND date >= date_trunc('month', CURRENT_DATE - INTERVAL '3 months')
+           AND date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+         GROUP BY category_id, year, month`,
+        [userId]
+    );
+    const spendByKey = new Map(spendRows.map(r => [`${r.category_id}-${r.year}-${r.month}`, parseFloat(r.total) || 0]));
+
     const perCategory = {};
     for (const b of budgetRows) {
-        const monthStart = `${b.year}-${String(b.month).padStart(2, '0')}-01`;
-        const { rows } = await pool.query(
-            `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-             WHERE user_id=$1 AND category_id=$2 AND type='expense'
-               AND date >= $3::date AND date < ($3::date + INTERVAL '1 month')`,
-            [userId, b.category_id, monthStart]
-        );
-        const spent = parseFloat(rows[0].total) || 0;
+        const spent = spendByKey.get(`${b.category_id}-${b.year}-${b.month}`) || 0;
         const pct = parseFloat(b.amount) > 0 ? spent / parseFloat(b.amount) : 0;
         const nearLimit = pct >= 0.85 && pct <= 1.0;
 
