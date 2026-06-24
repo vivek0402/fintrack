@@ -32,6 +32,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -139,17 +140,42 @@ fun GroupsScreen(viewModel: GroupsViewModel = hiltViewModel()) {
 
 @Composable
 private fun GroupCard(group: ExpenseGroupDto, onClick: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+    val budget = group.budget?.toDoubleOrNull()
+    val spent = group.total_spent.toDoubleOrNull() ?: 0.0
+    val budgetPct = budget?.takeIf { it > 0 }?.let { (spent / it).toFloat() }
+
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space4)) {
             Text(group.emoji, style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.width(FinTrackSpacing.space3))
             Column(modifier = Modifier.weight(1f)) {
-                Text(group.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                Text(
-                    "${group.member_count} members · ${formatInr(group.total_spent.toDoubleOrNull() ?: 0.0)} spent",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(group.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.width(FinTrackSpacing.space2))
+                    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                        Text(
+                            "${group.member_count} members",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = FinTrackSpacing.space2, vertical = 2.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(FinTrackSpacing.space1))
+                if (budgetPct != null) {
+                    LinearProgressIndicator(progress = { budgetPct.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(FinTrackSpacing.space1))
+                    Text(
+                        "${formatInr(spent)} / ${formatInr(budget)} budget",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "Spent: ${formatInr(spent)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             IconButton(onClick = onEdit) { Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -167,6 +193,41 @@ private fun GroupDetailContent(state: GroupsUiState, groupName: String, groupEmo
                 IconButton(onClick = { viewModel.openEditGroupForm(group) }) {
                     Icon(Icons.Filled.Edit, contentDescription = "Edit group", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+        }
+        state.detail?.let { detail ->
+            val youOwe = detail.splits.sumOf { split ->
+                val myShare = split.shares.find { it.member == "Me" }
+                if (myShare != null && !myShare.settled && split.paid_by != "Me") myShare.amount else 0.0
+            }
+            val owedToYou = detail.splits.sumOf { split ->
+                if (split.paid_by == "Me") split.shares.filter { it.member != "Me" && !it.settled }.sumOf { it.amount } else 0.0
+            }
+            val budget = detail.group.budget?.toDoubleOrNull()
+            val spent = detail.group.total_spent.toDoubleOrNull() ?: 0.0
+            val budgetPct = budget?.takeIf { it > 0 }?.let { (spent / it).toFloat() }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(FinTrackSpacing.space3),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4),
+            ) {
+                BalanceCard("You Owe", youOwe, isNegative = true, modifier = Modifier.weight(1f))
+                BalanceCard("Owed to You", owedToYou, isNegative = false, modifier = Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(FinTrackSpacing.space3))
+
+            if (budgetPct != null) {
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space4)) {
+                    Column(modifier = Modifier.padding(FinTrackSpacing.space4)) {
+                        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                            Text("Group Budget", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${formatInr(spent)} / ${formatInr(budget)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(FinTrackSpacing.space2))
+                        LinearProgressIndicator(progress = { budgetPct.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Spacer(Modifier.height(FinTrackSpacing.space3))
             }
         }
         TabRow(selectedTabIndex = state.selectedTab) {
@@ -192,6 +253,22 @@ private fun GroupDetailContent(state: GroupsUiState, groupName: String, groupEmo
                     2 -> SettleUpTab(state.settlements, state.isLoadingSettlements)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BalanceCard(label: String, amount: Double, isNegative: Boolean, modifier: Modifier = Modifier) {
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, modifier = modifier) {
+        Column(modifier = Modifier.padding(FinTrackSpacing.space4)) {
+            Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(FinTrackSpacing.space1))
+            Text(
+                if (amount > 0) formatInr(amount) else "—",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (amount <= 0) MaterialTheme.colorScheme.onSurfaceVariant else if (isNegative) FinTrackColors.Dark.colorExp else FinTrackColors.Dark.colorInc,
+            )
         }
     }
 }
