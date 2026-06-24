@@ -73,7 +73,37 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it.remove(challengeStartKey(id)) }
     }
 
+    // ─── Profile: notification preferences (mirrors web's `fintrack-notif-prefs` localStorage key) ───
+
+    private val notifPrefsKey = stringPreferencesKey("notif_prefs_json")
+
+    val notifPrefsFlow: Flow<NotifPrefs> = dataStore.data.map { prefs ->
+        prefs[notifPrefsKey]?.let { runCatching { Json.decodeFromString<NotifPrefs>(it) }.getOrNull() } ?: NotifPrefs()
+    }
+
+    suspend fun setNotifPrefs(prefs: NotifPrefs) {
+        dataStore.edit { it[notifPrefsKey] = Json.encodeToString(prefs) }
+    }
+
+    // ─── Profile: proactive coach toggle (mirrors web's `fintrack-coach-enabled` localStorage key) ───
+
+    private val coachEnabledKey = booleanPreferencesKey("coach_enabled")
+
+    val coachEnabledFlow: Flow<Boolean> = dataStore.data.map { it[coachEnabledKey] ?: true }
+
+    suspend fun setCoachEnabled(enabled: Boolean) {
+        dataStore.edit { it[coachEnabledKey] = enabled }
+    }
+
     companion object {
         val CHALLENGE_IDS = listOf("no-eating-out", "coffee", "no-spend-weekend")
     }
 }
+
+@kotlinx.serialization.Serializable
+data class NotifPrefs(
+    val budgetAlerts: Boolean = true,
+    val billReminders: Boolean = true,
+    val goalAlerts: Boolean = true,
+    val weeklySummary: Boolean = true,
+)

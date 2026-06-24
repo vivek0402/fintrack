@@ -1,8 +1,10 @@
 package app.fintrack.compose.data.api
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface AiApiService {
@@ -41,4 +43,7 @@ interface AiApiService {
 
     @GET("api/ai/forecast-calendar")
     suspend fun getForecastCalendar(@Query("force") force: Boolean? = null): ForecastCalendarResponse
+
+    @DELETE("api/ai/cache/{key}")
+    suspend fun clearCache(@Path("key") key: String): SuccessResponse
 }

@@ -162,6 +162,7 @@ fun FinTrackNavGraph() {
                             popUpTo(0) { inclusive = true }
                         }
                     },
+                    onNavigateToTax = { navController.navigate(Routes.TAX) },
                 )
             }
         }

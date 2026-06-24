@@ -50,4 +50,10 @@ class AiRepository @Inject constructor(
 
     suspend fun getForecastCalendar(force: Boolean = false): ForecastCalendarDataDto? =
         api.getForecastCalendar(if (force) true else null).data
+
+    suspend fun clearCache(key: String) = api.clearCache(key)
+
+    companion object {
+        val CLEARABLE_CACHE_KEYS = listOf("forecast", "personality", "tax_estimate", "salary_intelligence", "behavioral_patterns")
+    }
 }
