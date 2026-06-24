@@ -121,6 +121,7 @@ fun ScenariosScreen(viewModel: ScenariosViewModel = hiltViewModel()) {
                             result["summary_text"]?.jsonPrimitive?.content ?: "Done.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        ScenarioProjectionChart(result)
                         Spacer(Modifier.height(FinTrackSpacing.space3))
                         if (state.saved) {
                             Text("Saved.", color = FinTrackColors.Dark.colorInc, style = MaterialTheme.typography.bodySmall)
