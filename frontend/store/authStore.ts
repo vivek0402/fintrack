@@ -7,6 +7,7 @@ interface User {
     full_name: string;
     email: string;
     currency: string;
+    onboarding_variant?: string;
 }
 
 interface AuthStore {

@@ -248,6 +248,7 @@ export interface ParsedTransaction {
     description: string;
     amount: number;
     type: 'income' | 'expense';
+    possible_duplicate?: boolean;
 }
 
 export const importAPI = {

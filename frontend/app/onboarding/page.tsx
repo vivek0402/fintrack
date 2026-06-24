@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Moon, Sun, TrendingUp, Sparkles, Target, CheckCircle, PiggyBank, Zap, BarChart3 } from 'lucide-react';
+import { ArrowRight, Moon, Sun, TrendingUp, Sparkles, Target, CheckCircle, PiggyBank, Zap, BarChart3, MessageSquareText, FileUp, Landmark } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, budgetsAPI, categoriesAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
+import { SmsImporter } from '@/components/transactions/SmsImporter';
+import { BankStatementImporter } from '@/components/transactions/BankStatementImporter';
+import { CamsImporter } from '@/components/investments/CamsImporter';
 
 const CURRENCIES = [
     { code: 'INR', symbol: '₹', label: 'Indian Rupee',     flag: '🇮🇳' },
@@ -26,7 +29,7 @@ const POPULAR_BUDGETS = [
     { name: 'Utilities',     amount: 1500, icon: '⚡' },
 ];
 
-const STEP_LABELS = ['Welcome', 'Currency', 'Appearance', 'Budgets'];
+type ImportMethod = 'sms' | 'pdf' | 'cams' | null;
 
 export default function OnboardingPage() {
     const router = useRouter();
@@ -42,6 +45,17 @@ export default function OnboardingPage() {
     );
     const [editingBudget, setEditingBudget] = useState<string | null>(null);
     const [editingValue, setEditingValue] = useState('');
+    const [importMethod, setImportMethod] = useState<ImportMethod>(null);
+    const [importedCount, setImportedCount] = useState(0);
+
+    // Phase 1 A/B test (docs/GROWTH_BRIEF_10000X.md): only the 'treatment'
+    // cohort sees the import step below. 'control' onboarding is unchanged
+    // from before this test -- that's what makes the retention comparison valid.
+    const isTreatment = user?.onboarding_variant === 'treatment';
+    const BUDGETS_STEP = isTreatment ? 4 : 3;
+    const STEP_LABELS = isTreatment
+        ? ['Welcome', 'Currency', 'Appearance', 'Import', 'Budgets']
+        : ['Welcome', 'Currency', 'Appearance', 'Budgets'];
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -140,7 +154,7 @@ export default function OnboardingPage() {
                     ))}
                 </div>
                 <div style={{ width: '100%', height: '3px', background: 'var(--border-subtle)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', background: 'var(--accent)', borderRadius: '2px', width: `${((step + 1) / 4) * 100}%`, transition: 'width 0.4s cubic-bezier(0.16,1,0.3,1)' }} />
+                    <div style={{ height: '100%', background: 'var(--accent)', borderRadius: '2px', width: `${((step + 1) / STEP_LABELS.length) * 100}%`, transition: 'width 0.4s cubic-bezier(0.16,1,0.3,1)' }} />
                 </div>
             </div>
 
@@ -185,7 +199,7 @@ export default function OnboardingPage() {
                 {step === 1 && (
                     <div className="page-enter">
                         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                            Step 1 of 3
+                            Step 1 of {STEP_LABELS.length - 1}
                         </p>
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 10px' }}>
                             Choose your currency
@@ -231,7 +245,7 @@ export default function OnboardingPage() {
                 {step === 2 && (
                     <div className="page-enter">
                         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                            Step 2 of 3
+                            Step 2 of {STEP_LABELS.length - 1}
                         </p>
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 10px' }}>
                             How should it look?
@@ -297,11 +311,72 @@ export default function OnboardingPage() {
                     </div>
                 )}
 
-                {/* ── Step 3: Budgets ── */}
-                {step === 3 && (
+                {/* ── Step (treatment only): Import ── */}
+                {step === 3 && isTreatment && (
                     <div className="page-enter">
                         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                            Step 3 of 3
+                            Step 3 of {STEP_LABELS.length - 1}
+                        </p>
+
+                        {!importMethod && (
+                            <>
+                                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 10px' }}>
+                                    Bring in your transactions
+                                </h1>
+                                <p style={{ fontSize: '15px', color: 'var(--text-muted)', margin: '0 0 28px', fontFamily: 'var(--font-body)' }}>
+                                    Skip typing things in by hand. Import from an SMS, a bank statement, or a CAMS mutual fund statement.
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '28px' }}>
+                                    {[
+                                        { method: 'sms' as const, Icon: MessageSquareText, label: 'Paste a bank/UPI SMS', desc: 'One transaction, parsed instantly' },
+                                        { method: 'pdf' as const, Icon: FileUp, label: 'Upload a bank statement (PDF)', desc: 'Bulk-import a month of transactions' },
+                                        { method: 'cams' as const, Icon: Landmark, label: 'Upload a CAMS statement', desc: 'Import your mutual fund holdings' },
+                                    ].map(({ method, Icon, label, desc }) => (
+                                        <button key={method} type="button" onClick={() => setImportMethod(method)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', borderRadius: 'var(--radius-lg)', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', width: '100%', fontFamily: 'var(--font-body)' }}>
+                                            <Icon size={20} color="var(--accent)" style={{ flexShrink: 0 }} />
+                                            <div style={{ flex: 1 }}>
+                                                <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-display)' }}>{label}</p>
+                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{desc}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {importedCount > 0 && (
+                                    <p style={{ fontSize: '13px', color: 'var(--color-inc)', margin: '0 0 16px', fontFamily: 'var(--font-body)' }}>
+                                        Imported {importedCount} transaction{importedCount !== 1 ? 's' : ''} so far.
+                                    </p>
+                                )}
+
+                                <Button size="lg" style={{ width: '100%' }} onClick={() => setStep(BUDGETS_STEP)}>
+                                    {importedCount > 0 ? 'Continue' : "Skip — I'll add transactions manually"} <ArrowRight size={16} />
+                                </Button>
+                                <button type="button" onClick={() => setStep(2)}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'block', width: '100%', textAlign: 'center', marginTop: '16px', padding: 0 }}>
+                                    Back
+                                </button>
+                            </>
+                        )}
+
+                        {importMethod === 'sms' && (
+                            <SmsImporter onClose={() => setImportMethod(null)} onSuccess={() => { setImportedCount(c => c + 1); setImportMethod(null); }} />
+                        )}
+                        {importMethod === 'pdf' && (
+                            <BankStatementImporter onClose={() => setImportMethod(null)} onSuccess={(count) => { setImportedCount(c => c + count); setImportMethod(null); }} />
+                        )}
+                        {importMethod === 'cams' && (
+                            <CamsImporter onClose={() => setImportMethod(null)} onSuccess={(result) => { setImportedCount(c => c + result.created + result.updated); setImportMethod(null); }} />
+                        )}
+                    </div>
+                )}
+
+                {/* ── Step: Budgets ── */}
+                {step === BUDGETS_STEP && (
+                    <div className="page-enter">
+                        <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
+                            Step {STEP_LABELS.length - 1} of {STEP_LABELS.length - 1}
                         </p>
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1, letterSpacing: '-0.02em', margin: '0 0 10px' }}>
                             Set monthly budgets
@@ -357,7 +432,7 @@ export default function OnboardingPage() {
                             {budgets.length > 0 ? `Set ${budgets.length} Budget${budgets.length > 1 ? 's' : ''} & Finish` : 'Skip & Go to Dashboard'}
                             <ArrowRight size={16} />
                         </Button>
-                        <button type="button" onClick={() => setStep(2)}
+                        <button type="button" onClick={() => setStep(isTreatment ? 3 : 2)}
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'block', width: '100%', textAlign: 'center', marginTop: '14px', padding: 0 }}>
                             Back
                         </button>

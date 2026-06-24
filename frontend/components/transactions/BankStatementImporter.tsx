@@ -240,24 +240,31 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '360px', overflowY: 'auto' }}>
                     {editableTransactions.map((t, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 90px 28px', gap: 6, alignItems: 'center', padding: '8px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
-                            <input type="date" value={t.date} onChange={e => updateRow(idx, { date: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
-                            <input type="text" value={t.description} onChange={e => updateRow(idx, { description: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} placeholder="Description" />
-                            <input type="number" min="0" step="0.01" value={t.amount} onChange={e => updateRow(idx, { amount: parseFloat(e.target.value) || 0 })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
-                            <button
-                                type="button"
-                                onClick={() => updateRow(idx, { type: t.type === 'income' ? 'expense' : 'income' })}
-                                style={{
-                                    padding: '6px 4px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)',
-                                    background: t.type === 'income' ? 'color-mix(in srgb, var(--color-inc) 14%, transparent)' : 'color-mix(in srgb, var(--color-exp) 14%, transparent)',
-                                    color: t.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)',
-                                }}
-                            >
-                                {t.type === 'income' ? 'Income' : 'Expense'}
-                            </button>
-                            <button type="button" onClick={() => removeRow(idx)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                                <Trash2 size={14} />
-                            </button>
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px', background: 'var(--bg-surface-2)', border: `1px solid ${t.possible_duplicate ? 'color-mix(in srgb, #f59e0b 40%, var(--border-subtle))' : 'var(--border-subtle)'}`, borderRadius: 8 }}>
+                            {t.possible_duplicate && (
+                                <span style={{ fontSize: 10, fontWeight: 600, color: '#f59e0b', fontFamily: 'var(--font-body)' }}>
+                                    Possible duplicate — matches an existing transaction
+                                </span>
+                            )}
+                            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 90px 28px', gap: 6, alignItems: 'center' }}>
+                                <input type="date" value={t.date} onChange={e => updateRow(idx, { date: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
+                                <input type="text" value={t.description} onChange={e => updateRow(idx, { description: e.target.value })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} placeholder="Description" />
+                                <input type="number" min="0" step="0.01" value={t.amount} onChange={e => updateRow(idx, { amount: parseFloat(e.target.value) || 0 })} style={{ ...inputSt, padding: '6px 8px', fontSize: 12 }} />
+                                <button
+                                    type="button"
+                                    onClick={() => updateRow(idx, { type: t.type === 'income' ? 'expense' : 'income' })}
+                                    style={{
+                                        padding: '6px 4px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)',
+                                        background: t.type === 'income' ? 'color-mix(in srgb, var(--color-inc) 14%, transparent)' : 'color-mix(in srgb, var(--color-exp) 14%, transparent)',
+                                        color: t.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)',
+                                    }}
+                                >
+                                    {t.type === 'income' ? 'Income' : 'Expense'}
+                                </button>
+                                <button type="button" onClick={() => removeRow(idx)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

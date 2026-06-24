@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Download, Zap, X, CheckSquare, FileUp, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
@@ -15,6 +15,7 @@ import { TransactionList } from '@/components/transactions/TransactionList';
 import { BulkOpsPanel } from '@/components/transactions/BulkOpsPanel';
 import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
 import { BankStatementImporter } from '@/components/transactions/BankStatementImporter';
+import { SmsImporter } from '@/components/transactions/SmsImporter';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
@@ -56,6 +57,7 @@ function TransactionsPageInner() {
     const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
     const [importOpen, setImportOpen]       = useState(false);
+    const [smsImportOpen, setSmsImportOpen] = useState(false);
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -240,6 +242,13 @@ function TransactionsPageInner() {
                                 {!isMobile && <>Import PDF</>}
                             </button>
                             <button type="button"
+                                onClick={() => setSmsImportOpen(true)}
+                                title={isMobile ? 'Import SMS' : undefined}
+                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <MessageSquareText size={14} />
+                                {!isMobile && <>Import SMS</>}
+                            </button>
+                            <button type="button"
                                 onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
                                 title={isMobile ? (selectMode ? 'Cancel' : 'Select') : undefined}
                                 style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -366,6 +375,11 @@ function TransactionsPageInner() {
             {/* ── IMPORT PDF MODAL ── */}
             <Modal isOpen={importOpen} onClose={() => setImportOpen(false)} title="Import Bank Statement" maxWidth="560px">
                 <BankStatementImporter onClose={() => setImportOpen(false)} onSuccess={() => fetchTransactions()} />
+            </Modal>
+
+            {/* ── IMPORT SMS MODAL ── */}
+            <Modal isOpen={smsImportOpen} onClose={() => setSmsImportOpen(false)} title="Import from SMS" maxWidth="480px">
+                <SmsImporter onClose={() => setSmsImportOpen(false)} onSuccess={() => fetchTransactions()} />
             </Modal>
 
             {/* ── BULK OPS PANEL ── */}
