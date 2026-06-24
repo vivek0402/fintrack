@@ -4,6 +4,75 @@ All notable changes are documented here. Each version describes what was built, 
 
 ---
 
+## [0.11.0] — 2026-06-24 — Financial Plan Builder, 10000x Growth Brief (Phase 0-2), Orphaned-Page Fixes
+
+### Financial Planning
+
+- **Financial Plan Builder** (`/planning`) — a guided plan covering monthly income, risk profile
+  (safety/balanced/growth), emergency fund target and current balance, a primary goal, and loan
+  payoff inputs. Generates an AI narrative summary (`POST /api/planning/narrative`, cached on the
+  plan row) and recalculates projections when underlying financial data drifts
+  (`POST /api/planning/recalculate` / `/apply-recalculation`). Migrations `051_financial_plans.sql`,
+  `052_financial_plan_expenses_category.sql`.
+- The page shipped with zero navigation entries anywhere in the app — reachable only by typing
+  the URL directly. Fixed by adding "Financial Plan" to the existing "Plan" group in both
+  `Sidebar.tsx` and `BottomNav.tsx`. This is the same orphaned-page pattern found and fixed earlier
+  for `/forecast`, `/personality`, and `/salary-intelligence`.
+
+### Growth Brief — Phase 0: Instrumentation
+
+Per `docs/GROWTH_BRIEF_10000X.md` — before any UX changes, instrument the data needed to tell
+whether manual entry is friction or auto-import is a trust problem.
+
+- `transactions.source` column (`manual`/`sms`/`pdf_import`/`cams_import`) tagged at every
+  creation call site (migration `053_transaction_source.sql`).
+- `transaction_deletions` audit log — hard deletes previously left no trace; now logged with
+  source before removal (migration `054_transaction_deletions_log.sql`).
+- `backend/scripts/source-trust-report.js` — edit/delete rate by source, run manually.
+
+### Growth Brief — Phase 1: Zero-Entry Core Loop (A/B test)
+
+- **SMS Importer** (`frontend/components/transactions/SmsImporter.tsx`) — paste a bank/UPI SMS,
+  AI parses it, review-and-edit one row, save. Previously `parseSMS()` existed in `lib/api.ts`
+  with zero call sites; this closes that gap. Tags `source: 'sms'`.
+- **PDF import duplicate detection** — bulk bank-statement import now flags likely duplicates
+  (date+amount+type match against existing transactions) with a badge in the review grid before
+  confirming.
+- **Treatment-only onboarding import step** — a new step between Theme and Budgets offering
+  SMS/PDF/CAMS import, shown only to the `treatment` cohort, with an always-visible
+  "skip, I'll add manually" escape hatch. Control cohort's onboarding is unchanged.
+- **A/B cohort assignment** — `users.onboarding_variant`, assigned deterministically from a hash
+  of the user's email at registration (migration `055_onboarding_variant.sql`) — no feature-flag
+  service, and re-registering an unverified account can't reshuffle cohort.
+- `backend/scripts/retention-report.js` — 7d/30d return rate by cohort, run manually.
+
+### Growth Brief — Phase 2: Money OS Consolidation
+
+- **Opportunities feed expanded from 8 to 13 detector types** — added `detectForecastWarning`,
+  `detectPersonalityInsight`, `detectAdvanceTaxDue` (now reuses `tax.js`'s canonical
+  `computeAdvanceTaxEstimate` installment schedule instead of a hardcoded deadline table),
+  `detectBehavioralPattern`, `detectSalaryIntelligenceInsight`. Widened `opportunities.type`
+  check constraint (migration `056_opportunities_expand_types.sql`). All detectors are
+  deterministic — no LLM calls.
+- **Daily brief now consumes the opportunities feed** — `getDailyBriefData()` queries the top
+  active opportunity the same way the weekly brief already did; `actionOfTheDay` now prioritizes
+  it over the previous hardcoded logic.
+- **Tax/debt duplication resolved** — `debt.js` now exports `computeCreditUtilization` and
+  `computeDtiBreakdown`; `agents.js`'s `fetchDebtCoachData` calls them instead of independently
+  recomputing the same DTI/utilization math. (The equivalent tax-side duplication was investigated
+  and found not to exist — `agents.js` already reused `tax.js`'s canonical functions.)
+- Verified `/forecast`, `/personality`, `/salary-intelligence` had no standalone nav entries before
+  concluding there was no nav-cleanup work left to do for them.
+
+### Documentation
+
+- `docs/GROWTH_BRIEF_10000X.md` committed for the first time (was previously untracked).
+- Corrected a stale claim in `docs/AI_FEATURES.md`: the Opportunities engine was documented as
+  using `aiComplete()`; it has never made an LLM call — every detector is a deterministic query
+  against the user's financial data.
+
+---
+
 ## [0.10.0] — 2026-06-12 — Major Feature Wave: Health Score, Coach, Notifications, Calendar, NIM
 
 A large batch of features (114 commits since v0.9.0), summarized by theme rather than per-commit.

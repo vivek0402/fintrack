@@ -58,7 +58,7 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Regret Tracking** | Mark a transaction as regret — AI identifies your regret spending patterns |
 | **Advanced Search** | Token-based search (`amount:`, `category:`, `type:`, `tag:`, `date:`, `notes:`) with saved filter views |
 | **Bulk Operations** | Multi-select transactions to bulk recategorize, tag, delete, split, or export to CSV |
-| **PDF Bank Statement Import** | Upload a bank statement PDF — AI extracts and imports all transactions in bulk |
+| **PDF Bank Statement Import** | Upload a bank statement PDF — AI extracts and imports all transactions in bulk, flagging likely duplicates against existing transactions for review before confirming |
 
 ### Accounts & Net Worth
 
@@ -137,6 +137,7 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 
 | Feature | Description |
 |---|---|
+| **Financial Plan Builder** | Guided plan covering monthly income, risk profile, emergency fund target/current balance, a primary goal, and loan payoff inputs; AI-generated narrative summary; recalculates when underlying data drifts |
 | **FIRE Calculator** | Compute corpus needed for Financial Independence using the 4% rule; real vs nominal returns; years-to-FIRE with step-up and extra-payment scenarios |
 | **SIP Calculator** | Goal-based and growth-based SIP projections — monthly SIP amount, lumpsum alternative, total returns, wealth ratio |
 | **Cash Flow Forecast** | Monthly projected income, expenses, EMIs, and savings for the next 12 months |
@@ -187,7 +188,7 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Life Event Planner** | Input a life goal (car, wedding, home); AI projects a monthly savings plan |
 | **Regret Patterns** | AI identifies your specific regret triggers and time-of-week patterns |
 | **Afford Check** | Quick "Can I afford X?" query answered against your real data |
-| **Opportunities** | AI-detected financial optimization opportunities (idle savings, high-interest debt, underutilized 80C) with dismiss/act-on tracking |
+| **Opportunities** | Automatically detected financial optimization opportunities across 13 rule-based types (idle savings, high-interest debt, underutilized 80C, forecast warnings, advance tax due dates, behavioral patterns, salary intelligence, and more) with dismiss/act-on tracking; the top opportunity also surfaces in the daily brief |
 | **Peer Insights** | Spending vs anonymized income-bracket benchmarks; behavioral pattern detection (budget anchoring, present bias, subscription bloat) |
 
 ### Calendar & Scheduling
@@ -439,12 +440,17 @@ nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
 │                        CORE TABLES                                 │
 ├──────────────────────┬─────────────────────────────────────────────┤
 │ users                │ id, full_name, email, password_hash,        │
-│                      │ currency, ai_cache (JSONB), created_at      │
+│                      │ currency, ai_cache (JSONB), onboarding_     │
+│                      │ variant (A/B cohort), created_at            │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ transactions         │ id, user_id, amount, type (income/expense), │
 │                      │ description, category_id, account_id,       │
 │                      │ payment_method, date, notes, tags[],        │
-│                      │ is_regret, created_at                       │
+│                      │ is_regret, source (manual/sms/pdf_import/   │
+│                      │ cams_import), created_at                    │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ transaction_         │ id, user_id, source, deleted_at             │
+│ deletions            │ (audit trail for hard-deleted transactions) │
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ categories           │ id, user_id, name, icon, color, is_default  │
 ├──────────────────────┼─────────────────────────────────────────────┤
@@ -543,6 +549,16 @@ nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
 ├──────────────────────┼─────────────────────────────────────────────┤
 │ scenarios            │ id, user_id, title, type, inputs_json,      │
 │                      │ result_json, created_at                     │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ financial_plans      │ id, user_id (unique), monthly_income,       │
+│                      │ risk_profile, emergency_fund_target_months, │
+│                      │ emergency_fund_current_balance, goal_name,  │
+│                      │ goal_amount, goal_target_months,            │
+│                      │ loan_principal/rate/tenure/moratorium,      │
+│                      │ ai_narrative (JSONB)                        │
+├──────────────────────┼─────────────────────────────────────────────┤
+│ financial_plan_      │ id, plan_id, name, amount, category_id      │
+│ expenses             │                                              │
 └──────────────────────┴─────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────────────┐
@@ -672,6 +688,12 @@ POST      /api/tax/capital-transaction  Record a capital asset transaction
 ### Financial Planning
 
 ```
+GET    /api/planning                Get the user's financial plan
+POST   /api/planning                Create/update financial plan (income, risk profile, goal, loan)
+DELETE /api/planning                Delete financial plan
+POST   /api/planning/narrative      AI-generated narrative summary of the plan
+POST   /api/planning/recalculate    Recompute plan projections from current financial data
+POST   /api/planning/apply-recalculation  Apply a recalculation to the saved plan
 POST   /api/planning/fire           FIRE corpus + years-to-FIRE calculator
 POST   /api/planning/sip            SIP amount calculator (goal-based or growth-based)
 GET    /api/planning/cashflow       12-month projected cash flow
@@ -931,7 +953,7 @@ App runs at `http://localhost:3000`. Backend at `http://localhost:5000`.
 
 ### 4. Database
 
-Migrations run automatically on server start from `backend/src/db/migrations/*.sql` in alphabetical order (migrations `001` through `041` currently).
+Migrations run automatically on server start from `backend/src/db/migrations/*.sql` in alphabetical order (migrations `001` through `056` currently).
 
 ---
 
@@ -994,6 +1016,7 @@ fintrack/
 │   │   ├── tax/                    # Full Indian tax center (80C, capital gains, ITR)
 │   │   ├── tax-estimate/           # Quick AI Old vs New regime comparison
 │   │   ├── fire/                   # FIRE + SIP calculator
+│   │   ├── planning/               # Guided financial plan builder + AI narrative
 │   │   ├── cash-flow/              # 12-month cash flow projection
 │   │   ├── scenarios/              # What-if financial scenario modeling
 │   │   ├── milestones/             # Financial life milestones
@@ -1044,7 +1067,8 @@ fintrack/
 │   │   ├── investments/
 │   │   │   └── CamsImporter.tsx    # CAMS statement import UI
 │   │   └── transactions/
-│   │       └── TransactionList.tsx # Date-grouped transaction list
+│   │       ├── TransactionList.tsx # Date-grouped transaction list
+│   │       └── SmsImporter.tsx     # Paste-SMS → AI-parse → review → save flow
 │   ├── store/
 │   │   ├── authStore.ts            # Zustand auth state (user + token)
 │   │   ├── themeStore.ts           # Zustand theme state (dark/light)
@@ -1073,7 +1097,7 @@ fintrack/
 │       │   ├── loans.js            # Loan tracker + amortization + prepayments
 │       │   ├── debt.js             # Payoff optimizer + DTI + utilization
 │       │   ├── tax.js              # Full Indian tax center
-│       │   ├── planning.js         # FIRE, SIP, cash flow, scenarios
+│       │   ├── planning.js         # Financial plan CRUD + AI narrative, FIRE, SIP, cash flow, scenarios
 │       │   ├── milestones.js       # Financial milestones
 │       │   ├── documents.js        # Document vault (Supabase Storage)
 │       │   ├── pdfImport.js        # PDF bank statement import
@@ -1094,7 +1118,10 @@ fintrack/
 │       │   └── auth.js             # JWT verification middleware
 │       ├── db/
 │       │   ├── pool.js             # pg connection pool (port 6543)
-│       │   └── migrations/         # 041 SQL migration files (auto-run)
+│       │   └── migrations/         # 56 SQL migration files (auto-run)
+│       ├── scripts/
+│       │   ├── source-trust-report.js   # Edit/delete rate by transaction source (manual/sms/pdf_import)
+│       │   └── retention-report.js      # 7d/30d retention by onboarding A/B cohort
 │       └── utils/
 │           ├── ai.js               # aiComplete() with model routing
 │           ├── groq.js             # Groq client + fallback logic

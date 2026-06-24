@@ -77,6 +77,14 @@ All `nim`-provider routes fall back to `groq1` → `gemini` if `NVIDIA_API_KEY` 
 
 ---
 
+## Financial Plan AI Narrative (`backend/src/routes/planning.js`)
+
+| Endpoint | Route key (`aiComplete`) | Provider / Model | Feature |
+|----------|---------------------------|-------------------|---------|
+| `POST /api/planning/narrative` | `planning-narrative` | nim / DEEPSEEK_V4_FLASH (groq1 / LLAMA70B fallback) | **Financial Plan Narrative** — generates a natural-language summary of the user's saved financial plan (income, risk profile, emergency fund, goal, loan payoff), cached on the plan row (`ai_narrative`, `ai_narrative_generated_at`) |
+
+---
+
 ---
 
 ## Specialized AI Agents (`backend/src/routes/agents.js`)
@@ -101,14 +109,23 @@ Conversations are persisted in the `agent_conversations` table with `messages` s
 
 ---
 
-## AI Opportunities (`backend/src/routes/opportunities.js`)
+## Opportunities (`backend/src/routes/opportunities.js`)
 
-Analyzes the user's full financial snapshot (bank balances, loans, investments, tax 80C, credit utilization)
-and uses `aiComplete()` to identify actionable optimization opportunities. Opportunities are stored in
-the `opportunities` table and can be dismissed or marked as acted on.
+**Not LLM-backed.** Every detector is a deterministic async function that queries the user's
+financial data directly (bank balances, loans, investments, tax 80C, credit utilization, forecast,
+personality cache, advance tax schedule, behavioral patterns, salary intelligence) and applies a
+fixed rule to decide whether an opportunity exists. No `aiComplete()` call is made anywhere in this
+file. Results are upserted into the `opportunities` table (`ON CONFLICT (user_id, type) WHERE
+status='active'`, partial unique index from migration 050) and can be dismissed or marked as acted on.
+The top active opportunity (by priority, then recency) also surfaces in both the daily and weekly brief.
+
+13 detector types: `detectIdleCash`, `detectCreditCardInterest`, `detectHighInterestLoan`,
+`detectTax80cGap`, `detectSpendingSpike`, `detectAllocationGap`, `detectSipUnderinvesting`,
+`detectEmergencyFundLow`, `detectForecastWarning`, `detectPersonalityInsight`,
+`detectAdvanceTaxDue`, `detectBehavioralPattern`, `detectSalaryIntelligenceInsight`.
 
 Endpoints:
-- `POST /api/ai/opportunities/detect` — run opportunity detection (AI-powered analysis)
+- `POST /api/ai/opportunities/detect` — run all 13 detectors, upsert results
 - `GET  /api/ai/opportunities` — list all detected opportunities for the user
 - `PATCH /api/ai/opportunities/:id/dismiss` — dismiss an opportunity
 - `PATCH /api/ai/opportunities/:id/acted-on` — mark an opportunity as acted on

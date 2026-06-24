@@ -1,6 +1,6 @@
 # FinTrack — Project Documentation
 
-**Last Updated:** June 2026 (current main branch — post v0.10.0)
+**Last Updated:** 2026-06-24 (current main branch — post v0.10.0, plus the Financial Plan Builder and 10000x Growth Brief Phase 0-2 work below)
 
 ---
 
@@ -70,6 +70,7 @@
 - [x] AI-powered quick tax estimate (`/tax-estimate`) — AI narrates the comparison
 
 ### Financial Planning
+- [x] Financial Plan Builder (`/planning`) — guided plan covering monthly income, risk profile, emergency fund target/current balance, a primary goal, and loan payoff inputs; AI-generated narrative; recalculates on data drift
 - [x] FIRE calculator (corpus needed, years-to-FIRE, step-up + extra-payment scenarios, portfolio projection)
 - [x] SIP calculator (goal-based + growth-based, lumpsum alternative, wealth ratio)
 - [x] 12-month cash flow forecast (income, expenses, EMIs, savings)
@@ -113,8 +114,9 @@ See `docs/AI_FEATURES.md` for the complete provider/model/endpoint map and fallb
 | `/api/ai/health-report` | POST | Financial health report card | minimax-m2.7 (nim) |
 | `/api/ai/salary-allocation` | POST | 50/30/20 allocation plan | deepseek-v4-flash (nim) |
 | `/api/ai/agent/message` | POST | Specialized domain agent chat | llama-3.3-70b-versatile (groq1) |
-| `/api/ai/opportunities/detect` | POST | Financial opportunity detection | deepseek-v4-flash (nim) |
-| `/api/import/bank-statement` | POST | PDF bank statement extraction | llama-3.1-8b (groq1) |
+| `/api/ai/opportunities/detect` | POST | Financial opportunity detection (13 types) | rule-based, no LLM |
+| `/api/planning/narrative` | POST | Financial plan AI narrative | deepseek-v4-flash (nim) |
+| `/api/import/bank-statement` | POST | PDF bank statement extraction (with duplicate flagging) | llama-3.1-8b (groq1) |
 
 **4 Specialized Agents** (debt_coach, investment_advisor, tax_planner, budget_master) with persistent `agent_conversations` history.
 
@@ -196,8 +198,23 @@ See `docs/AI_FEATURES.md` for the complete provider/model/endpoint map and fallb
 | `037_documents.sql` | Financial document vault metadata |
 | `038_agent_conversations.sql` | AI agent conversation history |
 | `039_opportunities.sql` | AI-detected financial opportunities |
-| `040_briefings.sql` | (Daily financial briefings — in progress) |
+| `040_briefings.sql` | Weekly financial briefings table |
 | `041_ai_report_cache.sql` | Dedicated AI report cache table |
+| `042_daily_briefings.sql` | Daily financial briefings table |
+| `043_daily_briefings_updated_at.sql` | `updated_at` column on daily briefings |
+| `044_daily_briefings_refresh_log.sql` | Refresh log array on daily briefings |
+| `045_agent_conversations_general_type.sql` | Widens agent type check to include `general` |
+| `046_categories_investment_flag.sql` | `is_investment_category` flag on categories |
+| `047_investments_market_data_columns.sql` | Scheme code + price source columns for live NAV updates |
+| `048_investments_unique_scheme_code.sql` | Prevents duplicate mutual fund holdings |
+| `049_notifications.sql` | In-app notification feed (server-synced, replaces localStorage-only bell) |
+| `050_opportunities_unique_active_type.sql` | Partial unique index backing atomic opportunity upsert |
+| `051_financial_plans.sql` | `financial_plans` + `financial_plan_expenses` tables (Financial Plan Builder) |
+| `052_financial_plan_expenses_category.sql` | `category_id` column on financial plan expenses |
+| `053_transaction_source.sql` | `transactions.source` column (manual/sms/pdf_import/cams_import) |
+| `054_transaction_deletions_log.sql` | `transaction_deletions` audit table |
+| `055_onboarding_variant.sql` | `users.onboarding_variant` — deterministic A/B cohort for import-first onboarding |
+| `056_opportunities_expand_types.sql` | Widens `opportunities.type` to 13 detector types |
 
 ---
 
@@ -272,3 +289,5 @@ Fallback chains:
 - **Supabase Storage requires `service_role` key** — `anon` key cannot write to buckets server-side; use `SUPABASE_SERVICE_ROLE_KEY` in the backend only (never expose to frontend).
 - **Amortization edge cases** — zero-interest loans and loans with `emi_amount` already set need explicit handling; the `amortization.js` util returns `{ invalid: true }` for degenerate inputs.
 - **Tax computation is regime-specific** — Old regime has deductions (80C, HRA, standard deduction), New regime has slabs only; the `taxComputation.js` module handles both and returns side-by-side results.
+- **Canonical-function-export pattern scales beyond tax** — `tax.js` already exported its computation functions for `agents.js` to reuse instead of recomputing; `debt.js` now does the same (`computeCreditUtilization`, `computeDtiBreakdown`), eliminating duplicated DTI/utilization math that had drifted between the standalone `/debt-intelligence` page and the `debt_coach` agent.
+- **Orphaned pages are a recurring failure mode, not a one-off** — `/forecast`, `/personality`, `/salary-intelligence`, and `/planning` were each fully built (backend route + frontend page) but never linked from any nav component. Worth a periodic audit: grep every `app/<route>/page.tsx` against `Sidebar.tsx`/`BottomNav.tsx` for a matching `href`.

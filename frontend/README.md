@@ -56,13 +56,16 @@ app/                   Pages (App Router)
   analytics/           Charts and trends
   ai-chat/             AI financial advisor chat
   tax-estimate/        Indian income tax estimator
+  planning/            Guided financial plan builder + AI narrative
+  onboarding/          New user setup (treatment cohort gets an import step)
   ...
 components/
   layout/              AppLayout, Sidebar, BottomNav
   ui/                  Button, Skeleton, shared primitives
+  transactions/        SmsImporter, BankStatementImporter, TransactionList
 lib/
   api.ts               Axios instance + all API methods
   utils.ts             formatCurrency, date helpers
 store/
-  authStore.ts         Zustand auth state
+  authStore.ts         Zustand auth state (user.onboarding_variant = A/B cohort)
 ```
