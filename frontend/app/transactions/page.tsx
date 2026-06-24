@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, MoreHorizontal, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
@@ -58,6 +58,9 @@ function TransactionsPageInner() {
     const [initialQuery, setInitialQuery]   = useState('');
     const [importOpen, setImportOpen]       = useState(false);
     const [smsImportOpen, setSmsImportOpen] = useState(false);
+    const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
+    const moreMenuRef = useRef<HTMLDivElement>(null);
+    const [quickAddFabHover, setQuickAddFabHover] = useState(false);
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -176,6 +179,16 @@ function TransactionsPageInner() {
         return () => window.removeEventListener('keydown', handler);
     }, [selectMode, exitSelectMode]);
 
+    // Close mobile "more" menu on outside click
+    useEffect(() => {
+        if (!moreMenuOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [moreMenuOpen]);
+
     const toggleSelect = useCallback((id: string) => {
         setSelectedIds(prev => {
             const next = new Set(prev);
@@ -228,40 +241,58 @@ function TransactionsPageInner() {
                         {view === 'list' && (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             {!isMobile && (
-                                <button type="button"
-                                    onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? getNowMonth()).padStart(2, '0')}.csv`)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                    <Download size={14} /> Export
-                                </button>
+                                <>
+                                    <button type="button"
+                                        onClick={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? getNowMonth()).padStart(2, '0')}.csv`)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                        <Download size={14} /> Export
+                                    </button>
+                                    <button type="button"
+                                        onClick={() => setImportOpen(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                        <FileUp size={14} /> Import PDF
+                                    </button>
+                                    <button type="button"
+                                        onClick={() => setSmsImportOpen(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                        <MessageSquareText size={14} /> Import SMS
+                                    </button>
+                                    <button type="button"
+                                        onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: selectMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                        <CheckSquare size={16} /> {selectMode ? 'Cancel' : 'Select'}
+                                    </button>
+                                </>
                             )}
-                            <button type="button"
-                                onClick={() => setImportOpen(true)}
-                                title={isMobile ? 'Import PDF' : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <FileUp size={14} />
-                                {!isMobile && <>Import PDF</>}
-                            </button>
-                            <button type="button"
-                                onClick={() => setSmsImportOpen(true)}
-                                title={isMobile ? 'Import SMS' : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <MessageSquareText size={14} />
-                                {!isMobile && <>Import SMS</>}
-                            </button>
-                            <button type="button"
-                                onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                                title={isMobile ? (selectMode ? 'Cancel' : 'Select') : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: selectMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${selectMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: selectMode ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <CheckSquare size={16} />
-                                {!isMobile && <>{selectMode ? 'Cancel' : 'Select'}</>}
-                            </button>
-                            <button type="button"
-                                onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
-                                title={isMobile ? 'Quick Add' : undefined}
-                                style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px', padding: isMobile ? '9px' : '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <Zap size={16} />
-                                {!isMobile && <>Quick Add</>}
-                            </button>
+                            {isMobile && (
+                                <div ref={moreMenuRef} style={{ position: 'relative' }}>
+                                    <button type="button"
+                                        onClick={() => setMoreMenuOpen(o => !o)}
+                                        title="More actions"
+                                        style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, background: moreMenuOpen ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${moreMenuOpen ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: moreMenuOpen ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer' }}>
+                                        <MoreHorizontal size={18} />
+                                    </button>
+                                    {moreMenuOpen && (
+                                        <div style={{ position: 'absolute', top: '42px', right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', zIndex: 300, minWidth: '170px', overflow: 'hidden' }}>
+                                            <button type="button"
+                                                onClick={() => { setImportOpen(true); setMoreMenuOpen(false); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
+                                                <FileUp size={15} /> Import PDF
+                                            </button>
+                                            <button type="button"
+                                                onClick={() => { setSmsImportOpen(true); setMoreMenuOpen(false); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
+                                                <MessageSquareText size={15} /> Import SMS
+                                            </button>
+                                            <button type="button"
+                                                onClick={() => { selectMode ? exitSelectMode() : setSelectMode(true); setMoreMenuOpen(false); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
+                                                <CheckSquare size={15} /> {selectMode ? 'Cancel select' : 'Select'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <button type="button"
                                 onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
                                 style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -368,6 +399,43 @@ function TransactionsPageInner() {
                 {view === 'calendar' && <CalendarView />}
 
             </div>
+
+            {/* ── QUICK ADD FAB ── */}
+            {view === 'list' && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: isMobile ? 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)' : '32px',
+                    right: isMobile ? '16px' : '96px',
+                    zIndex: isMobile ? 996 : 500,
+                }}>
+                    {!isMobile && quickAddFabHover && (
+                        <div style={{
+                            position: 'absolute', bottom: '100%', left: '50%',
+                            transform: 'translateX(-50%)', marginBottom: '8px',
+                            backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
+                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
+                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
+                        }}>
+                            Quick Add
+                        </div>
+                    )}
+                    <button type="button"
+                        onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
+                        onMouseEnter={() => setQuickAddFabHover(true)}
+                        onMouseLeave={() => setQuickAddFabHover(false)}
+                        aria-label="Quick add with AI"
+                        style={{
+                            width: '52px', height: '52px', borderRadius: '50%',
+                            background: 'var(--accent)', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: quickAddFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
+                            transform: quickAddFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}>
+                        <Zap size={22} color="white" strokeWidth={2.5} />
+                    </button>
+                </div>
+            )}
 
             {/* ── TRANSACTION MODAL ── */}
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} pastTransactions={transactions} />
