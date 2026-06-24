@@ -2,6 +2,7 @@ package app.fintrack.compose.data.ai
 
 import app.fintrack.compose.data.api.AiApiService
 import app.fintrack.compose.data.api.DailyBriefingDto
+import app.fintrack.compose.data.api.ForecastCalendarDataDto
 import app.fintrack.compose.data.api.HealthReportRequest
 import app.fintrack.compose.data.api.HealthReportResponse
 import app.fintrack.compose.data.api.LifeEventRequest
@@ -46,4 +47,7 @@ class AiRepository @Inject constructor(
 
     suspend fun planLifeEvent(eventType: String, targetAmount: Double, targetDate: String): LifeEventResponse =
         api.lifeEvent(LifeEventRequest(eventType, targetAmount, targetDate))
+
+    suspend fun getForecastCalendar(force: Boolean = false): ForecastCalendarDataDto? =
+        api.getForecastCalendar(if (force) true else null).data
 }

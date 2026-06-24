@@ -139,6 +139,49 @@ data class TaxEstimateResponse(
     val data: TaxEstimateDataDto? = null,
 )
 
+// ─── Forecast calendar ───────────────────────────────────────────────────────
+
+/** Built server-side from `Math.round`/`safeNum`-wrapped JS numbers — real JSON numbers, not NUMERIC passthroughs. */
+@Serializable
+data class ForecastCalendarDayDto(
+    val day: Int,
+    val actual: Double? = null,
+    val projected: Double? = null,
+    val isFuture: Boolean = false,
+    val isToday: Boolean = false,
+)
+
+@Serializable
+data class ForecastCategoryDto(
+    val name: String,
+    val icon: String = "",
+    val color: String? = null,
+    val avgMonthly: Double = 0.0,
+    val spentSoFar: Double = 0.0,
+    val percentOfTotal: Int = 0,
+)
+
+@Serializable
+data class ForecastCalendarDataDto(
+    val totalForecast: Double = 0.0,
+    val currentMonthSpent: Double = 0.0,
+    val avgDaily: Double = 0.0,
+    val daysElapsed: Int = 0,
+    val daysInMonth: Int = 0,
+    val daysRemaining: Int = 0,
+    val categories: List<ForecastCategoryDto> = emptyList(),
+    val calendarDays: List<ForecastCalendarDayDto> = emptyList(),
+    val insight: String = "",
+    val insufficientData: Boolean = false,
+)
+
+@Serializable
+data class ForecastCalendarResponse(
+    val success: Boolean = true,
+    val data: ForecastCalendarDataDto? = null,
+    val from_cache: Boolean = false,
+)
+
 @Serializable
 data class SalaryPlanItemDto(
     val percentage: Double = 0.0,

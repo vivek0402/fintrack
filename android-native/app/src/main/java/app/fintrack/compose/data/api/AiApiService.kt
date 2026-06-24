@@ -38,4 +38,7 @@ interface AiApiService {
 
     @POST("api/ai/life-event")
     suspend fun lifeEvent(@Body body: LifeEventRequest): LifeEventResponse
+
+    @GET("api/ai/forecast-calendar")
+    suspend fun getForecastCalendar(@Query("force") force: Boolean? = null): ForecastCalendarResponse
 }

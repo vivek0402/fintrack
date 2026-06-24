@@ -1,10 +1,12 @@
 package app.fintrack.compose.ui.savingsplan
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,10 +18,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -29,8 +36,30 @@ import app.fintrack.compose.ui.common.formatInr
 import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
 
+private val SAVINGS_PLAN_TABS = listOf("Savings Plan", "Forecast", "Milestones")
+
 @Composable
-fun SavingsPlanScreen(viewModel: SavingsPlanViewModel = hiltViewModel()) {
+fun SavingsPlanScreen() {
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            SAVINGS_PLAN_TABS.forEachIndexed { index, label ->
+                Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(label) })
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (selectedTab) {
+                0 -> SipCalculatorTab()
+                1 -> ForecastTab()
+                else -> MilestonesTab()
+            }
+        }
+    }
+}
+
+@Composable
+private fun SipCalculatorTab(viewModel: SavingsPlanViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
     LazyColumn(contentPadding = PaddingValues(FinTrackSpacing.space4)) {

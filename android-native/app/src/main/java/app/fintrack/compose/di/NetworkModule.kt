@@ -15,6 +15,7 @@ import app.fintrack.compose.data.api.GoalsApiService
 import app.fintrack.compose.data.api.GroupsApiService
 import app.fintrack.compose.data.api.InvestmentsApiService
 import app.fintrack.compose.data.api.LoansApiService
+import app.fintrack.compose.data.api.MilestoneApiService
 import app.fintrack.compose.data.api.NotificationsApiService
 import app.fintrack.compose.data.api.OneTimeExpensesApiService
 import app.fintrack.compose.data.api.OpportunitiesApiService
@@ -133,6 +134,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideLoansApiService(retrofit: Retrofit): LoansApiService = retrofit.create()
+
+    @Provides
+    @Singleton
+    fun provideMilestoneApiService(retrofit: Retrofit): MilestoneApiService = retrofit.create()
 
     @Provides
     @Singleton
