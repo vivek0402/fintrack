@@ -77,8 +77,11 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
-/* ── DARK THEME (default) — AMOLED ───────────────────────────────────────── */
-[data-theme="dark"] {
+/* ── DARK THEME (default) — AMOLED ───────────────────────────────────────────
+   Also bound to :root so the app never renders "naked" (invisible buttons/
+   borders/text) if the inline theme-setting script in layout.tsx fails to
+   set data-theme (e.g. localStorage throws in a sandboxed WebView). ── */
+:root, [data-theme="dark"] {
   --bg-base: #0a0a0a;
   --bg-surface-1: #111111;
   --bg-surface-2: #1a1a1a;
