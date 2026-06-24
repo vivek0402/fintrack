@@ -60,6 +60,7 @@ const ROUTES = {
     'briefing':           { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
     'daily-briefing':     { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 200,  temp: 0.6 },
     'behavioral-insight': { model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.7 },
+    'planning-narrative': { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 900,  temp: 0.4 },
 };
 
 // ── Circuit breaker (in-memory, resets on restart) ──

@@ -326,6 +326,12 @@ export const debtAPI = {
 };
 
 export const planningAPI = {
+    getPlan: () => api.get('/api/planning'),
+    savePlan: (data: object) => api.post('/api/planning', data),
+    deletePlan: () => api.delete('/api/planning'),
+    getNarrative: () => api.post('/api/planning/narrative'),
+    recalculate: () => api.post('/api/planning/recalculate'),
+    applyRecalculation: () => api.post('/api/planning/apply-recalculation'),
     computeFire: (params: {
         monthly_expenses?: number; expected_annual_return_pct?: number; inflation_pct?: number;
         swr_pct?: number; extra_monthly_savings?: number;
