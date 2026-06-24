@@ -1,6 +1,8 @@
 package app.fintrack.compose.ui.accounts
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -173,7 +175,7 @@ private fun AccountFormSheet(
     val form = state.form
     var typeMenuExpanded by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
             Text("Add Account", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))

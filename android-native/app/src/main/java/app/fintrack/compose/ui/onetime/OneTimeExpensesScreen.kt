@@ -3,6 +3,8 @@ package app.fintrack.compose.ui.onetime
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -254,7 +256,7 @@ private fun ExpenseFormSheet(state: OneTimeExpensesUiState, viewModel: OneTimeEx
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var accountMenuExpanded by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeExpenseForm, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::closeExpenseForm, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(FinTrackSpacing.space5)) {
             Text(if (form.editingId != null) "Edit Expense" else "New Expense", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
@@ -354,7 +356,7 @@ private fun ItemFormSheet(state: OneTimeExpensesUiState, viewModel: OneTimeExpen
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var methodMenuExpanded by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeItemForm, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::closeItemForm, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(FinTrackSpacing.space5)) {
             Text(if (form.editingId != null) "Edit Item" else "Add Item", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))

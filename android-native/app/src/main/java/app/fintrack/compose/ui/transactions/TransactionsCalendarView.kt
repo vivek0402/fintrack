@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -201,7 +203,7 @@ private fun CalendarDayCell(day: CalendarDayData, maxExpense: Double, onClick: (
 private fun DayDetailSheet(day: CalendarDayData, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
             Text(
                 day.date.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMM d")),

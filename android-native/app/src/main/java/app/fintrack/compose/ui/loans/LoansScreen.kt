@@ -2,6 +2,8 @@ package app.fintrack.compose.ui.loans
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -213,7 +215,7 @@ private fun LoanFormSheet(
     val isEditing = form.editingId != null
     var typeMenuExpanded by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp).padding(FinTrackSpacing.space5)) {
             Text(if (isEditing) "Edit Loan" else "Add Loan", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
@@ -351,7 +353,7 @@ private fun PrepaymentFormSheet(
 ) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
             Text("Log Prepayment", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))

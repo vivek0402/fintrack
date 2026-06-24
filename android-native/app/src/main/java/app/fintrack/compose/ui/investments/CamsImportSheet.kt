@@ -3,6 +3,8 @@ package app.fintrack.compose.ui.investments
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,7 +55,7 @@ fun CamsImportSheet(
         uri?.let(onFilePicked)
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().padding(FinTrackSpacing.space5)) {
             when (state.step) {
                 CamsImportStep.Upload -> CamsUploadStep(

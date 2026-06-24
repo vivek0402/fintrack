@@ -1,6 +1,8 @@
 package app.fintrack.compose.ui.splits
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -181,7 +183,7 @@ private fun ParticipantRow(participant: ExpenseSplitParticipantDto, onToggle: ()
 private fun SplitFormSheet(form: SplitFormState, viewModel: SplitsViewModel) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeForm, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::closeForm, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(FinTrackSpacing.space5)) {
             Text(if (form.editingId != null) "Edit Split" else "New Split", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))

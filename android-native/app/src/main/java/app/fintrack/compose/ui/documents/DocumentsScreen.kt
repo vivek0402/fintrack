@@ -1,6 +1,8 @@
 package app.fintrack.compose.ui.documents
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -286,7 +288,7 @@ private fun UploadFormSheet(form: UploadFormState, viewModel: DocumentsViewModel
         uri?.let { viewModel.onFilePicked(it) }
     }
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeUploadSheet, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::closeUploadSheet, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(FinTrackSpacing.space5)) {
             Text("Upload Document", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))

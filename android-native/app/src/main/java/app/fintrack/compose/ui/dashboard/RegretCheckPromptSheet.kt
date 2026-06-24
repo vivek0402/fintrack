@@ -1,6 +1,8 @@
 package app.fintrack.compose.ui.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -43,7 +45,7 @@ fun RegretCheckPromptSheet(viewModel: RegretCheckPromptViewModel = hiltViewModel
 
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = viewModel::dismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::dismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = FinTrackSpacing.space5)) {
             Text("Weekly Regret Check 😬", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(FinTrackSpacing.space1))

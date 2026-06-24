@@ -2,6 +2,8 @@ package app.fintrack.compose.ui.groups
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -392,7 +394,7 @@ private fun SettleUpTab(settlements: List<SettlementDto>?, isLoading: Boolean) {
 private fun GroupFormSheet(form: GroupFormState, onDismiss: () -> Unit, viewModel: GroupsViewModel) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 600.dp).padding(FinTrackSpacing.space5)) {
             Text(if (form.editingId != null) "Edit Group" else "New Group", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
@@ -482,7 +484,7 @@ private fun GroupFormSheet(form: GroupFormState, onDismiss: () -> Unit, viewMode
 private fun SplitFormSheet(form: SplitFormState, onDismiss: () -> Unit, viewModel: GroupsViewModel) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 640.dp).padding(FinTrackSpacing.space5)) {
             Text(if (form.editingId != null) "Edit Split" else "Add Split", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
@@ -590,7 +592,7 @@ private fun SplitFormSheet(form: SplitFormState, onDismiss: () -> Unit, viewMode
 private fun LinkSearchSheet(state: GroupsUiState, viewModel: GroupsViewModel) {
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeLinkSearch, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = viewModel::closeLinkSearch, sheetState = sheetState, contentWindowInsets = { WindowInsets.systemBars }) {
         Column(modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp).padding(FinTrackSpacing.space5)) {
             Text("Link Existing Transaction", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(FinTrackSpacing.space4))
