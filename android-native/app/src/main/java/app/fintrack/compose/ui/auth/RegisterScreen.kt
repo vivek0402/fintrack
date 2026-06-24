@@ -2,6 +2,7 @@ package app.fintrack.compose.ui.auth
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.fintrack.compose.ui.theme.FinTrackColors
 import app.fintrack.compose.ui.theme.FinTrackSpacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,6 +100,10 @@ fun RegisterScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (state.password.isNotEmpty()) {
+                        Spacer(Modifier.height(FinTrackSpacing.space2))
+                        RegisterPasswordStrength(state.password)
+                    }
 
                     state.error?.let {
                         Spacer(Modifier.height(FinTrackSpacing.space3))
@@ -169,5 +176,31 @@ fun RegisterScreen(
 
             Spacer(Modifier.height(FinTrackSpacing.space8))
         }
+    }
+}
+
+@Composable
+private fun RegisterPasswordStrength(password: String) {
+    val strength = when {
+        password.length < 6 -> 1
+        password.length < 8 -> 2
+        password.any { it.isDigit() } && password.any { !it.isLetterOrDigit() } -> 4
+        else -> 3
+    }
+    val colors = listOf(FinTrackColors.Dark.colorExp, FinTrackColors.Dark.colorWarn, FinTrackColors.Dark.accent, FinTrackColors.Dark.colorInc)
+    val labels = listOf("Too short", "Fair", "Good", "Strong")
+    val color = colors[strength - 1]
+
+    Column {
+        Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+            repeat(4) { i ->
+                Surface(
+                    color = if (i < strength) color else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.weight(1f).height(3.dp),
+                ) {}
+            }
+        }
+        Spacer(Modifier.height(FinTrackSpacing.space1))
+        Text(labels[strength - 1], style = MaterialTheme.typography.labelSmall, color = color)
     }
 }
