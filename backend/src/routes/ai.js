@@ -574,52 +574,6 @@ Return ONLY valid JSON with NO markdown, NO backticks:
     }
 });
 
-// ─── FEATURE: Regret Patterns ────────────────────────────────────────
-router.get('/regret-patterns', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-
-        const { rows: regretted } = await pool.query(
-            `SELECT t.*, c.name as category_name
-             FROM transactions t
-             LEFT JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id = $1 AND t.is_regretted = true
-             ORDER BY t.date DESC`,
-            [userId]
-        );
-
-        if (regretted.length === 0) {
-            return res.json({ patterns: null, insight: null, count: 0 });
-        }
-
-        const context = JSON.stringify(regretted.map(t => ({
-            amount: parseFloat(t.amount),
-            description: t.description,
-            category: t.category_name,
-            date: t.date,
-        })));
-
-        const text = (await aiComplete('regret-patterns', [{
-            role: 'user',
-            content: `Analyse these transactions that the user has marked as "regretted".
-Identify patterns and return ONLY valid JSON (no markdown):
-{
-  "insight": "2-3 sentences describing the main regret patterns, be specific with amounts and categories",
-  "patterns": [
-    { "pattern": string, "count": number, "total_amount": number, "tip": string }
-  ]
-}
-Transactions: ${context}`,
-        }])).trim();
-        const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(jsonStr);
-        res.json({ ...parsed, count: regretted.length, total: regretted.reduce((s, t) => s + parseFloat(t.amount), 0) });
-    } catch (err) {
-        console.error('AI regret-patterns error:', err.message);
-        res.json({ patterns: null, insight: null, count: 0 });
-    }
-});
-
 // ─── FEATURE: Life Event Planning ────────────────────────────────────
 router.post('/life-event', authMiddleware, async (req, res) => {
     try {
@@ -1013,123 +967,6 @@ Respond with ONLY a raw JSON object. No markdown. No backticks. No explanation.
     } catch (err) {
         console.error('[AI] quick-add error:', err.message);
         res.status(500).json({ success: false, error: 'Failed to parse transaction' });
-    }
-});
-
-// ─── FEATURE: Tax Estimate (Indian FY, April–March) ───────────────────
-router.get('/tax-estimate', authMiddleware, async (req, res) => {
-    try {
-        const userId = req.user.id;
-
-        if (!req.query.force) {
-            const cached = await getCached(pool, userId, 'tax_estimate');
-            if (cached) return res.json({ success: true, data: cached, from_cache: true });
-        }
-
-        // Indian financial year: April of current year to March of next year
-        const now = new Date();
-        const fyStart = now.getMonth() >= 3
-            ? `${now.getFullYear()}-04-01`
-            : `${now.getFullYear() - 1}-04-01`;
-        const fyEnd = now.getMonth() >= 3
-            ? `${now.getFullYear() + 1}-03-31`
-            : `${now.getFullYear()}-03-31`;
-
-        const [{ rows: incomeTx }, { rows: investmentTx }] = await Promise.all([
-            pool.query(
-                `SELECT amount, description, date,
-                        COALESCE(c.name, 'Salary') as category_name
-                 FROM transactions t
-                 LEFT JOIN categories c ON c.id = t.category_id
-                 WHERE t.user_id = $1 AND t.type = 'income'
-                   AND t.date >= $2 AND t.date <= $3
-                 ORDER BY t.date DESC`,
-                [userId, fyStart, fyEnd]
-            ),
-            pool.query(
-                `SELECT t.amount, t.description, c.name as category_name
-                 FROM transactions t
-                 LEFT JOIN categories c ON c.id = t.category_id
-                 WHERE t.user_id = $1 AND t.type = 'expense'
-                   AND t.date >= $2 AND t.date <= $3
-                   AND LOWER(COALESCE(c.name,'')) IN ('investments','insurance','education')
-                 ORDER BY t.date DESC`,
-                [userId, fyStart, fyEnd]
-            ),
-        ]);
-
-        const grossIncome = incomeTx.reduce((s, t) => s + parseFloat(t.amount), 0);
-        const potentialDeductions = investmentTx.reduce((s, t) => s + parseFloat(t.amount), 0);
-
-        if (grossIncome === 0) {
-            return res.json({
-                success: true,
-                data: {
-                    grossIncome: 0,
-                    estimatedTax: 0,
-                    regime: 'new',
-                    breakdown: [],
-                    disclaimer: 'No income recorded for this financial year. Add salary/income transactions to see an estimate.',
-                    fyStart, fyEnd,
-                },
-                from_cache: false,
-            });
-        }
-
-        const context = JSON.stringify({
-            financialYear: `${fyStart.slice(0, 4)}–${fyEnd.slice(0, 4)}`,
-            grossIncome: Math.round(grossIncome),
-            incomeBreakdown: incomeTx.slice(0, 10).map(t => ({ amount: parseFloat(t.amount), category: t.category_name })),
-            potentialDeductions80C: Math.min(Math.round(potentialDeductions), 150000),
-            totalInvestments: Math.round(potentialDeductions),
-        });
-
-        const raw = (await aiComplete('tax-estimate', [{
-            role: 'user',
-            content: `Calculate estimated Indian income tax for this user.
-Compare Old Regime vs New Regime and recommend the better option.
-
-Data: ${context}
-
-Return ONLY valid JSON (no markdown, no backticks):
-{
-  "grossIncome": <number>,
-  "fyPeriod": "<e.g. FY 2024-25>",
-  "oldRegime": {
-    "taxableIncome": <number>,
-    "standardDeduction": 50000,
-    "deduction80C": <number up to 150000>,
-    "tax": <number>,
-    "cess": <number>,
-    "total": <number>
-  },
-  "newRegime": {
-    "taxableIncome": <number>,
-    "standardDeduction": 75000,
-    "tax": <number>,
-    "cess": <number>,
-    "total": <number>
-  },
-  "recommendedRegime": "old" | "new",
-  "savings": <amount saved by choosing recommended regime>,
-  "breakdown": [
-    { "slab": "<e.g. Up to ₹3L>", "rate": "<e.g. Nil>", "tax": <number> }
-  ],
-  "tips": ["<specific actionable tip based on their income>"],
-  "disclaimer": "This is an estimate only. Consult a CA for accurate tax filing."
-}`,
-        }])).trim();
-
-        const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const estimate = JSON.parse(clean);
-        estimate.fyStart = fyStart;
-        estimate.fyEnd = fyEnd;
-
-        await setCached(pool, userId, 'tax_estimate', estimate);
-        res.json({ success: true, data: estimate, from_cache: false });
-    } catch (err) {
-        console.error('[AI] tax-estimate error:', err.message);
-        res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
@@ -1894,7 +1731,7 @@ router.get('/briefing/daily/latest', authMiddleware, async (req, res) => {
 });
 
 // ─── Cache-bust endpoint ─────────────────────────────────────────────
-const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'tax_estimate', 'salary_intelligence', 'behavioral_patterns']);
+const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'salary_intelligence', 'behavioral_patterns']);
 
 router.delete('/cache/:key', authMiddleware, async (req, res) => {
     try {

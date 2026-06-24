@@ -4,7 +4,6 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
 const { calculateEMI, monthsRemainingForLoan } = require('../utils/amortization');
-const { getCurrentFY, computeItrReadiness, computeAdvanceTaxEstimate, SECTION_80C_LIMIT } = require('./tax');
 const { computeDtiBreakdown, computeCreditUtilization } = require('./debt');
 const router = express.Router();
 
@@ -22,7 +21,7 @@ const agentChatLimiter = rateLimit({
     message: { error: 'You’ve reached the chat limit for this hour. Please try again later.' },
 });
 
-const AGENT_TYPES = ['debt_coach', 'investment_advisor', 'tax_planner', 'budget_master', 'general'];
+const AGENT_TYPES = ['debt_coach', 'investment_advisor', 'budget_master', 'general'];
 const isValidAgentType = (value) => AGENT_TYPES.includes(value);
 
 const fmt = (n) => parseFloat((Number(n) || 0).toFixed(2));
@@ -194,79 +193,13 @@ async function fetchInvestmentAdvisorData(userId) {
     };
 }
 
-async function fetchTaxPlannerData(userId) {
-    const fy = getCurrentFY();
-
-    // All five lookups only depend on (userId, fy), not on each other's results —
-    // run them in parallel. Each keeps its own failure isolation via .catch,
-    // matching the original per-item try/catch fallbacks.
-    const [profileRes, eightyCRes, cgRes, itrReadinessResult, advanceTaxResult] = await Promise.all([
-        pool.query(
-            `SELECT * FROM tax_profiles WHERE user_id = $1 AND financial_year = $2`,
-            [userId, fy]
-        ),
-        pool.query(
-            `SELECT COALESCE(SUM(amount), 0) AS total FROM tax_investments
-             WHERE user_id = $1 AND financial_year = $2 AND deduction_section = '80C'`,
-            [userId, fy]
-        ),
-        pool.query(
-            `SELECT
-                COALESCE(SUM(CASE WHEN transaction_type = 'sell' THEN units * price_per_unit ELSE 0 END), 0)
-                - COALESCE(SUM(CASE WHEN transaction_type = 'buy' THEN units * price_per_unit ELSE 0 END), 0) AS net,
-                COUNT(*) AS txn_count
-             FROM capital_transactions WHERE user_id = $1 AND financial_year = $2`,
-            [userId, fy]
-        ).catch(() => null), // capital_transactions may not exist for this user/FY
-        computeItrReadiness(userId, fy).catch(() => null),
-        computeAdvanceTaxEstimate(userId, fy).catch(() => null),
-    ]);
-
-    const profileRow = profileRes.rows[0] || null;
-    const profile = profileRow ? {
-        basic_salary_monthly: fmt(profileRow.basic_salary_monthly),
-        hra_component_monthly: fmt(profileRow.hra_component_monthly),
-        rent_paid_monthly: fmt(profileRow.rent_paid_monthly),
-        preferred_regime: profileRow.preferred_regime,
-        city_type: profileRow.city_type,
-    } : null;
-
-    const total_claimed = fmt(eightyCRes.rows[0].total);
-    const section_80c = {
-        total_claimed,
-        limit: SECTION_80C_LIMIT,
-        remaining: fmt(Math.max(0, SECTION_80C_LIMIT - total_claimed)),
-    };
-
-    let capital_gains_summary = { total_gains: 0, note: 'No capital transactions recorded this FY.' };
-    if (cgRes && parseInt(cgRes.rows[0].txn_count, 10) > 0) {
-        capital_gains_summary = { approximate_net_gain: fmt(cgRes.rows[0].net) };
-    }
-
-    const itr_readiness = itrReadinessResult || null;
-
-    let advance_tax = null;
-    if (advanceTaxResult) {
-        advance_tax = {
-            is_applicable: advanceTaxResult.is_applicable,
-            estimated_income: fmt(advanceTaxResult.estimated_income),
-            recommended_regime: advanceTaxResult.recommended_regime,
-            installments_paid: advanceTaxResult.installment_schedule
-                .filter(i => i.amount_paid > 0)
-                .map(i => ({ installment_number: i.installment_number, amount_paid: fmt(i.amount_paid) })),
-        };
-    }
-
-    return { financial_year: fy, profile, section_80c, capital_gains_summary, itr_readiness, advance_tax };
-}
-
 async function fetchBudgetMasterData(userId) {
     const now = new Date();
     const m = now.getMonth() + 1;
     const y = now.getFullYear();
 
-    // Four independent queries — none depends on another's result — run in parallel.
-    const [spendingRes, budgetsRes, savingsRes, regretRes] = await Promise.all([
+    // Three independent queries — none depends on another's result — run in parallel.
+    const [spendingRes, budgetsRes, savingsRes] = await Promise.all([
         pool.query(
             `SELECT c.name AS category_name,
                     DATE_TRUNC('month', t.date) AS month,
@@ -298,14 +231,6 @@ async function fetchBudgetMasterData(userId) {
              FROM transactions WHERE user_id = $1 AND date >= (CURRENT_DATE - INTERVAL '3 months')
              GROUP BY DATE_TRUNC('month', date), type
              ORDER BY month`,
-            [userId]
-        ),
-        pool.query(
-            `SELECT t.description, t.amount, t.date, c.name AS category_name
-             FROM transactions t
-             LEFT JOIN categories c ON t.category_id = c.id
-             WHERE t.user_id = $1 AND t.is_regretted = true
-             ORDER BY t.date DESC LIMIT 5`,
             [userId]
         ),
     ]);
@@ -346,19 +271,11 @@ async function fetchBudgetMasterData(userId) {
         savings_rate_pct: v.income > 0 ? fmt(((v.income - (v.expense || 0)) / v.income) * 100) : null,
     }));
 
-    const recent_regretted_transactions = regretRes.rows.map(r => ({
-        description: r.description,
-        amount: fmt(r.amount),
-        date: r.date,
-        category_name: r.category_name || 'Uncategorized',
-    }));
-
     return {
         spending_by_category,
         budget_adherence,
         top_overspent_categories,
         savings_rate_last_3_months,
-        recent_regretted_transactions,
     };
 }
 
@@ -432,37 +349,6 @@ ${allocation}
 ${COMMON_RULES}`;
 }
 
-function buildTaxPlannerPrompt(data) {
-    const profileText = data.profile
-        ? `Basic salary ${inr(data.profile.basic_salary_monthly)}/month, HRA ${inr(data.profile.hra_component_monthly)}/month, rent paid ${inr(data.profile.rent_paid_monthly)}/month, city type ${data.profile.city_type}, preferred regime: ${data.profile.preferred_regime}.`
-        : 'No tax profile set up yet.';
-    const cgText = data.capital_gains_summary.approximate_net_gain !== undefined
-        ? `Approximate net capital gain this FY: ${inr(data.capital_gains_summary.approximate_net_gain)}.`
-        : (data.capital_gains_summary.note || 'No capital gains data.');
-    const itrText = data.itr_readiness
-        ? `ITR readiness score: ${data.itr_readiness.score}/100 (${data.itr_readiness.completion_summary}). Next action: ${data.itr_readiness.next_action || 'none pending'}.`
-        : 'ITR readiness not available.';
-    const advanceTaxText = data.advance_tax
-        ? (data.advance_tax.is_applicable
-            ? `Advance tax applicable. Estimated annual income ${inr(data.advance_tax.estimated_income)}. Recommended regime: ${data.advance_tax.recommended_regime}. Installments paid so far: ${data.advance_tax.installments_paid.length}.`
-            : 'Advance tax not applicable (estimated liability below ₹10,000).')
-        : 'Advance tax estimate not available.';
-
-    return `You are Tax Planner, a meticulous Indian tax professional. You always cite specific sections of Indian tax law (Section 80C, Section 87A, HRA exemption rules, etc.) when relevant.
-
-USER'S FINANCIAL DATA (FY ${data.financial_year}):
-Salary profile: ${profileText}
-
-Section 80C: claimed ${inr(data.section_80c.total_claimed)} of ${inr(data.section_80c.limit)} limit, remaining headroom ${inr(data.section_80c.remaining)}.
-
-Capital gains: ${cgText}
-
-ITR readiness: ${itrText}
-
-Advance tax: ${advanceTaxText}
-${COMMON_RULES}`;
-}
-
 function buildBudgetMasterPrompt(data) {
     const spendingText = data.spending_by_category.length > 0
         ? data.spending_by_category.map(c => `- ${c.category_name}: ${inr(c.latest_month_amount)} this month${c.mom_change_pct !== null ? ` (${c.mom_change_pct > 0 ? '+' : ''}${c.mom_change_pct}% vs last month)` : ''}`).join('\n')
@@ -476,10 +362,6 @@ function buildBudgetMasterPrompt(data) {
     const savingsText = data.savings_rate_last_3_months.length > 0
         ? data.savings_rate_last_3_months.map(s => `- ${s.month}: ${s.savings_rate_pct !== null ? `${s.savings_rate_pct}%` : 'no income recorded'}`).join('\n')
         : '- Not enough data.';
-    const regretText = data.recent_regretted_transactions.length > 0
-        ? data.recent_regretted_transactions.map(t => `- ${t.description} (${t.category_name}): ${inr(t.amount)} on ${t.date}`).join('\n')
-        : '- None recorded.';
-
     return `You are Budget Master, an empathetic behavioral finance coach. You understand that spending is emotional, and you focus on progress, not perfection.
 
 USER'S FINANCIAL DATA:
@@ -494,13 +376,10 @@ ${overspentText}
 
 Savings rate (last 3 months):
 ${savingsText}
-
-Recently regretted transactions:
-${regretText}
 ${COMMON_RULES}`;
 }
 
-// Fetching all 4 domains is ~17 queries; a back-and-forth conversation would
+// Fetching all 3 domains is ~12 queries; a back-and-forth conversation would
 // otherwise re-run all of them on every single turn even though the user's
 // underlying financial data rarely changes mid-conversation.
 const UNIFIED_DATA_CACHE_TTL_MS = 60 * 1000;
@@ -510,18 +389,17 @@ async function fetchUnifiedData(userId) {
     const cached = unifiedDataCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) return cached.data;
 
-    const [debt, investing, tax, budget] = await Promise.all([
+    const [debt, investing, budget] = await Promise.all([
         fetchDebtCoachData(userId),
         fetchInvestmentAdvisorData(userId),
-        fetchTaxPlannerData(userId),
         fetchBudgetMasterData(userId),
     ]);
-    const data = { debt, investing, tax, budget };
+    const data = { debt, investing, budget };
     unifiedDataCache.set(userId, { data, expiresAt: Date.now() + UNIFIED_DATA_CACHE_TTL_MS });
     return data;
 }
 
-function buildUnifiedPrompt({ debt, investing, tax, budget }) {
+function buildUnifiedPrompt({ debt, investing, budget }) {
     // Reuse each domain's "USER'S FINANCIAL DATA" block by stripping the persona
     // line and COMMON_RULES suffix off the existing per-agent prompt builders.
     const stripToData = (fullPrompt) =>
@@ -533,10 +411,9 @@ function buildUnifiedPrompt({ debt, investing, tax, budget }) {
 
     const debtSection = stripToData(buildDebtCoachPrompt(debt));
     const investingSection = stripToData(buildInvestmentAdvisorPrompt(investing));
-    const taxSection = stripToData(buildTaxPlannerPrompt(tax));
     const budgetSection = stripToData(buildBudgetMasterPrompt(budget));
 
-    return `You are Fin, FinTrack's all-in-one AI financial assistant for an Indian personal finance app. You combine the expertise of a no-nonsense debt elimination coach, a calm data-driven investment advisor, a meticulous Indian tax professional (cite specific sections like 80C, 87A, HRA rules when relevant), and an empathetic behavioral budget coach — all in one conversation. Read the user's question and respond in whichever voice fits the topic; for mixed questions, blend them naturally. Never make the user pick a "mode" — just answer.
+    return `You are Fin, FinTrack's all-in-one AI financial assistant for an Indian personal finance app. You combine the expertise of a no-nonsense debt elimination coach, a calm data-driven investment advisor, and an empathetic behavioral budget coach — all in one conversation. Read the user's question and respond in whichever voice fits the topic; for mixed questions, blend them naturally. Never make the user pick a "mode" — just answer.
 
 USER'S FINANCIAL DATA:
 
@@ -545,9 +422,6 @@ ${debtSection}
 
 — INVESTMENTS —
 ${investingSection}
-
-— TAX (FY ${tax.financial_year}) —
-${taxSection}
 
 — BUDGET & SPENDING —
 ${budgetSection}

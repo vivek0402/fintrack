@@ -241,7 +241,7 @@ router.post('/', async (req, res) => {
                 }
 
                 // First writer to investment_transactions — every buy made via this flow
-                // gets a proper ledger entry for downstream analytics/capital-gains use.
+                // gets a proper ledger entry for downstream analytics use.
                 await client.query(
                     `INSERT INTO investment_transactions (investment_id, user_id, transaction_type, units, price_per_unit, transaction_date, notes)
                      VALUES ($1, $2, 'buy', $3, $4, $5, $6)`,
@@ -449,48 +449,6 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-router.patch('/:id/regret', async (req, res) => {
-    try {
-        const existing = await pool.query(
-            'SELECT id, is_regretted FROM transactions WHERE id = $1 AND user_id = $2',
-            [req.params.id, req.user.id]
-        );
-        if (existing.rows.length === 0)
-            return res.status(404).json({ error: 'Transaction not found.' });
-
-        const result = await pool.query(
-            `UPDATE transactions SET is_regretted = NOT is_regretted, updated_at = NOW()
-             WHERE id = $1 AND user_id = $2 RETURNING *`,
-            [req.params.id, req.user.id]
-        );
-        const regretTx = result.rows[0];
-        res.json({ transaction: regretTx });
-
-        if (regretTx.is_regretted) {
-            setImmediate(async () => {
-                try {
-                    const { rows } = await pool.query(
-                        `SELECT COUNT(*) AS cnt FROM transactions
-                         WHERE user_id=$1 AND is_regretted=true AND updated_at >= NOW() - INTERVAL '7 days'`,
-                        [req.user.id]
-                    );
-                    const count = parseInt(rows[0]?.cnt || 0);
-                    if (count < 5) return;
-
-                    const alertKey = `regret_rising:${new Date().toISOString().slice(0, 7)}`;
-                    await notifyOnce(req.user.id, alertKey, {
-                        title: "Feeling Some Regret? 😅",
-                        body: `You've marked ${count} transactions as regrets this week. It might be worth reviewing your habits — we're rooting for you! 💙`,
-                        data: { type: 'regret_rising', count: String(count) },
-                    });
-                } catch { }
-            });
-        }
-    } catch (err) {
-        console.error('[Transactions]', err.message);
-        res.status(500).json({ error: 'Server error.' });
-    }
-});
 
 // Note: deleting a transaction never unwinds the matched investments/investment_transactions
 // rows either, for the same reason as the PUT handler above. Deliberate.

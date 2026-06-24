@@ -48,11 +48,9 @@ const ROUTES = {
     'parse-sms':          { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'quick-add':          { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
     'recurring':          { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.3 },
-    'tax-estimate':       { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.2 },
     // Additional routes
     'afford':             { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 512,  temp: 0.3 },
     'parse-split':        { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'regret-patterns':    { model: MODELS.LLAMA70B, nimModel: MODELS.LLAMA_3B, maxTokens: 512,  temp: 0.4 },
     'life-event':         { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'forecast-calendar':  { model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
     'health-report':      { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },

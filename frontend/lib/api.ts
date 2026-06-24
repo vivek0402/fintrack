@@ -48,7 +48,6 @@ export const transactionsAPI = {
     create: (data: object) => api.post('/api/transactions', data),
     update: (id: string, data: object) => api.put(`/api/transactions/${id}`, data),
     delete: (id: string) => api.delete(`/api/transactions/${id}`),
-    toggleRegret: (id: string) => api.patch(`/api/transactions/${id}/regret`),
     earliest: () => api.get('/api/transactions/earliest'),
 };
 
@@ -168,14 +167,12 @@ export const aiAPI = {
     parseSplit: (text: string) => api.post('/api/ai/parse-split', { text }),
     salaryIntelligence: () => api.get('/api/ai/salary-intelligence'),
     personality: () => api.post('/api/ai/personality'),
-    regretPatterns: () => api.get('/api/ai/regret-patterns'),
     salaryAllocation: (force?: boolean) => api.post(`/api/ai/salary-allocation${force ? '?force=true' : ''}`),
     lifeEvent: (data: { event_type: string; target_amount: number; target_date: string }) =>
         api.post('/api/ai/life-event', data),
     forecastCalendar: (force?: boolean) => api.get(`/api/ai/forecast-calendar${force ? '?force=true' : ''}`),
     clearCache: (key: string) => api.delete(`/api/ai/cache/${key}`),
     healthReport: (data?: { month?: number; year?: number }) => api.post('/api/ai/health-report', data || {}),
-    taxEstimate: (force?: boolean) => api.get(`/api/ai/tax-estimate${force ? '?force=true' : ''}`),
     quickAdd: (text: string) => api.post('/api/ai/quick-add', { text }),
 };
 
@@ -272,31 +269,6 @@ export const importAPI = {
     },
     confirmCamsImport: (jobId: string, holdings: any[]) =>
         api.post(`/api/import/cams-statement/${jobId}/confirm`, { holdings }),
-};
-
-export const taxAPI = {
-    getProfile: () => api.get('/api/tax/profile'),
-    saveProfile: (data: {
-        financial_year?: string; employer_name?: string; basic_salary_monthly: number;
-        hra_component_monthly?: number; lta_component_annual?: number; special_allowance_monthly?: number;
-        rent_paid_monthly?: number; city_type?: string; lta_claims_used_in_block?: number; preferred_regime?: string;
-    }) => api.post('/api/tax/profile', data),
-    getHra: () => api.get('/api/tax/hra'),
-    getLta: () => api.get('/api/tax/lta'),
-    getAdvanceTax: () => api.get('/api/tax/advance-tax'),
-    logAdvanceTaxPayment: (data: { installment_number: number; amount_paid: number; paid_on_date: string; financial_year?: string; payment_reference?: string }) =>
-        api.post('/api/tax/advance-tax/payment', data),
-    getItrReadiness: () => api.get('/api/tax/itr-readiness'),
-    updateItrReadiness: (key: string, value: boolean) => api.patch('/api/tax/itr-readiness', { key, value }),
-    get80CSummary: (fy?: string) => api.get('/api/tax/80c-summary', { params: fy ? { fy } : {} }),
-    add80C: (data: { type: string; name: string; amount: number; investment_id?: string; financial_year?: string; deduction_section?: string }) =>
-        api.post('/api/tax/80c', data),
-    update80C: (id: string, data: { name?: string; amount?: number }) =>
-        api.patch(`/api/tax/80c/${id}`, data),
-    delete80C: (id: string) => api.delete(`/api/tax/80c/${id}`),
-    getCapitalGains: (fy?: string) => api.get('/api/tax/capital-gains', { params: fy ? { fy } : {} }),
-    addCapitalTransaction: (data: { asset_name: string; asset_type: string; transaction_type: string; units: number; price_per_unit: number; transaction_date: string }) =>
-        api.post('/api/tax/capital-transaction', data),
 };
 
 export const loanAPI = {

@@ -2,7 +2,6 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { monthsRemainingForLoan } = require('../utils/amortization');
-const { getCurrentFY, fyToDateRange, SECTION_80C_LIMIT, computeAdvanceTaxEstimate } = require('./tax');
 const { getCached } = require('../utils/aiCache');
 const router = express.Router();
 
@@ -108,51 +107,6 @@ async function detectHighInterestLoan(userId) {
         action_label: 'View prepayment impact',
         action_route: '/loans',
         expires_at: null,
-    };
-}
-
-async function detectTax80cGap(userId) {
-    const fy = getCurrentFY();
-    const { end } = fyToDateRange(fy);
-
-    const res = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) AS total FROM tax_investments
-         WHERE user_id = $1 AND financial_year = $2 AND deduction_section = '80C'`,
-        [userId, fy]
-    );
-    const totalClaimed = fmt(res.rows[0].total);
-    if (totalClaimed >= SECTION_80C_LIMIT) return null;
-
-    const now = new Date();
-    const fyEnd = new Date(end);
-    const monthsRemaining = Math.max(0, (fyEnd.getFullYear() - now.getFullYear()) * 12 + (fyEnd.getMonth() - now.getMonth()));
-    if (monthsRemaining < 2) return null;
-
-    const gap = fmt(SECTION_80C_LIMIT - totalClaimed);
-
-    const profileRes = await pool.query(
-        `SELECT basic_salary_monthly, hra_component_monthly, special_allowance_monthly
-         FROM tax_profiles WHERE user_id = $1 AND financial_year = $2`,
-        [userId, fy]
-    );
-    let annualIncome = 0;
-    if (profileRes.rows.length > 0) {
-        const p = profileRes.rows[0];
-        annualIncome = (parseFloat(p.basic_salary_monthly || 0) + parseFloat(p.hra_component_monthly || 0) + parseFloat(p.special_allowance_monthly || 0)) * 12;
-    }
-    let marginalRate = 5;
-    if (annualIncome > 1000000) marginalRate = 30;
-    else if (annualIncome > 500000) marginalRate = 20;
-
-    return {
-        type: 'tax_80c_gap',
-        title: `${inr(gap)} of unused Section 80C deduction this year`,
-        description: `You've claimed ${inr(totalClaimed)} of the ₹1,50,000 80C limit for FY ${fy}. Investing the remaining ${inr(gap)} (e.g. PPF, ELSS, EPF) before March 31 could lower your tax bill by an estimated ${inr(gap * marginalRate / 100)} at your ${marginalRate}% slab.`,
-        amount_saved: fmt(gap * marginalRate / 100),
-        priority: monthsRemaining < 3 ? 1 : 2,
-        action_label: 'Add 80C investment',
-        action_route: '/tax',
-        expires_at: end,
     };
 }
 
@@ -356,45 +310,6 @@ async function detectPersonalityInsight(userId) {
     };
 }
 
-async function detectAdvanceTaxDue(userId) {
-    // Reuses the canonical installment-schedule calculation from tax.js (also
-    // used by GET /api/tax/advance-tax and agents.js's tax_planner persona)
-    // instead of re-deriving liability/deadlines from the separate AI-generated
-    // tax_estimate cache, which would just be a second, less precise estimate
-    // of the same thing.
-    const fy = getCurrentFY();
-    let estimate;
-    try {
-        estimate = await computeAdvanceTaxEstimate(userId, fy);
-    } catch {
-        return null;
-    }
-    if (!estimate.is_applicable) return null;
-
-    const now = new Date();
-    const next = estimate.installment_schedule.find(i =>
-        i.status === 'due' || i.status === 'overdue' ||
-        (i.status === 'upcoming' && (new Date(i.due_date) - now) / (1000 * 60 * 60 * 24) <= 21)
-    );
-    if (!next) return null;
-
-    const liability = fmt(Math.min(estimate.old_regime_tax, estimate.new_regime_tax));
-    const dueDateLabel = new Date(next.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    return {
-        type: 'advance_tax_due',
-        title: next.status === 'overdue'
-            ? `Advance tax installment ${next.installment_number} is overdue`
-            : `Advance tax installment due ${dueDateLabel}`,
-        description: `Based on an estimated tax liability of ${inr(liability)} for FY ${fy}, your ${next.cumulative_pct_due}% cumulative installment (~${inr(next.installment_amount)}) ${next.status === 'overdue' ? 'was due' : 'is due'} on ${dueDateLabel}. Missing this can attract interest under Section 234C.`,
-        amount_saved: null,
-        priority: next.status === 'overdue' ? 1 : 2,
-        action_label: 'View advance tax schedule',
-        action_route: '/tax',
-        expires_at: next.due_date,
-    };
-}
-
 async function detectBehavioralPattern(userId) {
     const cached = await getCached(pool, userId, 'behavioral_patterns', 24 * 60 * 60 * 1000);
     if (!cached || !cached.detected_count) return null;
@@ -435,14 +350,12 @@ async function detectOpportunities(userId) {
         detectIdleCash(userId),
         detectCreditCardInterest(userId),
         detectHighInterestLoan(userId),
-        detectTax80cGap(userId),
         detectSpendingSpike(userId),
         detectAllocationGap(userId),
         detectSipUnderinvesting(userId),
         detectEmergencyFundLow(userId),
         detectForecastWarning(userId),
         detectPersonalityInsight(userId),
-        detectAdvanceTaxDue(userId),
         detectBehavioralPattern(userId),
         detectSalaryIntelligenceInsight(userId),
     ]);

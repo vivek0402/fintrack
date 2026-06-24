@@ -7,7 +7,7 @@ import {
     Target, Trophy, X, Settings, LineChart,
     Briefcase, Bot, Gauge,
     Waves,
-    Flame, GitBranch, Percent, PiggyBank, Compass,
+    Flame, GitBranch, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
 } from 'lucide-react';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
@@ -43,7 +43,6 @@ const moreGroups = [
         label: 'Plan',
         items: [
             { href: '/planning',     icon: Compass,   label: 'Financial Plan' },
-            { href: '/tax',          icon: Percent,   label: 'Tax' },
             { href: '/savings-plan', icon: PiggyBank, label: 'Savings Plan' },
         ],
     },

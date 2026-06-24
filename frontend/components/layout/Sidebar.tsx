@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
-    Waves, Flame, GitBranch, Percent, PiggyBank, Compass,
+    Waves, Flame, GitBranch, PiggyBank, Compass,
     CreditCard, FolderOpen, Users,
     MoreHorizontal, ChevronUp, HelpCircle,
 } from 'lucide-react';
@@ -50,7 +50,6 @@ const moreGroups = [
         label: 'Plan',
         items: [
             { href: '/planning',     icon: Compass,   label: 'Financial Plan' },
-            { href: '/tax',          icon: Percent,   label: 'Tax' },
             { href: '/savings-plan', icon: PiggyBank, label: 'Savings Plan' },
         ],
     },

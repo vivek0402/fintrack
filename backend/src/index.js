@@ -190,7 +190,6 @@ app.use('/api/investments',      require('./routes/investments'));
 app.use('/api/market-data',      require('./routes/marketData'));
 app.use('/api/import',           require('./routes/pdfImport'));
 app.use('/api/import',           require('./routes/camsImport'));
-app.use('/api/tax',              require('./routes/tax'));
 app.use('/api/loans',            require('./routes/loans'));
 app.use('/api/debt',             require('./routes/debt'));
 app.use('/api/planning',         require('./routes/planning'));

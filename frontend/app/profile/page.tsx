@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, Download, Trash2, FileText, Bell, Receipt, Zap } from 'lucide-react';
+import { User, Mail, Lock, Globe, CheckCircle, AlertCircle, Palette, ChevronRight, Download, Trash2, FileText, Bell, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
@@ -153,7 +153,7 @@ export default function ProfilePage() {
         setClearingCache(true);
         try {
             const results = await Promise.allSettled(
-                ['forecast', 'personality', 'tax_estimate', 'salary_intelligence', 'behavioral_patterns'].map(k => aiAPI.clearCache(k))
+                ['forecast', 'personality', 'salary_intelligence', 'behavioral_patterns'].map(k => aiAPI.clearCache(k))
             );
             const failed = results.filter(r => r.status === 'rejected').length;
             if (failed > 0) toast.error(`AI cache partially cleared (${failed} failed)`);
@@ -359,8 +359,6 @@ export default function ProfilePage() {
                 {/* ── APP SECTION ── */}
                 <div style={sectionCard}>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>App</h2>
-                    <div style={divider} />
-                    <SettingsRow icon={<Receipt size={16} />} label="Tax Settings" sub="Indian income tax estimate" onClick={() => router.push('/tax?tab=estimate')} />
                     <div style={divider} />
                     {/* Coach toggle */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>

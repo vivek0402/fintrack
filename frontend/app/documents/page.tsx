@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Upload, Download, Trash2, FileText, Award, Landmark, Receipt, Shield,
-    TrendingUp, FileCheck, Home, File, Archive,
+    Upload, Download, Trash2, FileText, Landmark, Receipt, Shield,
+    TrendingUp, File, Archive,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { documentAPI } from '@/lib/api';
@@ -15,14 +15,10 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 
 const DOCUMENT_TYPE_META: Record<string, { label: string; icon: any; color: string }> = {
-    form_16: { label: 'Form 16', icon: Award, color: 'var(--accent)' },
-    itr_copy: { label: 'ITR Copy', icon: FileCheck, color: 'var(--color-inc)' },
     salary_slip: { label: 'Salary Slip', icon: Receipt, color: 'var(--color-warn)' },
     bank_statement: { label: 'Bank Statement', icon: Landmark, color: 'var(--accent)' },
     insurance_policy: { label: 'Insurance Policy', icon: Shield, color: 'var(--color-inc)' },
     investment_proof: { label: 'Investment Proof', icon: TrendingUp, color: 'var(--color-inc)' },
-    advance_tax_challan: { label: 'Advance Tax Challan', icon: Landmark, color: 'var(--color-warn)' },
-    rent_receipt: { label: 'Rent Receipt', icon: Home, color: 'var(--color-warn)' },
     other: { label: 'Other', icon: File, color: 'var(--text-muted)' },
 };
 
