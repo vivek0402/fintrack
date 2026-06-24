@@ -95,6 +95,16 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[coachEnabledKey] = enabled }
     }
 
+    // ─── Dashboard: weekly Regret Check prompt last-shown time (mirrors web's `fintrack-last-regret-check` localStorage key) ───
+
+    private val lastRegretCheckKey = stringPreferencesKey("last_regret_check")
+
+    val lastRegretCheckFlow: Flow<Long?> = dataStore.data.map { it[lastRegretCheckKey]?.toLongOrNull() }
+
+    suspend fun markRegretCheckDone() {
+        dataStore.edit { it[lastRegretCheckKey] = System.currentTimeMillis().toString() }
+    }
+
     companion object {
         val CHALLENGE_IDS = listOf("no-eating-out", "coffee", "no-spend-weekend")
     }

@@ -68,6 +68,8 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
             )
         }
     }
+
+    RegretCheckPromptSheet()
 }
 
 @Composable
