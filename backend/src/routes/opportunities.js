@@ -2,7 +2,8 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { monthsRemainingForLoan } = require('../utils/amortization');
-const { getCurrentFY, fyToDateRange, SECTION_80C_LIMIT } = require('./tax');
+const { getCurrentFY, fyToDateRange, SECTION_80C_LIMIT, computeAdvanceTaxEstimate } = require('./tax');
+const { getCached } = require('../utils/aiCache');
 const router = express.Router();
 
 router.use(auth);
@@ -305,6 +306,130 @@ async function detectEmergencyFundLow(userId) {
     };
 }
 
+// ─── Detectors that surface signals from other AI features ──────────────────
+// These read each feature's existing ai_cache entry (getCached, no new AI call)
+// instead of recomputing anything -- they only fire once the user has actually
+// generated that feature's data by visiting its page. Consolidation, not a new
+// ranking layer: opportunities.js already does the ranking, this just gives
+// these features a way into that feed instead of staying siloed.
+
+async function detectForecastWarning(userId) {
+    const cached = await getCached(pool, userId, 'forecast', 24 * 60 * 60 * 1000);
+    if (!cached || cached.insufficientData || !cached.totalForecast) return null;
+
+    const now = new Date();
+    const budgetRes = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM budgets WHERE user_id = $1 AND month = $2 AND year = $3`,
+        [userId, now.getMonth() + 1, now.getFullYear()]
+    );
+    const totalBudget = fmt(budgetRes.rows[0].total);
+    if (totalBudget <= 0) return null;
+
+    const overPct = fmt(((cached.totalForecast - totalBudget) / totalBudget) * 100);
+    if (overPct < 15) return null;
+
+    return {
+        type: 'forecast_budget_warning',
+        title: `On track to overspend your budget by ${overPct}% this month`,
+        description: `At your current pace (${inr(cached.avgDaily)}/day), you're forecasted to spend ${inr(cached.totalForecast)} this month — ${overPct}% above your ${inr(totalBudget)} budget.`,
+        amount_saved: null,
+        priority: overPct > 30 ? 1 : 2,
+        action_label: 'View forecast',
+        action_route: '/forecast',
+        expires_at: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+    };
+}
+
+async function detectPersonalityInsight(userId) {
+    const cached = await getCached(pool, userId, 'personality', 30 * 24 * 60 * 60 * 1000);
+    if (!cached || !cached.personality_type) return null;
+
+    return {
+        type: 'personality_insight',
+        title: `Your financial personality: ${cached.personality_type}${cached.personality_emoji ? ' ' + cached.personality_emoji : ''}`,
+        description: cached.summary || 'View your full financial personality profile for tailored tips.',
+        amount_saved: null,
+        priority: 3,
+        action_label: 'View personality profile',
+        action_route: '/personality',
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+}
+
+async function detectAdvanceTaxDue(userId) {
+    // Reuses the canonical installment-schedule calculation from tax.js (also
+    // used by GET /api/tax/advance-tax and agents.js's tax_planner persona)
+    // instead of re-deriving liability/deadlines from the separate AI-generated
+    // tax_estimate cache, which would just be a second, less precise estimate
+    // of the same thing.
+    const fy = getCurrentFY();
+    let estimate;
+    try {
+        estimate = await computeAdvanceTaxEstimate(userId, fy);
+    } catch {
+        return null;
+    }
+    if (!estimate.is_applicable) return null;
+
+    const now = new Date();
+    const next = estimate.installment_schedule.find(i =>
+        i.status === 'due' || i.status === 'overdue' ||
+        (i.status === 'upcoming' && (new Date(i.due_date) - now) / (1000 * 60 * 60 * 24) <= 21)
+    );
+    if (!next) return null;
+
+    const liability = fmt(Math.min(estimate.old_regime_tax, estimate.new_regime_tax));
+    const dueDateLabel = new Date(next.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    return {
+        type: 'advance_tax_due',
+        title: next.status === 'overdue'
+            ? `Advance tax installment ${next.installment_number} is overdue`
+            : `Advance tax installment due ${dueDateLabel}`,
+        description: `Based on an estimated tax liability of ${inr(liability)} for FY ${fy}, your ${next.cumulative_pct_due}% cumulative installment (~${inr(next.installment_amount)}) ${next.status === 'overdue' ? 'was due' : 'is due'} on ${dueDateLabel}. Missing this can attract interest under Section 234C.`,
+        amount_saved: null,
+        priority: next.status === 'overdue' ? 1 : 2,
+        action_label: 'View advance tax schedule',
+        action_route: '/tax',
+        expires_at: next.due_date,
+    };
+}
+
+async function detectBehavioralPattern(userId) {
+    const cached = await getCached(pool, userId, 'behavioral_patterns', 24 * 60 * 60 * 1000);
+    if (!cached || !cached.detected_count) return null;
+
+    const top = (cached.patterns || []).find(p => p.detected);
+    if (!top) return null;
+
+    return {
+        type: 'behavioral_pattern',
+        title: `Spending pattern detected: ${top.pattern_name.replace(/_/g, ' ')}`,
+        description: cached.ai_insight || top.description,
+        amount_saved: null,
+        priority: 2,
+        action_label: 'View behavioral patterns',
+        action_route: '/analytics',
+        expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+}
+
+async function detectSalaryIntelligenceInsight(userId) {
+    const cached = await getCached(pool, userId, 'salary_intelligence', 31 * 24 * 60 * 60 * 1000);
+    if (!cached || !cached.detected || !cached.insight) return null;
+
+    return {
+        type: 'salary_intelligence_insight',
+        title: `Salary allocation plan ready${cached.salary ? ` for ${inr(cached.salary)}/month` : ''}`,
+        description: cached.insight,
+        amount_saved: null,
+        priority: 3,
+        action_label: 'View allocation plan',
+        action_route: '/salary-intelligence',
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+}
+
 async function detectOpportunities(userId) {
     const results = await Promise.all([
         detectIdleCash(userId),
@@ -315,6 +440,11 @@ async function detectOpportunities(userId) {
         detectAllocationGap(userId),
         detectSipUnderinvesting(userId),
         detectEmergencyFundLow(userId),
+        detectForecastWarning(userId),
+        detectPersonalityInsight(userId),
+        detectAdvanceTaxDue(userId),
+        detectBehavioralPattern(userId),
+        detectSalaryIntelligenceInsight(userId),
     ]);
     return results.filter(r => r !== null);
 }

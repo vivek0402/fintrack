@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
 const { calculateEMI, monthsRemainingForLoan } = require('../utils/amortization');
 const { getCurrentFY, computeItrReadiness, computeAdvanceTaxEstimate, SECTION_80C_LIMIT } = require('./tax');
+const { computeDtiBreakdown, computeCreditUtilization } = require('./debt');
 const router = express.Router();
 
 router.use(auth);
@@ -36,26 +37,15 @@ function emiForLoan(loan) {
 }
 
 async function fetchDebtCoachData(userId) {
-    const now = new Date();
-    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-
-    // Four independent queries — none depends on another's result — run in parallel.
-    const [loansRes, cardsRes, incomeRes, prepaymentsRes] = await Promise.all([
+    // DTI and credit-utilization math now live in debt.js (computeDtiBreakdown /
+    // computeCreditUtilization) -- the same functions GET /api/debt/dti and
+    // GET /api/debt/credit-utilization call. Previously this duplicated that
+    // math inline with its own queries, which meant the debt_coach persona and
+    // the standalone debt pages could silently disagree on the same numbers.
+    const [loansRes, prepaymentsRes, dti, utilization] = await Promise.all([
         pool.query(
             `SELECT * FROM loans WHERE user_id = $1 AND is_active = true ORDER BY interest_rate_pct DESC`,
             [userId]
-        ),
-        pool.query(
-            `SELECT COALESCE(SUM(outstanding_balance), 0) AS total_outstanding,
-                    COALESCE(SUM(credit_limit), 0) AS total_limit
-             FROM credit_cards WHERE user_id = $1`,
-            [userId]
-        ),
-        pool.query(
-            `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
-            [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
         ),
         pool.query(
             `SELECT lp.amount, lp.prepayment_date, l.name AS loan_name
@@ -65,6 +55,8 @@ async function fetchDebtCoachData(userId) {
              ORDER BY lp.prepayment_date DESC LIMIT 3`,
             [userId]
         ),
+        computeDtiBreakdown(userId),
+        computeCreditUtilization(userId),
     ]);
 
     const loans = loansRes.rows.map(l => ({
@@ -76,20 +68,20 @@ async function fetchDebtCoachData(userId) {
         tenure_months: l.tenure_months,
     }));
 
-    const total_outstanding = fmt(cardsRes.rows[0].total_outstanding);
-    const total_limit = fmt(cardsRes.rows[0].total_limit);
-    const overall_utilization_pct = total_limit > 0 ? fmt((total_outstanding / total_limit) * 100) : 0;
-
-    const monthly_income = fmt(parseFloat(incomeRes.rows[0].total) / 3);
-    const monthly_loan_emi = fmt(loans.reduce((s, l) => s + l.emi_amount, 0));
-    const monthly_credit_obligation = fmt(total_outstanding * 0.05);
-    const total_monthly_debt_obligation = fmt(monthly_loan_emi + monthly_credit_obligation);
-    const dti_ratio = monthly_income > 0 ? fmt((total_monthly_debt_obligation / monthly_income) * 100) : 0;
-
     return {
         loans,
-        credit_cards: { total_outstanding, total_limit, overall_utilization_pct },
-        dti: { monthly_income, monthly_loan_emi, monthly_credit_obligation, total_monthly_debt_obligation, dti_ratio },
+        credit_cards: {
+            total_outstanding: utilization.aggregate.total_outstanding,
+            total_limit: utilization.aggregate.total_limit,
+            overall_utilization_pct: utilization.aggregate.overall_utilization_pct,
+        },
+        dti: {
+            monthly_income: dti.monthly_income,
+            monthly_loan_emi: dti.monthly_loan_emi,
+            monthly_credit_obligation: dti.monthly_credit_obligation,
+            total_monthly_debt_obligation: dti.total_monthly_debt_obligation,
+            dti_ratio: dti.dti_ratio,
+        },
         recent_prepayments: prepaymentsRes.rows.map(p => ({
             loan_name: p.loan_name,
             amount: fmt(p.amount),

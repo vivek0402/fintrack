@@ -238,50 +238,57 @@ function classifyUtilization(pct) {
     return 'critical';
 }
 
-router.get('/credit-utilization', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [req.user.id]);
+// Canonical credit-utilization calculation -- also used by agents.js's
+// debt_coach persona (fetchDebtCoachData) so the two surfaces can't drift
+// into reporting different utilization numbers for the same cards.
+async function computeCreditUtilization(userId) {
+    const result = await pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [userId]);
 
-        const per_card = result.rows.map(card => {
-            const outstanding = parseFloat(card.outstanding_balance);
-            const limit = parseFloat(card.credit_limit);
-            const utilization_pct = limit > 0 ? parseFloat(((outstanding / limit) * 100).toFixed(1)) : 0;
-            return {
-                id: card.id,
-                name: card.card_name,
-                bank_name: card.bank_name,
-                last4: card.last_four,
-                outstanding_balance: outstanding,
-                credit_limit: limit,
-                utilization_pct,
-                status: classifyUtilization(utilization_pct),
-            };
-        });
+    const per_card = result.rows.map(card => {
+        const outstanding = parseFloat(card.outstanding_balance);
+        const limit = parseFloat(card.credit_limit);
+        const utilization_pct = limit > 0 ? parseFloat(((outstanding / limit) * 100).toFixed(1)) : 0;
+        return {
+            id: card.id,
+            name: card.card_name,
+            bank_name: card.bank_name,
+            last4: card.last_four,
+            outstanding_balance: outstanding,
+            credit_limit: limit,
+            utilization_pct,
+            status: classifyUtilization(utilization_pct),
+        };
+    });
 
-        const total_outstanding = parseFloat(per_card.reduce((s, c) => s + c.outstanding_balance, 0).toFixed(2));
-        const total_limit = parseFloat(per_card.reduce((s, c) => s + c.credit_limit, 0).toFixed(2));
-        const overall_utilization_pct = total_limit > 0
-            ? parseFloat(((total_outstanding / total_limit) * 100).toFixed(1))
-            : 0;
-        const status = classifyUtilization(overall_utilization_pct);
+    const total_outstanding = parseFloat(per_card.reduce((s, c) => s + c.outstanding_balance, 0).toFixed(2));
+    const total_limit = parseFloat(per_card.reduce((s, c) => s + c.credit_limit, 0).toFixed(2));
+    const overall_utilization_pct = total_limit > 0
+        ? parseFloat(((total_outstanding / total_limit) * 100).toFixed(1))
+        : 0;
+    const status = classifyUtilization(overall_utilization_pct);
 
-        let recommendation = null;
-        if (overall_utilization_pct > 30) {
-            const worstCard = [...per_card].sort((a, b) => b.utilization_pct - a.utilization_pct)[0];
-            if (worstCard) {
-                const targetBalance = worstCard.credit_limit * 0.3;
-                const paydownAmount = parseFloat((worstCard.outstanding_balance - targetBalance).toFixed(2));
-                if (paydownAmount > 0) {
-                    recommendation = `Paying down your ${worstCard.name} by ₹${paydownAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} would bring its utilization below 30%.`;
-                }
+    let recommendation = null;
+    if (overall_utilization_pct > 30) {
+        const worstCard = [...per_card].sort((a, b) => b.utilization_pct - a.utilization_pct)[0];
+        if (worstCard) {
+            const targetBalance = worstCard.credit_limit * 0.3;
+            const paydownAmount = parseFloat((worstCard.outstanding_balance - targetBalance).toFixed(2));
+            if (paydownAmount > 0) {
+                recommendation = `Paying down your ${worstCard.name} by ₹${paydownAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} would bring its utilization below 30%.`;
             }
         }
+    }
 
-        res.json({
-            per_card,
-            aggregate: { total_outstanding, total_limit, overall_utilization_pct, status },
-            recommendation,
-        });
+    return {
+        per_card,
+        aggregate: { total_outstanding, total_limit, overall_utilization_pct, status },
+        recommendation,
+    };
+}
+
+router.get('/credit-utilization', async (req, res) => {
+    try {
+        res.json(await computeCreditUtilization(req.user.id));
     } catch (err) {
         console.error('[Debt]', err.message);
         res.status(500).json({ error: 'Server error.' });
@@ -295,53 +302,60 @@ function classifyDti(pct) {
     return 'risky';
 }
 
+// Canonical DTI calculation -- also used by agents.js's debt_coach persona.
+// Same 3-month trailing income window and 5%-of-outstanding minimum-payment
+// heuristic as before this was extracted; behavior is unchanged.
+async function computeDtiBreakdown(userId) {
+    const now = new Date();
+    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+
+    const [incomeRes, loansRes, cardsRes] = await Promise.all([
+        pool.query(
+            `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
+             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
+            [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
+        ),
+        pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [userId]),
+        pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [userId]),
+    ]);
+
+    const monthly_income = parseFloat((parseFloat(incomeRes.rows[0].total) / 3).toFixed(2));
+
+    const breakdown_loans = loansRes.rows.map(loan => ({
+        id: loan.id,
+        name: loan.name,
+        emi: parseFloat(emiForLoan(loan).toFixed(2)),
+    }));
+    const monthly_loan_emi = parseFloat(breakdown_loans.reduce((s, l) => s + l.emi, 0).toFixed(2));
+
+    const breakdown_cards = cardsRes.rows.map(card => ({
+        id: card.id,
+        name: card.card_name,
+        minimum_payment: parseFloat((parseFloat(card.outstanding_balance) * 0.05).toFixed(2)),
+    }));
+    const monthly_credit_obligation = parseFloat(breakdown_cards.reduce((s, c) => s + c.minimum_payment, 0).toFixed(2));
+
+    const total_monthly_debt_obligation = parseFloat((monthly_loan_emi + monthly_credit_obligation).toFixed(2));
+    const dti_ratio = monthly_income > 0
+        ? parseFloat(((total_monthly_debt_obligation / monthly_income) * 100).toFixed(1))
+        : 0;
+
+    return {
+        monthly_income,
+        monthly_loan_emi,
+        monthly_credit_obligation,
+        total_monthly_debt_obligation,
+        dti_ratio,
+        status: classifyDti(dti_ratio),
+        breakdown_loans,
+        breakdown_cards,
+    };
+}
+
 router.get('/dti', async (req, res) => {
     try {
-        const now = new Date();
-        const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-
-        const [incomeRes, loansRes, cardsRes] = await Promise.all([
-            pool.query(
-                `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-                 WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
-                [req.user.id, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
-            ),
-            pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [req.user.id]),
-            pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [req.user.id]),
-        ]);
-
-        const monthly_income = parseFloat((parseFloat(incomeRes.rows[0].total) / 3).toFixed(2));
-
-        const breakdown_loans = loansRes.rows.map(loan => ({
-            id: loan.id,
-            name: loan.name,
-            emi: parseFloat(emiForLoan(loan).toFixed(2)),
-        }));
-        const monthly_loan_emi = parseFloat(breakdown_loans.reduce((s, l) => s + l.emi, 0).toFixed(2));
-
-        const breakdown_cards = cardsRes.rows.map(card => ({
-            id: card.id,
-            name: card.card_name,
-            minimum_payment: parseFloat((parseFloat(card.outstanding_balance) * 0.05).toFixed(2)),
-        }));
-        const monthly_credit_obligation = parseFloat(breakdown_cards.reduce((s, c) => s + c.minimum_payment, 0).toFixed(2));
-
-        const total_monthly_debt_obligation = parseFloat((monthly_loan_emi + monthly_credit_obligation).toFixed(2));
-        const dti_ratio = monthly_income > 0
-            ? parseFloat(((total_monthly_debt_obligation / monthly_income) * 100).toFixed(1))
-            : 0;
-
-        res.json({
-            monthly_income,
-            monthly_loan_emi,
-            monthly_credit_obligation,
-            total_monthly_debt_obligation,
-            dti_ratio,
-            status: classifyDti(dti_ratio),
-            breakdown_loans,
-            breakdown_cards,
-        });
+        res.json(await computeDtiBreakdown(req.user.id));
     } catch (err) {
         console.error('[Debt]', err.message);
         res.status(500).json({ error: 'Server error.' });
@@ -349,3 +363,5 @@ router.get('/dti', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.computeCreditUtilization = computeCreditUtilization;
+module.exports.computeDtiBreakdown = computeDtiBreakdown;

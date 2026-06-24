@@ -1559,6 +1559,7 @@ async function getDailyBriefData(userId) {
         monthExpenseSoFar,
         monthIncomeSoFar,
         spendDatesRows,
+        topOpportunity,
     ] = await Promise.all([
         pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, yesterday]),
         pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS category_name, SUM(t.amount) AS total
@@ -1574,6 +1575,15 @@ async function getDailyBriefData(userId) {
         // consistent tracking, not a streak of not spending (which would be gameable
         // by simply not logging real expenses).
         pool.query(`SELECT DISTINCT date::text AS date FROM transactions WHERE user_id=$1 AND date >= $2`, [userId, streakWindowStart]),
+        // Same ranked-opportunity source the weekly briefing already reads from
+        // (see getBriefingData above) -- makes the daily brief a front door into
+        // the opportunities feed instead of that feed only living on its own page.
+        pool.query(
+            `SELECT title, description, amount_saved, action_label, action_route
+             FROM opportunities WHERE user_id=$1 AND status='active'
+             ORDER BY (priority = 1) DESC, priority ASC, detected_at ASC LIMIT 1`,
+            [userId]
+        ),
     ]);
 
     const loggedDates = new Set(spendDatesRows.rows.map(r => r.date));
@@ -1610,11 +1620,12 @@ async function getDailyBriefData(userId) {
             avg_daily_so_far: avgDailySoFar,
         },
         logging_streak: streak,
+        top_opportunity: topOpportunity.rows[0] || null,
     };
 }
 
 function buildDailyBriefPoints(data) {
-    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak } = data;
+    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunity } = data;
 
     const paceDelta = pace.ideal_daily_budget > 0 ? pace.avg_daily_so_far - pace.ideal_daily_budget : null;
     const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
@@ -1661,6 +1672,12 @@ function buildDailyBriefPoints(data) {
             insight: logging_streak > 0
                 ? `${logging_streak} day${logging_streak !== 1 ? 's' : ''} of staying on top of your money — keep it going!`
                 : 'Log a transaction today to start your streak',
+        },
+        {
+            key: 'opportunity',
+            label: 'Top Opportunity',
+            value: top_opportunity ? top_opportunity.title : 'All caught up',
+            insight: top_opportunity ? top_opportunity.description : "No new opportunities right now — keep it up!",
         },
     ];
 
@@ -1715,11 +1732,12 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
             narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
         }
 
-        actionOfTheDay = data.bills_due_soon.count > 0
-            ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
-            : data.logging_streak > 0
-                ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
-                : "Log today's transactions to start a streak and keep your numbers accurate.";
+        actionOfTheDay = data.top_opportunity?.action_label
+            || (data.bills_due_soon.count > 0
+                ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
+                : data.logging_streak > 0
+                    ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
+                    : "Log today's transactions to start a streak and keep your numbers accurate.");
     }
 
     const { rows } = await pool.query(
