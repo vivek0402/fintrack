@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Plus, Trash2, Pencil, AlertCircle, BarChart2, CopyPlus,
     RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkles, X, Brain,
-    Check, Calendar, Target,
+    Check, Calendar, Target, Repeat,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
@@ -947,7 +947,7 @@ function BudgetsPageInner() {
                                         { id: 'on-track',   label: '✅ On track',   count: onTrackCount },
                                         { id: 'over',       label: '🔴 Over budget', count: overBudgetList.length },
                                         { id: 'suggestion', label: '💡 Suggestions', count: suggestions.length },
-                                    ] as const).map(chip => (
+                                    ] as const).filter(chip => chip.id === 'all' || chip.count > 0).map(chip => (
                                         <button key={chip.id} type="button"
                                             onClick={() => setHealthFilter(healthFilter === chip.id ? 'all' : chip.id)}
                                             style={chipStyle(healthFilter === chip.id)}>
@@ -958,36 +958,37 @@ function BudgetsPageInner() {
                             )}
                         </div>
 
-                        {/* ── SUMMARY GCARDS ── */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <GCard>
-                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Budget</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalBudgeted)}</p>
-                            </GCard>
-                            <GCard>
-                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Spent So Far</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: isOverTotal ? 'var(--color-exp)' : 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSpent)}</p>
-                            </GCard>
-                        </div>
+                        {/* ── BUDGET SUMMARY (hero numbers + usage, merged) ── */}
+                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+                                <div>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Budget</p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalBudgeted)}</p>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Spent So Far</p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: isOverTotal ? 'var(--color-exp)' : 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSpent)}</p>
+                                </div>
+                            </div>
 
-                        {/* ── OVERALL PROGRESS CARD ── */}
-                        {budgets.length > 0 && (
-                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                        {Math.round(Math.min(overallRawPct, 100))}%
+                            {budgets.length > 0 && (
+                                <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
+                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                                            {Math.round(Math.min(overallRawPct, 100))}%
+                                        </p>
+                                    </div>
+                                    <ProgressBar pct={overallRawPct} height={8} />
+                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
+                                        {isOverTotal
+                                            ? <span style={{ color: 'var(--color-exp)' }}>{fmt(totalSpent - totalBudgeted)} over total budget</span>
+                                            : <span>{fmt(totalRemaining)} remaining across all categories</span>
+                                        }
                                     </p>
                                 </div>
-                                <ProgressBar pct={overallRawPct} height={8} />
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                                    {isOverTotal
-                                        ? <span style={{ color: 'var(--color-exp)' }}>{fmt(totalSpent - totalBudgeted)} over total budget</span>
-                                        : <span>{fmt(totalRemaining)} remaining across all categories</span>
-                                    }
-                                </p>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {/* ── ZERO-BASED MODE BANNER ── */}
                         {zeroBasedMode && monthlyIncome > 0 && (
@@ -1132,6 +1133,9 @@ function BudgetsPageInner() {
                                                             </p>
                                                             <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
                                                                 Budget: {fmt(limit)}
+                                                                {rollover && rolloverAmt > 0 && (
+                                                                    <span style={{ color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}> · +{fmt(rolloverAmt)} rolled over</span>
+                                                                )}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -1145,12 +1149,22 @@ function BudgetsPageInner() {
                                                                 <Badge color="var(--color-exp)" bg="color-mix(in srgb, var(--color-exp) 10%, transparent)">
                                                                     +{fmt(overAmt)} over
                                                                 </Badge>
+                                                            ) : _today > 3 && _willExceed ? (
+                                                                <p style={{ fontSize: '11px', color: 'var(--color-warn)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                                                    {_runOutStr ? `Runs out ~${_runOutStr}` : `${fmt(_proj)} projected`}
+                                                                </p>
                                                             ) : (
                                                                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
                                                                     {fmt(leftAmt)} left
                                                                 </p>
                                                             )}
                                                         </div>
+
+                                                        <button type="button" onClick={() => toggleRollover(budget.category_id)}
+                                                            title={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
+                                                            style={{ ...iconBtn, color: rollover ? 'var(--accent)' : 'var(--text-muted)', borderColor: rollover ? 'var(--accent-border)' : 'var(--border-subtle)', background: rollover ? 'var(--accent-subtle)' : 'transparent' }}>
+                                                            <Repeat size={13} />
+                                                        </button>
 
                                                         {confirmDeleteId === budget.id ? (
                                                             <div style={{ display: 'flex', gap: '4px' }}>
@@ -1181,31 +1195,6 @@ function BudgetsPageInner() {
                                                 </div>
 
                                                 <ProgressBar pct={rawPct} color={barColor} height={6} />
-
-                                                {/* Rollover toggle + amount */}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '7px' }}>
-                                                    <button type="button" onClick={() => toggleRollover(budget.category_id)}
-                                                        style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', border: `1px solid ${rollover ? 'var(--accent-border)' : 'var(--border-subtle)'}`, background: rollover ? 'var(--accent-subtle)' : 'transparent', color: rollover ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: 500, transition: 'all var(--transition-fast)' }}>
-                                                        ↩ Rollover
-                                                    </button>
-                                                    {rollover && rolloverAmt > 0 && (
-                                                        <span style={{ fontSize: '11px', color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}>
-                                                            (+{fmt(rolloverAmt)} rolled over from last month)
-                                                        </span>
-                                                    )}
-                                                </div>
-
-                                                {/* Spending pace indicator */}
-                                                {_today > 3 && (
-                                                    <p style={{ fontSize: '11px', color: _willExceed ? 'var(--color-warn)' : 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                        {isOver
-                                                            ? null
-                                                            : _willExceed
-                                                                ? _runOutStr ? `Pace: runs out ~${_runOutStr}` : `Pace: ${fmt(_proj)} projected — may exceed`
-                                                                : `On pace · ${fmt(_proj)} projected`
-                                                        }
-                                                    </p>
-                                                )}
 
                                                 {/* Inline edit */}
                                                 {editingId === budget.id && (
