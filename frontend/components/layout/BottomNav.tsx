@@ -7,7 +7,7 @@ import {
     Target, Trophy, X, Settings, LineChart,
     Briefcase, Bot, Gauge,
     Waves,
-    Flame, GitBranch, Percent, PiggyBank,
+    Flame, GitBranch, Percent, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
 } from 'lucide-react';
 
@@ -41,6 +41,7 @@ const moreGroups = [
     {
         label: 'Plan',
         items: [
+            { href: '/planning',     icon: Compass,   label: 'Financial Plan' },
             { href: '/tax',          icon: Percent,   label: 'Tax' },
             { href: '/savings-plan', icon: PiggyBank, label: 'Savings Plan' },
         ],
