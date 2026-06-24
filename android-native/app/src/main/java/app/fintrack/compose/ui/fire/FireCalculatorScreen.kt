@@ -148,6 +148,10 @@ fun FireCalculatorScreen(viewModel: FireCalculatorViewModel = hiltViewModel()) {
                 TargetRow("In 10 years", result.savings_targets.target_10yr)
                 TargetRow("In 15 years", result.savings_targets.target_15yr)
                 TargetRow("In 20 years", result.savings_targets.target_20yr)
+                Spacer(Modifier.height(FinTrackSpacing.space4))
+            }
+            item {
+                FireProjectionCard(result.portfolio_projection, result.corpus_needed_real)
             }
         }
     }
