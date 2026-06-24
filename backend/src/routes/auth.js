@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
 const { sendOTPEmail } = require('../utils/email');
@@ -49,6 +50,15 @@ async function seedDefaultCategories(userId) {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+// Deterministic 50/50 A/B cohort for the import-first onboarding step
+// (Phase 1 of docs/GROWTH_BRIEF_10000X.md). Hashing the email instead of
+// random-on-write means re-registering an unverified account can't reshuffle
+// the cohort, and there's no feature-flag service to keep in sync.
+function assignOnboardingVariant(email) {
+    const hash = crypto.createHash('sha256').update(email.toLowerCase()).digest('hex');
+    return parseInt(hash.slice(0, 8), 16) % 2 === 0 ? 'control' : 'treatment';
+}
 
 function generateOTP() {
     return String(Math.floor(100000 + Math.random() * 900000));
@@ -140,9 +150,9 @@ router.post('/register', async (req, res) => {
             );
         } else {
             await pool.query(
-                `INSERT INTO users (full_name, email, password_hash, is_verified)
-                 VALUES ($1, $2, $3, false)`,
-                [full_name, email, password_hash]
+                `INSERT INTO users (full_name, email, password_hash, is_verified, onboarding_variant)
+                 VALUES ($1, $2, $3, false, $4)`,
+                [full_name, email, password_hash, assignOnboardingVariant(email)]
             );
         }
 
@@ -171,7 +181,7 @@ router.post('/verify-email', async (req, res) => {
         const result = await pool.query(
             `UPDATE users SET is_verified = true
              WHERE email = $1
-             RETURNING id, full_name, email, currency, created_at`,
+             RETURNING id, full_name, email, currency, created_at, onboarding_variant`,
             [email]
         );
 

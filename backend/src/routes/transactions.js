@@ -86,7 +86,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id, account_id, payment_method, investment_details } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, account_id, payment_method, investment_details, source } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
         if (!isValidTransactionType(type))
@@ -96,14 +96,19 @@ router.post('/', async (req, res) => {
         if (!isValidDateString(date))
             return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
 
+        // Only 'manual' and 'sms' may be claimed by this public endpoint —
+        // 'cams_import'/'pdf_import' are stamped server-side by their own
+        // dedicated import routes, never by client-supplied input here.
+        const txSource = source === 'sms' ? 'sms' : 'manual';
+
         let tx;
         let investmentResult = null;
 
         if (!investment_details) {
             const result = await pool.query(
-                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-                [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash']
+                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method, source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+                [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash', txSource]
             );
             tx = result.rows[0];
 
@@ -140,9 +145,9 @@ router.post('/', async (req, res) => {
                 await client.query('BEGIN');
 
                 const txResult = await client.query(
-                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash']
+                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method, source)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash', txSource]
                 );
                 tx = txResult.rows[0];
 
@@ -491,13 +496,29 @@ router.patch('/:id/regret', async (req, res) => {
 // rows either, for the same reason as the PUT handler above. Deliberate.
 router.delete('/:id', async (req, res) => {
     try {
-        const result = await pool.query(
-            'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id',
-            [req.params.id, req.user.id]
-        );
-        if (result.rows.length === 0)
-            return res.status(404).json({ error: 'Transaction not found.' });
-        res.json({ message: 'Deleted.' });
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            const result = await client.query(
+                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source',
+                [req.params.id, req.user.id]
+            );
+            if (result.rows.length === 0) {
+                await client.query('ROLLBACK');
+                return res.status(404).json({ error: 'Transaction not found.' });
+            }
+            await client.query(
+                'INSERT INTO transaction_deletions (user_id, source) VALUES ($1, $2)',
+                [req.user.id, result.rows[0].source]
+            );
+            await client.query('COMMIT');
+            res.json({ message: 'Deleted.' });
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     } catch (err) {
         console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });

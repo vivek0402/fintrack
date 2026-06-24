@@ -83,12 +83,35 @@ Rules: Credits/deposits/salary/refunds = income. Debits/withdrawals/payments/cha
             [parsed.transactions.length, JSON.stringify(parsed), parsed.bank || bank_name || null, jobId]
         );
 
+        // Flag candidates that match an existing transaction on date+amount+type so
+        // the review grid can warn before import -- this is informational only,
+        // the user can still keep or delete the row themselves.
+        const candidates = parsed.transactions;
+        let dupKeys = new Set();
+        if (candidates.length > 0) {
+            const dupRes = await pool.query(
+                `SELECT t.date, t.amount, t.type
+                 FROM transactions tr
+                 JOIN unnest($2::date[], $3::numeric[], $4::text[]) AS t(date, amount, type)
+                   ON tr.date = t.date AND tr.amount = t.amount AND tr.type = t.type
+                 WHERE tr.user_id = $1`,
+                [req.user.id, candidates.map(t => t.date), candidates.map(t => t.amount), candidates.map(t => t.type)]
+            );
+            dupKeys = new Set(dupRes.rows.map(r =>
+                `${r.date.toISOString().split('T')[0]}|${parseFloat(r.amount).toFixed(2)}|${r.type}`
+            ));
+        }
+        const transactionsWithDupFlag = candidates.map(t => ({
+            ...t,
+            possible_duplicate: dupKeys.has(`${t.date}|${parseFloat(t.amount).toFixed(2)}|${t.type}`),
+        }));
+
         res.json({
             jobId,
             bank: parsed.bank,
             account_last4: parsed.account_last4,
-            transactionCount: parsed.transactions.length,
-            transactions: parsed.transactions,
+            transactionCount: candidates.length,
+            transactions: transactionsWithDupFlag,
         });
     } catch (err) {
         console.error('[PdfImport]', err.message);
@@ -129,8 +152,8 @@ router.post('/bank-statement/:jobId/confirm', async (req, res) => {
             // conditional logic, so there's nothing batching could break.
             if (transactions.length > 0) {
                 const inserted = await client.query(
-                    `INSERT INTO transactions (user_id, amount, type, description, date, category_id)
-                     SELECT $1, t.amount, t.type, t.description, t.date, NULL
+                    `INSERT INTO transactions (user_id, amount, type, description, date, category_id, source)
+                     SELECT $1, t.amount, t.type, t.description, t.date, NULL, 'pdf_import'
                      FROM unnest($2::numeric[], $3::text[], $4::text[], $5::date[]) AS t(amount, type, description, date)
                      RETURNING id`,
                     [

@@ -266,8 +266,8 @@ router.post('/:id/splits', async (req, res) => {
                 const grpRes = await client.query(`SELECT name FROM expense_groups WHERE id = $1`, [req.params.id]);
                 const groupName = grpRes.rows[0]?.name || 'Group';
                 await client.query(
-                    `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id)
-                     VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8)`,
+                    `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id, source)
+                     VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8, 'manual')`,
                     [req.user.id, meShare.amount, description,
                      `My share in ${groupName}`, '{group-split}',
                      date || new Date().toISOString().split('T')[0], req.params.id, split.id]
@@ -347,8 +347,8 @@ router.put('/:id/splits/:splitId', async (req, res) => {
                     );
                 } else {
                     await client.query(
-                        `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id)
-                         VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8)`,
+                        `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, group_id, split_id, source)
+                         VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8, 'manual')`,
                         [req.user.id, meShare.amount, description,
                          `My share in ${groupName}`, '{group-split}',
                          splitDate, req.params.id, req.params.splitId]
