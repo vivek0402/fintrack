@@ -31,7 +31,6 @@ const vizSkeleton = (h: number) => () => <div style={{ height: h, background: 'v
 const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
-const RegretAnalysis = dynamic(() => import('@/components/analytics/RegretAnalysis').then(m => m.RegretAnalysis), { ssr: false, loading: vizSkeleton(150) });
 import { exportToCSV, formatCurrency, formatDate, fmt } from '@/lib/utils';
 
 const OUTER_TABS = [
@@ -158,8 +157,6 @@ function AnalyticsOverviewTab() {
     const [yearTransactions, setYearTransactions] = useState<any[]>([]);
     const [accounts, setAccounts]               = useState<any[]>([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
-    const [regretData, setRegretData]           = useState<any>(null);
-    const [regretLoading, setRegretLoading]     = useState(false);
     const [allocationPlan, setAllocationPlan]   = useState<any>(null);
     const [allocationLoading, setAllocationLoading] = useState(false);
     const [allocationError, setAllocationError] = useState('');
@@ -169,12 +166,11 @@ function AnalyticsOverviewTab() {
     const [showHeatmap,       setShowHeatmap]       = useState(true);
     const [showSankey,        setShowSankey]        = useState(true);
     const [showTrajectory,    setShowTrajectory]    = useState(true);
-    const [showRegretAnalysis, setShowRegretAnalysis] = useState(true);
 
     // Re-read CSS custom properties whenever theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme]);
 
-    useEffect(() => { setAllocationPlan(null); setRegretData(null); setPlanGenerated(false); setRegretLoading(false); }, [currentMonth, currentYear]);
+    useEffect(() => { setAllocationPlan(null); setPlanGenerated(false); }, [currentMonth, currentYear]);
 
     useEffect(() => {
         if (!user) return;
@@ -904,92 +900,6 @@ function AnalyticsOverviewTab() {
                         )}
                     </div>
 
-                    {/* Regret Score */}
-                    <div style={sectionCard}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-                            <div>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>🤦 Regret Score</h2>
-                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Mark transactions as regretted using 🤦 in your transaction list</p>
-                            </div>
-                            <button type="button"
-                                onClick={async () => { setRegretLoading(true); try { const res = await aiAPI.regretPatterns(); setRegretData(res.data); } catch { toast.error('Failed to analyse regrets — try again'); } finally { setRegretLoading(false); } }}
-                                disabled={regretLoading}
-                                style={{ padding: '8px 16px', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-md)', color: 'var(--color-exp)', fontSize: '13px', fontWeight: 600, cursor: regretLoading ? 'wait' : 'pointer', opacity: regretLoading ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
-                                {regretLoading ? 'Analysing…' : regretData ? 'Refresh' : 'Analyse Regrets'}
-                            </button>
-                        </div>
-
-                        {!regretData && !regretLoading && (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0', fontFamily: 'var(--font-body)' }}>Click "Analyse Regrets" to see AI patterns in your regretted purchases.</p>
-                        )}
-
-                        {regretData && (
-                            <>
-                                {regretData.count === 0 ? (
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', fontFamily: 'var(--font-body)' }}>No regretted transactions yet.</p>
-                                ) : (
-                                    <>
-                                        <div style={{ display: 'flex', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                                            {[
-                                                { label: 'Regretted', value: `${regretData.count} transactions` },
-                                                ...(regretData.total > 0 ? [{ label: 'Total Regret Value', value: fmt(regretData.total) }] : []),
-                                            ].map(s => (
-                                                <GCard key={s.label}>
-                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{s.label}</p>
-                                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
-                                                </GCard>
-                                            ))}
-                                        </div>
-                                        {regretData.insight && (
-                                            <div style={{ padding: '12px 16px', background: 'color-mix(in srgb, var(--color-exp) 6%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--color-exp) 15%, transparent)', borderRadius: 'var(--radius-md)', marginBottom: '12px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                                                {regretData.insight}
-                                            </div>
-                                        )}
-                                        {regretData.patterns?.length > 0 && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {regretData.patterns.map((p: any, i: number) => (
-                                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '12px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-                                                        <span style={{ fontSize: '16px', flexShrink: 0 }}>⚠️</span>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
-                                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{p.pattern}</span>
-                                                                <Badge color="var(--color-exp)" bg="color-mix(in srgb, var(--color-exp) 8%, transparent)">{p.count}× · {fmt(p.total_amount)}</Badge>
-                                                            </div>
-                                                            <p style={{ fontSize: '12px', color: 'var(--color-inc)', margin: 0, fontFamily: 'var(--font-body)' }}>💡 {p.tip}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    {/* Purchase Regret Analysis (collapsible) */}
-                    <div style={sectionCard}>
-                        <button type="button" onClick={() => setShowRegretAnalysis(v => !v)}
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                😬 Purchase Regret Analysis
-                            </h2>
-                            {showRegretAnalysis ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
-                        </button>
-                        {!showRegretAnalysis && (
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                                Regret rate, by-category breakdown, amount brackets, and mindful score
-                            </p>
-                        )}
-                        {showRegretAnalysis && (
-                            <div style={{ marginTop: 16 }}>
-                                {dataLoading
-                                    ? <div style={{ height: 120, background: 'var(--bg-surface-2)', borderRadius: 8 }} />
-                                    : <RegretAnalysis transactions={allTransactions} />
-                                }
-                            </div>
-                        )}
-                    </div>
             </>
         </>
     );
@@ -1013,7 +923,6 @@ const PATTERN_LABELS: Record<string, string> = {
     budget_anchoring: 'Budget Anchoring',
     present_bias: 'Present Bias (Early-Month Spending)',
     subscription_bloat: 'Subscription Bloat',
-    category_regret_concentration: 'Regret Concentration',
     idle_savings_despite_debt: 'Idle Savings Despite Debt',
 };
 
@@ -1283,8 +1192,6 @@ function patternContext(p: any): string {
             return `You spend ₹${Math.round(d.first_half_avg_daily || 0)}/day in the first half of the month vs ₹${Math.round(d.second_half_avg_daily || 0)}/day in the second half.`;
         case 'subscription_bloat':
             return `${d.recurring_subscription_count} recurring subscriptions detected over the last 3 months.`;
-        case 'category_regret_concentration':
-            return `${d.top_category_pct}% of your regretted purchases (${d.total_regretted} total) were in ${d.top_category}.`;
         case 'idle_savings_despite_debt':
             return `₹${Math.round(d.bank_balance || 0).toLocaleString('en-IN')} in savings vs ₹${Math.round(d.credit_card_outstanding || 0).toLocaleString('en-IN')} in credit card debt.`;
         default:

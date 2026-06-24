@@ -239,9 +239,3 @@ export function calculateHealthScore(input: HealthInput): HealthScoreResult {
 
   return { score, label, color, breakdown };
 }
-
-export function calculateMindfulScore(regrettedCount: number, totalReviewed: number): number {
-  if (totalReviewed === 0) return 100;
-  const ratePct = (regrettedCount / totalReviewed) * 100;
-  return Math.max(0, Math.min(100, Math.round(100 - ratePct * 1.5)));
-}

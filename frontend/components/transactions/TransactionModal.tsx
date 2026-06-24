@@ -349,7 +349,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 try {
                     const tempId = await addToQueue('create', payload as Record<string, any>);
                     toast.info('Saved offline — will sync when reconnected');
-                    onOfflineSave?.({ ...(payload as Record<string, any>), id: tempId, _pending: true, is_regretted: false });
+                    onOfflineSave?.({ ...(payload as Record<string, any>), id: tempId, _pending: true });
                     onClose();
                 } catch {
                     setError('Something went wrong. Please try again.');

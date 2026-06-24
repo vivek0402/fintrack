@@ -16,14 +16,13 @@ export interface PanelFilters {
     dateTo: string;
     tags: string[];
     hasNotes: boolean;
-    isRegretted: boolean;
 }
 
 export const DEFAULT_PANEL: PanelFilters = {
     amountMin: '', amountMax: '',
     categories: [], type: 'all',
     datePreset: 'all', dateFrom: '', dateTo: '',
-    tags: [], hasNotes: false, isRegretted: false,
+    tags: [], hasNotes: false,
 };
 
 interface ParsedToken {
@@ -161,7 +160,6 @@ export function applyAdvancedFilters(
     }
     if (panel.tags.length > 0) r = r.filter(tx => panel.tags.some(tag => tx.tags?.includes(tag)));
     if (panel.hasNotes) r = r.filter(tx => tx.notes && tx.notes.trim());
-    if (panel.isRegretted) r = r.filter(tx => tx.is_regretted);
 
     return r;
 }
@@ -223,7 +221,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         !!(inputValue.trim() || panel.amountMin || panel.amountMax ||
            panel.categories.length || panel.type !== 'all' ||
            panel.datePreset !== 'all' || panel.tags.length ||
-           panel.hasNotes || panel.isRegretted),
+           panel.hasNotes),
         [inputValue, panel]
     );
 
@@ -323,7 +321,6 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     });
     panel.tags.forEach(t => summaryChips.push({ label: `#${t}`, onRemove: () => setPanel(p => ({ ...p, tags: p.tags.filter(x => x !== t) })) }));
     if (panel.hasNotes) summaryChips.push({ label: 'Has notes', onRemove: () => setPanel(p => ({ ...p, hasNotes: false })) });
-    if (panel.isRegretted) summaryChips.push({ label: 'Regretted', onRemove: () => setPanel(p => ({ ...p, isRegretted: false })) });
 
     // ── Style helpers ────────────────────────────────────────────────────────
     const pillS = (active: boolean): React.CSSProperties => ({
@@ -555,7 +552,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
                     {/* Checkboxes */}
                     <div style={{ display: 'flex', gap: '20px' }}>
-                        {([['hasNotes', 'Has notes'], ['isRegretted', 'Regretted']] as const).map(([key, lbl]) => (
+                        {([['hasNotes', 'Has notes']] as const).map(([key, lbl]) => (
                             <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', userSelect: 'none' }}
                                 onClick={() => setPanel(p => ({ ...p, [key]: !p[key] }))}>
                                 <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${panel[key] ? 'var(--accent)' : 'var(--border-subtle)'}`, background: panel[key] ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}>

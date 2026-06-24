@@ -6,11 +6,9 @@ import { Trash2 } from 'lucide-react';
 interface SwipeableRowProps {
     children: React.ReactNode;
     onSwipeLeft?: () => void;
-    onSwipeRight?: () => void;
-    isRegretted?: boolean;
 }
 
-export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableRowProps) {
+export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
     const [dragX, setDragX] = useState(0);
     const [transitioning, setTransitioning] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
@@ -31,7 +29,7 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
         if (!draggingRef.current) return;
         const raw = e.touches[0].clientX - startX.current;
         if (Math.abs(raw) > 8) didSwipeRef.current = true;
-        setDragX(Math.max(-100, Math.min(100, raw)));
+        setDragX(Math.max(-100, Math.min(0, raw)));
     };
 
     const handleTouchEnd = () => {
@@ -48,14 +46,6 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
                 setDragX(0);
                 setIsDragging(false);
             }, 300);
-        } else if (dragX > 80) {
-            // Swipe right → regret: snap then bounce back
-            setDragX(72);
-            setTimeout(() => {
-                onSwipeRight?.();
-                setDragX(0);
-                setIsDragging(false);
-            }, 350);
         } else {
             // Cancelled — snap back immediately
             setDragX(0);
@@ -66,23 +56,9 @@ export function SwipeableRow({ children, onSwipeLeft, onSwipeRight }: SwipeableR
     // Reveal opacity scales with drag distance (0→100%)
     const absRatio = Math.min(Math.abs(dragX) / 80, 1);
     const deleteOpacity = dragX < 0 ? 0.15 + 0.85 * absRatio : 0.15;
-    const regretOpacity = dragX > 0 ? 0.15 + 0.85 * absRatio : 0.15;
 
     return (
         <div ref={rowRef} style={{ position: 'relative', overflow: 'hidden' }}>
-            {/* Left reveal — regret (yellow): only visible during active drag */}
-            {isDragging && (
-                <div style={{
-                    position: 'absolute', top: 0, bottom: 0, left: 0, width: '80px',
-                    background: `rgba(245, 158, 11, ${regretOpacity})`,
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
-                    pointerEvents: 'none',
-                }}>
-                    <span style={{ fontSize: '18px', lineHeight: 1 }}>🤦</span>
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-warn)', letterSpacing: '0.02em' }}>Regret</span>
-                </div>
-            )}
-
             {/* Right reveal — delete (red): only visible during active drag */}
             {isDragging && (
                 <div style={{

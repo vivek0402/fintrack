@@ -362,33 +362,6 @@ async function detectSubscriptionBloat(userId) {
     };
 }
 
-async function detectRegretConcentration(userId) {
-    const { rows } = await pool.query(
-        `SELECT COALESCE(c.name, 'Uncategorized') AS category_name, COUNT(*) AS cnt
-         FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
-         WHERE t.user_id=$1 AND t.is_regretted=true AND t.date >= (CURRENT_DATE - INTERVAL '3 months')
-         GROUP BY category_name ORDER BY cnt DESC`,
-        [userId]
-    );
-
-    const total = rows.reduce((sum, r) => sum + parseInt(r.cnt), 0);
-    let topCategory = null, topPct = 0;
-    if (total > 0) {
-        topCategory = rows[0].category_name;
-        topPct = fmt((parseInt(rows[0].cnt) / total) * 100);
-    }
-    const detected = total > 0 && topPct > 40;
-
-    return {
-        pattern_name: 'category_regret_concentration',
-        detected,
-        supporting_data: { total_regretted: total, top_category: topCategory, top_category_pct: topPct },
-        description: detected
-            ? `Most of your regretted purchases are concentrated in ${topCategory} — this is a clear signal of where impulse spending is hurting you most.`
-            : 'Your regretted purchases are spread fairly evenly across categories.',
-    };
-}
-
 async function detectIdleSavingsDespiteDebt(userId) {
     const [{ rows: cardRows }, bankBalance] = await Promise.all([
         pool.query(
@@ -422,7 +395,6 @@ router.get('/behavioral-patterns', async (req, res) => {
             detectBudgetAnchoring(userId),
             detectPresentBias(userId),
             detectSubscriptionBloat(userId),
-            detectRegretConcentration(userId),
             detectIdleSavingsDespiteDebt(userId),
         ]);
 

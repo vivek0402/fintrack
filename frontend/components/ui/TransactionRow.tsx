@@ -16,7 +16,6 @@ interface Transaction {
     category_color?: string;
     category_icon?: string;
     tags?: string[];
-    is_regretted?: boolean;
 }
 
 interface TransactionRowProps {
@@ -78,9 +77,6 @@ export function TransactionRow({ transaction: tx, onEdit, onDelete }: Transactio
                     <span style={{ fontSize: 'var(--text-body)', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
                         {tx.description}
                     </span>
-                    {tx.is_regretted && (
-                        <span style={{ fontSize: '10px', flexShrink: 0 }} title="Regretted purchase">😬</span>
-                    )}
                 </div>
                 <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontFamily: 'var(--font-body)' }}>
                     <span>{tx.category_name || 'Uncategorized'}</span>

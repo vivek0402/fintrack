@@ -27,7 +27,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     const { user } = useAuthStore();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
-    const [regrettingId, setRegrettingId] = useState<string | null>(null);
     const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
 
     const handleDelete = (id: string) => {
@@ -74,13 +73,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                 setDeletingId(null);
             }
         }, 4200);
-    };
-
-    const handleRegret = async (id: string) => {
-        setRegrettingId(id);
-        try { await transactionsAPI.toggleRegret(id); onRefresh(); }
-        catch { /* silent */ }
-        finally { setRegrettingId(null); }
     };
 
     if (transactions.length === 0) {
@@ -138,7 +130,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 borderBottom: '1px solid var(--border-subtle)',
                                 background: isSelected ? 'var(--bg-surface-2)' : 'var(--bg-surface-1)',
                                 minHeight: '64px',
-                                opacity: tx.is_regretted ? 0.7 : 1,
                                 cursor: 'pointer',
                                 transition: 'background var(--transition-fast)',
                             }}>
@@ -170,9 +161,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         {tx.description}
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
-                                        {tx.is_regretted && (
-                                            <span style={{ color: 'var(--color-warn)' }}>⚠️ </span>
-                                        )}
                                         {tx.category_name || 'Uncategorized'}
                                     </div>
                                 </div>
@@ -186,27 +174,10 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         {formatDate((tx.date || '').split('T')[0])}
                                     </div>
                                 </div>
-                                {/* Mobile regret toggle or pending indicator */}
-                                {(tx as any)._pending ? (
+                                {(tx as any)._pending && (
                                     <span style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
                                         <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
                                     </span>
-                                ) : !isIncome && !selectMode && (
-                                    <button
-                                        type="button"
-                                        onClick={e => { e.stopPropagation(); handleRegret(tx.id); }}
-                                        disabled={regrettingId === tx.id}
-                                        title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
-                                        style={{
-                                            width: 30, height: 30, borderRadius: 8, flexShrink: 0, marginLeft: 6,
-                                            background: tx.is_regretted ? 'var(--color-exp-subtle)' : 'transparent',
-                                            border: tx.is_regretted ? '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)' : '1px solid transparent',
-                                            color: tx.is_regretted ? 'var(--color-exp)' : 'var(--text-muted)',
-                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '14px', opacity: regrettingId === tx.id ? 0.5 : 1,
-                                            transition: 'all 0.15s',
-                                        }}
-                                    >😬</button>
                                 )}
                             </div>
                         );
@@ -220,7 +191,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--border-subtle)',
                                     borderLeft: `3px solid ${isSelected ? 'var(--accent)' : categoryColor}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
-                                    opacity: tx.is_regretted ? 0.7 : 1,
                                     background: isSelected ? 'var(--bg-surface-2)' : 'transparent',
                                     cursor: selectMode ? 'pointer' : 'default',
                                 }}
@@ -267,16 +237,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                         </span>
                                     ) : (
                                         <>
-                                            <button
-                                                onClick={() => handleRegret(tx.id)}
-                                                disabled={regrettingId === tx.id}
-                                                title={tx.is_regretted ? 'Remove regret mark' : 'Mark as regretted'}
-                                                style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: tx.is_regretted ? 'var(--color-exp-subtle)' : 'transparent', border: tx.is_regretted ? '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)' : '1px solid transparent', color: tx.is_regretted ? 'var(--color-exp)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', transition: 'all var(--transition-fast)', opacity: regrettingId === tx.id ? 0.5 : 1 }}
-                                                onMouseEnter={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'var(--color-exp-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'; } }}
-                                                onMouseLeave={e => { if (!tx.is_regretted) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; } }}
-                                            >
-                                                🤦
-                                            </button>
                                             <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' }}
                                                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
                                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
@@ -315,11 +275,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     }}
                                 >
                                     {selectMode || (tx as any)._pending ? mobileRowInner : (
-                                        <SwipeableRow
-                                            onSwipeLeft={() => handleDelete(tx.id)}
-                                            onSwipeRight={() => handleRegret(tx.id)}
-                                            isRegretted={tx.is_regretted}
-                                        >
+                                        <SwipeableRow onSwipeLeft={() => handleDelete(tx.id)}>
                                             {mobileRowInner}
                                         </SwipeableRow>
                                     )}
