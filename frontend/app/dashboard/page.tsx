@@ -22,7 +22,6 @@ import { AssetAllocationWidget } from '@/components/dashboard/AssetAllocationWid
 import { CreditUtilizationWidget } from '@/components/dashboard/CreditUtilizationWidget';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
-import { RegretCheckSheet } from '@/components/dashboard/RegretCheckSheet';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -170,7 +169,7 @@ function BezierSparkline({ data, incColor, expColor }: {
 export default function DashboardPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const { theme, palette } = useThemeStore();
+    const { theme } = useThemeStore();
     const isMobile = useIsMobile();
 
     const _now = new Date();
@@ -230,7 +229,7 @@ export default function DashboardPage() {
         const s = getComputedStyle(document.documentElement);
         setIncColor(s.getPropertyValue('--color-inc').trim() || '#059669');
         setExpColor(s.getPropertyValue('--color-exp').trim() || '#ea580c');
-    }, [theme, palette]);
+    }, [theme]);
 
     // Animated numbers
     const heroIncome   = useCountUp(summary?.total_income   ?? 0, 900, !dataLoading);
@@ -605,9 +604,6 @@ export default function DashboardPage() {
                         loading={dataLoading}
                     />
                 )}
-
-                {/* ── WEEKLY REGRET CHECK (portal, shows once/week) ── */}
-                <RegretCheckSheet />
 
                 {netBalanceHero}
                 {dailyBriefCard}

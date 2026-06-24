@@ -1,41 +1,28 @@
 import { create } from 'zustand';
 
 export type Theme = 'dark' | 'light';
-export type PaletteName = 'ember' | 'ocean' | 'violet' | 'forest' | 'rose';
 
-const VALID_PALETTES: PaletteName[] = ['ember', 'ocean', 'violet', 'forest', 'rose'];
-
-function applyAttributes(theme: Theme, palette: PaletteName) {
+function applyAttributes(theme: Theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    document.documentElement.setAttribute('data-palette', palette);
 }
 
 interface ThemeStore {
     theme: Theme;
-    palette: PaletteName;
     sidebarWidth: number;
     setTheme: (theme: Theme) => void;
-    setPalette: (palette: PaletteName) => void;
     setSidebarWidth: (w: number) => void;
     loadTheme: () => void;
 }
 
-export const useThemeStore = create<ThemeStore>((set, get) => ({
+export const useThemeStore = create<ThemeStore>((set) => ({
     theme: 'dark',
-    palette: 'ocean',
     sidebarWidth: 220,
     setSidebarWidth: (w) => set({ sidebarWidth: w }),
 
     setTheme: (theme) => {
         localStorage.setItem('fintrack-theme', theme);
-        applyAttributes(theme, get().palette);
+        applyAttributes(theme);
         set({ theme });
-    },
-
-    setPalette: (palette) => {
-        localStorage.setItem('fintrack-palette', palette);
-        applyAttributes(get().theme, palette);
-        set({ palette });
     },
 
     loadTheme: () => {
@@ -46,16 +33,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
             localStorage.setItem('fintrack-theme', theme);
         }
 
-        const rawPalette = localStorage.getItem('fintrack-palette');
-        const palette: PaletteName =
-            rawPalette && (VALID_PALETTES as string[]).includes(rawPalette)
-                ? (rawPalette as PaletteName)
-                : 'ocean';
-        if (rawPalette !== palette) {
-            localStorage.setItem('fintrack-palette', palette);
-        }
-
-        applyAttributes(theme, palette);
-        set({ theme, palette });
+        applyAttributes(theme);
+        set({ theme });
     },
 }));

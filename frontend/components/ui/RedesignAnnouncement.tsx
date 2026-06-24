@@ -2,25 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, Check } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
-import type { PaletteName } from '@/store/themeStore';
 
 const STORAGE_KEY = 'fintrack-v3-seen';
 
-const PALETTE_DEFS: { name: PaletteName; color: string; label: string }[] = [
-    { name: 'ember',  color: '#ea580c', label: 'Ember'  },
-    { name: 'ocean',  color: '#0284c7', label: 'Ocean'  },
-    { name: 'violet', color: '#7c3aed', label: 'Violet' },
-    { name: 'forest', color: '#059669', label: 'Forest' },
-    { name: 'rose',   color: '#e11d48', label: 'Rose'   },
-];
-
 const WHATS_NEW = [
-    { icon: '🎨', title: '5 colour palettes',     desc: 'Ember, Ocean, Violet, Forest & Rose — switch anytime' },
     { icon: '🌗', title: 'AMOLED dark mode',       desc: 'True black surfaces, easy on OLED screens' },
-    { icon: '📊', title: 'Rebuilt analytics',       desc: 'Live Recharts with palette-reactive colours' },
+    { icon: '📊', title: 'Rebuilt analytics',       desc: 'Live Recharts with theme-reactive colours' },
     { icon: '💬', title: 'AI chat redesigned',      desc: 'Chat bubbles, quick prompts, timestamps' },
     { icon: '🎯', title: 'Goals & budgets',         desc: 'Progress bars, over-budget alerts, mood card' },
     { icon: '📱', title: 'Consistent design system', desc: 'Inline styles, CSS vars, DM Mono for ₹ figures' },
@@ -28,11 +18,10 @@ const WHATS_NEW = [
 
 export function RedesignAnnouncement() {
     const { user } = useAuthStore();
-    const { theme, palette, setTheme, setPalette } = useThemeStore();
+    const { theme, setTheme } = useThemeStore();
     const [show, setShow]       = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [localPalette, setLocalPalette] = useState<PaletteName>(palette);
-    const [localTheme,   setLocalTheme]   = useState<typeof theme>(theme);
+    const [localTheme, setLocalTheme] = useState<typeof theme>(theme);
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -46,8 +35,7 @@ export function RedesignAnnouncement() {
     }, [user]);
 
     // Apply changes live as user picks
-    useEffect(() => { setPalette(localPalette); }, [localPalette]);
-    useEffect(() => { setTheme(localTheme);     }, [localTheme]);
+    useEffect(() => { setTheme(localTheme); }, [localTheme]);
 
     const handleDone = () => {
         localStorage.setItem(STORAGE_KEY, '1');
@@ -69,7 +57,7 @@ export function RedesignAnnouncement() {
                         FinTrack has been redesigned ✨
                     </h2>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                        We've rebuilt the whole app with a new design system. Here's what's new — and pick your colour while you're here.
+                        We've rebuilt the whole app with a new design system. Here's what's new.
                     </p>
                 </div>
 
@@ -90,26 +78,6 @@ export function RedesignAnnouncement() {
 
                     {/* Divider */}
                     <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
-
-                    {/* Colour picker */}
-                    <div>
-                        <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                            Choose your colour
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            {PALETTE_DEFS.map(p => (
-                                <button key={p.name} type="button" onClick={() => setLocalPalette(p.name)}
-                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
-                                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: p.color, outline: localPalette === p.name ? '3px solid var(--text-primary)' : '3px solid transparent', outlineOffset: localPalette === p.name ? '2px' : '0', transition: 'outline-offset 0.12s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {localPalette === p.name && <Check size={16} color="white" strokeWidth={3} />}
-                                    </div>
-                                    <span style={{ fontSize: '10px', color: localPalette === p.name ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: localPalette === p.name ? 600 : 400, textTransform: 'capitalize' }}>
-                                        {p.name}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
 
                     {/* Mode toggle */}
                     <div>
