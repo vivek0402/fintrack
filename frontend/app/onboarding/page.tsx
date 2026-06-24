@@ -350,8 +350,8 @@ export default function OnboardingPage() {
                                     </p>
                                 )}
 
-                                <Button size="lg" style={{ width: '100%' }} onClick={() => setStep(BUDGETS_STEP)}>
-                                    {importedCount > 0 ? 'Continue' : "Skip — I'll add transactions manually"} <ArrowRight size={16} />
+                                <Button size="lg" style={{ width: '100%', height: 'auto', minHeight: '48px', padding: '12px 24px', whiteSpace: 'normal', textAlign: 'center' }} onClick={() => setStep(BUDGETS_STEP)}>
+                                    {importedCount > 0 ? 'Continue' : "Skip — I'll add transactions manually"} <ArrowRight size={16} style={{ flexShrink: 0 }} />
                                 </Button>
                                 <button type="button" onClick={() => setStep(2)}
                                     style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'block', width: '100%', textAlign: 'center', marginTop: '16px', padding: 0 }}>
