@@ -228,14 +228,37 @@ private fun PayoffOptimizerCard(
             }
             Spacer(Modifier.height(FinTrackSpacing.space4))
 
+            val avalancheMonths = result?.avalanche?.months
+            val snowballMonths = result?.snowball?.months
+            val recommendedStrategy = when {
+                avalancheMonths == null || snowballMonths == null -> null
+                avalancheMonths < snowballMonths -> "avalanche"
+                snowballMonths < avalancheMonths -> "snowball"
+                else -> null
+            }
+
             result?.baseline?.let { baseline ->
-                StrategyRow("Baseline (minimum EMIs)", baseline.months, baseline.total_interest, null)
+                StrategyRow("Baseline (minimum EMIs)", baseline.months, baseline.total_interest, null, null)
             }
             result?.avalanche?.let { avalanche ->
-                StrategyRow("Avalanche (highest rate first)", avalanche.months, avalanche.total_interest, avalanche.interest_saved)
+                StrategyRow(
+                    "Avalanche (highest rate first)",
+                    avalanche.months,
+                    avalanche.total_interest,
+                    avalanche.interest_saved,
+                    avalanche.payoff_sequence,
+                    isRecommended = recommendedStrategy == "avalanche",
+                )
             }
             result?.snowball?.let { snowball ->
-                StrategyRow("Snowball (smallest balance first)", snowball.months, snowball.total_interest, snowball.interest_saved)
+                StrategyRow(
+                    "Snowball (smallest balance first)",
+                    snowball.months,
+                    snowball.total_interest,
+                    snowball.interest_saved,
+                    snowball.payoff_sequence,
+                    isRecommended = recommendedStrategy == "snowball",
+                )
             }
 
             result?.recommendation?.let { rec ->
@@ -249,15 +272,45 @@ private fun PayoffOptimizerCard(
 }
 
 @Composable
-private fun StrategyRow(label: String, months: Int, totalInterest: Double, interestSaved: Double?) {
+private fun StrategyRow(
+    label: String,
+    months: Int,
+    totalInterest: Double,
+    interestSaved: Double?,
+    payoffSequence: List<app.fintrack.compose.data.api.PayoffSequenceEntryDto>?,
+    isRecommended: Boolean = false,
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = FinTrackSpacing.space2)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            if (isRecommended) {
+                Spacer(Modifier.width(FinTrackSpacing.space2))
+                Surface(shape = RoundedCornerShape(20.dp), color = FinTrackColors.Dark.colorInc.copy(alpha = 0.14f)) {
+                    Text(
+                        "Recommended",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = FinTrackColors.Dark.colorInc,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = FinTrackSpacing.space2, vertical = 2.dp),
+                    )
+                }
+            }
+        }
         Text(
             "$months months · ${formatInr(totalInterest)} interest" +
                 (interestSaved?.let { " · ${formatInr(it)} saved" } ?: ""),
             style = MaterialTheme.typography.bodySmall,
             color = if (interestSaved != null && interestSaved > 0) FinTrackColors.Dark.colorInc else MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (!payoffSequence.isNullOrEmpty()) {
+            Spacer(Modifier.height(FinTrackSpacing.space1))
+            payoffSequence.forEach { entry ->
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(entry.name, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Month ${entry.payoff_month}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
 }
 
