@@ -887,7 +887,7 @@ export default function DashboardPage() {
                                     );
                                 })}
                                 {opportunities.length > 3 && (
-                                    <Link href="/analytics?tab=insights" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)', paddingTop: '4px' }}>
+                                    <Link href="/analytics?tab=insights&view=opportunities" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)', paddingTop: '4px' }}>
                                         See all <ChevronRight size={12} />
                                     </Link>
                                 )}

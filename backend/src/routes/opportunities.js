@@ -80,7 +80,7 @@ async function detectCreditCardInterest(userId) {
         amount_saved: amountSaved,
         priority: 1,
         action_label: 'View payoff plan',
-        action_route: '/debt',
+        action_route: '/debt-intelligence',
         expires_at: null,
     };
 }
@@ -324,7 +324,7 @@ async function detectBehavioralPattern(userId) {
         amount_saved: null,
         priority: 2,
         action_label: 'View behavioral patterns',
-        action_route: '/analytics',
+        action_route: '/analytics?tab=insights&view=behavioral',
         expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     };
 }
@@ -340,7 +340,7 @@ async function detectSalaryIntelligenceInsight(userId) {
         amount_saved: null,
         priority: 3,
         action_label: 'View allocation plan',
-        action_route: '/salary-intelligence',
+        action_route: '/analytics',
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 }

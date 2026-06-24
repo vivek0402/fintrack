@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
-import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI, opportunityAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -971,7 +971,12 @@ function BenchmarkBar({ userPct, min, max }: { userPct: number; min: number; max
 
 function InsightsTab() {
     const { user } = useAuthStore();
-    const [tab, setTab] = useState<'benchmarks' | 'behavioral'>('benchmarks');
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialView = searchParams.get('view');
+    const [tab, setTab] = useState<'benchmarks' | 'behavioral' | 'opportunities'>(
+        initialView === 'opportunities' || initialView === 'behavioral' ? initialView : 'benchmarks'
+    );
 
     const [benchmarks, setBenchmarks] = useState<any>(null);
     const [benchmarksLoading, setBenchmarksLoading] = useState(true);
@@ -980,10 +985,15 @@ function InsightsTab() {
     const [patternsLoading, setPatternsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
+    const [opportunities, setOpportunities] = useState<any[]>([]);
+    const [opportunitiesLoading, setOpportunitiesLoading] = useState(true);
+    const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
+
     useEffect(() => {
         if (!user) return;
         insightsAPI.getPeerBenchmarks().then(res => setBenchmarks(res.data)).catch(() => {}).finally(() => setBenchmarksLoading(false));
         insightsAPI.getBehavioralPatterns().then(res => setPatterns(res.data)).catch(() => {}).finally(() => setPatternsLoading(false));
+        opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {}).finally(() => setOpportunitiesLoading(false));
     }, [user]);
 
     const refreshPatterns = async () => {
@@ -992,6 +1002,17 @@ function InsightsTab() {
             const res = await insightsAPI.getBehavioralPatterns(true);
             setPatterns(res.data);
         } catch { toast.error('Failed to refresh patterns — try again'); } finally { setRefreshing(false); }
+    };
+
+    const handleDismissOpportunity = async (id: string) => {
+        setDismissingIds(prev => new Set(prev).add(id));
+        try { await opportunityAPI.dismiss(id); } catch {}
+        setTimeout(() => setOpportunities(prev => prev.filter((o: any) => o.id !== id)), 250);
+    };
+
+    const handleActOnOpportunity = async (opp: any) => {
+        try { await opportunityAPI.markActedOn(opp.id); } catch {}
+        if (opp.action_route) router.push(opp.action_route);
     };
 
     return (
@@ -1008,6 +1029,7 @@ function InsightsTab() {
             {/* Tabs */}
             <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
                 {[
+                    { key: 'opportunities', label: 'Opportunities' },
                     { key: 'benchmarks', label: 'Peer Benchmarks' },
                     { key: 'behavioral', label: 'Behavioral Patterns' },
                 ].map(t => (
@@ -1028,6 +1050,48 @@ function InsightsTab() {
                     </button>
                 ))}
             </div>
+
+            {/* ── TAB 0: OPPORTUNITIES ── */}
+            {tab === 'opportunities' && (
+                opportunitiesLoading ? (
+                    <SkeletonCard height={400} />
+                ) : opportunities.length === 0 ? (
+                    <EmptyState icon={Lightbulb} title="No opportunities right now" subtitle="We'll surface savings, debt, and investment opportunities here as we spot them in your data." />
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {opportunities.map((opp: any) => {
+                            const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
+                            const isDismissing = dismissingIds.has(opp.id);
+                            return (
+                                <div key={opp.id} style={{
+                                    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
+                                    borderRadius: 'var(--radius-lg)', padding: '14px 18px',
+                                    opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
+                                    transition: 'opacity 250ms ease, transform 250ms ease',
+                                }}>
+                                    <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                        {opp.title}
+                                    </p>
+                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                                        {opp.description}
+                                    </p>
+                                    {opp.amount_saved != null && (
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
+                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
+                                                Save {fmt(parseFloat(opp.amount_saved))}/year
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
+                                        <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )
+            )}
 
             {/* ── TAB 1: PEER BENCHMARKS ── */}
             {tab === 'benchmarks' && (
