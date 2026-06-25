@@ -59,7 +59,7 @@ export default function RegisterPage() {
         setLoading(true);
         try {
             const res = await authAPI.verifyEmail({ email: pendingEmail, otp });
-            setAuth(res.data.user, res.data.token);
+            setAuth(res.data.user, res.data.token, res.data.refreshToken);
             router.push('/onboarding');
         } catch (err: any) {
             setError(err.response?.data?.error || 'Verification failed.');

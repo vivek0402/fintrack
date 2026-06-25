@@ -32,6 +32,7 @@ router.post('/', async (req, res) => {
             due_days            = 20,
             network             = 'Visa',
             color               = '#6366f1',
+            interest_rate_pct   = null,
         } = req.body;
 
         if (!bank_name?.trim()) return res.status(400).json({ error: 'bank_name is required' });
@@ -39,14 +40,15 @@ router.post('/', async (req, res) => {
         if (!isNonNegativeNumber(credit_limit)) return res.status(400).json({ error: 'credit_limit must be >= 0' });
         if (!isNonNegativeNumber(outstanding_balance)) return res.status(400).json({ error: 'outstanding_balance must be >= 0' });
         if (!isNonNegativeNumber(due_days)) return res.status(400).json({ error: 'due_days must be >= 0' });
+        if (interest_rate_pct !== null && !isNonNegativeNumber(interest_rate_pct)) return res.status(400).json({ error: 'interest_rate_pct must be >= 0' });
 
         const { rows } = await pool.query(
             `INSERT INTO credit_cards
-                (user_id, bank_name, card_name, last_four, credit_limit, outstanding_balance, billing_date, due_days, network, color)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+                (user_id, bank_name, card_name, last_four, credit_limit, outstanding_balance, billing_date, due_days, network, color, interest_rate_pct)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
              RETURNING *`,
             [req.user.id, bank_name.trim(), card_name.trim(), last_four || null,
-             credit_limit, outstanding_balance, billing_date || null, due_days, network, color]
+             credit_limit, outstanding_balance, billing_date || null, due_days, network, color, interest_rate_pct]
         );
         res.status(201).json({ card: rows[0] });
     } catch (err) {
@@ -68,11 +70,13 @@ router.put('/:id', async (req, res) => {
             bank_name, card_name, last_four,
             credit_limit, outstanding_balance,
             billing_date, due_days, network, color,
+            interest_rate_pct,
         } = req.body;
 
         if (credit_limit !== undefined && !isNonNegativeNumber(credit_limit)) return res.status(400).json({ error: 'credit_limit must be >= 0' });
         if (outstanding_balance !== undefined && !isNonNegativeNumber(outstanding_balance)) return res.status(400).json({ error: 'outstanding_balance must be >= 0' });
         if (due_days !== undefined && !isNonNegativeNumber(due_days)) return res.status(400).json({ error: 'due_days must be >= 0' });
+        if (interest_rate_pct !== undefined && interest_rate_pct !== null && !isNonNegativeNumber(interest_rate_pct)) return res.status(400).json({ error: 'interest_rate_pct must be >= 0' });
 
         const { rows } = await pool.query(
             `UPDATE credit_cards SET
@@ -85,12 +89,13 @@ router.put('/:id', async (req, res) => {
                 due_days            = COALESCE($7, due_days),
                 network             = COALESCE($8, network),
                 color               = COALESCE($9, color),
+                interest_rate_pct   = COALESCE($10, interest_rate_pct),
                 updated_at          = NOW()
-             WHERE id = $10 AND user_id = $11
+             WHERE id = $11 AND user_id = $12
              RETURNING *`,
             [bank_name, card_name, last_four || null,
              credit_limit, outstanding_balance,
-             billing_date || null, due_days, network, color,
+             billing_date || null, due_days, network, color, interest_rate_pct,
              req.params.id, req.user.id]
         );
         res.json({ card: rows[0] });

@@ -27,7 +27,11 @@ import {
     Utensils, Home, Car, Tv, ShoppingBag, HeartPulse, GraduationCap, PiggyBank,
     FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
-const vizSkeleton = (h: number) => () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+const vizSkeleton = (h: number) => {
+    const VizSkeleton = () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+    VizSkeleton.displayName = 'VizSkeleton';
+    return VizSkeleton;
+};
 const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });

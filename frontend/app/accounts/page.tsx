@@ -27,6 +27,7 @@ interface CreditCard {
     id: number; bank_name: string; card_name: string; last_four: string | null;
     credit_limit: number; outstanding_balance: number;
     billing_date: number | null; due_days: number; network: string; color: string;
+    interest_rate_pct: number | null;
 }
 interface Wallet { id: number; name: string; emoji: string; balance: number; }
 
@@ -55,7 +56,7 @@ const CARD_COLORS   = ['#6366f1', '#00e5a0', '#f59e0b', '#ef4444', '#ec4899', '#
 const WALLET_EMOJIS = ['👛', '💰', '📱', '🏧', '💳', '🪙', '💵', '🏦'];
 
 const emptyBankForm   = () => ({ name: '', account_type: 'Savings', last_four: '', starting_balance: '', balance_as_of: '' });
-const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1' });
+const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1', interest_rate_pct: '' });
 const emptyWalletForm = () => ({ name: '', emoji: '👛', balance: '' });
 
 function SectionHead({ title, total, totalColor, onAdd }: { title: string; total: string; totalColor: string; onAdd: () => void }) {
@@ -176,14 +177,14 @@ export default function AccountsPage() {
     const openAddCard = () => { setEditingCard(null); setCardForm(emptyCardForm()); setShowCardModal(true); };
     const openEditCard = (c: CreditCard) => {
         setEditingCard(c);
-        setCardForm({ bank_name: c.bank_name, card_name: c.card_name, last_four: c.last_four || '', credit_limit: String(c.credit_limit), outstanding_balance: String(c.outstanding_balance), billing_date: c.billing_date ? String(c.billing_date) : '', due_days: String(c.due_days), network: c.network, color: c.color });
+        setCardForm({ bank_name: c.bank_name, card_name: c.card_name, last_four: c.last_four || '', credit_limit: String(c.credit_limit), outstanding_balance: String(c.outstanding_balance), billing_date: c.billing_date ? String(c.billing_date) : '', due_days: String(c.due_days), network: c.network, color: c.color, interest_rate_pct: c.interest_rate_pct != null ? String(c.interest_rate_pct) : '' });
         setShowCardModal(true);
     };
     const saveCard = async () => {
         if (!cardForm.bank_name.trim() || !cardForm.card_name.trim()) return;
         setSaving(true);
         try {
-            const data = { bank_name: cardForm.bank_name.trim(), card_name: cardForm.card_name.trim(), last_four: cardForm.last_four || null, credit_limit: parseFloat(cardForm.credit_limit) || 0, outstanding_balance: parseFloat(cardForm.outstanding_balance) || 0, billing_date: parseInt(cardForm.billing_date) || null, due_days: parseInt(cardForm.due_days) || 20, network: cardForm.network, color: cardForm.color };
+            const data = { bank_name: cardForm.bank_name.trim(), card_name: cardForm.card_name.trim(), last_four: cardForm.last_four || null, credit_limit: parseFloat(cardForm.credit_limit) || 0, outstanding_balance: parseFloat(cardForm.outstanding_balance) || 0, billing_date: parseInt(cardForm.billing_date) || null, due_days: parseInt(cardForm.due_days) || 20, network: cardForm.network, color: cardForm.color, interest_rate_pct: cardForm.interest_rate_pct ? parseFloat(cardForm.interest_rate_pct) : null };
             if (editingCard) await creditCardsAPI.update(editingCard.id, data); else await creditCardsAPI.create(data);
             await fetchAll(); setShowCardModal(false); showToast(editingCard ? 'Card updated' : 'Card added');
         } catch { showToast('Failed to save card'); }
@@ -492,6 +493,10 @@ export default function AccountsPage() {
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div><label style={labelSt}>Billing Date (1–28)</label><input style={inputSt} type="number" min={1} max={28} value={cardForm.billing_date} onChange={e => setCardForm(f => ({ ...f, billing_date: e.target.value }))} placeholder="5" /></div>
                                 <div><label style={labelSt}>Due Days After</label><input style={inputSt} type="number" value={cardForm.due_days} onChange={e => setCardForm(f => ({ ...f, due_days: e.target.value }))} placeholder="20" /></div>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div><label style={labelSt}>Interest Rate / APR (%)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" step="0.1" value={cardForm.interest_rate_pct} onChange={e => setCardForm(f => ({ ...f, interest_rate_pct: e.target.value }))} placeholder="42" /></div>
+                                <div />
                             </div>
                             <div>
                                 <label style={labelSt}>Card Color</label>

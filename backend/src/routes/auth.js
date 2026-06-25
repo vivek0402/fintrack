@@ -64,6 +64,29 @@ function generateOTP() {
     return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+const ACCESS_TOKEN_TTL = '15m';
+const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function generateAccessToken(user) {
+    return jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
+}
+
+function hashToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+// Opaque, high-entropy random string — not a JWT, looked up by hash, nothing to decode.
+async function issueRefreshToken(userId, deviceLabel = null) {
+    const rawToken = crypto.randomBytes(40).toString('hex');
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+    await pool.query(
+        'INSERT INTO refresh_tokens (user_id, token_hash, device_label, expires_at) VALUES ($1, $2, $3, $4)',
+        [userId, tokenHash, deviceLabel, expiresAt]
+    );
+    return rawToken;
+}
+
 async function createOTP(email, type) {
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -140,7 +163,7 @@ router.post('/register', async (req, res) => {
             return res.status(409).json({ error: 'Email already registered.' });
         }
 
-        const password_hash = await bcrypt.hash(password, 10);
+        const password_hash = await bcrypt.hash(password, 12);
 
         if (existing.rows.length > 0 && !existing.rows[0].is_verified) {
             // Update existing unverified account (re-register)
@@ -195,18 +218,15 @@ router.post('/verify-email', async (req, res) => {
         );
 
         const user = result.rows[0];
-        const token = jwt.sign(
-            { id: user.id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-        );
+        const token = generateAccessToken(user);
+        const refreshToken = await issueRefreshToken(user.id);
 
         // Seed default categories for new users (guard: only if none exist)
         seedDefaultCategories(user.id).catch(err =>
             console.error('[Auth] category seed failed:', err.message)
         );
 
-        res.json({ message: 'Email verified. Account activated.', token, user });
+        res.json({ message: 'Email verified. Account activated.', token, refreshToken, user });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error.' });
@@ -307,7 +327,7 @@ router.post('/reset-password', async (req, res) => {
         if (!record)
             return res.status(400).json({ error: 'Invalid or expired OTP.' });
 
-        const password_hash = await bcrypt.hash(new_password, 10);
+        const password_hash = await bcrypt.hash(new_password, 12);
 
         await pool.query(
             'UPDATE users SET password_hash = $1 WHERE email = $2',
@@ -351,20 +371,70 @@ router.post('/login', async (req, res) => {
         if (!user.is_verified)
             return res.status(403).json({ error: 'Please verify your email before signing in.', unverified: true, email: user.email });
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email },
-            process.env.JWT_SECRET,
-            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-        );
+        const token = generateAccessToken(user);
+        const refreshToken = await issueRefreshToken(user.id);
 
         res.json({
             message: 'Login successful.',
             token,
+            refreshToken,
             user: {
                 id: user.id, full_name: user.full_name,
                 email: user.email, currency: user.currency
             }
         });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// ─── Refresh access token (rotation-on-use) ──────────────────────────────────
+// Looked up by hash of the opaque refresh token — never decoded, just matched.
+// A stolen token works at most once: every successful refresh revokes the old
+// row and issues a brand-new one. Presenting an already-revoked token again
+// is a theft signal (reuse) — logged loudly but other sessions are left alone
+// (no auto-revoke), per the deliberate choice not to mass-logout on suspicion.
+
+router.post('/refresh', async (req, res) => {
+    try {
+        const { refresh_token } = req.body;
+        if (!refresh_token)
+            return res.status(400).json({ error: 'refresh_token is required.' });
+
+        const tokenHash = hashToken(refresh_token);
+        const result = await pool.query(
+            'SELECT * FROM refresh_tokens WHERE token_hash = $1',
+            [tokenHash]
+        );
+
+        // Same generic response whether the token never existed, is expired,
+        // or was already used — don't leak which case applies.
+        if (result.rows.length === 0)
+            return res.status(401).json({ error: 'Invalid or expired refresh token.' });
+
+        const stored = result.rows[0];
+
+        if (stored.revoked_at) {
+            console.warn(`[Auth] refresh token reuse detected for user ${stored.user_id}`);
+            // TODO: Sentry.captureMessage(...) once Sentry is wired up (Phase E)
+            return res.status(401).json({ error: 'Invalid or expired refresh token.' });
+        }
+
+        if (new Date(stored.expires_at) <= new Date())
+            return res.status(401).json({ error: 'Invalid or expired refresh token.' });
+
+        const userRes = await pool.query('SELECT id, email FROM users WHERE id = $1', [stored.user_id]);
+        if (userRes.rows.length === 0)
+            return res.status(401).json({ error: 'Invalid or expired refresh token.' });
+        const user = userRes.rows[0];
+
+        await pool.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1', [stored.id]);
+
+        const token = generateAccessToken(user);
+        const refreshToken = await issueRefreshToken(user.id, stored.device_label);
+
+        res.json({ token, refreshToken });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error.' });

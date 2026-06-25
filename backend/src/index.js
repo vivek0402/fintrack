@@ -18,6 +18,19 @@ if (!process.env.DATABASE_URL) {
     process.exit(1);
 }
 
+// ─── Crash handlers ──────────────────────────────────────────────────────────
+// After an uncaught exception the process is in an undefined state — log and
+// exit so Render's process supervisor restarts us cleanly rather than limping
+// along with corrupted in-memory state (pool, cron timers, etc).
+process.on('uncaughtException', (err) => {
+    console.error('[FATAL] uncaughtException:', err.stack || err.message);
+    process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('[FATAL] unhandledRejection:', reason instanceof Error ? (reason.stack || reason.message) : reason);
+    process.exit(1);
+});
+
 const pool = require('./db/pool');
 const { getLatestNav } = require('./utils/marketData');
 const { notifyOnce } = require('./utils/fcm');
@@ -33,8 +46,17 @@ async function runMigrations() {
         try {
             await pool.query(sql);
             console.log(`✅ Migration applied: ${file}`);
+            await pool.query(
+                `INSERT INTO schema_migrations_log (filename, status) VALUES ($1, 'success')`,
+                [file]
+            ).catch(() => {}); // log table may not exist yet on the very first-ever run — degrade silently
         } catch (err) {
             console.error(`❌ Migration failed: ${file} — ${err.message}`);
+            // TODO: Sentry.captureMessage once observability lands
+            await pool.query(
+                `INSERT INTO schema_migrations_log (filename, status, error_message) VALUES ($1, 'failed', $2)`,
+                [file, err.message]
+            ).catch(() => {});
         }
     }
 }
@@ -123,6 +145,16 @@ const authLimiter = rateLimit({
     message: { error: 'Too many auth requests. Please try again later.' },
 });
 
+// Refresh-token endpoint limiter — generous since silent refresh can fire
+// from multiple tabs/devices, but still bounded against abuse.
+const refreshLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many refresh requests. Please try again later.' },
+});
+
 // AI endpoint limiter — 30 req/hour per user (uses JWT id as key when available)
 // Skips /agent/* — the Fin chatbot has its own, more generous limiter (see routes/agents.js)
 // since a single conversation naturally involves many more round-trips than a one-shot report.
@@ -154,7 +186,26 @@ app.get('/', (req, res) => res.redirect('/health'));
 app.get('/health', async (req, res) => {
     try {
         await pool.query('SELECT 1');
-        res.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
+
+        // Surface recent migration failures for visibility — does NOT flip this
+        // endpoint's status, so uptime monitors don't treat a benign historical
+        // migration re-run error as a service outage.
+        let migration_warning;
+        try {
+            const { rows } = await pool.query(
+                `SELECT filename, error_message FROM schema_migrations_log
+                 WHERE status = 'failed' AND run_at > NOW() - INTERVAL '1 day'
+                 ORDER BY run_at DESC LIMIT 5`
+            );
+            if (rows.length > 0) migration_warning = rows;
+        } catch { /* log table absent — ignore */ }
+
+        res.json({
+            status: 'ok',
+            database: 'connected',
+            timestamp: new Date().toISOString(),
+            ...(migration_warning ? { migration_warning } : {}),
+        });
     } catch (err) {
         res.status(500).json({ status: 'error', database: 'disconnected' });
     }
@@ -168,6 +219,7 @@ app.post('/api/auth/register',       authLimiter,      (req, res, next) => authR
 app.post('/api/auth/forgot-password',authLimiter,      (req, res, next) => authRouter(req, res, next));
 app.post('/api/auth/verify-email',   otpVerifyLimiter, (req, res, next) => authRouter(req, res, next));
 app.post('/api/auth/reset-password', otpVerifyLimiter, (req, res, next) => authRouter(req, res, next));
+app.post('/api/auth/refresh',        refreshLimiter,   (req, res, next) => authRouter(req, res, next));
 app.use('/api/auth', authRouter);
 
 app.use('/api/categories',   require('./routes/categories'));

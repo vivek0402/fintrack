@@ -5,20 +5,66 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
 const api = axios.create({ baseURL: API_URL, timeout: 15000 });
 
+// Separate instance with no request interceptor — the refresh call must never
+// attach the (expired) access token, or a 401 here could loop back into itself.
+const refreshClient = axios.create({ baseURL: API_URL, timeout: 15000 });
+
 api.interceptors.request.use((config) => {
     const token = useAuthStore.getState().token;
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
 });
 
+function forceLogout() {
+    useAuthStore.getState().logout();
+    if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+    }
+}
+
+// Several requests can 401 around the same moment (e.g. a tab left idle past
+// the 15-minute access token expiry fires off a handful of calls at once).
+// Refresh tokens rotate on use, so if each 401 independently called refresh,
+// only the first would succeed and the rest would be retrying against an
+// already-revoked token and incorrectly force-logout. This shared promise
+// makes every concurrent 401 await the same in-flight refresh instead.
+let refreshPromise: Promise<string> | null = null;
+
+function refreshAccessToken(): Promise<string> {
+    if (!refreshPromise) {
+        const { refreshToken } = useAuthStore.getState();
+        refreshPromise = (refreshToken
+            ? refreshClient.post('/api/auth/refresh', { refresh_token: refreshToken })
+            : Promise.reject(new Error('No refresh token available')))
+            .then((res) => {
+                const { token, refreshToken: newRefreshToken } = res.data;
+                useAuthStore.getState().setTokens(token, newRefreshToken);
+                return token;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+    return refreshPromise;
+}
+
 api.interceptors.response.use(
     res => res,
-    err => {
-        if (err.response?.status === 401) {
-            useAuthStore.getState().logout();
-            if (typeof window !== 'undefined') {
-                window.location.href = '/login';
+    async (err) => {
+        const originalRequest = err.config;
+        if (err.response?.status === 401 && originalRequest && !originalRequest._retried) {
+            originalRequest._retried = true;
+            try {
+                const token = await refreshAccessToken();
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+                return api(originalRequest);
+            } catch {
+                forceLogout();
+                return Promise.reject(err);
             }
+        }
+        if (err.response?.status === 401) {
+            forceLogout();
         }
         return Promise.reject(err);
     }
@@ -37,6 +83,8 @@ export const authAPI = {
         api.post('/api/auth/reset-password', data),
     login: (data: { email: string; password: string }) =>
         api.post('/api/auth/login', data),
+    refresh: (refresh_token: string) =>
+        refreshClient.post('/api/auth/refresh', { refresh_token }),
     me: () => api.get('/api/auth/me'),
 };
 

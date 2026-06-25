@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { monthsRemainingForLoan } = require('../utils/amortization');
 const { getCached } = require('../utils/aiCache');
+const { ANNUAL_EQUITY_FUND_RETURN, RISK_STRATEGY_SPLITS } = require('../services/planningEngine');
 const router = express.Router();
 
 router.use(auth);
@@ -40,19 +41,32 @@ async function getAvgMonthlyIncome(userId) {
     return fmt(res.rows[0].avg);
 }
 
+async function getFinancialPlan(userId) {
+    const res = await pool.query(`SELECT * FROM financial_plans WHERE user_id = $1`, [userId]);
+    const plan = res.rows[0] || null;
+    return {
+        risk_profile: plan?.risk_profile || 'balanced',
+        emergency_fund_target_months: plan?.emergency_fund_target_months ?? 6,
+        has_plan: !!plan,
+    };
+}
+
 // ─── Detectors ──────────────────────────────────────────────────────────────
 
-async function detectIdleCash(userId) {
+async function detectIdleCash(userId, plan) {
     const [bankBalance, avgExpenses] = await Promise.all([getBankBalance(userId), getAvgMonthlyExpenses(userId)]);
-    if (avgExpenses <= 0 || bankBalance <= avgExpenses * 4) return null;
+    if (avgExpenses <= 0) return null;
 
-    const idleAmount = fmt(bankBalance - avgExpenses * 3);
+    const targetMonths = plan.emergency_fund_target_months;
+    if (bankBalance <= avgExpenses * (targetMonths + 2)) return null;
+
+    const idleAmount = fmt(bankBalance - avgExpenses * targetMonths);
     if (idleAmount <= 0) return null;
 
     return {
         type: 'idle_cash',
         title: `${inr(idleAmount)} sitting idle in savings account`,
-        description: `Your bank balance of ${inr(bankBalance)} is well beyond your 3-month expense buffer of ${inr(avgExpenses * 3)}. Moving the surplus to a liquid fund (~7% returns vs ~3.5% savings interest) could earn meaningfully more.`,
+        description: `Your bank balance of ${inr(bankBalance)} is well beyond your ${targetMonths}-month expense buffer of ${inr(avgExpenses * targetMonths)}. Moving the surplus to a liquid fund (~7% returns vs ~3.5% savings interest) could earn meaningfully more.`,
         amount_saved: fmt(idleAmount * 0.05),
         priority: idleAmount < 100000 ? 2 : 1,
         action_label: 'Explore liquid funds',
@@ -61,9 +75,11 @@ async function detectIdleCash(userId) {
     };
 }
 
+const DEFAULT_CC_APR_FALLBACK = 42; // used only when a card has no interest_rate_pct set
+
 async function detectCreditCardInterest(userId) {
     const res = await pool.query(
-        `SELECT bank_name, card_name, outstanding_balance FROM credit_cards
+        `SELECT bank_name, card_name, outstanding_balance, interest_rate_pct FROM credit_cards
          WHERE user_id = $1 AND outstanding_balance > 0 ORDER BY outstanding_balance DESC`,
         [userId]
     );
@@ -71,12 +87,18 @@ async function detectCreditCardInterest(userId) {
 
     const top = res.rows[0];
     const totalOutstanding = fmt(res.rows.reduce((s, r) => s + parseFloat(r.outstanding_balance), 0));
-    const amountSaved = fmt(totalOutstanding * 0.36);
+    const amountSaved = fmt(res.rows.reduce((sum, c) => {
+        const apr = c.interest_rate_pct != null ? parseFloat(c.interest_rate_pct) : DEFAULT_CC_APR_FALLBACK;
+        return sum + parseFloat(c.outstanding_balance) * (apr / 100);
+    }, 0));
+    const aprText = top.interest_rate_pct != null
+        ? `At ${fmt(top.interest_rate_pct)}% APR on your ${top.card_name}`
+        : `At an estimated ~${DEFAULT_CC_APR_FALLBACK}% APR (add your card's actual rate in Accounts for a precise number)`;
 
     return {
         type: 'credit_card_interest',
         title: `Credit card debt costing you ${inr(amountSaved)}/year in interest`,
-        description: `${top.card_name} (${top.bank_name}) and other cards carry a combined outstanding balance of ${inr(totalOutstanding)}. At ~36% APR, this is one of the most expensive debts you can carry — prioritize paying it off.`,
+        description: `${top.card_name} (${top.bank_name}) and other cards carry a combined outstanding balance of ${inr(totalOutstanding)}. ${aprText}, this is one of the most expensive debts you can carry — prioritize paying it off.`,
         amount_saved: amountSaved,
         priority: 1,
         action_label: 'View payoff plan',
@@ -128,6 +150,9 @@ async function detectSpendingSpike(userId) {
         byCategory[row.category_name].push({ month: row.month, total: fmt(row.total) });
     }
 
+    const MIN_SPIKE_BASE_AMOUNT = 1000;     // categories averaging below this are too small to matter
+    const MIN_SPIKE_ABSOLUTE_DELTA = 500;   // the spike itself must be a meaningful rupee amount
+
     let biggest = null;
     for (const [category, months] of Object.entries(byCategory)) {
         const sorted = months.sort((a, b) => new Date(a.month) - new Date(b.month));
@@ -135,9 +160,10 @@ async function detectSpendingSpike(userId) {
         const last = sorted[sorted.length - 1].total;
         const priorMonths = sorted.slice(0, -1);
         const avg = priorMonths.reduce((s, m) => s + m.total, 0) / priorMonths.length;
-        if (avg <= 0) continue;
+        if (avg < MIN_SPIKE_BASE_AMOUNT) continue;
         const pctAbove = ((last - avg) / avg) * 100;
-        if (pctAbove > 35 && (!biggest || pctAbove > biggest.pctAbove)) {
+        const spikeAmount = last - avg;
+        if (pctAbove > 35 && spikeAmount >= MIN_SPIKE_ABSOLUTE_DELTA && (!biggest || pctAbove > biggest.pctAbove)) {
             biggest = { category, last, avg, pctAbove };
         }
     }
@@ -204,7 +230,12 @@ async function detectAllocationGap(userId) {
     };
 }
 
-async function detectSipUnderinvesting(userId) {
+async function detectSipUnderinvesting(userId, plan) {
+    const BASELINE_SIP_PCT_OF_INCOME = 15; // balanced-profile baseline, matches prior flat behavior
+    const split = RISK_STRATEGY_SPLITS[plan.risk_profile];
+    const targetPct = fmt(BASELINE_SIP_PCT_OF_INCOME * (split.sip / RISK_STRATEGY_SPLITS.balanced.sip));
+    if (targetPct <= 0) return null; // safety profile: 100% emergency-fund-first, not "underinvesting"
+
     const [incomeRes, investedRes] = await Promise.all([
         pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
@@ -224,18 +255,18 @@ async function detectSipUnderinvesting(userId) {
     if (income <= 0) return null;
 
     const ratioPct = fmt((invested / income) * 100);
-    if (ratioPct >= 15) return null;
+    if (ratioPct >= targetPct) return null;
 
-    const targetMonthly = income * 0.15;
-    const monthlyRate = 0.12 / 12;
+    const targetMonthly = income * (targetPct / 100);
+    const monthlyRate = ANNUAL_EQUITY_FUND_RETURN / 12;
     const months = 120;
     const futureValue = (pmt) => pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
     const amountSaved = fmt(futureValue(targetMonthly) - futureValue(invested));
 
     return {
         type: 'sip_underinvesting',
-        title: `You're only investing ${ratioPct}% of income — 15% is the recommended minimum`,
-        description: `This month you invested ${inr(invested)} out of ${inr(income)} income (${ratioPct}%). Raising your SIP to 15% of income (${inr(targetMonthly)}/month) could grow your corpus by an estimated ${inr(amountSaved)} more over 10 years at 12% CAGR.`,
+        title: `You're only investing ${ratioPct}% of income — ${targetPct}% is the recommended minimum`,
+        description: `This month you invested ${inr(invested)} out of ${inr(income)} income (${ratioPct}%). Raising your SIP to ${targetPct}% of income (${inr(targetMonthly)}/month) could grow your corpus by an estimated ${inr(amountSaved)} more over 10 years at ${fmt(ANNUAL_EQUITY_FUND_RETURN * 100)}% CAGR.`,
         amount_saved: amountSaved,
         priority: 2,
         action_label: 'Plan your SIP',
@@ -244,14 +275,15 @@ async function detectSipUnderinvesting(userId) {
     };
 }
 
-async function detectEmergencyFundLow(userId) {
+async function detectEmergencyFundLow(userId, plan) {
     const [bankBalance, avgExpenses] = await Promise.all([getBankBalance(userId), getAvgMonthlyExpenses(userId)]);
-    if (avgExpenses <= 0 || bankBalance >= avgExpenses * 3) return null;
+    const targetMonths = plan.emergency_fund_target_months;
+    if (avgExpenses <= 0 || bankBalance >= avgExpenses * targetMonths) return null;
 
     return {
         type: 'emergency_fund_low',
-        title: 'Emergency fund below 3 months of expenses',
-        description: `Your bank balance of ${inr(bankBalance)} covers less than 3 months of your average monthly expenses (${inr(avgExpenses)}). Building a buffer of at least ${inr(avgExpenses * 3)} protects you from having to borrow during emergencies.`,
+        title: `Emergency fund below ${targetMonths} months of expenses`,
+        description: `Your bank balance of ${inr(bankBalance)} covers less than ${targetMonths} months of your average monthly expenses (${inr(avgExpenses)}). Building a buffer of at least ${inr(avgExpenses * targetMonths)} protects you from having to borrow during emergencies.`,
         amount_saved: null,
         priority: 1,
         action_label: 'Plan cash flow',
@@ -346,14 +378,15 @@ async function detectSalaryIntelligenceInsight(userId) {
 }
 
 async function detectOpportunities(userId) {
+    const plan = await getFinancialPlan(userId);
     const results = await Promise.all([
-        detectIdleCash(userId),
+        detectIdleCash(userId, plan),
         detectCreditCardInterest(userId),
         detectHighInterestLoan(userId),
         detectSpendingSpike(userId),
         detectAllocationGap(userId),
-        detectSipUnderinvesting(userId),
-        detectEmergencyFundLow(userId),
+        detectSipUnderinvesting(userId, plan),
+        detectEmergencyFundLow(userId, plan),
         detectForecastWarning(userId),
         detectPersonalityInsight(userId),
         detectBehavioralPattern(userId),
@@ -452,3 +485,9 @@ router.patch('/:id/acted-on', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.getFinancialPlan = getFinancialPlan;
+module.exports.detectIdleCash = detectIdleCash;
+module.exports.detectEmergencyFundLow = detectEmergencyFundLow;
+module.exports.detectSipUnderinvesting = detectSipUnderinvesting;
+module.exports.detectCreditCardInterest = detectCreditCardInterest;
+module.exports.detectSpendingSpike = detectSpendingSpike;

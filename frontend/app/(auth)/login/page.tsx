@@ -26,7 +26,7 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const res = await authAPI.login(form);
-            setAuth(res.data.user, res.data.token);
+            setAuth(res.data.user, res.data.token, res.data.refreshToken);
             const dest = localStorage.getItem(`onboarded-${res.data.user.id}`) ? '/dashboard' : '/onboarding';
             router.push(dest);
         } catch (err: any) {
