@@ -86,8 +86,8 @@ describe('detectCreditCardInterest — real per-card APR', () => {
     test('uses each card\'s own APR when set, and the fallback only when missing', async () => {
         pool.query.mockResolvedValueOnce({
             rows: [
-                { bank_name: 'HDFC', card_name: 'Millennia', outstanding_balance: '100000', interest_rate_pct: '39' },
-                { bank_name: 'ICICI', card_name: 'Amazon Pay', outstanding_balance: '50000', interest_rate_pct: null },
+                { bank_name: 'HDFC', card_name: 'Millennia', outstanding_balance: '100000', current_outstanding_balance: '100000', interest_rate_pct: '39' },
+                { bank_name: 'ICICI', card_name: 'Amazon Pay', outstanding_balance: '50000', current_outstanding_balance: '50000', interest_rate_pct: null },
             ],
         });
         const result = await detectCreditCardInterest('user-1');

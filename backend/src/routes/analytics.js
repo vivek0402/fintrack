@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const router = express.Router();
 
 router.use(auth);
@@ -14,14 +15,16 @@ router.get('/summary', async (req, res) => {
         const incomeRes = await pool.query(
             `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
        WHERE user_id=$1 AND type='income'
-       AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3`,
+       AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
             [req.user.id, m, y]
         );
         const expenseRes = await pool.query(
             `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
        WHERE user_id=$1 AND type='expense'
        AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
-       AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)`,
+       AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
             [req.user.id, m, y]
         );
         const categoryRes = await pool.query(
@@ -54,6 +57,7 @@ router.get('/trends', async (req, res) => {
               type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND date >= NOW() - INTERVAL '6 months'
        AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
        GROUP BY year, month, type ORDER BY year ASC, month ASC`,
             [req.user.id]
         );
@@ -73,6 +77,7 @@ router.get('/yearly', async (req, res) => {
               type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND EXTRACT(YEAR FROM date) IN ($2,$3)
        AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
        GROUP BY year, month, type ORDER BY year ASC, month ASC`,
             [req.user.id, currentYear, lastYear]
         );
@@ -80,6 +85,7 @@ router.get('/yearly', async (req, res) => {
             `SELECT EXTRACT(YEAR FROM date) AS year, type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND EXTRACT(YEAR FROM date) IN ($2,$3)
        AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
        GROUP BY year, type ORDER BY year ASC`,
             [req.user.id, currentYear, lastYear]
         );
@@ -103,6 +109,7 @@ router.get('/forecast', async (req, res) => {
             `SELECT type, SUM(amount) AS total FROM transactions
        WHERE user_id=$1 AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
        AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
        GROUP BY type`,
             [req.user.id, month, year]
         );
@@ -152,6 +159,7 @@ router.get('/report', async (req, res) => {
             `SELECT type, SUM(amount) AS total FROM transactions
        WHERE user_id=$1 AND date >= $2 AND date <= $3
        AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
+       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
        GROUP BY type`,
             [req.user.id, from, to]
         );
@@ -194,6 +202,7 @@ router.get('/payment-methods', async (req, res) => {
                AND EXTRACT(MONTH FROM date) = $2
                AND EXTRACT(YEAR FROM date) = $3
                AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
+               AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
              GROUP BY method
              ORDER BY total DESC`,
             [req.user.id, m, y]
@@ -215,7 +224,7 @@ router.get('/payment-methods', async (req, res) => {
 
 router.get('/networth', async (req, res) => {
     try {
-        const [bankRes, investRes, creditRes, loanRes] = await Promise.all([
+        const [bankRes, investRes, total_credit_outstanding, loanRes] = await Promise.all([
             pool.query(
                 `SELECT COALESCE(SUM(
                     COALESCE(a.starting_balance, 0)
@@ -229,10 +238,7 @@ router.get('/networth', async (req, res) => {
                 `SELECT COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1`,
                 [req.user.id]
             ),
-            pool.query(
-                `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM credit_cards WHERE user_id = $1`,
-                [req.user.id]
-            ),
+            fetchTotalCreditCardOutstanding(pool, req.user.id),
             pool.query(
                 `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM loans WHERE user_id = $1 AND is_active = true`,
                 [req.user.id]
@@ -241,7 +247,6 @@ router.get('/networth', async (req, res) => {
 
         const total_bank_balance = parseFloat(bankRes.rows[0].total);
         const total_investments = parseFloat(investRes.rows[0].total);
-        const total_credit_outstanding = parseFloat(creditRes.rows[0].total);
         const total_loans_outstanding = parseFloat(loanRes.rows[0].total);
 
         const total_assets = total_bank_balance + total_investments;

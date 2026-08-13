@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { monthsRemainingForLoan } = require('../utils/amortization');
 const { getCached } = require('../utils/aiCache');
+const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { ANNUAL_EQUITY_FUND_RETURN, RISK_STRATEGY_SPLITS } = require('../services/planningEngine');
 const router = express.Router();
 
@@ -78,18 +79,17 @@ async function detectIdleCash(userId, plan) {
 const DEFAULT_CC_APR_FALLBACK = 42; // used only when a card has no interest_rate_pct set
 
 async function detectCreditCardInterest(userId) {
-    const res = await pool.query(
-        `SELECT bank_name, card_name, outstanding_balance, interest_rate_pct FROM credit_cards
-         WHERE user_id = $1 AND outstanding_balance > 0 ORDER BY outstanding_balance DESC`,
-        [userId]
-    );
-    if (res.rows.length === 0) return null;
+    const allCards = await fetchCreditCardsWithBalance(pool, userId);
+    const cards = allCards
+        .filter(c => parseFloat(c.current_outstanding_balance) > 0)
+        .sort((a, b) => parseFloat(b.current_outstanding_balance) - parseFloat(a.current_outstanding_balance));
+    if (cards.length === 0) return null;
 
-    const top = res.rows[0];
-    const totalOutstanding = fmt(res.rows.reduce((s, r) => s + parseFloat(r.outstanding_balance), 0));
-    const amountSaved = fmt(res.rows.reduce((sum, c) => {
+    const top = cards[0];
+    const totalOutstanding = fmt(cards.reduce((s, r) => s + parseFloat(r.current_outstanding_balance), 0));
+    const amountSaved = fmt(cards.reduce((sum, c) => {
         const apr = c.interest_rate_pct != null ? parseFloat(c.interest_rate_pct) : DEFAULT_CC_APR_FALLBACK;
-        return sum + parseFloat(c.outstanding_balance) * (apr / 100);
+        return sum + parseFloat(c.current_outstanding_balance) * (apr / 100);
     }, 0));
     const aprText = top.interest_rate_pct != null
         ? `At ${fmt(top.interest_rate_pct)}% APR on your ${top.card_name}`

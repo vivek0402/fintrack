@@ -7,7 +7,7 @@ import {
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, accountsAPI, marketDataAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -106,6 +106,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         payment_method: 'Cash',
         account_id: null as number | null,
         to_account_id: null as number | null,
+        credit_card_id: null as number | null,
         investment: {
             type: 'mutual_fund' as string,
             name: '', ticker_or_folio: '', units: '', price_per_unit: '',
@@ -115,6 +116,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [tagInput, setTagInput] = useState('');
     const [categories, setCategories] = useState<any[]>([]);
     const [accounts, setAccounts]     = useState<any[]>([]);
+    const [cards, setCards]           = useState<any[]>([]);
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
 
@@ -153,6 +155,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     }, [isOpen]);
 
     useEffect(() => {
+        if (!isOpen) return;
+        creditCardsAPI.getAll().then(res => setCards(res.data.cards || [])).catch(() => setCards([]));
+    }, [isOpen]);
+
+    useEffect(() => {
         if (!catDropdownOpen) return;
         const handler = (e: MouseEvent) => { if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) setCatDropdownOpen(false); };
         document.addEventListener('mousedown', handler);
@@ -173,12 +180,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, investment: blankInvestment });
+            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, investment: blankInvestment });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, investment: blankInvestment });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, investment: blankInvestment });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, investment: blankInvestment });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, investment: blankInvestment });
             setTagInput('');
         }
         setError('');
@@ -198,6 +205,20 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
         setForm(prev => prev.account_id === null ? { ...prev, account_id: defaultAccountId } : prev);
     }, [accounts, isOpen, isEditing]);
+
+    // Credit card selection: auto-pick when there's only one card, clear whenever
+    // payment method moves away from 'Credit Card' so a stale card id never gets
+    // submitted alongside a different payment method.
+    useEffect(() => {
+        if (!isOpen) return;
+        if (form.payment_method !== 'Credit Card') {
+            if (form.credit_card_id !== null) setForm(prev => ({ ...prev, credit_card_id: null }));
+            return;
+        }
+        if (cards.length === 1 && form.credit_card_id === null) {
+            setForm(prev => ({ ...prev, credit_card_id: cards[0].id }));
+        }
+    }, [form.payment_method, cards, isOpen]);
 
     const suggestedCats = useMemo(() => {
         const desc = form.description.trim().toLowerCase();
@@ -316,7 +337,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 account_label: form.investment.account_label || undefined,
             }
             : undefined;
-        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, investment_details: investmentDetails };
+        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, investment_details: investmentDetails };
         let createdInvestment: { is_new_holding: boolean } | undefined;
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
@@ -533,6 +554,20 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 </button>
                             ))}
                         </div>
+                    </div>
+                )}
+
+                {/* ── Which card? (only when there's more than one) ── */}
+                {!isIncome && !isTransfer && form.payment_method === 'Credit Card' && cards.length > 1 && (
+                    <div>
+                        <label style={labelStyle}>Which card?</label>
+                        <select value={form.credit_card_id ?? ''} onChange={e => setForm({ ...form, credit_card_id: e.target.value ? Number(e.target.value) : null })}
+                            style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                            <option value="">Select card</option>
+                            {cards.map((c: any) => (
+                                <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
+                            ))}
+                        </select>
                     </div>
                 )}
 

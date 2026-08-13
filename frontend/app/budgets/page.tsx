@@ -73,6 +73,7 @@ interface OtExpenseItem {
     date: string;
     payment_method: string;
     notes?: string;
+    credit_card_id?: number | null;
 }
 
 interface OtExpense {
@@ -113,6 +114,7 @@ const otEmptyItemForm = () => ({
     date: new Date().toISOString().split('T')[0],
     payment_method: 'Cash',
     category: 'Other',
+    credit_card_id: null as number | null,
 });
 
 function BudgetsPageInner() {
@@ -603,6 +605,7 @@ function BudgetsPageInner() {
     // ════════════════════════════════════════════════════════════════════════
     const [otExpenses, setOtExpenses]           = useState<OtExpense[]>([]);
     const [otAccounts, setOtAccounts]           = useState<OtAccount[]>([]);
+    const [otCards, setOtCards]                 = useState<any[]>([]);
     const [otTxCategories, setOtTxCategories]   = useState<any[]>([]);
     const [otLoading, setOtLoading]             = useState(true);
     const [otFetched, setOtFetched]             = useState(false);
@@ -628,13 +631,15 @@ function BudgetsPageInner() {
 
     const otFetchAll = useCallback(async () => {
         try {
-            const [eRes, aRes] = await Promise.all([
+            const [eRes, aRes, cRes] = await Promise.all([
                 fetch(`${OT_API}/api/one-time-expenses`, { headers: otGetHeaders() }),
                 fetch(`${OT_API}/api/accounts`,          { headers: otGetHeaders() }),
+                fetch(`${OT_API}/api/credit-cards`,      { headers: otGetHeaders() }),
             ]);
-            const [eData, aData] = await Promise.all([eRes.json(), aRes.json()]);
+            const [eData, aData, cData] = await Promise.all([eRes.json(), aRes.json(), cRes.json()]);
             setOtExpenses(eData.expenses || []);
             setOtAccounts(aData.accounts  || []);
+            setOtCards(cData.cards || []);
         } catch (err) {
             console.error(err);
             otShowToast('Failed to load one-time expenses');
@@ -750,6 +755,7 @@ function BudgetsPageInner() {
                     date:           otItemForm.date,
                     payment_method: otItemForm.payment_method,
                     category:       otItemForm.category,
+                    credit_card_id: otItemForm.payment_method === 'Credit Card' ? otItemForm.credit_card_id : null,
                 }),
             });
             const data = await res.json();
@@ -775,6 +781,7 @@ function BudgetsPageInner() {
             date:           (item.date || '').split('T')[0],
             payment_method: item.payment_method || 'Cash',
             category:       item.category || 'Other',
+            credit_card_id: item.credit_card_id ?? null,
         });
         setOtAddingItemFor(expenseId);
     };
@@ -792,6 +799,7 @@ function BudgetsPageInner() {
                     date:           otItemForm.date,
                     payment_method: otItemForm.payment_method,
                     category:       otItemForm.category,
+                    credit_card_id: otItemForm.payment_method === 'Credit Card' ? otItemForm.credit_card_id : null,
                 }),
             });
             const data = await res.json();
@@ -1930,7 +1938,11 @@ function BudgetsPageInner() {
                                                                     <select
                                                                         style={fieldInput}
                                                                         value={otItemForm.payment_method}
-                                                                        onChange={e => setOtItemForm(f => ({ ...f, payment_method: e.target.value }))}
+                                                                        onChange={e => setOtItemForm(f => ({
+                                                                            ...f,
+                                                                            payment_method: e.target.value,
+                                                                            credit_card_id: e.target.value === 'Credit Card' ? (otCards.length === 1 ? otCards[0].id : f.credit_card_id) : null,
+                                                                        }))}
                                                                     >
                                                                         {OT_PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                                                                     </select>
@@ -1945,6 +1957,23 @@ function BudgetsPageInner() {
                                                                     />
                                                                 </div>
                                                             </div>
+
+                                                            {/* Row 4: which card (only when Credit Card is selected and there's more than one) */}
+                                                            {otItemForm.payment_method === 'Credit Card' && otCards.length > 1 && (
+                                                                <div style={{ marginBottom: 14 }}>
+                                                                    <label style={fieldLabel}>Which card?</label>
+                                                                    <select
+                                                                        style={fieldInput}
+                                                                        value={otItemForm.credit_card_id ?? ''}
+                                                                        onChange={e => setOtItemForm(f => ({ ...f, credit_card_id: e.target.value ? Number(e.target.value) : null }))}
+                                                                    >
+                                                                        <option value="">Select card</option>
+                                                                        {otCards.map((c: any) => (
+                                                                            <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            )}
 
                                                             {/* Footer buttons */}
                                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

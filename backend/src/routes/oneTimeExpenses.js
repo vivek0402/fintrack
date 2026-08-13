@@ -213,7 +213,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
 // POST /api/one-time-expenses/:id/items
 router.post('/:id/items', authMiddleware, async (req, res) => {
-  const { description, amount, category, date, payment_method, notes } = req.body;
+  const { description, amount, category, date, payment_method, notes, credit_card_id } = req.body;
   if (!description || !amount || !date) {
     return res.status(400).json({ error: 'description, amount, date are required' });
   }
@@ -231,6 +231,17 @@ router.post('/:id/items', authMiddleware, async (req, res) => {
     }
     const p = parent.rows[0];
 
+    if (credit_card_id) {
+      const cardCheck = await client.query(
+        'SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2',
+        [credit_card_id, req.user.id]
+      );
+      if (!cardCheck.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Invalid credit_card_id' });
+      }
+    }
+
     // Find category_id for this category name
     const catRes = await client.query(
       `SELECT id FROM categories WHERE user_id = $1 AND name = $2 LIMIT 1`,
@@ -241,27 +252,28 @@ router.post('/:id/items', authMiddleware, async (req, res) => {
     // Insert a real transaction so bank balance is computed correctly
     const txRes = await client.query(`
       INSERT INTO transactions
-        (user_id, category_id, type, amount, description, notes, date, account_id, payment_method)
-      VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8)
+        (user_id, category_id, type, amount, description, notes, date, account_id, credit_card_id, payment_method)
+      VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       req.user.id, categoryId, parseFloat(amount),
       `[${p.title}] ${description}`,
       notes || null, date,
       p.bank_account_id || null,
+      credit_card_id || null,
       payment_method || 'Cash',
     ]);
     const tx = txRes.rows[0];
 
     const item = await client.query(`
       INSERT INTO one_time_expense_items
-        (expense_id, user_id, description, amount, category, date, payment_method, notes, transaction_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        (expense_id, user_id, description, amount, category, date, payment_method, notes, transaction_id, credit_card_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `, [
       req.params.id, req.user.id, description,
       parseFloat(amount), category || 'Other',
-      date, payment_method || 'Cash', notes || null, tx.id,
+      date, payment_method || 'Cash', notes || null, tx.id, credit_card_id || null,
     ]);
 
     await client.query(`
@@ -284,7 +296,7 @@ router.post('/:id/items', authMiddleware, async (req, res) => {
 
 // PUT /api/one-time-expenses/:id/items/:itemId
 router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
-  const { description, amount, category, date, payment_method, notes } = req.body;
+  const { description, amount, category, date, payment_method, notes, credit_card_id } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -311,6 +323,20 @@ router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
     const newDate        = date || old.date;
     const newMethod      = payment_method || old.payment_method;
     const newNotes       = notes !== undefined ? notes : old.notes;
+    // Explicit "key present in body" clears the card when payment method moves
+    // away from Credit Card, same reasoning as transactions.js's PUT handler.
+    const newCreditCardId = 'credit_card_id' in req.body ? (credit_card_id || null) : old.credit_card_id;
+
+    if (newCreditCardId) {
+      const cardCheck = await client.query(
+        'SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2',
+        [newCreditCardId, req.user.id]
+      );
+      if (!cardCheck.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Invalid credit_card_id' });
+      }
+    }
 
     // Find category_id
     const catRes = await client.query(
@@ -325,24 +351,24 @@ router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
         UPDATE transactions SET
           amount = $1, description = $2, date = $3,
           payment_method = $4, notes = $5, category_id = $6,
-          account_id = $7, updated_at = NOW()
+          account_id = $7, credit_card_id = $10, updated_at = NOW()
         WHERE id = $8 AND user_id = $9
       `, [
         newAmount, `[${p.title}] ${newDescription}`, newDate,
         newMethod, newNotes, categoryId,
         p.bank_account_id || null,
-        old.transaction_id, req.user.id,
+        old.transaction_id, req.user.id, newCreditCardId,
       ]);
     } else {
       const txRes = await client.query(`
         INSERT INTO transactions
-          (user_id, category_id, type, amount, description, notes, date, account_id, payment_method)
-        VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8)
+          (user_id, category_id, type, amount, description, notes, date, account_id, credit_card_id, payment_method)
+        VALUES ($1, $2, 'expense', $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
       `, [
         req.user.id, categoryId, newAmount,
         `[${p.title}] ${newDescription}`,
-        newNotes, newDate, p.bank_account_id || null, newMethod,
+        newNotes, newDate, p.bank_account_id || null, newCreditCardId, newMethod,
       ]);
       await client.query(
         'UPDATE one_time_expense_items SET transaction_id = $1 WHERE id = $2',
@@ -353,11 +379,11 @@ router.put('/:id/items/:itemId', authMiddleware, async (req, res) => {
     const updated = await client.query(`
       UPDATE one_time_expense_items SET
         description    = $1, amount = $2, category = $3,
-        date           = $4, payment_method = $5, notes = $6
+        date           = $4, payment_method = $5, notes = $6, credit_card_id = $9
       WHERE id = $7 AND user_id = $8
       RETURNING *
     `, [newDescription, newAmount, newCategory, newDate, newMethod, newNotes,
-        req.params.itemId, req.user.id]);
+        req.params.itemId, req.user.id, newCreditCardId]);
 
     await client.query(`
       UPDATE one_time_expenses

@@ -49,7 +49,7 @@ router.get('/search', async (req, res) => {
 
 router.get('/', async (req, res) => {
     try {
-        const { type, month, year, category_id, limit, offset } = req.query;
+        const { type, month, year, category_id, credit_card_id, limit, offset } = req.query;
         let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
                          g.name AS group_name
                   FROM transactions t
@@ -63,6 +63,7 @@ router.get('/', async (req, res) => {
         if (month) { n++; query += ` AND EXTRACT(MONTH FROM t.date) = $${n}`; params.push(month); }
         if (year) { n++; query += ` AND EXTRACT(YEAR  FROM t.date) = $${n}`; params.push(year); }
         if (category_id) { n++; query += ` AND t.category_id = $${n}`; params.push(category_id); }
+        if (credit_card_id) { n++; query += ` AND t.credit_card_id = $${n}`; params.push(credit_card_id); }
 
         query += ' ORDER BY t.date DESC, t.created_at DESC';
 
@@ -86,7 +87,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id, account_id, payment_method, investment_details, source } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, account_id, credit_card_id, payment_method, investment_details, source } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
         if (!isValidTransactionType(type))
@@ -95,6 +96,19 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidDateString(date))
             return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
+        if (credit_card_id) {
+            // credit_card_id is only meaningful for user-entered spend -- the
+            // income-side leg of a bill payment is written directly by
+            // POST /api/credit-cards/:id/pay, never through this generic route.
+            if (type !== 'expense')
+                return res.status(400).json({ error: 'credit_card_id can only be set on an expense transaction.' });
+            const { rows: cardCheck } = await pool.query(
+                `SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2`,
+                [credit_card_id, req.user.id]
+            );
+            if (!cardCheck.length)
+                return res.status(400).json({ error: 'Invalid credit_card_id.' });
+        }
 
         // Only 'manual' and 'sms' may be claimed by this public endpoint —
         // 'cams_import'/'pdf_import' are stamped server-side by their own
@@ -106,9 +120,9 @@ router.post('/', async (req, res) => {
 
         if (!investment_details) {
             const result = await pool.query(
-                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method, source)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-                [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash', txSource]
+                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+                [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource]
             );
             tx = result.rows[0];
 
@@ -145,9 +159,9 @@ router.post('/', async (req, res) => {
                 await client.query('BEGIN');
 
                 const txResult = await client.query(
-                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, payment_method, source)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, payment_method || 'Cash', txSource]
+                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource]
                 );
                 tx = txResult.rows[0];
 
@@ -415,13 +429,23 @@ router.post('/', async (req, res) => {
 // leave undefined states if other buys/sells occurred on the holding since. Deliberate.
 router.put('/:id', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id, payment_method } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, credit_card_id, payment_method } = req.body;
         if (type !== undefined && !isValidTransactionType(type))
             return res.status(400).json({ error: "Type must be 'income' or 'expense'." });
         if (amount !== undefined && !isPositiveNumber(amount))
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (date !== undefined && !isValidDateString(date))
             return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
+        if (credit_card_id) {
+            if (type !== undefined && type !== 'expense')
+                return res.status(400).json({ error: 'credit_card_id can only be set on an expense transaction.' });
+            const { rows: cardCheck } = await pool.query(
+                `SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2`,
+                [credit_card_id, req.user.id]
+            );
+            if (!cardCheck.length)
+                return res.status(400).json({ error: 'Invalid credit_card_id.' });
+        }
 
         const existing = await pool.query(
             'SELECT id FROM transactions WHERE id = $1 AND user_id = $2',
@@ -430,6 +454,13 @@ router.put('/:id', async (req, res) => {
         if (existing.rows.length === 0)
             return res.status(404).json({ error: 'Transaction not found.' });
 
+        // credit_card_id: explicitly clear it (not just leave stale) whenever the
+        // client sends payment_method other than 'Credit Card', or sends
+        // credit_card_id: null outright -- same "explicit null" reasoning as notes
+        // above, since a bare COALESCE would never let a real value go back to null.
+        const clearCreditCardId = ('payment_method' in req.body && payment_method !== 'Credit Card')
+            || ('credit_card_id' in req.body && req.body.credit_card_id === null);
+
         const result = await pool.query(
             `UPDATE transactions SET
          type = COALESCE($1,type), amount = COALESCE($2,amount),
@@ -437,10 +468,12 @@ router.put('/:id', async (req, res) => {
          notes = CASE WHEN $4::text IS NOT NULL THEN $4 WHEN $11::boolean THEN NULL ELSE notes END,
          tags = COALESCE($5,tags), date = COALESCE($6,date),
          category_id = $7,
+         credit_card_id = CASE WHEN $12::boolean THEN NULL ELSE COALESCE($13,credit_card_id) END,
          payment_method = COALESCE($8,payment_method), updated_at = NOW()
        WHERE id = $9 AND user_id = $10 RETURNING *`,
             [type, amount, description, notes, tags, date, category_id, payment_method,
-             req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null]
+             req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null,
+             clearCreditCardId, credit_card_id || null]
         );
         res.json({ transaction: result.rows[0] });
     } catch (err) {
@@ -458,12 +491,22 @@ router.delete('/:id', async (req, res) => {
         try {
             await client.query('BEGIN');
             const result = await client.query(
-                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source',
+                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source, transfer_group_id',
                 [req.params.id, req.user.id]
             );
             if (result.rows.length === 0) {
                 await client.query('ROLLBACK');
                 return res.status(404).json({ error: 'Transaction not found.' });
+            }
+            // A credit card bill payment (or any future transfer_group_id-linked
+            // pair) is two rows sharing one group id -- deleting one leg without
+            // the other would leave an orphaned half-transaction, so delete any
+            // sibling too.
+            if (result.rows[0].transfer_group_id) {
+                await client.query(
+                    'DELETE FROM transactions WHERE transfer_group_id = $1 AND user_id = $2',
+                    [result.rows[0].transfer_group_id, req.user.id]
+                );
             }
             await client.query(
                 'INSERT INTO transaction_deletions (user_id, source) VALUES ($1, $2)',

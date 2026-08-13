@@ -89,7 +89,7 @@ export const authAPI = {
 };
 
 export const transactionsAPI = {
-    getAll: (params?: { type?: string; month?: number; year?: number }) =>
+    getAll: (params?: { type?: string; month?: number; year?: number; credit_card_id?: number }) =>
         api.get('/api/transactions', { params }),
     search: (q: string) =>
         api.get('/api/transactions/search', { params: { q } }),
@@ -268,15 +268,17 @@ export const creditCardsAPI = {
         bank_name: string; card_name: string; last_four?: string | null;
         credit_limit?: number; outstanding_balance?: number;
         billing_date?: number | null; due_days?: number;
-        network?: string; color?: string;
+        network?: string; color?: string; balance_as_of?: string | null;
     }) => api.post('/api/credit-cards', data),
     update: (id: number, data: {
         bank_name?: string; card_name?: string; last_four?: string | null;
         credit_limit?: number; outstanding_balance?: number;
         billing_date?: number | null; due_days?: number;
-        network?: string; color?: string;
+        network?: string; color?: string; balance_as_of?: string | null;
     }) => api.put(`/api/credit-cards/${id}`, data),
     delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
+    payBill: (id: number, data: { bank_account_id: number; amount: number; date: string; notes?: string }) =>
+        api.post(`/api/credit-cards/${id}/pay`, data),
 };
 
 export const walletsAPI = {

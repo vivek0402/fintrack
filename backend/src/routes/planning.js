@@ -7,6 +7,7 @@ const { simulateFinancialPlan, getFiveYearSummary, calculateEMI: calculateLoanEM
 const { getFundsForPlan } = require('../services/fundCatalog');
 const { aiComplete } = require('../utils/ai');
 const { computeDriftReport } = require('../services/behaviorAnalysis');
+const { fetchCreditCardsWithBalance, fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const router = express.Router();
 
 router.use(auth);
@@ -572,7 +573,7 @@ async function computeCurrentNetWorth(userId) {
         return parseFloat(snapRes.rows[0].net_worth);
     }
 
-    const [bankRes, investRes, creditRes, loanRes] = await Promise.all([
+    const [bankRes, investRes, total_credit_outstanding, loanRes] = await Promise.all([
         pool.query(
             `SELECT COALESCE(SUM(
                 COALESCE(a.starting_balance, 0)
@@ -583,12 +584,12 @@ async function computeCurrentNetWorth(userId) {
             [userId]
         ),
         pool.query(`SELECT COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1`, [userId]),
-        pool.query(`SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM credit_cards WHERE user_id = $1`, [userId]),
+        fetchTotalCreditCardOutstanding(pool, userId),
         pool.query(`SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM loans WHERE user_id = $1 AND is_active = true`, [userId]),
     ]);
 
     const total_assets = parseFloat(bankRes.rows[0].total) + parseFloat(investRes.rows[0].total);
-    const total_liabilities = parseFloat(creditRes.rows[0].total) + parseFloat(loanRes.rows[0].total);
+    const total_liabilities = total_credit_outstanding + parseFloat(loanRes.rows[0].total);
     return total_assets - total_liabilities;
 }
 
@@ -857,7 +858,8 @@ router.get('/cashflow', async (req, res) => {
         const [incomeRes, expenseByCategoryRes, loansRes, recurringRes] = await Promise.all([
             pool.query(
                 `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-                 WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
+                 WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3
+                 AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
                 [req.user.id, start, end]
             ),
             pool.query(
@@ -1124,19 +1126,20 @@ async function simulateLoanImpact(req, inputs) {
     const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
-    const [incomeRes, loansRes, cardsRes] = await Promise.all([
+    const [incomeRes, loansRes, cards] = await Promise.all([
         pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
+             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3
+             AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
             [req.user.id, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
         ),
         pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [req.user.id]),
-        pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [req.user.id]),
+        fetchCreditCardsWithBalance(pool, req.user.id),
     ]);
 
     const monthly_income = parseFloat(incomeRes.rows[0].total) / 3;
     const monthly_loan_emi = loansRes.rows.reduce((sum, loan) => sum + emiForLoan(loan), 0);
-    const monthly_credit_obligation = cardsRes.rows.reduce((sum, card) => sum + parseFloat(card.outstanding_balance) * 0.05, 0);
+    const monthly_credit_obligation = cards.reduce((sum, card) => sum + parseFloat(card.current_outstanding_balance) * 0.05, 0);
     const current_total_obligation = monthly_loan_emi + monthly_credit_obligation;
 
     const current_dti_pct = monthly_income > 0 ? parseFloat(((current_total_obligation / monthly_income) * 100).toFixed(1)) : 0;

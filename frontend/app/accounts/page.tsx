@@ -25,7 +25,8 @@ interface BankAccount {
 }
 interface CreditCard {
     id: number; bank_name: string; card_name: string; last_four: string | null;
-    credit_limit: number; outstanding_balance: number;
+    credit_limit: number; outstanding_balance: number; current_outstanding_balance: number;
+    balance_as_of: string | null;
     billing_date: number | null; due_days: number; network: string; color: string;
     interest_rate_pct: number | null;
 }
@@ -56,7 +57,7 @@ const CARD_COLORS   = ['#6366f1', '#00e5a0', '#f59e0b', '#ef4444', '#ec4899', '#
 const WALLET_EMOJIS = ['👛', '💰', '📱', '🏧', '💳', '🪙', '💵', '🏦'];
 
 const emptyBankForm   = () => ({ name: '', account_type: 'Savings', last_four: '', starting_balance: '', balance_as_of: '' });
-const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1', interest_rate_pct: '' });
+const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', balance_as_of: '', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1', interest_rate_pct: '' });
 const emptyWalletForm = () => ({ name: '', emoji: '👛', balance: '' });
 
 function SectionHead({ title, total, totalColor, onAdd }: { title: string; total: string; totalColor: string; onAdd: () => void }) {
@@ -109,14 +110,17 @@ export default function AccountsPage() {
     const [showBankModal,   setShowBankModal]   = useState(false);
     const [showCardModal,   setShowCardModal]   = useState(false);
     const [showWalletModal, setShowWalletModal] = useState(false);
+    const [showPayModal,    setShowPayModal]    = useState(false);
 
     const [editingBank,   setEditingBank]   = useState<BankAccount | null>(null);
     const [editingCard,   setEditingCard]   = useState<CreditCard | null>(null);
     const [editingWallet, setEditingWallet] = useState<Wallet | null>(null);
+    const [payingCard,    setPayingCard]    = useState<CreditCard | null>(null);
 
     const [bankForm,   setBankForm]   = useState(emptyBankForm());
     const [cardForm,   setCardForm]   = useState(emptyCardForm());
     const [walletForm, setWalletForm] = useState(emptyWalletForm());
+    const [payForm,     setPayForm]   = useState({ bank_account_id: '', amount: '', date: new Date().toISOString().split('T')[0] });
 
     const [editingWalletBalanceId,  setEditingWalletBalanceId] = useState<number | null>(null);
     const [walletBalanceInput,      setWalletBalanceInput]     = useState('');
@@ -144,7 +148,7 @@ export default function AccountsPage() {
     useEffect(() => { if (user) fetchAll(); }, [user, fetchAll]);
 
     const totalBanks   = banks.reduce((s, b) => s + Number(b.current_balance), 0);
-    const totalCards   = cards.reduce((s, c) => s + Number(c.outstanding_balance), 0);
+    const totalCards   = cards.reduce((s, c) => s + Number(c.current_outstanding_balance), 0);
     const totalWallets = wallets.reduce((s, w) => s + Number(w.balance), 0);
     const netWorth     = totalBanks + totalWallets - totalCards;
 
@@ -177,17 +181,32 @@ export default function AccountsPage() {
     const openAddCard = () => { setEditingCard(null); setCardForm(emptyCardForm()); setShowCardModal(true); };
     const openEditCard = (c: CreditCard) => {
         setEditingCard(c);
-        setCardForm({ bank_name: c.bank_name, card_name: c.card_name, last_four: c.last_four || '', credit_limit: String(c.credit_limit), outstanding_balance: String(c.outstanding_balance), billing_date: c.billing_date ? String(c.billing_date) : '', due_days: String(c.due_days), network: c.network, color: c.color, interest_rate_pct: c.interest_rate_pct != null ? String(c.interest_rate_pct) : '' });
+        setCardForm({ bank_name: c.bank_name, card_name: c.card_name, last_four: c.last_four || '', credit_limit: String(c.credit_limit), outstanding_balance: String(c.outstanding_balance), balance_as_of: c.balance_as_of ? String(c.balance_as_of).split('T')[0] : '', billing_date: c.billing_date ? String(c.billing_date) : '', due_days: String(c.due_days), network: c.network, color: c.color, interest_rate_pct: c.interest_rate_pct != null ? String(c.interest_rate_pct) : '' });
         setShowCardModal(true);
     };
     const saveCard = async () => {
         if (!cardForm.bank_name.trim() || !cardForm.card_name.trim()) return;
         setSaving(true);
         try {
-            const data = { bank_name: cardForm.bank_name.trim(), card_name: cardForm.card_name.trim(), last_four: cardForm.last_four || null, credit_limit: parseFloat(cardForm.credit_limit) || 0, outstanding_balance: parseFloat(cardForm.outstanding_balance) || 0, billing_date: parseInt(cardForm.billing_date) || null, due_days: parseInt(cardForm.due_days) || 20, network: cardForm.network, color: cardForm.color, interest_rate_pct: cardForm.interest_rate_pct ? parseFloat(cardForm.interest_rate_pct) : null };
+            const data = { bank_name: cardForm.bank_name.trim(), card_name: cardForm.card_name.trim(), last_four: cardForm.last_four || null, credit_limit: parseFloat(cardForm.credit_limit) || 0, outstanding_balance: parseFloat(cardForm.outstanding_balance) || 0, balance_as_of: cardForm.balance_as_of || null, billing_date: parseInt(cardForm.billing_date) || null, due_days: parseInt(cardForm.due_days) || 20, network: cardForm.network, color: cardForm.color, interest_rate_pct: cardForm.interest_rate_pct ? parseFloat(cardForm.interest_rate_pct) : null };
             if (editingCard) await creditCardsAPI.update(editingCard.id, data); else await creditCardsAPI.create(data);
             await fetchAll(); setShowCardModal(false); showToast(editingCard ? 'Card updated' : 'Card added');
         } catch { showToast('Failed to save card'); }
+        setSaving(false);
+    };
+
+    const openPayCard = (c: CreditCard) => {
+        setPayingCard(c);
+        setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: new Date().toISOString().split('T')[0] });
+        setShowPayModal(true);
+    };
+    const savePay = async () => {
+        if (!payingCard || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) return;
+        setSaving(true);
+        try {
+            await creditCardsAPI.payBill(payingCard.id, { bank_account_id: parseInt(payForm.bank_account_id), amount: parseFloat(payForm.amount), date: payForm.date });
+            await fetchAll(); setShowPayModal(false); showToast('Payment recorded');
+        } catch { showToast('Failed to record payment'); }
         setSaving(false);
     };
 
@@ -336,7 +355,7 @@ export default function AccountsPage() {
                             </div>
                         )) : cards.map(c => {
                             const dueDays = getDueDays(c.billing_date, c.due_days);
-                            const utilPct = c.credit_limit > 0 ? Math.min(100, (Number(c.outstanding_balance) / Number(c.credit_limit)) * 100) : 0;
+                            const utilPct = c.credit_limit > 0 ? Math.min(100, (Number(c.current_outstanding_balance) / Number(c.credit_limit)) * 100) : 0;
                             const utilColor = utilPct > 30 ? 'var(--color-warn)' : 'var(--accent)';
                             const dueUrgent = dueDays !== null && dueDays <= 7;
                             const dueLabel  = dueDays === null ? null : dueDays < 0 ? 'Overdue' : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`;
@@ -360,7 +379,7 @@ export default function AccountsPage() {
                                         </div>
                                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'white', margin: '0 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                                                {fmt(c.outstanding_balance)}
+                                                {fmt(c.current_outstanding_balance)}
                                             </p>
                                             {dueLabel && (
                                                 <p style={{ fontSize: '11px', fontWeight: dueUrgent ? 700 : 400, color: dueUrgent ? 'var(--color-warn)' : 'rgba(255,255,255,0.65)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -373,10 +392,12 @@ export default function AccountsPage() {
                                     <div style={{ padding: '14px 16px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Limit: {fmt(c.credit_limit)}</span>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Available: {fmt(Math.max(0, c.credit_limit - c.outstanding_balance))}</span>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Available: {fmt(Math.max(0, c.credit_limit - c.current_outstanding_balance))}</span>
                                         </div>
                                         <ProgressBar pct={utilPct} color={utilColor} height={5} />
                                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                                            <button type="button" onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)} style={outlineBtn}>History</button>
+                                            <button type="button" onClick={() => openPayCard(c)} style={outlineBtn}>Pay Bill</button>
                                             <button type="button" onClick={() => openEditCard(c)} style={outlineBtn}><Pencil size={12} /> Edit</button>
                                             <button type="button" onClick={() => confirmDelete('card', c.id, `${c.bank_name} ${c.card_name}`)} style={{ ...iconBtn, marginLeft: 'auto' }}>
                                                 <Trash2 size={14} color="var(--color-exp)" />
@@ -490,6 +511,7 @@ export default function AccountsPage() {
                                 <div><label style={labelSt}>Credit Limit (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={cardForm.credit_limit} onChange={e => setCardForm(f => ({ ...f, credit_limit: e.target.value }))} placeholder="100000" /></div>
                                 <div><label style={labelSt}>Outstanding (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={cardForm.outstanding_balance} onChange={e => setCardForm(f => ({ ...f, outstanding_balance: e.target.value }))} placeholder="0" /></div>
                             </div>
+                            <div><label style={labelSt}>Balance As Of (optional)</label><input style={inputSt} type="date" value={cardForm.balance_as_of} onChange={e => setCardForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div><label style={labelSt}>Billing Date (1–28)</label><input style={inputSt} type="number" min={1} max={28} value={cardForm.billing_date} onChange={e => setCardForm(f => ({ ...f, billing_date: e.target.value }))} placeholder="5" /></div>
                                 <div><label style={labelSt}>Due Days After</label><input style={inputSt} type="number" value={cardForm.due_days} onChange={e => setCardForm(f => ({ ...f, due_days: e.target.value }))} placeholder="20" /></div>
@@ -511,6 +533,39 @@ export default function AccountsPage() {
                             <button type="button" onClick={() => setShowCardModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                             <button type="button" onClick={saveCard} disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()} style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingCard ? 'Save Changes' : 'Add Card'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Pay Bill Modal */}
+            {showPayModal && mounted && payingCard && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowPayModal(false)}>
+                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+                            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Pay {payingCard.bank_name} {payingCard.card_name}</span>
+                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                                Current outstanding: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(payingCard.current_outstanding_balance)}</span>
+                            </p>
+                            <div>
+                                <label style={labelSt}>Pay From *</label>
+                                <select style={inputSt} value={payForm.bank_account_id} onChange={e => setPayForm(f => ({ ...f, bank_account_id: e.target.value }))}>
+                                    <option value="">Select account</option>
+                                    {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                </select>
+                            </div>
+                            <div><label style={labelSt}>Amount (₹) *</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
+                            <div><label style={labelSt}>Date</label><input style={inputSt} type="date" value={payForm.date} onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))} /></div>
+                        </div>
+                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
+                            <button type="button" onClick={() => setShowPayModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={savePay} disabled={saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0} style={{ flex: 2, padding: 10, background: (saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                                {saving ? 'Recording…' : 'Record Payment'}
                             </button>
                         </div>
                     </div>

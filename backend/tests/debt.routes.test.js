@@ -30,7 +30,7 @@ afterEach(() => {
 describe('computeCreditUtilization', () => {
     test('a card with credit_limit 0 does not divide by zero', async () => {
         pool.query.mockResolvedValueOnce({
-            rows: [{ id: 1, card_name: 'Test', bank_name: 'Bank', last_four: '1234', outstanding_balance: '500', credit_limit: '0' }],
+            rows: [{ id: 1, card_name: 'Test', bank_name: 'Bank', last_four: '1234', outstanding_balance: '500', current_outstanding_balance: '500', credit_limit: '0' }],
         });
         const result = await computeCreditUtilization('user-1');
         expect(result.per_card[0].utilization_pct).toBe(0);
@@ -44,7 +44,7 @@ describe('computeCreditUtilization', () => {
         [75, 'critical'],
     ])('utilization of exactly %i%% classifies as %s', async (pct, expectedStatus) => {
         pool.query.mockResolvedValueOnce({
-            rows: [{ id: 1, card_name: 'Test', bank_name: 'Bank', last_four: '1234', outstanding_balance: String(pct), credit_limit: '100' }],
+            rows: [{ id: 1, card_name: 'Test', bank_name: 'Bank', last_four: '1234', outstanding_balance: String(pct), current_outstanding_balance: String(pct), credit_limit: '100' }],
         });
         const result = await computeCreditUtilization('user-1');
         expect(result.per_card[0].utilization_pct).toBe(pct);

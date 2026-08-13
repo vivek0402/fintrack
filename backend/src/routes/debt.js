@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isPositiveNumber } = require('../utils/validation');
 const { calculateEMI, generateAmortization, monthsRemainingForLoan } = require('../utils/amortization');
+const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const router = express.Router();
 
 router.use(auth);
@@ -242,10 +243,10 @@ function classifyUtilization(pct) {
 // debt_coach persona (fetchDebtCoachData) so the two surfaces can't drift
 // into reporting different utilization numbers for the same cards.
 async function computeCreditUtilization(userId) {
-    const result = await pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [userId]);
+    const cards = await fetchCreditCardsWithBalance(pool, userId);
 
-    const per_card = result.rows.map(card => {
-        const outstanding = parseFloat(card.outstanding_balance);
+    const per_card = cards.map(card => {
+        const outstanding = parseFloat(card.current_outstanding_balance);
         const limit = parseFloat(card.credit_limit);
         const utilization_pct = limit > 0 ? parseFloat(((outstanding / limit) * 100).toFixed(1)) : 0;
         return {
@@ -310,14 +311,15 @@ async function computeDtiBreakdown(userId) {
     const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
-    const [incomeRes, loansRes, cardsRes] = await Promise.all([
+    const [incomeRes, loansRes, cards] = await Promise.all([
         pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3`,
+             WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3
+             AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
             [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
         ),
         pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [userId]),
-        pool.query('SELECT * FROM credit_cards WHERE user_id = $1', [userId]),
+        fetchCreditCardsWithBalance(pool, userId),
     ]);
 
     const monthly_income = parseFloat((parseFloat(incomeRes.rows[0].total) / 3).toFixed(2));
@@ -329,10 +331,10 @@ async function computeDtiBreakdown(userId) {
     }));
     const monthly_loan_emi = parseFloat(breakdown_loans.reduce((s, l) => s + l.emi, 0).toFixed(2));
 
-    const breakdown_cards = cardsRes.rows.map(card => ({
+    const breakdown_cards = cards.map(card => ({
         id: card.id,
         name: card.card_name,
-        minimum_payment: parseFloat((parseFloat(card.outstanding_balance) * 0.05).toFixed(2)),
+        minimum_payment: parseFloat((parseFloat(card.current_outstanding_balance) * 0.05).toFixed(2)),
     }));
     const monthly_credit_obligation = parseFloat(breakdown_cards.reduce((s, c) => s + c.minimum_payment, 0).toFixed(2));
 

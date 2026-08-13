@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
 const { getCached, setCached } = require('../utils/aiCache');
+const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const router = express.Router();
 
 router.use(auth);
@@ -363,15 +364,11 @@ async function detectSubscriptionBloat(userId) {
 }
 
 async function detectIdleSavingsDespiteDebt(userId) {
-    const [{ rows: cardRows }, bankBalance] = await Promise.all([
-        pool.query(
-            `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM credit_cards WHERE user_id=$1`,
-            [userId]
-        ),
+    const [outstanding, bankBalance] = await Promise.all([
+        fetchTotalCreditCardOutstanding(pool, userId),
         getBankBalance(userId),
     ]);
 
-    const outstanding = parseFloat(cardRows[0].total) || 0;
     const detected = outstanding > 0 && bankBalance > outstanding * 2;
 
     return {

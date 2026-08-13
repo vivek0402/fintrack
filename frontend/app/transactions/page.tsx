@@ -56,6 +56,7 @@ function TransactionsPageInner() {
     const [selectMode, setSelectMode]       = useState(false);
     const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
+    const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
     const [importOpen, setImportOpen]       = useState(false);
     const [smsImportOpen, setSmsImportOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
@@ -122,13 +123,20 @@ function TransactionsPageInner() {
             setModalOpen(true);
             router.replace('/transactions');
         }
+        const ccId = searchParams.get('credit_card_id');
+        if (ccId) {
+            setFilterCreditCardId(Number(ccId));
+            setSelectedMonth(null); // show all-time activity for this card, not just the current month
+            router.replace('/transactions');
+        }
     }, [searchParams]);
 
     const fetchTransactions = async () => {
         if (!user) return;
         setLoading(true);
         try {
-            const params = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
+            const params: Record<string, any> = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
+            if (filterCreditCardId) params.credit_card_id = filterCreditCardId;
             const txs = await apiWithCache.getTransactions(params);
             setTransactions(txs);
         } catch (err) { console.error(err); }
@@ -137,13 +145,13 @@ function TransactionsPageInner() {
 
     useEffect(() => {
         if (user) { setDisplayCount(50); fetchTransactions(); }
-    }, [user, selectedMonth, selectedYear]);
+    }, [user, selectedMonth, selectedYear, filterCreditCardId]);
 
     useEffect(() => {
         const handler = () => fetchTransactions();
         window.addEventListener('fintrack:queue-synced', handler);
         return () => window.removeEventListener('fintrack:queue-synced', handler);
-    }, [user, selectedMonth, selectedYear]);
+    }, [user, selectedMonth, selectedYear, filterCreditCardId]);
 
     const handleOfflineSave = (pendingTx: any) => {
         setTransactions(prev => [pendingTx, ...prev]);
