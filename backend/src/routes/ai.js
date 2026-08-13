@@ -1521,7 +1521,7 @@ function buildDailyBriefPoints(data) {
     return points;
 }
 
-async function generateDailyBriefing(userId, { sendPush = true } = {}) {
+async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}) {
     const briefDate = dateStr(new Date());
     const data = await getDailyBriefData(userId);
     const points = buildDailyBriefPoints(data);
@@ -1530,7 +1530,7 @@ async function generateDailyBriefing(userId, { sendPush = true } = {}) {
     // Skip the LLM call entirely if nothing driving the brief has changed since
     // the last generation today (e.g. an intraday refresh for a user who hasn't
     // logged anything new) — reuse the cached narrative instead of paying for it again.
-    const { rows: existingRows } = await pool.query(
+    const { rows: existingRows } = await db.query(
         `SELECT narrative, action_of_the_day, points FROM daily_briefings WHERE user_id=$1 AND brief_date=$2`,
         [userId, briefDate]
     );
@@ -1577,7 +1577,7 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
                     : "Log today's transactions to start a streak and keep your numbers accurate.");
     }
 
-    const { rows } = await pool.query(
+    const { rows } = await db.query(
         `INSERT INTO daily_briefings (user_id, brief_date, points, narrative, action_of_the_day, updated_at)
          VALUES ($1, $2, $3, $4, $5, NOW())
          ON CONFLICT (user_id, brief_date)
@@ -1596,7 +1596,7 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
             body: firstSentence,
             data: { type: 'daily_briefing', briefing_id: briefing.id },
         });
-        await pool.query(`UPDATE daily_briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
+        await db.query(`UPDATE daily_briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
         briefing.push_sent_at = new Date().toISOString();
     }
 
@@ -1685,7 +1685,7 @@ router.post('/briefing/daily/generate', authMiddleware, async (req, res) => {
             return res.status(429).json({ error: 'Please wait before refreshing again.', wait: waitSec });
         }
 
-        const briefing = await generateDailyBriefing(req.user.id);
+        const briefing = await generateDailyBriefing(req.user.id, { db: client });
 
         const updatedLog = [...recentRefreshes, now].map(t => new Date(t).toISOString());
         await client.query(
