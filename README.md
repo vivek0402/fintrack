@@ -335,7 +335,7 @@ FinTrack routes each AI feature to the optimal model based on complexity, token 
 ┌─────────────────────────┬──────────────────────────────┬────────────────┐
 │ Feature                 │ Model                        │ Provider       │
 ├─────────────────────────┼──────────────────────────────┼────────────────┤
-│ AI Chat                 │ llama-3.3-70b-versatile      │ Groq Key 1     │
+│ AI Chat                 │ openai/gpt-oss-120b          │ Groq Key 1     │
 │ Personality Analysis    │ nemotron-super-49b-v1.5      │ NVIDIA NIM     │
 │ Monthly Report          │ minimax-m2.7                 │ NVIDIA NIM     │
 │ Recurring Detection     │ deepseek-v4-flash            │ NVIDIA NIM     │
@@ -347,10 +347,10 @@ FinTrack routes each AI feature to the optimal model based on complexity, token 
 │ Life Event Planning     │ minimax-m2.7                 │ NVIDIA NIM     │
 │ Health Report           │ minimax-m2.7                 │ NVIDIA NIM     │
 │ Salary Allocation       │ deepseek-v4-flash            │ NVIDIA NIM     │
-│ SMS Parser              │ llama-3.1-8b-instant         │ Groq Key 1     │
-│ Quick Add               │ llama-3.1-8b-instant         │ Groq Key 2     │
-│ Split Expense Parser    │ llama-3.1-8b-instant         │ Groq Key 1     │
-│ PDF Bank Statement      │ llama-3.1-8b-instant         │ Groq Key 1     │
+│ SMS Parser              │ openai/gpt-oss-20b           │ Groq Key 1     │
+│ Quick Add               │ openai/gpt-oss-20b           │ Groq Key 2     │
+│ Split Expense Parser    │ openai/gpt-oss-20b           │ Groq Key 1     │
+│ PDF Bank Statement      │ openai/gpt-oss-20b           │ Groq Key 1     │
 └─────────────────────────┴──────────────────────────────┴────────────────┘
 ```
 

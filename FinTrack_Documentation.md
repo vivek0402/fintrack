@@ -160,13 +160,13 @@ All routes behind `authMiddleware` (JWT). All SQL parameterized.
 
 # AI ROUTING SYSTEM
 
-chat → llama-3.3-70b-versatile
+chat → openai/gpt-oss-120b
 personality → llama-4-scout
 report → llama-4-scout
-forecast → qwen/qwen3-32b
-salary-intelligence → qwen/qwen3-32b
-quick-add → llama-3.1-8b
-parse-sms → llama-3.1-8b
+forecast → qwen/qwen3.6-27b
+salary-intelligence → qwen/qwen3.6-27b
+quick-add → openai/gpt-oss-20b
+parse-sms → openai/gpt-oss-20b
 parse-image → Gemini
 
 Fallback:

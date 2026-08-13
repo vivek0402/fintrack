@@ -14,8 +14,8 @@ const getClient = () => {
 };
 
 const MODELS = {
-    quality: 'llama-3.3-70b-versatile',  // heavy, complex tasks
-    fast:    'llama-3.1-8b-instant',       // light, simple tasks
+    quality: 'openai/gpt-oss-120b',  // heavy, complex tasks
+    fast:    'openai/gpt-oss-20b',   // light, simple tasks
 };
 
 const chatCompletion = async (messages, { model = 'fast', maxTokens = 1000, temperature = 0.7, jsonMode = false } = {}) => {

@@ -13,9 +13,9 @@ const nimClient = new OpenAI({ apiKey: process.env.NVIDIA_API_KEY || 'unset', ba
 
 // ── Model constants ──
 const MODELS = {
-    LLAMA70B: 'llama-3.3-70b-versatile',
-    LLAMA8B:  'llama-3.1-8b-instant',
-    QWEN32B:  'qwen/qwen3-32b',
+    GPT_OSS_120B: 'openai/gpt-oss-120b',
+    GPT_OSS_20B:  'openai/gpt-oss-20b',
+    QWEN27B:      'qwen/qwen3.6-27b',
     DEEPSEEK: 'deepseek-r1-distill-llama-70b',
     DEEPSEEK_V4_FLASH: 'deepseek-ai/deepseek-v4-flash',
     MINIMAX_M27:       'minimaxai/minimax-m2.7',
@@ -36,29 +36,29 @@ const TEXT_CHAIN = ['groq', 'cerebras', 'gemini', 'nim'];
 
 // ── Route config ──
 const ROUTES = {
-    'chat':               { model: MODELS.LLAMA70B, maxTokens: 1000, temp: 0.3 },
-    'pdf-import':         { model: MODELS.LLAMA70B, maxTokens: 4000, temp: 0 },
-    'cams-import':        { model: MODELS.LLAMA70B, maxTokens: 6000, temp: 0 },
-    'forecast-insight':   { model: MODELS.LLAMA70B, nimModel: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
-    'salary-allocation':  { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
-    'personality':        { model: MODELS.LLAMA70B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
-    'report':             { model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.6 },
-    'forecast':           { model: MODELS.QWEN32B,  maxTokens: 1600, temp: 0.5 },
-    'salary-intelligence':{ model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
-    'parse-sms':          { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'quick-add':          { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'recurring':          { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.3 },
+    'chat':               { model: MODELS.GPT_OSS_120B, maxTokens: 1000, temp: 0.3 },
+    'pdf-import':         { model: MODELS.GPT_OSS_120B, maxTokens: 4000, temp: 0 },
+    'cams-import':        { model: MODELS.GPT_OSS_120B, maxTokens: 6000, temp: 0 },
+    'forecast-insight':   { model: MODELS.GPT_OSS_120B, nimModel: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
+    'salary-allocation':  { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
+    'personality':        { model: MODELS.GPT_OSS_120B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
+    'report':             { model: MODELS.GPT_OSS_120B,          maxTokens: 400,  temp: 0.6 },
+    'forecast':           { model: MODELS.QWEN27B,  maxTokens: 1600, temp: 0.5 },
+    'salary-intelligence':{ model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
+    'parse-sms':          { model: MODELS.GPT_OSS_20B,  maxTokens: 300,  temp: 0.1 },
+    'quick-add':          { model: MODELS.GPT_OSS_20B,  maxTokens: 300,  temp: 0.1 },
+    'recurring':          { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.3 },
     // Additional routes
-    'afford':             { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 512,  temp: 0.3 },
-    'parse-split':        { model: MODELS.LLAMA8B,  maxTokens: 300,  temp: 0.1 },
-    'life-event':         { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
-    'forecast-calendar':  { model: MODELS.QWEN32B,  maxTokens: 2000, temp: 0.5 },
-    'health-report':      { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
-    'agent-chat':         { model: MODELS.LLAMA70B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
-    'briefing':           { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
-    'daily-briefing':     { model: MODELS.LLAMA70B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 200,  temp: 0.6 },
-    'behavioral-insight': { model: MODELS.LLAMA70B,          maxTokens: 400,  temp: 0.7 },
-    'planning-narrative': { model: MODELS.LLAMA70B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 900,  temp: 0.4 },
+    'afford':             { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 512,  temp: 0.3 },
+    'parse-split':        { model: MODELS.GPT_OSS_20B,  maxTokens: 300,  temp: 0.1 },
+    'life-event':         { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
+    'forecast-calendar':  { model: MODELS.QWEN27B,  maxTokens: 2000, temp: 0.5 },
+    'health-report':      { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
+    'agent-chat':         { model: MODELS.GPT_OSS_120B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
+    'briefing':           { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
+    'daily-briefing':     { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 200,  temp: 0.6 },
+    'behavioral-insight': { model: MODELS.GPT_OSS_120B,          maxTokens: 400,  temp: 0.7 },
+    'planning-narrative': { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 900,  temp: 0.4 },
 };
 
 // ── Circuit breaker (in-memory, resets on restart) ──
@@ -154,7 +154,7 @@ const executeOnProvider = async (provider, config, messages, maxTokens, temp) =>
         return await openAiCompatibleComplete(nimClient, config.nimModel || DEFAULT_NIM_MODEL, messages, maxTokens, temp);
     }
     // groq
-    return await openAiCompatibleComplete(groqClient, config.model || MODELS.LLAMA70B, messages, maxTokens, temp);
+    return await openAiCompatibleComplete(groqClient, config.model || MODELS.GPT_OSS_120B, messages, maxTokens, temp);
 };
 
 // ── Strip <think>...</think> reasoning blocks (Qwen3, DeepSeek, etc.) ──

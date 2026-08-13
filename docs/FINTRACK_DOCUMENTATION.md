@@ -8,7 +8,7 @@
 
 - **Frontend:** Next.js 16 (App Router), TypeScript, Zustand, Axios, Recharts, Capacitor Android
 - **Backend:** Express.js, PostgreSQL (Supabase Transaction Pooler port 6543), JWT auth
-- **AI Providers:** Groq (LLAMA70B, LLAMA8B, QWEN32B), NVIDIA NIM (deepseek-v4-flash, minimax-m2.7, nemotron-49b, llama-3.2-3b/11b-vision), Gemini 2.0 Flash (vision + fallback)
+- **AI Providers:** Groq (GPT_OSS_120B, GPT_OSS_20B, QWEN27B), NVIDIA NIM (deepseek-v4-flash, minimax-m2.7, nemotron-49b, llama-3.2-3b/11b-vision), Gemini 2.0 Flash (vision + fallback)
 - **Storage:** Supabase Storage bucket (`fintrack-documents`) for the document vault
 - **Push:** Firebase Cloud Messaging (FCM) for Android push notifications
 - **Deploy:** Vercel (frontend), Render/Railway (backend)
@@ -95,14 +95,14 @@ See `docs/AI_FEATURES.md` for the complete provider/model/endpoint map and fallb
 
 | Route | Method | Feature | Model / Provider |
 |-------|--------|---------|-----------------|
-| `/api/ai/chat` | POST | AI Finance Chat | llama-3.3-70b-versatile (groq1) |
+| `/api/ai/chat` | POST | AI Finance Chat | openai/gpt-oss-120b (groq1) |
 | `/api/ai/report` | POST | Monthly narrative report | minimax-m2.7 (nim) |
 | `/api/ai/afford` | POST | "Can I afford this?" | deepseek-v4-flash (nim) |
 | `/api/ai/predict` | POST | Alias for /afford | deepseek-v4-flash (nim) |
-| `/api/ai/parse-sms` | POST | Bank SMS parser | llama-3.1-8b (groq1) |
-| `/api/ai/quick-add` | POST | Natural language quick add | llama-3.1-8b (groq2) |
+| `/api/ai/parse-sms` | POST | Bank SMS parser | openai/gpt-oss-20b (groq1) |
+| `/api/ai/quick-add` | POST | Natural language quick add | openai/gpt-oss-20b (groq2) |
 | `/api/ai/parse-image` | POST | Receipt OCR | llama-3.2-11b-vision (nim) / Gemini fallback |
-| `/api/ai/parse-split` | POST | Split text parser | llama-3.1-8b (groq1) |
+| `/api/ai/parse-split` | POST | Split text parser | openai/gpt-oss-20b (groq1) |
 | `/api/ai/detect-patterns` | GET | Recurring pattern detection | deepseek-v4-flash (nim) |
 | `/api/ai/recurring` | GET | Alias for /detect-patterns | deepseek-v4-flash (nim) |
 | `/api/ai/salary-intelligence` | GET | Salary day analysis | deepseek-v4-flash (nim) |
@@ -113,10 +113,10 @@ See `docs/AI_FEATURES.md` for the complete provider/model/endpoint map and fallb
 | `/api/ai/forecast-calendar` | GET | 30-day spending forecast + AI insight | llama-3.2-3b (nim) |
 | `/api/ai/health-report` | POST | Financial health report card | minimax-m2.7 (nim) |
 | `/api/ai/salary-allocation` | POST | 50/30/20 allocation plan | deepseek-v4-flash (nim) |
-| `/api/ai/agent/message` | POST | Specialized domain agent chat | llama-3.3-70b-versatile (groq1) |
+| `/api/ai/agent/message` | POST | Specialized domain agent chat | openai/gpt-oss-120b (groq1) |
 | `/api/ai/opportunities/detect` | POST | Financial opportunity detection (13 types) | rule-based, no LLM |
 | `/api/planning/narrative` | POST | Financial plan AI narrative | deepseek-v4-flash (nim) |
-| `/api/import/bank-statement` | POST | PDF bank statement extraction (with duplicate flagging) | llama-3.1-8b (groq1) |
+| `/api/import/bank-statement` | POST | PDF bank statement extraction (with duplicate flagging) | openai/gpt-oss-20b (groq1) |
 
 **4 Specialized Agents** (debt_coach, investment_advisor, tax_planner, budget_master) with persistent `agent_conversations` history.
 

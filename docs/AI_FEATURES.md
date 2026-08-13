@@ -29,10 +29,10 @@ Additional AI-powered routes:
   - `gemini` → `groq1` → `groq2`
   - `nim` → `groq1` → `gemini` (also used if `NVIDIA_API_KEY` is missing or the NIM call errors)
 - Groq models used (from `MODELS`):
-  - `LLAMA70B` = `llama-3.3-70b-versatile`
+  - `GPT_OSS_120B` = `openai/gpt-oss-120b`
   - `LLAMA4` = `meta-llama/llama-4-scout-17b-16e-instruct`
-  - `LLAMA8B` = `llama-3.1-8b-instant`
-  - `QWEN32B` = `qwen/qwen3-32b`
+  - `GPT_OSS_20B` = `openai/gpt-oss-20b`
+  - `QWEN27B` = `qwen/qwen3.6-27b`
   - `DEEPSEEK` = `deepseek-r1-distill-llama-70b` (defined but not currently referenced by any route)
 - NIM models used (from `MODELS`):
   - `DEEPSEEK_V4_FLASH` = `deepseek-ai/deepseek-v4-flash`
@@ -56,20 +56,20 @@ Gemini `gemini-2.0-flash` multimodal on error or missing key.
 
 | # | Endpoint | Route key (`aiComplete`) | Provider / Model | Feature |
 |---|----------|---------------------------|-------------------|---------|
-| 1 | `POST /api/ai/parse-sms` | `parse-sms` | groq1 / LLAMA8B | **SMS Transaction Parser** — extracts structured transaction data (amount, type, merchant, date) from a bank SMS/notification text |
+| 1 | `POST /api/ai/parse-sms` | `parse-sms` | groq1 / GPT_OSS_20B | **SMS Transaction Parser** — extracts structured transaction data (amount, type, merchant, date) from a bank SMS/notification text |
 | 2 | `POST /api/ai/report` | `report` | nim / MINIMAX_M27 | **Monthly/Period Report Summary** — generates a short natural-language summary of spending for a report |
 | 3 | `POST /api/ai/afford`, `POST /api/ai/predict` (alias) | `afford` | nim / DEEPSEEK_V4_FLASH | **"Can I Afford This?" Predictor** — evaluates whether a planned purchase fits the user's budget/cash flow |
-| 4 | `POST /api/ai/chat` | `chat` | groq1 / LLAMA70B | **AI Finance Chat Assistant** — conversational Q&A about the user's finances |
+| 4 | `POST /api/ai/chat` | `chat` | groq1 / GPT_OSS_120B | **AI Finance Chat Assistant** — conversational Q&A about the user's finances |
 | 5 | `GET /api/ai/detect-patterns`, `GET /api/ai/recurring` (alias) | `recurring` | nim / DEEPSEEK_V4_FLASH | **Recurring Transaction Detection** — analyzes the last 3 months of transactions to spot recurring bills/subscriptions not yet tracked |
 | 6 | `POST /api/ai/parse-image` | *(direct vision call, not `aiComplete`)* | nim / LLAMA_VISION_11B (Gemini vision fallback) | **Receipt/Bill Image Parser** — OCR + extraction of transaction details from an uploaded receipt/screenshot |
-| 7 | `POST /api/ai/parse-split` | `parse-split` | groq1 / LLAMA8B | **Split Expense Text Parser** — parses free-text descriptions of shared/split expenses into structured data |
+| 7 | `POST /api/ai/parse-split` | `parse-split` | groq1 / GPT_OSS_20B | **Split Expense Text Parser** — parses free-text descriptions of shared/split expenses into structured data |
 | 8 | `GET /api/ai/salary-intelligence` | `salary-intelligence` | nim / DEEPSEEK_V4_FLASH | **Salary Intelligence Insights** — analyzes income patterns and provides salary-related insights |
 | 9 | `POST /api/ai/personality` | `personality` | nim / NEMOTRON_49B | **Financial Personality Profile** — generates a personality-style summary of the user's spending/saving behavior |
 | 10 | `GET /api/ai/regret-patterns` | `regret-patterns` | nim / LLAMA_3B | **Regret Pattern Analysis** — analyzes transactions marked "regretted" to identify spending regret patterns |
 | 11 | `POST /api/ai/life-event` | `life-event` | nim / MINIMAX_M27 | **Life Event Financial Planning** — generates guidance/plans for major life events (e.g. moving, new job, having a child) |
 | 12 | `GET /api/ai/forecast-calendar` | `forecast-insight` | nim / LLAMA_3B | **Spending Forecast Calendar** — SQL computes forecast numbers; AI generates a 3-sentence natural-language insight about the forecast (falls back to a hardcoded string if AI fails) |
 | 13 | `POST /api/ai/health-report` | `health-report` | nim / MINIMAX_M27 | **Financial Health Report Card** — generates a holistic financial health assessment/report |
-| 14 | `POST /api/ai/quick-add` | `quick-add` | groq2 / LLAMA8B | **Quick-Add Transaction Parser** — parses a short free-text entry (e.g. "coffee 150") into a structured transaction |
+| 14 | `POST /api/ai/quick-add` | `quick-add` | groq2 / GPT_OSS_20B | **Quick-Add Transaction Parser** — parses a short free-text entry (e.g. "coffee 150") into a structured transaction |
 | 15 | `GET /api/ai/tax-estimate` | `tax-estimate` | nim / DEEPSEEK_V4_FLASH | **Tax Estimate** — estimates tax liability/insights based on income & transaction data |
 | 16 | `POST /api/ai/salary-allocation` | `salary-allocation` | nim / DEEPSEEK_V4_FLASH | **Salary Allocation Plan** — generates a recommended budget allocation plan for incoming salary |
 
@@ -81,7 +81,7 @@ All `nim`-provider routes fall back to `groq1` → `gemini` if `NVIDIA_API_KEY` 
 
 | Endpoint | Route key (`aiComplete`) | Provider / Model | Feature |
 |----------|---------------------------|-------------------|---------|
-| `POST /api/planning/narrative` | `planning-narrative` | nim / DEEPSEEK_V4_FLASH (groq1 / LLAMA70B fallback) | **Financial Plan Narrative** — generates a natural-language summary of the user's saved financial plan (income, risk profile, emergency fund, goal, loan payoff), cached on the plan row (`ai_narrative`, `ai_narrative_generated_at`) |
+| `POST /api/planning/narrative` | `planning-narrative` | nim / DEEPSEEK_V4_FLASH (groq1 / GPT_OSS_120B fallback) | **Financial Plan Narrative** — generates a natural-language summary of the user's saved financial plan (income, risk profile, emergency fund, goal, loan payoff), cached on the plan row (`ai_narrative`, `ai_narrative_generated_at`) |
 
 ---
 
@@ -90,7 +90,7 @@ All `nim`-provider routes fall back to `groq1` → `gemini` if `NVIDIA_API_KEY` 
 ## Specialized AI Agents (`backend/src/routes/agents.js`)
 
 Four domain agents, each receiving full financial context (loans, investments, tax, transactions)
-injected into every message. Uses `aiComplete()` with the `chat` route key (groq1 / LLAMA70B).
+injected into every message. Uses `aiComplete()` with the `chat` route key (groq1 / GPT_OSS_120B).
 
 | Agent type | Specialization |
 |---|---|
@@ -154,8 +154,8 @@ Endpoint: `POST /api/import/bank-statement`
 Two entries exist in `ROUTES` (`backend/src/utils/ai.js`) but are **not** referenced
 by any `aiComplete()` call site in `ai.js`:
 
-- `'forecast'` (groq1 / QWEN32B)
-- `'forecast-calendar'` (groq1 / QWEN32B)
+- `'forecast'` (groq1 / QWEN27B)
+- `'forecast-calendar'` (groq1 / QWEN27B)
 
 The actual `/api/ai/forecast-calendar` endpoint uses the `'forecast-insight'` route
 key instead (see #12). These two entries can likely be removed, or were placeholders
