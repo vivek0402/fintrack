@@ -179,6 +179,11 @@ async function detectSpendingSpike(userId) {
         action_label: 'Review spending',
         action_route: '/transactions',
         expires_at: null,
+        // Additive fields (ignored by the opportunities-table upsert, which only
+        // reads the named columns above) -- kept raw for callers that need the
+        // number itself rather than parsing it back out of `title`.
+        category: biggest.category,
+        pct_above: fmt(biggest.pctAbove),
     };
 }
 
@@ -323,6 +328,8 @@ async function detectForecastWarning(userId) {
         action_label: 'View forecast',
         action_route: '/forecast',
         expires_at: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+        // Additive field, same reasoning as detectSpendingSpike's pct_above.
+        over_pct: overPct,
     };
 }
 
@@ -491,3 +498,4 @@ module.exports.detectEmergencyFundLow = detectEmergencyFundLow;
 module.exports.detectSipUnderinvesting = detectSipUnderinvesting;
 module.exports.detectCreditCardInterest = detectCreditCardInterest;
 module.exports.detectSpendingSpike = detectSpendingSpike;
+module.exports.detectForecastWarning = detectForecastWarning;

@@ -8,6 +8,7 @@ const { aiComplete } = require('../utils/ai');
 const { sendToUser, userHasTokens } = require('../utils/fcm');
 const { getCached, setCached } = require('../utils/aiCache');
 const { isPositiveNumber, isValidDateString } = require('../utils/validation');
+const { detectSpendingSpike, detectForecastWarning } = require('./opportunities');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -1388,6 +1389,18 @@ async function getDailyBriefData(userId) {
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const streakWindowStart = dateStr(new Date(now.getTime() - 30 * 86400000));
 
+    // Trend/comparison window bounds. `mondayOf` (defined above, near getBriefingData)
+    // is reused here for week boundaries. The prior-week window is truncated to the
+    // same number of elapsed days as the current (partial) week, not the whole week —
+    // comparing a partial week to a full prior week would always make "this week"
+    // look artificially smaller.
+    const sameWeekdayLastWeek = dateStr(new Date(now.getTime() - 7 * 86400000));
+    const currentWeekStart = mondayOf(now);
+    const daysElapsedThisWeek = Math.floor((new Date(todayStr) - new Date(currentWeekStart)) / 86400000) + 1;
+    const priorWeekStart = mondayOf(new Date(now.getTime() - 7 * 86400000));
+    const priorWeekEnd = dateStr(new Date(new Date(priorWeekStart).getTime() + daysElapsedThisWeek * 86400000));
+    const dayOfMonth = now.getDate();
+
     const [
         yesterdaySpend,
         yesterdayTopCat,
@@ -1396,7 +1409,13 @@ async function getDailyBriefData(userId) {
         monthExpenseSoFar,
         monthIncomeSoFar,
         spendDatesRows,
-        topOpportunity,
+        topOpportunities,
+        sameWeekdaySpend,
+        weekToDateSpend,
+        priorWeekSpend,
+        monthlyAverageRows,
+        spendingSpike,
+        forecastWarning,
     ] = await Promise.all([
         pool.query(`SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, yesterday]),
         pool.query(`SELECT COALESCE(c.name,'Uncategorized') AS category_name, SUM(t.amount) AS total
@@ -1415,12 +1434,33 @@ async function getDailyBriefData(userId) {
         // Same ranked-opportunity source the weekly briefing already reads from
         // (see getBriefingData above) -- makes the daily brief a front door into
         // the opportunities feed instead of that feed only living on its own page.
+        // LIMIT 3 not 1: the partial unique index on (user_id, type) WHERE
+        // status='active' guarantees these are up to 3 distinct-type opportunities.
         pool.query(
-            `SELECT title, description, amount_saved, action_label, action_route
+            `SELECT title, description, amount_saved, action_label, action_route, priority
              FROM opportunities WHERE user_id=$1 AND status='active'
-             ORDER BY (priority = 1) DESC, priority ASC, detected_at ASC LIMIT 1`,
+             ORDER BY (priority = 1) DESC, priority ASC, detected_at ASC LIMIT 3`,
             [userId]
         ),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date=$2`, [userId, sameWeekdayLastWeek]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date <= $3`, [userId, currentWeekStart, todayStr]),
+        pool.query(`SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3`, [userId, priorWeekStart, priorWeekEnd]),
+        pool.query(
+            `SELECT date_trunc('month', date) AS month, COALESCE(SUM(amount),0) AS total
+             FROM transactions
+             WHERE user_id=$1 AND type='expense'
+               AND date >= (date_trunc('month', CURRENT_DATE) - INTERVAL '3 months')
+               AND date <  date_trunc('month', CURRENT_DATE)
+               AND EXTRACT(DAY FROM date) <= $2
+             GROUP BY month`,
+            [userId, dayOfMonth]
+        ),
+        // Risk signals reused from the opportunities detectors, called live (not
+        // read from the `opportunities` table, which is only refreshed when the
+        // user visits the Opportunities page and would otherwise be stale here).
+        // Both already resolve to `null` gracefully when there's nothing to flag.
+        detectSpendingSpike(userId),
+        detectForecastWarning(userId),
     ]);
 
     const loggedDates = new Set(spendDatesRows.rows.map(r => r.date));
@@ -1438,6 +1478,16 @@ async function getDailyBriefData(userId) {
         ? parseFloat(monthExpenseSoFar.rows[0]?.total || 0) / daysElapsedBeforeToday
         : 0;
 
+    const todaySoFarTotal = parseFloat(todaySpend.rows[0]?.total || 0);
+    const sameWeekdayTotal = parseFloat(sameWeekdaySpend.rows[0]?.total || 0);
+    const weekToDateTotal = parseFloat(weekToDateSpend.rows[0]?.total || 0);
+    const priorWeekTotal = parseFloat(priorWeekSpend.rows[0]?.total || 0);
+    const monthToDateTotal = parseFloat(monthExpenseSoFar.rows[0]?.total || 0);
+    const monthlyAverages = monthlyAverageRows.rows.map(r => parseFloat(r.total || 0));
+    const trailingMonthlyAvg = monthlyAverages.length > 0
+        ? monthlyAverages.reduce((s, v) => s + v, 0) / monthlyAverages.length
+        : null;
+
     return {
         yesterday: {
             total: parseFloat(yesterdaySpend.rows[0]?.total || 0),
@@ -1445,7 +1495,7 @@ async function getDailyBriefData(userId) {
             top_category: yesterdayTopCat.rows[0]?.category_name || null,
         },
         today_so_far: {
-            total: parseFloat(todaySpend.rows[0]?.total || 0),
+            total: todaySoFarTotal,
             count: parseInt(todaySpend.rows[0]?.cnt || 0),
         },
         bills_due_soon: {
@@ -1457,15 +1507,49 @@ async function getDailyBriefData(userId) {
             avg_daily_so_far: avgDailySoFar,
         },
         logging_streak: streak,
-        top_opportunity: topOpportunity.rows[0] || null,
+        top_opportunities: topOpportunities.rows,
+        comparisons: {
+            vs_same_weekday_last_week: {
+                current: todaySoFarTotal,
+                previous: sameWeekdayTotal,
+                delta: todaySoFarTotal - sameWeekdayTotal,
+            },
+            week_to_date_vs_prior_week: {
+                current: weekToDateTotal,
+                previous: priorWeekTotal,
+                delta: weekToDateTotal - priorWeekTotal,
+                days_elapsed: daysElapsedThisWeek,
+            },
+            month_to_date_vs_trailing_avg: trailingMonthlyAvg === null ? null : {
+                current: monthToDateTotal,
+                average: trailingMonthlyAvg,
+                delta: monthToDateTotal - trailingMonthlyAvg,
+                months_sampled: monthlyAverages.length,
+            },
+        },
+        risk_flags: [spendingSpike, forecastWarning].filter(Boolean),
     };
 }
 
+// Spend comparisons: 'down' (spent less than the baseline) is the good outcome
+// (rendered --color-inc on the frontend), 'up' (spent more) is the bad outcome
+// (--color-exp) -- inverted from a naive "up=green" reading, per DESIGN.md's
+// income/expense semantic rule. `pct` is null when there's no baseline to divide
+// by (frontend renders the delta-only insight text without a % badge in that case).
+const trendFor = (delta, baseline) => ({
+    direction: delta > 0 ? 'up' : 'down',
+    pct: baseline > 0 ? Math.round((delta / baseline) * 100) : null,
+});
+
 function buildDailyBriefPoints(data) {
-    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunity } = data;
+    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunities, comparisons, risk_flags } = data;
 
     const paceDelta = pace.ideal_daily_budget > 0 ? pace.avg_daily_so_far - pace.ideal_daily_budget : null;
     const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
+
+    const topOpportunity = top_opportunities[0] || null;
+    const topRisk = risk_flags[0] || null;
+    const { vs_same_weekday_last_week: sameWeekday, week_to_date_vs_prior_week: weekPace, month_to_date_vs_trailing_avg: monthTrend } = comparisons;
 
     const points = [
         {
@@ -1503,6 +1587,42 @@ function buildDailyBriefPoints(data) {
                     : `Running ${inr(Math.abs(paceDelta))} over your ${inr(pace.ideal_daily_budget)}/day budget`,
         },
         {
+            key: 'same_weekday',
+            label: 'Same Day Last Week',
+            value: inr(sameWeekday.current),
+            insight: sameWeekday.previous > 0
+                ? `${sameWeekday.delta <= 0 ? inr(Math.abs(sameWeekday.delta)) + ' less' : inr(sameWeekday.delta) + ' more'} than the same day last week (${inr(sameWeekday.previous)})`
+                : 'No spending recorded on this day last week',
+            trend: sameWeekday.previous > 0 ? trendFor(sameWeekday.delta, sameWeekday.previous) : null,
+        },
+        {
+            key: 'week_pace',
+            label: 'Week vs Last Week',
+            value: inr(weekPace.current),
+            insight: weekPace.previous > 0
+                ? `${weekPace.delta <= 0 ? inr(Math.abs(weekPace.delta)) + ' less' : inr(weekPace.delta) + ' more'} than the same ${weekPace.days_elapsed} day${weekPace.days_elapsed !== 1 ? 's' : ''} last week (${inr(weekPace.previous)})`
+                : 'No spending recorded in the same period last week',
+            trend: weekPace.previous > 0 ? trendFor(weekPace.delta, weekPace.previous) : null,
+        },
+        {
+            key: 'month_trend',
+            label: 'Month Trend',
+            value: monthTrend ? inr(monthTrend.current) : 'Not enough history',
+            insight: monthTrend
+                ? `${monthTrend.delta <= 0 ? inr(Math.abs(monthTrend.delta)) + ' below' : inr(monthTrend.delta) + ' above'} your trailing ${monthTrend.months_sampled}-month average (${inr(monthTrend.average)}) for this point in the month`
+                : 'Need at least one full prior month of data to compare',
+            trend: (monthTrend && monthTrend.average > 0) ? trendFor(monthTrend.delta, monthTrend.average) : null,
+        },
+        {
+            key: 'risk',
+            label: 'Watch For',
+            value: topRisk ? topRisk.title : 'All clear',
+            insight: topRisk ? topRisk.description : 'No spending or budget risks detected right now',
+            // Full list, not just the top one -- kept for the unchanged-points cache
+            // diff and for rankActionCandidates; the frontend only reads value/insight.
+            raw: risk_flags,
+        },
+        {
             key: 'streak',
             label: 'Logging Streak',
             value: `${logging_streak} day${logging_streak !== 1 ? 's' : ''}`,
@@ -1513,12 +1633,56 @@ function buildDailyBriefPoints(data) {
         {
             key: 'opportunity',
             label: 'Top Opportunity',
-            value: top_opportunity ? top_opportunity.title : 'All caught up',
-            insight: top_opportunity ? top_opportunity.description : "No new opportunities right now — keep it up!",
+            value: topOpportunity ? topOpportunity.title : 'All caught up',
+            insight: topOpportunity
+                ? topOpportunity.description + (top_opportunities.length > 1 ? ` (+${top_opportunities.length - 1} more)` : '')
+                : "No new opportunities right now — keep it up!",
+            raw: top_opportunities,
         },
     ];
 
     return points;
+}
+
+// Scores every candidate "today's action" and returns the message from the
+// highest-scoring one — replaces a flat `||` fallback chain with an explicit,
+// inspectable priority ordering. Ties break in the order candidates are listed
+// below (same intent as the old chain). Only reads fields already mirrored into
+// `points` by buildDailyBriefPoints, so a change in the winning candidate is
+// always visible to generateDailyBriefing's unchanged-points cache diff.
+function rankActionCandidates(data) {
+    const { bills_due_soon, top_opportunities, risk_flags, pace, logging_streak } = data;
+    const topOpportunity = top_opportunities[0] || null;
+    const severeForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
+    const moderateForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
+    const spike = risk_flags.find(f => f.type === 'spending_spike');
+    const underBudget = pace.ideal_daily_budget > 0 && pace.avg_daily_so_far <= pace.ideal_daily_budget;
+    const noOtherSignal = !spike && !severeForecast && !moderateForecast && bills_due_soon.count === 0;
+
+    const candidates = [
+        bills_due_soon.count > 0 && {
+            score: 90 + Math.min(bills_due_soon.total / 1000, 10),
+            message: `You have ${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`,
+        },
+        severeForecast && { score: 85, message: severeForecast.description },
+        spike && { score: 70 + Math.min(spike.pct_above / 2, 15), message: spike.description },
+        moderateForecast && { score: 65, message: moderateForecast.description },
+        topOpportunity && {
+            score: 40 + (topOpportunity.priority === 1 ? 20 : topOpportunity.priority === 2 ? 10 : 0),
+            message: topOpportunity.action_label,
+        },
+        (noOtherSignal && underBudget && logging_streak > 2) && {
+            score: 30,
+            message: `You're pacing under budget and on a ${logging_streak}-day streak — keep it up.`,
+        },
+        logging_streak > 0 && {
+            score: 20,
+            message: `Keep your ${logging_streak}-day logging streak alive — log today's transactions!`,
+        },
+        { score: 0, message: "Log today's transactions to start a streak and keep your numbers accurate." },
+    ].filter(Boolean);
+
+    return candidates.reduce((best, c) => (c.score > best.score ? c : best)).message;
 }
 
 async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}) {
@@ -1546,15 +1710,37 @@ async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}
         // its own chip in the UI, and the AI tends to fixate on it if given the chance.
         const narrativePoints = points.filter(p => p.key !== 'streak');
 
-        const NARRATIVE_WORD_LIMIT = 50;
+        const NARRATIVE_WORD_LIMIT = 65;
+
+        // Labeled sections instead of one flat list, so the model can tell "raw
+        // numbers" apart from "what actually matters" instead of just restating
+        // every chip in prose (the original complaint this redesign addresses).
+        const numberLines = narrativePoints
+            .filter(p => ['yesterday', 'today', 'bills', 'pace'].includes(p.key))
+            .map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n');
+        const trendLines = narrativePoints
+            .filter(p => ['same_weekday', 'week_pace', 'month_trend'].includes(p.key))
+            .map(p => `- ${p.insight}`).join('\n');
+        const watchLines = data.risk_flags.map(f => `- ${f.title}`).join('\n');
+        const opportunityLine = data.top_opportunities[0]?.description || null;
 
         const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
-Based on the following data points, write a warm, encouraging 2-3 sentence narrative about their day.
-Be specific and reference the numbers naturally. No markdown, no headings, no bullet points — just plain prose.
-Do not mention logging streaks, habits, or consistency — focus only on the spending and bill data below.
+Based on the sections below, write a warm, encouraging 2-3 sentence narrative about their day.
+Weave together at most one TRENDS item and one WATCH FOR item into a single connected observation -- do not enumerate every input.
+If WATCH FOR is empty, find something in TRENDS to praise instead of inventing a problem.
+Be specific and reference the numbers naturally. No markdown, no headings, no bullet points in your reply — just plain prose.
+Do not mention logging streaks, habits, or consistency — focus only on the spending, bill, and trend data below.
 Keep it to ${NARRATIVE_WORD_LIMIT} words or fewer.
 
-${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
+TODAY'S NUMBERS:
+${numberLines}
+
+TRENDS:
+${trendLines}
+${watchLines ? `\nWATCH FOR:\n${watchLines}` : ''}
+${opportunityLine ? `\nOPPORTUNITY:\n${opportunityLine}` : ''}
+
+Reminder: keep your reply to ${NARRATIVE_WORD_LIMIT} words or fewer.`;
 
         try {
             narrative = (await aiComplete('daily-briefing', [{ role: 'user', content: prompt }])).trim();
@@ -1569,12 +1755,7 @@ ${narrativePoints.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')
             narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
         }
 
-        actionOfTheDay = data.top_opportunity?.action_label
-            || (data.bills_due_soon.count > 0
-                ? `You have ${data.bills_due_soon.count} bill${data.bills_due_soon.count !== 1 ? 's' : ''} due soon — make sure funds are set aside.`
-                : data.logging_streak > 0
-                    ? `Keep your ${data.logging_streak}-day logging streak alive — log today's transactions!`
-                    : "Log today's transactions to start a streak and keep your numbers accurate.");
+        actionOfTheDay = rankActionCandidates(data);
     }
 
     const { rows } = await db.query(

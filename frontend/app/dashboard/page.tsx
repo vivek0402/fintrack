@@ -549,12 +549,29 @@ export default function DashboardPage() {
 
                     {Array.isArray(dailyBrief.points) && dailyBrief.points.length > 0 && (
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                            {dailyBrief.points.map((pt: any) => (
-                                <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
-                                </div>
-                            ))}
+                            {dailyBrief.points.map((pt: any) => {
+                                // Spend comparisons: less spend than the baseline is the good
+                                // outcome (--color-inc, trending down), more spend is the bad
+                                // outcome (--color-exp, trending up) -- inverted from a naive
+                                // "up = green" reading, per DESIGN.md's income/expense rule.
+                                const hasTrend = pt.trend && pt.trend.pct !== null && pt.trend.pct !== undefined;
+                                const trendColor = hasTrend
+                                    ? (pt.trend.direction === 'down' ? 'var(--color-inc)' : 'var(--color-exp)')
+                                    : undefined;
+                                const TrendIcon = pt.trend?.direction === 'down' ? TrendingDown : TrendingUp;
+                                return (
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
+                                        {hasTrend && (
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: trendColor, marginLeft: '2px' }}>
+                                                <TrendIcon size={10} />
+                                                <span style={{ fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{Math.abs(pt.trend.pct)}%</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
 

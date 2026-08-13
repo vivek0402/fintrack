@@ -27,6 +27,7 @@ jest.mock('../src/middleware/auth', () => (req, res, next) => {
 const express = require('express');
 const request = require('supertest');
 const pool = require('../src/db/pool');
+const { aiComplete } = require('../src/utils/ai');
 const aiRouter = require('../src/routes/ai');
 
 function buildApp() {
@@ -84,5 +85,56 @@ describe('POST /api/ai/briefing/daily/generate', () => {
         expect(clientCalls.some(sql => /INSERT INTO daily_briefings/i.test(sql))).toBe(true);
 
         expect(mockClient.release).toHaveBeenCalled();
+    });
+});
+
+describe('unchanged-points cache skip (comparisons/risk-flag fields included)', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        pool.connect.mockResolvedValue(mockClient);
+        pool.query.mockResolvedValue({ rows: [] });
+    });
+
+    test('a second request with identical inputs never calls aiComplete again', async () => {
+        // Simulates real Postgres persistence: the row the first INSERT would have
+        // written is fed back as the "existing" row the second request reads. If any
+        // new field (comparisons, risk flags, extra opportunities) is computed but
+        // not folded into `points`, this still passes even when it shouldn't -- the
+        // real regression this guards is a *missed* field breaking the diff, which
+        // isn't directly observable from a fully-static input fixture, but this still
+        // pins down that the cache-skip mechanism itself keeps working as new point
+        // keys are added to buildDailyBriefPoints.
+        let storedRow = null;
+
+        mockClient.query.mockImplementation((sql, params) => {
+            if (/^BEGIN/.test(sql) || /^COMMIT/.test(sql) || /^ROLLBACK/.test(sql)) {
+                return Promise.resolve({ rows: [] });
+            }
+            if (/SELECT refresh_log/i.test(sql)) {
+                return Promise.resolve({ rows: [] });
+            }
+            if (/SELECT narrative, action_of_the_day, points/i.test(sql)) {
+                return Promise.resolve(storedRow ? { rows: [storedRow] } : { rows: [] });
+            }
+            if (/INSERT INTO daily_briefings/i.test(sql)) {
+                storedRow = { narrative: params[3], action_of_the_day: params[4], points: JSON.parse(params[2]) };
+                return Promise.resolve({ rows: [{ id: 'brief-1', ...storedRow }] });
+            }
+            if (/UPDATE daily_briefings SET refresh_log/i.test(sql)) {
+                return Promise.resolve({ rows: [] });
+            }
+            return Promise.resolve({ rows: [] });
+        });
+
+        const app = buildApp();
+
+        const res1 = await request(app).post('/api/ai/briefing/daily/generate');
+        expect(res1.status).toBe(200);
+        expect(aiComplete).toHaveBeenCalledTimes(1);
+
+        const res2 = await request(app).post('/api/ai/briefing/daily/generate');
+        expect(res2.status).toBe(200);
+        expect(aiComplete).toHaveBeenCalledTimes(1); // still 1 -- unchanged points skipped the LLM call
+        expect(res2.body.narrative).toBe(res1.body.narrative);
     });
 });

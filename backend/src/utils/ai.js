@@ -56,7 +56,7 @@ const ROUTES = {
     'health-report':      { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'agent-chat':         { model: MODELS.GPT_OSS_120B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'briefing':           { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
-    'daily-briefing':     { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 200,  temp: 0.6 },
+    'daily-briefing':     { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 320,  temp: 0.6 },
     'behavioral-insight': { model: MODELS.GPT_OSS_120B,          maxTokens: 400,  temp: 0.7 },
     'planning-narrative': { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 900,  temp: 0.4 },
 };
