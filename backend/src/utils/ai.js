@@ -27,6 +27,25 @@ const MODELS = {
 const CEREBRAS_MODEL = 'llama-3.3-70b';
 const DEFAULT_NIM_MODEL = MODELS.DEEPSEEK_V4_FLASH;
 
+// Groq's reasoning models spend part of their token budget on hidden reasoning
+// (a separate `message.reasoning` field, not `content`) before ever writing a
+// visible answer -- left at Groq's default, this has been observed exhausting
+// max_tokens entirely and returning a non-null EMPTY `content` (confirmed by
+// direct probe: gpt-oss-120b burned 315-318 of a 320 token budget on reasoning
+// alone). Dialing reasoning down keeps the visible answer well within normal
+// budgets instead of relying on the empty-content throw below to fail over.
+// gpt-oss models accept low/medium/high (default is much higher than 'low');
+// Qwen 3.6 only accepts 'none' or 'default' -- any other value 400s, and its
+// 'default' reasoning is inline `<think>` tags in `content` rather than a
+// separate field, so it can ALSO exhaust max_tokens mid-thought. Only applies
+// to the Groq leg: Cerebras runs a fixed non-reasoning model and NIM models
+// haven't been confirmed to accept this parameter the same way.
+const GROQ_REASONING_EFFORT = {
+    [MODELS.GPT_OSS_120B]: 'low',
+    [MODELS.GPT_OSS_20B]: 'low',
+    [MODELS.QWEN27B]: 'none',
+};
+
 // ── Fixed text-route failover order ──
 // Every text route attempts providers in this order. `model` on a route entry
 // is the model used for the Groq attempt; `nimModel` (if set) overrides the
@@ -56,7 +75,12 @@ const ROUTES = {
     'health-report':      { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 2048, temp: 0.5 },
     'agent-chat':         { model: MODELS.GPT_OSS_120B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'briefing':           { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 300,  temp: 0.6 },
-    'daily-briefing':     { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 320,  temp: 0.6 },
+    // maxTokens is generous relative to the ~65-word output: gpt-oss-120b spends
+    // 200-300+ tokens on hidden reasoning before writing any visible content
+    // (confirmed by direct probe against the Groq API), so a budget close to the
+    // visible word count starves it and returns empty content (see the
+    // content.trim() === '' check in openAiCompatibleComplete above).
+    'daily-briefing':     { model: MODELS.GPT_OSS_120B, nimModel: MODELS.MINIMAX_M27,       maxTokens: 700,  temp: 0.6 },
     'behavioral-insight': { model: MODELS.GPT_OSS_120B,          maxTokens: 400,  temp: 0.7 },
     'planning-narrative': { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 900,  temp: 0.4 },
 };
@@ -101,7 +125,7 @@ const isRateLimit = (err) =>
     err?.message?.includes('Rate limit');
 
 // ── OpenAI-compatible chat completion (Groq, Cerebras, NIM) ──
-const openAiCompatibleComplete = async (client, model, messages, maxTokens, temp) => {
+const openAiCompatibleComplete = async (client, model, messages, maxTokens, temp, reasoningEffort) => {
     const res = await client.chat.completions.create({
         model,
         messages: Array.isArray(messages)
@@ -109,11 +133,17 @@ const openAiCompatibleComplete = async (client, model, messages, maxTokens, temp
             : [{ role: 'user', content: messages }],
         max_tokens: maxTokens,
         temperature: temp,
+        ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
     });
     const content = res.choices[0].message.content;
-    if (content == null) {
-        // Reasoning models (e.g. NVIDIA Nemotron) can exhaust max_tokens on
-        // <think> reasoning and return a null content field with finish_reason 'length'.
+    if (content == null || content.trim() === '') {
+        // Reasoning models can exhaust max_tokens on hidden reasoning before ever
+        // writing to `content`. Some (NVIDIA Nemotron via NIM) surface this as a
+        // null content field; Groq's gpt-oss models surface it differently -- a
+        // separate `message.reasoning` field gets the full token budget and
+        // `content` comes back as a non-null EMPTY STRING with finish_reason
+        // 'length'. The old `content == null` check only caught the first shape,
+        // so gpt-oss silently "succeeded" with blank text instead of failing over.
         throw new Error('Empty completion content (likely truncated reasoning output)');
     }
     return content;
@@ -154,7 +184,8 @@ const executeOnProvider = async (provider, config, messages, maxTokens, temp) =>
         return await openAiCompatibleComplete(nimClient, config.nimModel || DEFAULT_NIM_MODEL, messages, maxTokens, temp);
     }
     // groq
-    return await openAiCompatibleComplete(groqClient, config.model || MODELS.GPT_OSS_120B, messages, maxTokens, temp);
+    const groqModel = config.model || MODELS.GPT_OSS_120B;
+    return await openAiCompatibleComplete(groqClient, groqModel, messages, maxTokens, temp, GROQ_REASONING_EFFORT[groqModel]);
 };
 
 // ── Strip <think>...</think> reasoning blocks (Qwen3, DeepSeek, etc.) ──
@@ -214,4 +245,4 @@ const aiComplete = async (routeKey, messages, overrides = {}) => {
     throw exhaustedError;
 };
 
-module.exports = { aiComplete, MODELS, ROUTES, nimClient };
+module.exports = { aiComplete, MODELS, ROUTES, nimClient, openAiCompatibleComplete };
