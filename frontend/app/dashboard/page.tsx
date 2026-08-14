@@ -201,7 +201,6 @@ export default function DashboardPage() {
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
     const [dailyBriefRefreshing, setDailyBriefRefreshing] = useState(false);
     const [dailyBriefCooldown, setDailyBriefCooldown] = useState(0);
-    const [dailyBriefPointsExpanded, setDailyBriefPointsExpanded] = useState(false);
     const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dailyBriefRefreshTimesRef = useRef<number[]>([]);
     const [salaryData, setSalaryData]   = useState<any>(null);
@@ -548,52 +547,26 @@ export default function DashboardPage() {
                         {dailyBrief.narrative}
                     </p>
 
-                    {Array.isArray(dailyBrief.points) && dailyBrief.points.length > 0 && (() => {
-                        // Only Pace Check, Bills Due Soon, and Watch For are actionable
-                        // at a glance -- the rest (yesterday/today totals, week-over-week
-                        // comparisons, streak, opportunity) restate what the narrative and
-                        // action-of-the-day already say, so they're tucked behind "Show more"
-                        // to cut chip-wall overload on open.
-                        const primaryKeys = ['pace', 'bills', 'risk'];
-                        const primaryPoints = dailyBrief.points.filter((pt: any) => primaryKeys.includes(pt.key));
-                        const secondaryPoints = dailyBrief.points.filter((pt: any) => !primaryKeys.includes(pt.key));
+                    {Array.isArray(dailyBrief.points) && (() => {
+                        // Daily Brief now shows exactly two chips -- Today (budget
+                        // status) and Heads up (bills/risk merged) -- computed
+                        // server-side in buildDailyBriefPoints(). The other eight
+                        // points still exist in dailyBrief.points (they feed the
+                        // narrative prompt) but are no longer rendered here at all.
+                        const chips = ['today_status', 'heads_up']
+                            .map(key => dailyBrief.points.find((pt: any) => pt.key === key))
+                            .filter(Boolean);
 
-                        const renderPoint = (pt: any) => {
-                            // Spend comparisons: less spend than the baseline is the good
-                            // outcome (--color-inc, trending down), more spend is the bad
-                            // outcome (--color-exp, trending up) -- inverted from a naive
-                            // "up = green" reading, per DESIGN.md's income/expense rule.
-                            const hasTrend = pt.trend && pt.trend.pct !== null && pt.trend.pct !== undefined;
-                            const trendColor = hasTrend
-                                ? (pt.trend.direction === 'down' ? 'var(--color-inc)' : 'var(--color-exp)')
-                                : undefined;
-                            const TrendIcon = pt.trend?.direction === 'down' ? TrendingDown : TrendingUp;
-                            return (
-                                <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
-                                    {hasTrend && (
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: trendColor, marginLeft: '2px' }}>
-                                            <TrendIcon size={10} />
-                                            <span style={{ fontSize: '10px', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>{Math.abs(pt.trend.pct)}%</span>
-                                        </span>
-                                    )}
-                                </div>
-                            );
-                        };
+                        if (chips.length === 0) return null;
 
                         return (
-                            <div style={{ marginBottom: '14px' }}>
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                    {primaryPoints.map(renderPoint)}
-                                    {dailyBriefPointsExpanded && secondaryPoints.map(renderPoint)}
-                                </div>
-                                {secondaryPoints.length > 0 && (
-                                    <button type="button" onClick={() => setDailyBriefPointsExpanded(v => !v)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, marginTop: '10px', fontFamily: 'var(--font-body)' }}>
-                                        {dailyBriefPointsExpanded ? 'Show less' : `Show ${secondaryPoints.length} more`}
-                                    </button>
-                                )}
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                                {chips.map((pt: any) => (
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
+                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
+                                    </div>
+                                ))}
                             </div>
                         );
                     })()}
