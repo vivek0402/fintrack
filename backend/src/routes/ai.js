@@ -1541,6 +1541,18 @@ const trendFor = (delta, baseline) => ({
     pct: baseline > 0 ? Math.round((delta / baseline) * 100) : null,
 });
 
+// Same severity priority used in two places (the persisted "Watch For" point's
+// raw history, and the throttled "Heads up" display) -- factored out so both
+// stay in sync by construction instead of by copy-paste discipline. Matches
+// rankActionCandidates()'s priority below: a severe forecast warning always
+// outranks a spending spike, which outranks a moderate forecast warning.
+function pickTopRisk(flags) {
+    const severeForecast = flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
+    const moderateForecast = flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
+    const spike = flags.find(f => f.type === 'spending_spike');
+    return severeForecast || spike || moderateForecast || null;
+}
+
 // Chip text needs its own plain-language phrasing -- topRisk.title/description
 // are written for the Opportunities page and contain "%"/"trailing average"
 // wording, which is exactly what this feature's narrative prompt was rewritten
@@ -1568,21 +1580,21 @@ function plainRiskChip(flag) {
 }
 
 function buildDailyBriefPoints(data) {
-    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunities, comparisons, risk_flags } = data;
+    // display_risk_flags defaults to risk_flags (identical behavior) when the
+    // caller doesn't pass a throttled view -- see filterRepeatedRiskFlags below.
+    const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunities, comparisons, risk_flags, display_risk_flags = risk_flags } = data;
 
     const paceDelta = pace.ideal_daily_budget > 0 ? pace.avg_daily_so_far - pace.ideal_daily_budget : null;
     const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
 
     const topOpportunity = top_opportunities[0] || null;
-    // Same severity priority as rankActionCandidates() below: a severe forecast
-    // warning always outranks a spending spike, which outranks a moderate
-    // forecast warning. Keeps the "Heads up" chip and the action-of-the-day box
-    // from disagreeing about which risk is the more important one when both a
-    // spike and a forecast warning are active at the same time.
-    const severeForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
-    const moderateForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
-    const spike = risk_flags.find(f => f.type === 'spending_spike');
-    const topRisk = severeForecast || spike || moderateForecast || null;
+    // topRisk (unfiltered) drives the "Watch For" point below, which is not
+    // rendered by the frontend but whose `raw` field is the historical record
+    // filterRepeatedRiskFlags reads back to compute streaks -- it must stay
+    // accurate to what was actually detected, not to what was displayed.
+    // displayTopRisk (throttled) drives the "Heads up" chip, which IS rendered.
+    const topRisk = pickTopRisk(risk_flags);
+    const displayTopRisk = pickTopRisk(display_risk_flags);
     const { vs_same_weekday_last_week: sameWeekday, week_to_date_vs_prior_week: weekPace, month_to_date_vs_trailing_avg: monthTrend } = comparisons;
 
     const points = [
@@ -1700,10 +1712,10 @@ function buildDailyBriefPoints(data) {
             // description verbatim -- see the comment on plainRiskChip.
             value: bills_due_soon.count > 0
                 ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due (${inr(bills_due_soon.total)})`
-                : plainRiskChip(topRisk).value,
+                : plainRiskChip(displayTopRisk).value,
             insight: bills_due_soon.count > 0
                 ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due in the next 2 days`
-                : plainRiskChip(topRisk).insight,
+                : plainRiskChip(displayTopRisk).insight,
         },
     ];
 
@@ -1715,10 +1727,14 @@ function buildDailyBriefPoints(data) {
 // now a quiet day means this returns null and the frontend renders nothing
 // (daily_briefings.action_of_the_day is nullable as of migration 065).
 function rankActionCandidates(data) {
-    const { bills_due_soon, risk_flags } = data;
-    const severeForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
-    const moderateForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
-    const spike = risk_flags.find(f => f.type === 'spending_spike');
+    // display_risk_flags (throttled) is what actually gets scored, so this
+    // box stops nagging about the same bill-free risk flag once
+    // filterRepeatedRiskFlags has decided it's been shown enough. Falls back
+    // to risk_flags when the caller doesn't provide a throttled view.
+    const { bills_due_soon, risk_flags, display_risk_flags = risk_flags } = data;
+    const severeForecast = display_risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
+    const moderateForecast = display_risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
+    const spike = display_risk_flags.find(f => f.type === 'spending_spike');
 
     const candidates = [
         bills_due_soon.count > 0 && {
@@ -1734,10 +1750,50 @@ function rankActionCandidates(data) {
     return candidates.reduce((best, c) => (c.score > best.score ? c : best)).message;
 }
 
+// A live-detected risk flag (spending_spike / forecast_budget_warning) is
+// deterministic: as long as the underlying condition holds -- e.g. a fixed
+// monthly bill like rent came in above its trailing average -- it recomputes
+// to the exact same conclusion every single day for as long as that's true,
+// which can be the rest of the month. Without this throttle, the "Heads up"
+// chip, the action box, and the narrative's WATCH FOR section all nag about
+// the same thing daily instead of mentioning it a few times and then easing
+// off. Reads the last few days' *persisted, unfiltered* risk flags (the
+// "Watch For" point's `raw` field, already stored in daily_briefings.points)
+// rather than tracking separate "seen" state -- self-healing, no new schema.
+const RISK_FLAG_MAX_CONSECUTIVE_DAYS = 3;
+
+function riskFlagKey(flag) {
+    return flag.type === 'spending_spike' ? `spending_spike:${flag.category}` : flag.type;
+}
+
+async function filterRepeatedRiskFlags(userId, freshFlags, todayStr) {
+    if (freshFlags.length === 0) return freshFlags;
+
+    const { rows } = await pool.query(
+        `SELECT points FROM daily_briefings WHERE user_id=$1 AND brief_date < $2
+         ORDER BY brief_date DESC LIMIT $3`,
+        [userId, todayStr, RISK_FLAG_MAX_CONSECUTIVE_DAYS]
+    );
+
+    return freshFlags.filter((flag) => {
+        const key = riskFlagKey(flag);
+        let streak = 0;
+        for (const row of rows) {
+            const riskPoint = (row.points || []).find((p) => p.key === 'risk');
+            const historical = riskPoint?.raw || [];
+            if (!historical.some((f) => riskFlagKey(f) === key)) break;
+            streak++;
+        }
+        return streak < RISK_FLAG_MAX_CONSECUTIVE_DAYS;
+    });
+}
+
 async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}) {
     const briefDate = dateStr(new Date());
     const data = await getDailyBriefData(userId);
-    const points = buildDailyBriefPoints(data);
+    const displayRiskFlags = await filterRepeatedRiskFlags(userId, data.risk_flags, briefDate);
+    const dataWithDisplay = { ...data, display_risk_flags: displayRiskFlags };
+    const points = buildDailyBriefPoints(dataWithDisplay);
     const pointsJson = JSON.stringify(points);
 
     // Skip the LLM call entirely if nothing driving the brief has changed since
@@ -1770,7 +1826,7 @@ async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}
         const trendLines = narrativePoints
             .filter(p => ['same_weekday', 'week_pace', 'month_trend'].includes(p.key))
             .map(p => `- ${p.insight}`).join('\n');
-        const watchLines = data.risk_flags.map(f => `- ${f.title}`).join('\n');
+        const watchLines = displayRiskFlags.map(f => `- ${f.title}`).join('\n');
         const opportunityLine = data.top_opportunities[0]?.description || null;
 
         const prompt = `You are texting a friend a quick, warm update about their spending today -- not writing a financial report.
@@ -1812,7 +1868,7 @@ Reminder: keep your reply to ${NARRATIVE_WORD_LIMIT} words or fewer, at most one
             narrative = words.slice(0, NARRATIVE_WORD_LIMIT).join(' ').replace(/[,;:]?$/, '') + '…';
         }
 
-        actionOfTheDay = rankActionCandidates(data);
+        actionOfTheDay = rankActionCandidates(dataWithDisplay);
     }
 
     const { rows } = await db.query(
@@ -1995,3 +2051,4 @@ module.exports.mondayOf = mondayOf;
 module.exports.generateDailyBriefing = generateDailyBriefing;
 module.exports.rankActionCandidates = rankActionCandidates;
 module.exports.buildDailyBriefPoints = buildDailyBriefPoints;
+module.exports.filterRepeatedRiskFlags = filterRepeatedRiskFlags;
