@@ -19,7 +19,7 @@ import { SmsImporter } from '@/components/transactions/SmsImporter';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
-import { exportToCSV, formatCurrency, fmt as fmtBase } from '@/lib/utils';
+import { exportToCSV, formatCurrency, fmt as fmtBase, getSmartIcon } from '@/lib/utils';
 
 const VIEW_TABS = [
     { key: 'list', label: 'List' },
@@ -611,7 +611,7 @@ function DayDetail({
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, background: isInc ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {tx.category_icon
-                                            ? <span style={{ fontSize: '16px' }}>{tx.category_icon}</span>
+                                            ? <span style={{ fontSize: '16px' }}>{getSmartIcon(tx.description, tx.category_name, tx.category_icon)}</span>
                                             : isInc
                                                 ? <TrendingUp  size={14} color="var(--color-inc)" />
                                                 : <TrendingDown size={14} color="var(--color-exp)" />
