@@ -157,9 +157,10 @@ const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
     ['groceries', '🛒'], ['milk', '🥛'], ['restaurant', '🍽️'], ['breakfast', '🍳'],
   ],
   'Transportation': [
-    ['uber', '🚕'], ['ola', '🚕'], ['cab', '🚕'], ['taxi', '🚕'],
+    ['uber', '🚕'], ['ola auto', '🛺'], ['ola', '🚕'], ['cab', '🚕'], ['taxi', '🚕'],
     ['petrol', '⛽'], ['fuel', '⛽'], ['diesel', '⛽'], ['metro', '🚇'],
-    ['train', '🚆'], ['bus', '🚌'], ['parking', '🅿️'], ['auto', '🛺'],
+    ['train', '🚆'], ['bus', '🚌'], ['parking', '🅿️'],
+    ['autorickshaw', '🛺'], ['auto rickshaw', '🛺'],
   ],
   'Shopping': [
     ['amazon', '📦'], ['flipkart', '📦'], ['myntra', '👕'], ['clothes', '👕'],
@@ -189,7 +190,7 @@ const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
   ],
   'Investments': [
     ['mutual fund', '📈'], ['sip', '📈'], ['stock', '📈'], ['gold', '🪙'],
-    ['fixed deposit', '🏦'], ['fd', '🏦'],
+    ['fixed deposit', '🏦'],
   ],
   'Personal Care': [
     ['salon', '💇'], ['haircut', '💇'], ['spa', '🧖'], ['cosmetics', '💄'],
@@ -209,6 +210,10 @@ const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
   ],
 };
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Picks a per-transaction icon from its description, scoped to its own
 // category to avoid cross-category ambiguity (e.g. "Apple" means 🍎 in
 // Food & Dining but 📱 in Shopping/Subscriptions). Falls back to the
@@ -224,7 +229,8 @@ export function getSmartIcon(
 
   if (table) {
     for (const [keyword, icon] of table) {
-      if (desc.includes(keyword)) return icon;
+      const re = new RegExp(`\\b${escapeRegExp(keyword)}\\b`);
+      if (re.test(desc)) return icon;
     }
   }
 
