@@ -1639,6 +1639,37 @@ function buildDailyBriefPoints(data) {
                 : "No new opportunities right now — keep it up!",
             raw: top_opportunities,
         },
+        // The two points below are what the frontend actually renders as chips
+        // (see dashboard/page.tsx) -- the ten points above stay purely as
+        // narrative-prompt input. Reuses paceDirection/paceDelta/topRisk already
+        // computed earlier in this function; no new calculation.
+        {
+            key: 'today_status',
+            label: 'Today',
+            value: paceDirection === null
+                ? 'Add income to see your daily budget'
+                : paceDirection === 'under'
+                    ? `${inr(Math.abs(paceDelta))} left today`
+                    : `${inr(Math.abs(paceDelta))} over today`,
+            insight: paceDirection === null
+                ? 'Add your income to see your ideal daily budget'
+                : paceDirection === 'under'
+                    ? `Running ${inr(Math.abs(paceDelta))} under your ${inr(pace.ideal_daily_budget)}/day budget`
+                    : `Running ${inr(Math.abs(paceDelta))} over your ${inr(pace.ideal_daily_budget)}/day budget`,
+        },
+        {
+            key: 'heads_up',
+            label: 'Heads up',
+            // Bills win over risk flags -- a due bill is a concrete near-term
+            // obligation, a risk flag is a pattern observation. Only one shows
+            // at a time so this stays a single glanceable chip.
+            value: bills_due_soon.count > 0
+                ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due (${inr(bills_due_soon.total)})`
+                : topRisk ? topRisk.title : 'Nothing urgent',
+            insight: bills_due_soon.count > 0
+                ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due in the next 2 days`
+                : topRisk ? topRisk.description : 'No spending or budget risks detected right now',
+        },
     ];
 
     return points;
