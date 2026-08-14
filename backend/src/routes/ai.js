@@ -1644,20 +1644,15 @@ function buildDailyBriefPoints(data) {
     return points;
 }
 
-// Scores every candidate "today's action" and returns the message from the
-// highest-scoring one — replaces a flat `||` fallback chain with an explicit,
-// inspectable priority ordering. Ties break in the order candidates are listed
-// below (same intent as the old chain). Only reads fields already mirrored into
-// `points` by buildDailyBriefPoints, so a change in the winning candidate is
-// always visible to generateDailyBriefing's unchanged-points cache diff.
+// Only genuinely urgent items win a slot here -- a due bill or a real risk
+// flag. Opportunities and streak nudges used to fill this box on quiet days;
+// now a quiet day means this returns null and the frontend renders nothing
+// (daily_briefings.action_of_the_day is nullable as of migration 065).
 function rankActionCandidates(data) {
-    const { bills_due_soon, top_opportunities, risk_flags, pace, logging_streak } = data;
-    const topOpportunity = top_opportunities[0] || null;
+    const { bills_due_soon, risk_flags } = data;
     const severeForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
     const moderateForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
     const spike = risk_flags.find(f => f.type === 'spending_spike');
-    const underBudget = pace.ideal_daily_budget > 0 && pace.avg_daily_so_far <= pace.ideal_daily_budget;
-    const noOtherSignal = !spike && !severeForecast && !moderateForecast && bills_due_soon.count === 0;
 
     const candidates = [
         bills_due_soon.count > 0 && {
@@ -1667,21 +1662,9 @@ function rankActionCandidates(data) {
         severeForecast && { score: 85, message: severeForecast.description },
         spike && { score: 70 + Math.min(spike.pct_above / 2, 15), message: spike.description },
         moderateForecast && { score: 65, message: moderateForecast.description },
-        topOpportunity && {
-            score: 40 + (topOpportunity.priority === 1 ? 20 : topOpportunity.priority === 2 ? 10 : 0),
-            message: topOpportunity.action_label,
-        },
-        (noOtherSignal && underBudget && logging_streak > 2) && {
-            score: 30,
-            message: `You're pacing under budget and on a ${logging_streak}-day streak — keep it up.`,
-        },
-        logging_streak > 0 && {
-            score: 20,
-            message: `Keep your ${logging_streak}-day logging streak alive — log today's transactions!`,
-        },
-        { score: 0, message: "Log today's transactions to start a streak and keep your numbers accurate." },
     ].filter(Boolean);
 
+    if (candidates.length === 0) return null;
     return candidates.reduce((best, c) => (c.score > best.score ? c : best)).message;
 }
 
@@ -1936,3 +1919,5 @@ module.exports = router;
 module.exports.generateWeeklyBriefing = generateWeeklyBriefing;
 module.exports.mondayOf = mondayOf;
 module.exports.generateDailyBriefing = generateDailyBriefing;
+module.exports.rankActionCandidates = rankActionCandidates;
+module.exports.buildDailyBriefPoints = buildDailyBriefPoints;
