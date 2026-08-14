@@ -61,20 +61,40 @@ describe('buildDailyBriefPoints — heads_up', () => {
         expect(headsUp.insight).toBe('2 bills due in the next 2 days');
     });
 
-    test('a risk flag surfaces when there is no due bill', () => {
+    test('a risk flag surfaces when there is no due bill, in plain language', () => {
         const data = baseData({
-            risk_flags: [{ type: 'spending_spike', title: 'Dining spend is 40% above your 3-month average', description: 'Last month you spent more on dining.' }],
+            risk_flags: [{ type: 'spending_spike', category: 'Dining', title: 'Dining spend is 40% above your 3-month average', description: 'Last month you spent more on dining.' }],
         });
         const headsUp = findPoint(buildDailyBriefPoints(data), 'heads_up');
-        expect(headsUp.value).toBe('Dining spend is 40% above your 3-month average');
-        expect(headsUp.insight).toBe('Last month you spent more on dining.');
+        expect(headsUp.value).toBe('Dining spend is higher than usual');
+        expect(headsUp.insight).toBe('Dining spend came in higher than your usual amount this month.');
+    });
+
+    test('a forecast warning reads as plain language, not percentages', () => {
+        const data = baseData({
+            risk_flags: [{ type: 'forecast_budget_warning', over_pct: 35, title: 'On track to overspend your budget by 35% this month', description: 'At your current pace you will overspend.' }],
+        });
+        const headsUp = findPoint(buildDailyBriefPoints(data), 'heads_up');
+        expect(headsUp.value).toBe('Trending over budget this month');
+        expect(headsUp.insight).toBe("At your current pace, you're on track to spend more than your budget this month.");
+    });
+
+    test('a severe forecast warning takes priority over a spending spike, matching the action-box priority', () => {
+        const data = baseData({
+            risk_flags: [
+                { type: 'spending_spike', category: 'Dining', title: 'spike title', description: 'spike description' },
+                { type: 'forecast_budget_warning', over_pct: 35, title: 'forecast title', description: 'forecast description' },
+            ],
+        });
+        const headsUp = findPoint(buildDailyBriefPoints(data), 'heads_up');
+        expect(headsUp.value).toBe('Trending over budget this month');
     });
 });
 
 describe('buildDailyBriefPoints — today_status', () => {
     test('reads "left today" when running under budget', () => {
         const todayStatus = findPoint(buildDailyBriefPoints(baseData()), 'today_status');
-        expect(todayStatus.label).toBe('Today');
+        expect(todayStatus.label).toBe('Budget');
         expect(todayStatus.value).toBe('₹938 left today');
         expect(todayStatus.insight).toBe('Running ₹938 under your ₹2,204/day budget');
     });

@@ -1541,6 +1541,32 @@ const trendFor = (delta, baseline) => ({
     pct: baseline > 0 ? Math.round((delta / baseline) * 100) : null,
 });
 
+// Chip text needs its own plain-language phrasing -- topRisk.title/description
+// are written for the Opportunities page and contain "%"/"trailing average"
+// wording, which is exactly what this feature's narrative prompt was rewritten
+// to avoid. Reusing them verbatim in the always-visible "Heads up" chip would
+// undo that work in the most visible place on the card.
+function plainRiskChip(flag) {
+    if (!flag) return { value: 'Nothing urgent', insight: 'No spending or budget risks detected right now' };
+    if (flag.type === 'spending_spike') {
+        const category = flag.category || 'Spending';
+        return {
+            value: `${category} spend is higher than usual`,
+            insight: `${category} spend came in higher than your usual amount this month.`,
+        };
+    }
+    if (flag.type === 'forecast_budget_warning') {
+        return {
+            value: 'Trending over budget this month',
+            insight: "At your current pace, you're on track to spend more than your budget this month.",
+        };
+    }
+    // Only the two risk types above are ever produced by detectSpendingSpike/
+    // detectForecastWarning today -- this fallback exists so a future new risk
+    // type degrades to its raw title/description instead of crashing.
+    return { value: flag.title, insight: flag.description };
+}
+
 function buildDailyBriefPoints(data) {
     const { yesterday, today_so_far, bills_due_soon, pace, logging_streak, top_opportunities, comparisons, risk_flags } = data;
 
@@ -1548,7 +1574,15 @@ function buildDailyBriefPoints(data) {
     const paceDirection = paceDelta === null ? null : paceDelta <= 0 ? 'under' : 'over';
 
     const topOpportunity = top_opportunities[0] || null;
-    const topRisk = risk_flags[0] || null;
+    // Same severity priority as rankActionCandidates() below: a severe forecast
+    // warning always outranks a spending spike, which outranks a moderate
+    // forecast warning. Keeps the "Heads up" chip and the action-of-the-day box
+    // from disagreeing about which risk is the more important one when both a
+    // spike and a forecast warning are active at the same time.
+    const severeForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct >= 30);
+    const moderateForecast = risk_flags.find(f => f.type === 'forecast_budget_warning' && f.over_pct < 30);
+    const spike = risk_flags.find(f => f.type === 'spending_spike');
+    const topRisk = severeForecast || spike || moderateForecast || null;
     const { vs_same_weekday_last_week: sameWeekday, week_to_date_vs_prior_week: weekPace, month_to_date_vs_trailing_avg: monthTrend } = comparisons;
 
     const points = [
@@ -1645,7 +1679,7 @@ function buildDailyBriefPoints(data) {
         // computed earlier in this function; no new calculation.
         {
             key: 'today_status',
-            label: 'Today',
+            label: 'Budget',
             value: paceDirection === null
                 ? 'Add income to see your daily budget'
                 : paceDirection === 'under'
@@ -1661,14 +1695,15 @@ function buildDailyBriefPoints(data) {
             key: 'heads_up',
             label: 'Heads up',
             // Bills win over risk flags -- a due bill is a concrete near-term
-            // obligation, a risk flag is a pattern observation. Only one shows
-            // at a time so this stays a single glanceable chip.
+            // obligation, a risk flag is a pattern observation. Risk-flag
+            // wording goes through plainRiskChip() rather than topRisk.title/
+            // description verbatim -- see the comment on plainRiskChip.
             value: bills_due_soon.count > 0
                 ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due (${inr(bills_due_soon.total)})`
-                : topRisk ? topRisk.title : 'Nothing urgent',
+                : plainRiskChip(topRisk).value,
             insight: bills_due_soon.count > 0
                 ? `${bills_due_soon.count} bill${bills_due_soon.count !== 1 ? 's' : ''} due in the next 2 days`
-                : topRisk ? topRisk.description : 'No spending or budget risks detected right now',
+                : plainRiskChip(topRisk).insight,
         },
     ];
 
