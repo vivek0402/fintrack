@@ -139,18 +139,40 @@ const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
 
 ### 3. Call sites — replace `tx.category_icon || '💳'`
 
-Four files currently render the static fallback pattern directly:
+Corrected after deeper code reading (the original draft over-matched on a
+`category_icon` grep without checking what each usage actually represents):
 
-| File | Current | New |
+| File | Applies? | Why |
 |---|---|---|
-| `frontend/app/dashboard/page.tsx` | `tx.category_icon \|\| '💳'` | `getSmartIcon(tx.description, tx.category_name, tx.category_icon)` |
-| `frontend/app/transactions/page.tsx` | (same pattern) | same replacement |
-| `frontend/app/budgets/page.tsx` | (same pattern) | same replacement |
-| `frontend/components/ui/TransactionRow.tsx` | (same pattern) | same replacement |
+| `frontend/app/dashboard/page.tsx` | Yes | Recent Transactions list — one icon per transaction, `tx.category_icon \|\| '💳'` |
+| `frontend/app/transactions/page.tsx` | Yes | Main transaction list — per-transaction icon, with a trend-arrow fallback when there's no `category_icon` at all (see below) |
+| `frontend/app/budgets/page.tsx` | **No** | `category_icon` here is on a *budget card* (one per category), not a transaction — there's no single transaction description to match against. Out of scope. |
+| `frontend/components/ui/TransactionRow.tsx` | **No** | Not imported anywhere in the app (confirmed via repo-wide search) — dead code. Out of scope; not worth fixing a component nobody renders. |
 
-Each site already has `tx.description` and `tx.category_name` available
-(both already returned by the backend's transaction list queries — no API
-change). Import `getSmartIcon` from `@/lib/utils` in each file.
+Both real call sites already have `tx.description` and `tx.category_name`
+available (already returned by the backend's transaction list queries — no
+API change). Import `getSmartIcon` from `@/lib/utils` in each file.
+
+**`transactions/page.tsx` has a different fallback shape than dashboard's
+`tx.category_icon || '💳'`** — it shows a trend arrow (▲/▼) instead of 💳
+when there's no category icon at all:
+
+```tsx
+{tx.category_icon
+    ? <span style={{ fontSize: '16px' }}>{tx.category_icon}</span>
+    : isInc
+        ? <TrendingUp  size={14} color="var(--color-inc)" />
+        : <TrendingDown size={14} color="var(--color-exp)" />
+}
+```
+
+Only the *inside* of the truthy branch changes (`tx.category_icon` →
+`getSmartIcon(...)`); the trend-arrow fallback for transactions with no
+category at all stays exactly as-is. This is a deliberate exception to
+"getSmartIcon always returns a string, including a 💳 fallback" — at this
+one call site, `getSmartIcon` is only invoked when `category_icon` is
+already known truthy, so its own internal 💳 fallback never actually
+triggers there.
 
 ---
 
@@ -181,7 +203,12 @@ change). Import `getSmartIcon` from `@/lib/utils` in each file.
   category and no categoryIcon falls back to `💳`, case-insensitivity,
   cross-category ambiguity resolved correctly (e.g. "Apple Store" in
   Shopping vs "apple" nowhere in the Food & Dining table).
-- No existing test coverage exists for the 4 call-site files (no component
+- No existing test coverage exists for the 2 call-site files (no component
   test harness for this codebase's frontend, consistent with prior work on
   this project) — verified via `tsc --noEmit` plus a manual visual check,
   same convention as previous frontend-only changes in this project.
+- No test runner (Jest/Vitest/etc.) is configured for the frontend at all
+  — confirmed via `package.json` and a repo search. Setting one up is out
+  of scope for this feature; `getSmartIcon()` is verified via a disposable
+  Node scratch script during implementation (see the plan), not a
+  permanent test file.
