@@ -1738,11 +1738,19 @@ async function generateDailyBriefing(userId, { sendPush = true, db = pool } = {}
         const watchLines = data.risk_flags.map(f => `- ${f.title}`).join('\n');
         const opportunityLine = data.top_opportunities[0]?.description || null;
 
-        const prompt = `You are a friendly financial advisor writing a very short daily briefing for an Indian personal finance app user.
-Based on the sections below, write a warm, encouraging 2-3 sentence narrative about their day.
+        const prompt = `You are texting a friend a quick, warm update about their spending today -- not writing a financial report.
+Based on the sections below, write 2-3 short sentences about their day.
 Weave together at most one TRENDS item and one WATCH FOR item into a single connected observation -- do not enumerate every input.
 If WATCH FOR is empty, find something in TRENDS to praise instead of inventing a problem.
-Be specific and reference the numbers naturally. No markdown, no headings, no bullet points in your reply — just plain prose.
+
+Plain-language rules -- follow these strictly:
+- At most ONE number per sentence. If a sentence would need two numbers, cut it to the one that matters most.
+- Never use "%", "vs.", "trailing average", or "N-month average" -- say "more than usual" or "your usual rent" instead of the exact percentage.
+- Never use analyst phrasing: no "echoing", no "same N-day stretch", no semicolons, no clause-stacking.
+- Round rupee amounts to whole numbers in prose (₹938, not ₹938.00).
+- Write like you're telling a friend, not summarizing a dashboard.
+
+No markdown, no headings, no bullet points in your reply — just plain prose.
 Do not mention logging streaks, habits, or consistency — focus only on the spending, bill, and trend data below.
 Keep it to ${NARRATIVE_WORD_LIMIT} words or fewer.
 
@@ -1754,7 +1762,7 @@ ${trendLines}
 ${watchLines ? `\nWATCH FOR:\n${watchLines}` : ''}
 ${opportunityLine ? `\nOPPORTUNITY:\n${opportunityLine}` : ''}
 
-Reminder: keep your reply to ${NARRATIVE_WORD_LIMIT} words or fewer.`;
+Reminder: keep your reply to ${NARRATIVE_WORD_LIMIT} words or fewer, at most one number per sentence, no percentages.`;
 
         try {
             narrative = (await aiComplete('daily-briefing', [{ role: 'user', content: prompt }])).trim();
