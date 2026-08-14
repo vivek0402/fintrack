@@ -142,3 +142,91 @@ export async function exportToCSV(transactions: any[], filename: string) {
     link.click();
     document.body.removeChild(link);
 }
+
+// Per-category keyword → emoji tables for getSmartIcon(). Keyed by the exact
+// category names FinTrack seeds by default (DEFAULT_CATEGORIES in
+// backend/src/routes/auth.js). A user-created category with a name not in
+// this table simply has no keyword table -- getSmartIcon falls back to
+// categoryIcon for it, which is correct (there's no way to pre-populate
+// keywords for a category name we don't know about in advance).
+const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
+  'Food & Dining': [
+    ['pizza', '🍕'], ['coffee', '☕'], ['cafe', '☕'], ['tea', '🍵'],
+    ['burger', '🍔'], ['biryani', '🍛'], ['sweet', '🍬'], ['ice cream', '🍦'],
+    ['bakery', '🥐'], ['zomato', '🛵'], ['swiggy', '🛵'], ['grocery', '🛒'],
+    ['groceries', '🛒'], ['milk', '🥛'], ['restaurant', '🍽️'], ['breakfast', '🍳'],
+  ],
+  'Transportation': [
+    ['uber', '🚕'], ['ola', '🚕'], ['cab', '🚕'], ['taxi', '🚕'],
+    ['petrol', '⛽'], ['fuel', '⛽'], ['diesel', '⛽'], ['metro', '🚇'],
+    ['train', '🚆'], ['bus', '🚌'], ['parking', '🅿️'], ['auto', '🛺'],
+  ],
+  'Shopping': [
+    ['amazon', '📦'], ['flipkart', '📦'], ['myntra', '👕'], ['clothes', '👕'],
+    ['shirt', '👕'], ['shoes', '👟'], ['phone', '📱'], ['laptop', '💻'],
+    ['furniture', '🛋️'],
+  ],
+  'Entertainment': [
+    ['movie', '🎬'], ['cinema', '🎬'], ['netflix', '📺'], ['prime video', '📺'],
+    ['hotstar', '📺'], ['spotify', '🎵'], ['game', '🎮'], ['concert', '🎤'],
+  ],
+  'Healthcare': [
+    ['doctor', '🏥'], ['hospital', '🏥'], ['medicine', '💊'], ['pharmacy', '💊'],
+    ['dentist', '🦷'], ['gym', '🏋️'], ['fitness', '🏋️'],
+  ],
+  'Education': [
+    ['course', '📚'], ['tuition', '🎓'], ['book', '📖'], ['exam', '📝'],
+  ],
+  'Utilities': [
+    ['electricity', '⚡'], ['power bill', '⚡'], ['water bill', '💧'],
+    ['wifi', '📶'], ['internet', '📶'], ['recharge', '📱'], ['gas cylinder', '🔥'],
+  ],
+  'Rent & Housing': [
+    ['rent', '🏠'], ['maintenance', '🔧'], ['deposit', '🏦'],
+  ],
+  'Salary': [
+    ['salary', '💰'], ['bonus', '🎁'], ['freelance', '💼'],
+  ],
+  'Investments': [
+    ['mutual fund', '📈'], ['sip', '📈'], ['stock', '📈'], ['gold', '🪙'],
+    ['fixed deposit', '🏦'], ['fd', '🏦'],
+  ],
+  'Personal Care': [
+    ['salon', '💇'], ['haircut', '💇'], ['spa', '🧖'], ['cosmetics', '💄'],
+  ],
+  'Family & Kids': [
+    ['school fee', '🎒'], ['toy', '🧸'], ['daycare', '🍼'],
+  ],
+  'Travel': [
+    ['flight', '✈️'], ['hotel', '🏨'], ['airbnb', '🏨'], ['booking.com', '🏨'],
+  ],
+  'Subscriptions': [
+    ['netflix', '📺'], ['spotify', '🎵'], ['prime', '📦'], ['apple', '📱'],
+    ['icloud', '📱'], ['youtube', '📺'],
+  ],
+  'Gifts & Donations': [
+    ['gift', '🎁'], ['donation', '❤️'], ['charity', '❤️'],
+  ],
+};
+
+// Picks a per-transaction icon from its description, scoped to its own
+// category to avoid cross-category ambiguity (e.g. "Apple" means 🍎 in
+// Food & Dining but 📱 in Shopping/Subscriptions). Falls back to the
+// category's static icon, then to a generic card icon -- same fallback
+// chain every call site already used before this function existed.
+export function getSmartIcon(
+  description: string | null | undefined,
+  categoryName: string | null | undefined,
+  categoryIcon: string | null | undefined
+): string {
+  const desc = (description || '').toLowerCase();
+  const table = categoryName ? CATEGORY_KEYWORD_ICONS[categoryName] : null;
+
+  if (table) {
+    for (const [keyword, icon] of table) {
+      if (desc.includes(keyword)) return icon;
+    }
+  }
+
+  return categoryIcon || '💳';
+}
