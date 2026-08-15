@@ -170,6 +170,26 @@ function TransactionsPageInner() {
         }
     }, [selectedMonth]);
 
+    // ── List view month navigation ────────────────────────────────────────────
+    // selectedMonth is 1-indexed (getNowMonth() is `new Date().getMonth() + 1`),
+    // unlike CalendarView's own 0-indexed currentMonth -- these are two
+    // separate pieces of state, List and Calendar views don't share a month.
+    const prevMonthList = useCallback(() => {
+        setSelectedMonth(m => {
+            const current = m ?? getNowMonth();
+            if (current === 1) { setSelectedYear(y => y - 1); return 12; }
+            return current - 1;
+        });
+    }, []);
+
+    const nextMonthList = useCallback(() => {
+        setSelectedMonth(m => {
+            const current = m ?? getNowMonth();
+            if (current === 12) { setSelectedYear(y => y + 1); return 1; }
+            return current + 1;
+        });
+    }, []);
+
     const totalIncome  = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const visibleTransactions = filtered.slice(0, displayCount);
@@ -236,15 +256,29 @@ function TransactionsPageInner() {
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>
                                 Transactions
                             </h1>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                {view === 'list'
-                                    ? <>{selectedMonth
-                                        ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}`
-                                        : 'All time'
-                                    } · {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</>
-                                    : 'Transaction timeline'
-                                }
-                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                    {view === 'list'
+                                        ? <>{selectedMonth
+                                            ? `${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'short' })} ${selectedYear}`
+                                            : 'All time'
+                                        } · {filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</>
+                                        : 'Transaction timeline'
+                                    }
+                                </p>
+                                {view === 'list' && selectedMonth !== null && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <button type="button" onClick={prevMonthList} title="Previous month"
+                                            style={{ width: '20px', height: '20px', padding: 0, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ChevronLeft size={12} />
+                                        </button>
+                                        <button type="button" onClick={nextMonthList} title="Next month"
+                                            style={{ width: '20px', height: '20px', padding: 0, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <ChevronRight size={12} />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         {view === 'list' && (
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
