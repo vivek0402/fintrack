@@ -70,6 +70,11 @@ const CATEGORY_KEYWORD_ICONS = {
   ],
 };
 
+CATEGORY_KEYWORD_ICONS['Food'] = CATEGORY_KEYWORD_ICONS['Food & Dining'];
+CATEGORY_KEYWORD_ICONS['Rent'] = CATEGORY_KEYWORD_ICONS['Rent & Housing'];
+CATEGORY_KEYWORD_ICONS['Transport'] = CATEGORY_KEYWORD_ICONS['Transportation'];
+CATEGORY_KEYWORD_ICONS['Health'] = CATEGORY_KEYWORD_ICONS['Healthcare'];
+
 function getSmartIcon(description, categoryName, categoryIcon) {
   const desc = (description || '').toLowerCase();
   const table = categoryName ? CATEGORY_KEYWORD_ICONS[categoryName] : null;
@@ -99,6 +104,14 @@ const cases = [
   ['Ola Auto ride',            'Transportation', '🚗', '🛺'],    // 'ola auto' still matches
   ['NEFT to FD account',       'Investments',    '📈', '📈'],    // bare 'fd' no longer matches
   ['SIP investment',           'Investments',    '📈', '📈'],    // 'sip' still matches
+
+  // Legacy global-category name aliases (001_initial_schema.sql accounts):
+  // description keyword must match even though the category is named "Food"
+  // instead of "Food & Dining", after migration 066 fixes the raw icon data.
+  ['Dinner + Tea',             'Food',           '🍽️', '🍵'],   // 'tea' matches via the 'Food' alias
+  ['Rice Bag',                 'Food',           '🍽️', '🍽️'],   // no keyword -> post-migration emoji, not 'utensils'
+  ['Train Tickets',            'Transport',      '🚗',  '🚆'],   // 'train' matches via the 'Transport' alias
+  ['Flight to Goa',            'Transport',      '🚗',  '🚗'],   // 'flight' lives under Travel, not Transport -- Transport alias points at Transportation's table, which has no 'flight' keyword
 ];
 
 let failures = 0;

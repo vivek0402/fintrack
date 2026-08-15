@@ -210,6 +210,18 @@ const CATEGORY_KEYWORD_ICONS: Record<string, Array<[string, string]>> = {
   ],
 };
 
+// Aliases for category names from the very first schema's global default
+// categories (001_initial_schema.sql: 'Food', 'Rent', 'Transport', 'Health'
+// -- seeded with user_id NULL, predating the richer per-user names above).
+// Accounts old enough to reference those original rows would otherwise get
+// zero keyword matching just because "Food" isn't the string "Food & Dining",
+// even though the same keywords apply. Point them at the same arrays instead
+// of duplicating them, so edits to one table apply to both spellings.
+CATEGORY_KEYWORD_ICONS['Food'] = CATEGORY_KEYWORD_ICONS['Food & Dining'];
+CATEGORY_KEYWORD_ICONS['Rent'] = CATEGORY_KEYWORD_ICONS['Rent & Housing'];
+CATEGORY_KEYWORD_ICONS['Transport'] = CATEGORY_KEYWORD_ICONS['Transportation'];
+CATEGORY_KEYWORD_ICONS['Health'] = CATEGORY_KEYWORD_ICONS['Healthcare'];
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
