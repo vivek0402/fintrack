@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Sparkles, CreditCard, Gauge, Calculator, TrendingDown, Snowflake, Mountain, Plus, Landmark, Wallet, Percent, Layers, Pencil, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { debtAPI, loanAPI } from '@/lib/api';
@@ -18,6 +18,8 @@ import { Tabs } from '@/components/ui/Tabs';
 import { toast } from '@/store/toastStore';
 import { Loan, AmortizationEntry, AmortizationSummary, LoanPrepayment, LOAN_TYPES, LOAN_TYPE_LABELS } from '@/types/loans';
 import { fmt } from '@/lib/utils';
+
+const CumulativeInterestChart = dynamic(() => import('@/components/debt-intelligence/CumulativeInterestChart').then(m => m.CumulativeInterestChart), { ssr: false, loading: () => <div style={{ height: 160, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> });
 
 const today = () => new Date().toISOString().split('T')[0];
 const PAGE_SIZE = 12;
@@ -838,18 +840,7 @@ function DebtIntelligencePageInner() {
                                                             {/* Cumulative interest chart */}
                                                             <div>
                                                                 <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Cumulative Interest</h4>
-                                                                <ResponsiveContainer width="100%" height={160}>
-                                                                    <LineChart data={chartData}>
-                                                                        <XAxis dataKey="month" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                                                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'K'} width={56} />
-                                                                        <Tooltip
-                                                                            formatter={(value: any) => fmt(Number(value))}
-                                                                            labelFormatter={(label: any) => `Month ${label}`}
-                                                                            contentStyle={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12, fontFamily: 'var(--font-body)' }}
-                                                                        />
-                                                                        <Line type="monotone" dataKey="cumulative_interest" stroke="var(--accent)" strokeWidth={2} dot={false} />
-                                                                    </LineChart>
-                                                                </ResponsiveContainer>
+                                                                <CumulativeInterestChart chartData={chartData} />
                                                             </div>
 
                                                             {/* Summary row */}

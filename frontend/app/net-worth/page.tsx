@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer, PieChart, Pie, Tooltip } from 'recharts';
+import dynamic from 'next/dynamic';
 import { Info, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
@@ -11,6 +11,12 @@ import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
 import { fmt } from '@/lib/utils';
+
+const chartSkeleton = (height: number) => () => <div style={{ height, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+
+const NetWorthAreaChart = dynamic(() => import('@/components/net-worth/NetWorthAreaChart').then(m => m.NetWorthAreaChart), { ssr: false, loading: chartSkeleton(220) });
+const VelocityBarChart = dynamic(() => import('@/components/net-worth/VelocityBarChart').then(m => m.VelocityBarChart), { ssr: false, loading: chartSkeleton(140) });
+const AllocationPieChart = dynamic(() => import('@/components/net-worth/AllocationPieChart').then(m => m.AllocationPieChart), { ssr: false, loading: chartSkeleton(180) });
 
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
@@ -83,28 +89,6 @@ const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Ico
     steady:            { label: 'Steady',           color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', Icon: Minus },
     insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--bg-surface-2)', Icon: Minus },
 };
-
-function CustomTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null;
-    const date = new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{date}</p>
-            <p style={{ color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{fmt(payload[0].value)}</p>
-        </div>
-    );
-}
-
-function VelocityTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null;
-    const date = new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{date}</p>
-            <p style={{ color: payload[0].value >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{fmtSigned(payload[0].value)}</p>
-        </div>
-    );
-}
 
 function NetWorthPageInner() {
     const router = useRouter();
@@ -247,20 +231,7 @@ function NetWorthPageInner() {
                                     </p>
                                 </div>
                             ) : (
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <AreaChart data={chartData}>
-                                        <defs>
-                                            <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.25} />
-                                                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis dataKey="date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                        <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'K'} width={56} />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#netWorthGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                <NetWorthAreaChart chartData={chartData} />
                             )}
                         </Card>
 
@@ -299,17 +270,7 @@ function NetWorthPageInner() {
 
                                     {allMomChanges.length >= 2 && (
                                         <div style={{ flex: '1 1 320px', minWidth: 240, height: 140 }}>
-                                            <ResponsiveContainer width="100%" height={140}>
-                                                <BarChart data={allMomChanges}>
-                                                    <XAxis dataKey="to_date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                                    <Tooltip content={<VelocityTooltip />} />
-                                                    <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} isAnimationActive={false}>
-                                                        {allMomChanges.map((d, i) => (
-                                                            <Cell key={i} fill={d.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
-                                                        ))}
-                                                    </Bar>
-                                                </BarChart>
-                                            </ResponsiveContainer>
+                                            <VelocityBarChart allMomChanges={allMomChanges} />
                                         </div>
                                     )}
                                 </div>
@@ -365,16 +326,7 @@ function NetWorthPageInner() {
                         <Card>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
                                 <div style={{ width: 180, height: 180, flexShrink: 0 }}>
-                                    <ResponsiveContainer width="100%" height={180}>
-                                        <PieChart>
-                                            <Pie data={allocations} dataKey="amount" nameKey="label" innerRadius={50} outerRadius={80} paddingAngle={2} isAnimationActive={false}>
-                                                {allocations.map((_, i) => (
-                                                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip formatter={(value: any) => fmt(Number(value))} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
+                                    <AllocationPieChart allocations={allocations} colors={CHART_COLORS} />
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                                     {allocations.map((a, i) => (

@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-    BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-    ReferenceLine, CartesianGrid, Cell,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
@@ -14,15 +11,12 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { AlertTriangle, ChevronDown, Wallet, TrendingUp, Landmark } from 'lucide-react';
 import { fmt } from '@/lib/utils';
 
-const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+const chartSkeleton = (height: number) => () => <div style={{ height, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
 
-const fmtAbbrev = (n: number) => {
-    const sign = n < 0 ? '-' : '';
-    const abs = Math.abs(n);
-    if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(1)}Cr`;
-    if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(1)}L`;
-    return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
-};
+const WaterfallChart = dynamic(() => import('@/components/cash-flow/WaterfallChart').then(m => m.WaterfallChart), { ssr: false, loading: chartSkeleton(260) });
+const RunningBalanceChart = dynamic(() => import('@/components/cash-flow/RunningBalanceChart').then(m => m.RunningBalanceChart), { ssr: false, loading: chartSkeleton(220) });
+
+const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
 const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
@@ -68,32 +62,6 @@ interface CashflowResult {
     fixed_monthly_outflows: number;
     recurring_outflows: number;
     loan_breakdown: LoanBreakdown[];
-}
-
-function WaterfallTooltip({ active, payload }: any) {
-    if (!active || !payload?.length) return null;
-    const d: CashflowMonth = payload[0].payload;
-    return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '10px 12px' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 6px', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)' }}>{d.month}</p>
-            <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Income: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_income)}</span></p>
-            <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Expenses: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_expenses)}</span></p>
-            <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Fixed outflows: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.fixed_outflows)}</span></p>
-            <p style={{ margin: '4px 0 0', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: d.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
-                Net: {fmtSigned(d.net_cashflow)}
-            </p>
-        </div>
-    );
-}
-
-function BalanceTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null;
-    return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '8px 12px' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontSize: 12, fontFamily: 'var(--font-body)' }}>{label}</p>
-            <p style={{ margin: 0, fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(payload[0].value)}</p>
-        </div>
-    );
 }
 
 export default function CashFlowPage() {
@@ -165,20 +133,7 @@ export default function CashFlowPage() {
                     <p style={sectionTitleSt}><TrendingUp size={16} /> Cash Flow Waterfall</p>
                     <p style={sectionSubSt}>Projected net cash flow for each of the next 12 months</p>
                     <div style={{ width: '100%', height: 260 }}>
-                        <ResponsiveContainer>
-                            <BarChart data={months}>
-                                <CartesianGrid vertical={false} stroke="var(--bg-border)" />
-                                <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} />
-                                <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={70} />
-                                <Tooltip content={<WaterfallTooltip />} />
-                                <ReferenceLine y={0} stroke="var(--bg-border-strong)" />
-                                <Bar dataKey="net_cashflow" name="Net Cash Flow" radius={[4, 4, 4, 4]} animationDuration={600}>
-                                    {months.map((m, i) => (
-                                        <Cell key={i} fill={m.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <WaterfallChart months={months} />
                     </div>
                 </Card>
 
@@ -189,16 +144,7 @@ export default function CashFlowPage() {
                         Cumulative surplus/deficit over the next 12 months — {balanceEnd >= balanceStart ? 'you end the year stronger' : 'you end the year weaker'}
                     </p>
                     <div style={{ width: '100%', height: 220 }}>
-                        <ResponsiveContainer>
-                            <LineChart data={months}>
-                                <CartesianGrid vertical={false} stroke="var(--bg-border)" />
-                                <XAxis dataKey="month" tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} />
-                                <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={70} />
-                                <Tooltip content={<BalanceTooltip />} />
-                                <ReferenceLine y={0} stroke="var(--bg-border-strong)" />
-                                <Line type="monotone" dataKey="running_balance" name="Running Balance" stroke={balanceLineColor} strokeWidth={1.5} dot={false} animationDuration={600} />
-                            </LineChart>
-                        </ResponsiveContainer>
+                        <RunningBalanceChart months={months} balanceLineColor={balanceLineColor} />
                     </div>
                 </Card>
 
