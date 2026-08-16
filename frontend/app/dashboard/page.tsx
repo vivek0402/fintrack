@@ -221,14 +221,15 @@ export default function DashboardPage() {
     const [healthDetailsOpen, setHealthDetailsOpen] = useState(false);
     const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
 
-    // Chart colours (read from CSS vars)
-    const [incColor, setIncColor] = useState('#059669');
-    const [expColor, setExpColor] = useState('#ea580c');
+    // Chart colours (read from CSS vars) -- initial/fallback values match
+    // DESIGN.md's --color-inc/--color-exp dark-theme (default) tokens.
+    const [incColor, setIncColor] = useState('#16a34a');
+    const [expColor, setExpColor] = useState('#dc2626');
 
     useEffect(() => {
         const s = getComputedStyle(document.documentElement);
-        setIncColor(s.getPropertyValue('--color-inc').trim() || '#059669');
-        setExpColor(s.getPropertyValue('--color-exp').trim() || '#ea580c');
+        setIncColor(s.getPropertyValue('--color-inc').trim() || '#16a34a');
+        setExpColor(s.getPropertyValue('--color-exp').trim() || '#dc2626');
     }, [theme]);
 
     // Animated numbers

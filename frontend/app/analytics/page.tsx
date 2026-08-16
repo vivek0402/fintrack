@@ -51,7 +51,11 @@ const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 // ── Chart colour state read from CSS custom properties at runtime ─────────────
 // This ensures charts update when the theme changes.
 type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; bgCard: string; };
-const DEFAULT_CC: ChartColors = { inc: '#059669', exp: '#ea580c', accent2: '#f97316', tint: '#fed7aa', border: '#e5e7eb', faint: '#94a3b8', bgCard: '#ffffff' };
+// Values mirror DESIGN.md's dark theme (default) tokens: --color-inc,
+// --accent (used for `exp`/`accent2` in this chart, not --color-exp -- see
+// readChartColors() below), --accent-subtle, --border-subtle, --text-muted,
+// --bg-surface-1. Only used for the brief pre-hydration/SSR window.
+const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#2563eb', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080', bgCard: '#111111' };
 function readChartColors(): ChartColors {
     if (typeof document === 'undefined') return DEFAULT_CC;
     const s = getComputedStyle(document.documentElement);

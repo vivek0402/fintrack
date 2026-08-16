@@ -264,7 +264,7 @@ export default function OnboardingPage() {
                                     iconColor: 'var(--accent)',
                                     previewBg: '#000000',
                                     previewCard: '#111111',
-                                    previewAccent: '#00e5a0',
+                                    previewAccent: '#2563eb',
                                 },
                                 {
                                     value: 'light' as const,
@@ -274,7 +274,7 @@ export default function OnboardingPage() {
                                     iconColor: 'var(--color-warn)',
                                     previewBg: '#f8f9fc',
                                     previewCard: '#ffffff',
-                                    previewAccent: '#059669',
+                                    previewAccent: '#2563eb',
                                 },
                             ].map(t => (
                                 <button key={t.value} type="button" onClick={() => handleThemeNext(t.value)}
