@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, SlidersHorizontal, Bookmark, Clock, ChevronDown, MoreHorizontal, Check } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Bookmark, Clock, ChevronDown, ChevronLeft, MoreHorizontal, Check } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { PanelFilters, DEFAULT_PANEL, applyAdvancedFilters, countActiveFilters } from '@/lib/transactionFilters';
@@ -49,6 +49,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     const [renameValue, setRenameValue]   = useState('');
     const [catOpen, setCatOpen]           = useState(false);
     const [mounted, setMounted]           = useState(false);
+    const [searchExpanded, setSearchExpanded] = useState(!!initialQuery.trim());
 
     const inputRef  = useRef<HTMLInputElement>(null);
     const panelRef  = useRef<HTMLDivElement>(null);
@@ -62,7 +63,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     }, []);
 
     // Re-apply when initialQuery changes (from URL param)
-    useEffect(() => { if (initialQuery) setInputValue(initialQuery); }, [initialQuery]);
+    useEffect(() => { if (initialQuery) { setInputValue(initialQuery); setSearchExpanded(true); } }, [initialQuery]);
 
     const allCategories = useMemo(() =>
         [...new Set(transactions.map((tx: any) => tx.category_name).filter(Boolean))].sort() as string[],
@@ -73,8 +74,20 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         [transactions]
     );
 
+    // Bounds for the amount-range slider, derived from whatever's loaded.
+    const amountBounds = useMemo(() => {
+        const amounts = transactions.map((t: any) => parseFloat(t.amount)).filter((n: number) => !isNaN(n) && isFinite(n));
+        if (!amounts.length) return { min: 0, max: 10000 };
+        const min = Math.floor(Math.min(...amounts));
+        const max = Math.ceil(Math.max(...amounts));
+        return { min, max: max > min ? max : min + 1000 };
+    }, [transactions]);
+    const sliderMin = panel.amountMin !== '' ? Math.max(amountBounds.min, parseFloat(panel.amountMin)) : amountBounds.min;
+    const sliderMax = panel.amountMax !== '' ? Math.min(amountBounds.max, parseFloat(panel.amountMax)) : amountBounds.max;
+    const boundsSpan = amountBounds.max - amountBounds.min || 1;
+    const pctOf = (v: number) => ((v - amountBounds.min) / boundsSpan) * 100;
+
     const activeFilterCount = useMemo(() => countActiveFilters(inputValue, panel), [inputValue, panel]);
-    const isAnyFilterActive = activeFilterCount > 0;
 
     // Apply filters on every change
     useEffect(() => {
@@ -118,7 +131,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     }, []);
 
     const handleInputBlur = useCallback(() => {
-        setTimeout(() => setHistoryOpen(false), 160);
+        setTimeout(() => { setHistoryOpen(false); if (!inputValue.trim()) setSearchExpanded(false); }, 160);
         if (inputValue.trim()) saveToHistory(inputValue);
     }, [inputValue, saveToHistory]);
 
@@ -156,6 +169,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
     // Active summary chips
     const summaryChips: { label: string; onRemove: () => void }[] = [];
+    if (inputValue.trim()) summaryChips.push({ label: `"${inputValue.trim()}"`, onRemove: () => { setInputValue(''); setSearchExpanded(false); } });
     if (panel.type !== 'all') summaryChips.push({ label: panel.type === 'income' ? '↑ Income' : '↓ Expense', onRemove: () => setPanel(p => ({ ...p, type: 'all' })) });
     if (panel.dateMode !== 'default') summaryChips.push({
         label: panel.dateMode === 'all' ? 'All time' : `${panel.dateFrom || '?'}–${panel.dateTo || '?'}`,
@@ -201,17 +215,39 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
             {/* Amount & Type */}
             <div>
-                <label style={labelS}>Amount &amp; Type</label>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                    {[['amountMin', 'Min ₹'], ['amountMax', 'Max ₹']].map(([key, ph]) => (
-                        <input key={key} type="number" placeholder={ph}
-                            value={(panel as any)[key]}
-                            onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
-                            style={{ ...inputS, width: '120px', flex: 'none', boxSizing: 'border-box' as const }}
-                            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
-                    ))}
+                <label style={labelS}>Amount Range</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 600, marginBottom: '10px' }}>
+                    <span>₹{Math.round(sliderMin).toLocaleString('en-IN')}</span>
+                    <span>₹{Math.round(sliderMax).toLocaleString('en-IN')}</span>
                 </div>
+                <div style={{ position: 'relative', height: '28px', marginBottom: '12px' }}>
+                    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: 'var(--bg-surface-2)', borderRadius: '2px', transform: 'translateY(-50%)' }} />
+                    <div style={{ position: 'absolute', top: '50%', height: '4px', background: 'var(--accent)', borderRadius: '2px', transform: 'translateY(-50%)', left: `${pctOf(sliderMin)}%`, right: `${100 - pctOf(sliderMax)}%` }} />
+                    <input type="range" className="fintrack-range-thumb" min={amountBounds.min} max={amountBounds.max}
+                        value={sliderMin}
+                        onChange={e => setPanel(p => ({ ...p, amountMin: String(Math.min(parseFloat(e.target.value), sliderMax)) }))}
+                        style={{ position: 'absolute', width: '100%', height: '28px', top: 0, left: 0, margin: 0, background: 'transparent' }} />
+                    <input type="range" className="fintrack-range-thumb" min={amountBounds.min} max={amountBounds.max}
+                        value={sliderMax}
+                        onChange={e => setPanel(p => ({ ...p, amountMax: String(Math.max(parseFloat(e.target.value), sliderMin)) }))}
+                        style={{ position: 'absolute', width: '100%', height: '28px', top: 0, left: 0, margin: 0, background: 'transparent' }} />
+                </div>
+                <style>{`
+                    .fintrack-range-thumb { -webkit-appearance: none; appearance: none; pointer-events: none; }
+                    .fintrack-range-thumb::-webkit-slider-runnable-track { background: transparent; }
+                    .fintrack-range-thumb::-moz-range-track { background: transparent; }
+                    .fintrack-range-thumb::-webkit-slider-thumb {
+                        -webkit-appearance: none; appearance: none; pointer-events: auto;
+                        width: 20px; height: 20px; border-radius: 50%;
+                        background: var(--accent); border: 2px solid var(--bg-surface-1);
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: pointer; margin-top: 0;
+                    }
+                    .fintrack-range-thumb::-moz-range-thumb {
+                        pointer-events: auto; width: 20px; height: 20px; border-radius: 50%;
+                        background: var(--accent); border: 2px solid var(--bg-surface-1);
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.35); cursor: pointer;
+                    }
+                `}</style>
                 <div style={{ display: 'flex', gap: '6px' }}>
                     {(['all', 'income', 'expense'] as const).map(t => (
                         <button key={t} type="button" onClick={() => setPanel(p => ({ ...p, type: t }))} style={pillS(panel.type === t)}>
@@ -357,65 +393,83 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
             {/* ── Search input + dropdown overlays (position:relative anchors them) ── */}
             <div style={{ position: 'relative' }}>
 
-            {/* ── Search input ──────────────────────────────────────────────────── */}
-            <div
-                style={{
-                    position: 'relative',
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    padding: '6px 44px 6px 36px',
-                    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)', minHeight: '52px', cursor: 'text',
-                    transition: 'border-color var(--transition-fast)',
-                }}
-                onClick={() => inputRef.current?.focus()}
-            >
-                <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            {/* ── Search icon (collapsed) / search input (expanded) + filter icon ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputValue}
-                    onChange={e => setInputValue(e.target.value)}
-                    placeholder="Search description, category, notes, tags…"
-                    onFocus={() => { if (!inputValue.trim()) setHistoryOpen(true); }}
-                    onBlur={handleInputBlur}
-                    style={{
-                        flex: 1, minWidth: '120px', background: 'transparent',
-                        border: 'none', outline: 'none', color: 'var(--text-primary)',
-                        fontSize: '14px', fontFamily: 'var(--font-body)', padding: '2px 0',
-                    }}
-                />
-
-                <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: '2px', alignItems: 'center' }}>
-                    {isAnyFilterActive && (
-                        <button type="button" onClick={clearAll}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
-                            <X size={14} />
-                        </button>
-                    )}
-                    <button type="button" onClick={() => setPanelOpen(o => !o)} title="Filters"
+                {!searchExpanded ? (
+                    <button type="button" onClick={() => { setSearchExpanded(true); setTimeout(() => inputRef.current?.focus(), 30); }}
+                        title="Search"
                         style={{
-                            position: 'relative',
-                            background: panelOpen ? 'var(--accent-subtle)' : 'none',
-                            border: 'none', cursor: 'pointer',
-                            color: panelOpen ? 'var(--accent)' : 'var(--text-muted)',
-                            display: 'flex', padding: '4px', borderRadius: '6px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: '48px', height: '48px', flexShrink: 0,
+                            background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                            color: inputValue.trim() ? 'var(--accent)' : 'var(--text-muted)',
                             transition: 'all var(--transition-fast)',
                         }}>
-                        <SlidersHorizontal size={15} />
-                        {activeFilterCount > 0 && (
-                            <span style={{
-                                position: 'absolute', top: '-4px', right: '-4px',
-                                minWidth: '14px', height: '14px', padding: '0 3px',
-                                borderRadius: '999px', background: 'var(--accent)', color: 'white',
-                                fontSize: '9px', fontWeight: 700, fontFamily: 'var(--font-body)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                {activeFilterCount}
-                            </span>
-                        )}
+                        <Search size={18} />
                     </button>
-                </div>
+                ) : (
+                    <div
+                        style={{
+                            position: 'relative', flex: 1,
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '6px 12px 6px 6px',
+                            background: 'var(--bg-surface-1)', border: '1px solid var(--accent)',
+                            borderRadius: 'var(--radius-md)', minHeight: '48px',
+                        }}
+                    >
+                        <button type="button" onClick={() => setSearchExpanded(false)} title="Back"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', flexShrink: 0, background: 'none', border: 'none', borderRadius: '8px', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                            <ChevronLeft size={18} />
+                        </button>
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={inputValue}
+                            onChange={e => setInputValue(e.target.value)}
+                            placeholder="Search description, category, notes, tags…"
+                            onFocus={() => { if (!inputValue.trim()) setHistoryOpen(true); }}
+                            onBlur={handleInputBlur}
+                            style={{
+                                flex: 1, minWidth: 0, background: 'transparent',
+                                border: 'none', outline: 'none', color: 'var(--text-primary)',
+                                fontSize: '14px', fontFamily: 'var(--font-body)', padding: '2px 0',
+                            }}
+                        />
+                        {inputValue && (
+                            <button type="button" onClick={() => setInputValue('')}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px', flexShrink: 0 }}>
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                <button type="button" onClick={() => setPanelOpen(o => !o)} title="Filters"
+                    style={{
+                        position: 'relative', flexShrink: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: '48px', height: '48px',
+                        background: panelOpen ? 'var(--accent-subtle)' : 'var(--bg-surface-1)',
+                        border: `1px solid ${panelOpen ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
+                        color: panelOpen ? 'var(--accent)' : 'var(--text-muted)',
+                        borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                        transition: 'all var(--transition-fast)', marginLeft: searchExpanded ? 0 : 'auto',
+                    }}>
+                    <SlidersHorizontal size={18} />
+                    {activeFilterCount > 0 && (
+                        <span style={{
+                            position: 'absolute', top: '-4px', right: '-4px',
+                            minWidth: '16px', height: '16px', padding: '0 3px',
+                            borderRadius: '999px', background: 'var(--accent)', color: 'white',
+                            fontSize: '10px', fontWeight: 700, fontFamily: 'var(--font-body)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            {activeFilterCount}
+                        </span>
+                    )}
+                </button>
             </div>
 
             {/* ── Search history dropdown ───────────────────────────────────────── */}
