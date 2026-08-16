@@ -227,7 +227,7 @@ Every component uses CSS variables only — no hardcoded hex values.
 | `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon |
 | `Card` | `components/ui/Card.tsx` | `--bg-surface-1` container with optional hover lift |
 | `StatTile` | `components/ui/StatTile.tsx` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
-| `TransactionRow` | `components/ui/TransactionRow.tsx` | Swipe-left to delete (mobile), hover-edit (desktop) |
+| `TransactionList` | `components/transactions/TransactionList.tsx` | Swipe-left to delete (mobile), hover-edit (desktop) |
 | `EmptyState` | `components/ui/EmptyState.tsx` | Standardised empty state: Lucide icon, title, optional CTA |
 | `Modal` | `components/ui/Modal.tsx` | `createPortal(content, document.body)` — always at body root |
 | `Skeleton` / `SkeletonCard` | `components/ui/Skeleton.tsx` | Shimmer loading — replaces all spinners |

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, MoreHorizontal, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, MoreHorizontal, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, SearchX } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI, accountsAPI, creditCardsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
@@ -18,6 +18,7 @@ import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
 import { BankStatementImporter } from '@/components/transactions/BankStatementImporter';
 import { SmsImporter } from '@/components/transactions/SmsImporter';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
 import { exportToCSV, formatCurrency, fmt as fmtBase, getSmartIcon, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
@@ -433,12 +434,11 @@ function TransactionsPageInner() {
                             ))}
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                            <p style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</p>
-                            <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                No transactions match your filters.
-                            </p>
-                        </div>
+                        <EmptyState
+                            icon={SearchX}
+                            title="No matches"
+                            subtitle="No transactions match your current search and filters."
+                        />
                     ) : (
                         <TransactionList
                             transactions={visibleTransactions}

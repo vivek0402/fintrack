@@ -28,7 +28,7 @@ export function EmptyState({ icon: Icon, title, subtitle, action }: EmptyStatePr
                 />
             </div>
             <p style={{
-                fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
+                fontFamily: 'var(--font-display)',
                 fontSize: '16px',
                 fontWeight: 600,
                 color: 'var(--text-primary)',
@@ -37,7 +37,7 @@ export function EmptyState({ icon: Icon, title, subtitle, action }: EmptyStatePr
                 {title}
             </p>
             <p style={{
-                fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                fontFamily: 'var(--font-body)',
                 fontSize: '13px',
                 fontWeight: 400,
                 color: 'var(--text-secondary)',

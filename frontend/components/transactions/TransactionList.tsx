@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Pencil, Trash2, TrendingUp, TrendingDown, ReceiptText } from 'lucide-react';
+import { Pencil, Trash2, ReceiptText } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
-import { formatCurrency, formatDate, getCategoryColor, getCategoryBg } from '@/lib/utils';
+import { formatCurrency, formatDate, getCategoryColor, getCategoryBg, getSmartIcon } from '@/lib/utils';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -146,13 +146,17 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     </div>
                                 ) : (
                                     <div style={{
-                                        width: 10,
-                                        height: 10,
+                                        width: 36,
+                                        height: 36,
                                         borderRadius: '50%',
-                                        backgroundColor: categoryColor,
+                                        background: getCategoryBg(tx.category_name),
                                         flexShrink: 0,
                                         marginRight: 12,
-                                    }} />
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '16px',
+                                    }}>
+                                        {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
+                                    </div>
                                 )}
 
                                 {/* Left: description + category */}
@@ -209,8 +213,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     </div>
                                 )}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: getCategoryBg(tx.category_name), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {isIncome ? <TrendingUp size={15} color="var(--color-inc)" /> : <TrendingDown size={15} color="var(--color-exp)" />}
+                                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: getCategoryBg(tx.category_name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px' }}>
+                                        {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
                                     </div>
                                     <div style={{ minWidth: 0 }}>
                                         <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
