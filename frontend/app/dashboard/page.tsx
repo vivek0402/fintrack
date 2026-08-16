@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
@@ -16,12 +17,21 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { calculateHealthScore } from '@/lib/healthScore';
-import { NetWorthWidget } from '@/components/dashboard/NetWorthWidget';
-import { WealthVelocityWidget } from '@/components/dashboard/WealthVelocityWidget';
-import { AssetAllocationWidget } from '@/components/dashboard/AssetAllocationWidget';
-import { CreditUtilizationWidget } from '@/components/dashboard/CreditUtilizationWidget';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
+
+// Lazy-loaded: each of these pulls in recharts, same pattern as
+// app/analytics/page.tsx's dynamic imports -- keeps recharts out of the
+// dashboard's initial bundle until these widgets actually render.
+const vizSkeleton = (h: number) => {
+    const VizSkeleton = () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+    VizSkeleton.displayName = 'VizSkeleton';
+    return VizSkeleton;
+};
+const NetWorthWidget = dynamic(() => import('@/components/dashboard/NetWorthWidget').then(m => m.NetWorthWidget), { ssr: false, loading: vizSkeleton(120) });
+const WealthVelocityWidget = dynamic(() => import('@/components/dashboard/WealthVelocityWidget').then(m => m.WealthVelocityWidget), { ssr: false, loading: vizSkeleton(120) });
+const AssetAllocationWidget = dynamic(() => import('@/components/dashboard/AssetAllocationWidget').then(m => m.AssetAllocationWidget), { ssr: false, loading: vizSkeleton(120) });
+const CreditUtilizationWidget = dynamic(() => import('@/components/dashboard/CreditUtilizationWidget').then(m => m.CreditUtilizationWidget), { ssr: false, loading: vizSkeleton(120) });
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
