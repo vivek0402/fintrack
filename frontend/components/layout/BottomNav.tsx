@@ -9,6 +9,7 @@ import {
     Waves,
     Flame, GitBranch, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
+    FileText, Award, Brain,
 } from 'lucide-react';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 
@@ -27,6 +28,9 @@ const moreGroups = [
             { href: '/budgets',   icon: Target,    label: 'Budgets' },
             { href: '/net-worth', icon: LineChart, label: 'Net Worth' },
             { href: '/cash-flow', icon: Waves,     label: 'Cash Flow' },
+            { href: '/reports',     icon: FileText, label: 'Reports' },
+            { href: '/year-review', icon: Award,    label: 'Year Review' },
+            { href: '/personality', icon: Brain,    label: 'Personality' },
         ],
     },
     {

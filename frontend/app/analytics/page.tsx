@@ -40,10 +40,13 @@ import { exportToCSV, formatCurrency, formatDate, fmt } from '@/lib/utils';
 const OUTER_TABS = [
     { key: 'overview', label: 'Overview' },
     { key: 'insights', label: 'Insights' },
-    { key: 'reports', label: 'Reports' },
-    { key: 'year-review', label: 'Year Review' },
-    { key: 'personality', label: 'Personality' },
 ];
+// Reports/Year Review/Personality no longer show as pills on this page --
+// they're reached via the bottom-nav More sheet (app/reports, /year-review,
+// /personality redirect into ?tab=<key> here) -- but still need to validate
+// as a real tab so those deep links keep landing on the right content.
+const EXTRA_TABS = ['reports', 'year-review', 'personality'];
+const ALL_TAB_KEYS = [...OUTER_TABS.map(t => t.key), ...EXTRA_TABS];
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1284,7 +1287,7 @@ const QUICK_RANGES = [
 
 const reportsCardSt: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: '16px' };
 
-function ReportsTab() {
+function ReportsTab({ onBack }: { onBack: () => void }) {
     const isMobile = useIsMobile();
     const today = new Date().toISOString().split('T')[0];
     const firstOfMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
@@ -1320,6 +1323,10 @@ function ReportsTab() {
     return (
         <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                <button type="button" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)' }}>
+                    <ChevronLeft size={14} /> Back
+                </button>
 
                 {/* Header */}
                 <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
@@ -1617,7 +1624,7 @@ function useCountUp(target: number, duration = 1400, enabled = true) {
     return val;
 }
 
-function YearReviewTab() {
+function YearReviewTab({ onBack }: { onBack: () => void }) {
     const { user } = useAuthStore();
     const cardRef = useRef<HTMLDivElement>(null);
 
@@ -1712,6 +1719,10 @@ function YearReviewTab() {
                 </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+                <button type="button" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)' }}>
+                    <ChevronLeft size={14} /> Back
+                </button>
 
                 {/* Header */}
                 <div style={sCard}>
@@ -1904,7 +1915,7 @@ const personalityCardSt: React.CSSProperties = {
     padding: '20px 24px',
 };
 
-function PersonalityTab() {
+function PersonalityTab({ onBack }: { onBack: () => void }) {
     const [data, setData]         = useState<any>(null);
     const [loading, setLoading]   = useState(false);
     const [generated, setGenerated] = useState(false);
@@ -1927,6 +1938,10 @@ function PersonalityTab() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            <button type="button" onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 0, fontFamily: 'var(--font-body)' }}>
+                <ChevronLeft size={14} /> Back
+            </button>
 
             {/* Header */}
             <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
@@ -2125,7 +2140,7 @@ function AnalyticsPageInner() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
 
     const initialTab = searchParams.get('tab');
-    const [tab, setTab] = useState(OUTER_TABS.some(t => t.key === initialTab) ? initialTab! : 'overview');
+    const [tab, setTab] = useState(ALL_TAB_KEYS.includes(initialTab!) ? initialTab! : 'overview');
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -2146,13 +2161,13 @@ function AnalyticsPageInner() {
     return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                <Tabs tabs={OUTER_TABS} active={tab} onChange={setTab} />
+                {!EXTRA_TABS.includes(tab) && <Tabs tabs={OUTER_TABS} active={tab} onChange={setTab} />}
 
                 {tab === 'overview' && <AnalyticsOverviewTab />}
                 {tab === 'insights' && <InsightsTab />}
-                {tab === 'reports' && <ReportsTab />}
-                {tab === 'year-review' && <YearReviewTab />}
-                {tab === 'personality' && <PersonalityTab />}
+                {tab === 'reports' && <ReportsTab onBack={() => router.back()} />}
+                {tab === 'year-review' && <YearReviewTab onBack={() => router.back()} />}
+                {tab === 'personality' && <PersonalityTab onBack={() => router.back()} />}
             </div>
     );
 }
