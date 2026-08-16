@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { budgetsAPI, categoriesAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
+import { StatTile } from '@/components/ui/StatTile';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
@@ -966,37 +967,29 @@ function BudgetsPageInner() {
                             )}
                         </div>
 
-                        {/* ── BUDGET SUMMARY (hero numbers + usage, merged) ── */}
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-                                <div>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Budget</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalBudgeted)}</p>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Spent So Far</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: isOverTotal ? 'var(--color-exp)' : 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSpent)}</p>
-                                </div>
-                            </div>
+                        {/* ── BUDGET SUMMARY (hero numbers) ── */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" />
+                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} />
+                        </div>
 
-                            {budgets.length > 0 && (
-                                <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
-                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                            {Math.round(Math.min(overallRawPct, 100))}%
-                                        </p>
-                                    </div>
-                                    <ProgressBar pct={overallRawPct} height={8} />
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                                        {isOverTotal
-                                            ? <span style={{ color: 'var(--color-exp)' }}>{fmt(totalSpent - totalBudgeted)} over total budget</span>
-                                            : <span>{fmt(totalRemaining)} remaining across all categories</span>
-                                        }
+                        {budgets.length > 0 && (
+                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+                                        {Math.round(Math.min(overallRawPct, 100))}%
                                     </p>
                                 </div>
-                            )}
-                        </div>
+                                <ProgressBar pct={overallRawPct} height={8} />
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
+                                    {isOverTotal
+                                        ? <span style={{ color: 'var(--color-exp)' }}>{fmt(totalSpent - totalBudgeted)} over total budget</span>
+                                        : <span>{fmt(totalRemaining)} remaining across all categories</span>
+                                    }
+                                </p>
+                            </div>
+                        )}
 
                         {/* ── ZERO-BASED MODE BANNER ── */}
                         {zeroBasedMode && monthlyIncome > 0 && (

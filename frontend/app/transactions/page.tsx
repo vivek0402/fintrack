@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
 import { GCard } from '@/components/ui/GCard';
+import { StatTile } from '@/components/ui/StatTile';
 import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
@@ -946,24 +947,9 @@ function CalendarView() {
 
                 {/* ── STAT CHIPS ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Total Spent</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {loading ? '—' : fmtAmt(totalSpent)}
-                        </p>
-                    </div>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px' }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Income Days</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '14px' : '16px', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {loading ? '—' : `${incomeDays} day${incomeDays !== 1 ? 's' : ''}`}
-                        </p>
-                    </div>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px 14px', gridColumn: isMobile ? '1 / -1' : undefined }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Busiest Day</p>
-                        <p style={{ fontFamily: 'var(--font-body)', fontSize: isMobile ? '13px' : '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {loading ? '—' : busiestLabel}
-                        </p>
-                    </div>
+                    <StatTile label="Total Spent" value={fmtAmt(totalSpent)} accentColor="var(--color-exp)" loading={loading} />
+                    <StatTile label="Income Days" value={`${incomeDays} day${incomeDays !== 1 ? 's' : ''}`} accentColor="var(--color-inc)" loading={loading} />
+                    <StatTile label="Busiest Day" value={busiestLabel} loading={loading} style={{ gridColumn: isMobile ? '1 / -1' : undefined }} />
                 </div>
 
                 {/* ── LEGEND ── */}
