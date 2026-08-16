@@ -209,6 +209,7 @@ async function fetchBudgetMasterData(userId) {
              LEFT JOIN categories c ON t.category_id = c.id
              WHERE t.user_id = $1 AND t.type = 'expense'
                AND t.date >= (CURRENT_DATE - INTERVAL '3 months')
+               AND ${nonSpendingExclusionSQL('t')}
              GROUP BY c.name, DATE_TRUNC('month', t.date)
              ORDER BY c.name, month`,
             [userId]

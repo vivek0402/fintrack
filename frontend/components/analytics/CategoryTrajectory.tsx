@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
+import { isCategorizableExpense } from '@/lib/utils';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const MN = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -18,7 +19,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
         }
 
         const catMap: Record<string, Record<string, number>> = {};
-        transactions.filter(t => t.type === 'expense').forEach(t => {
+        transactions.filter(isCategorizableExpense).forEach(t => {
             const d = new Date((t.date ?? '').split('T')[0] + 'T00:00:00');
             const mKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
             const cat = t.category_name ?? t.category ?? 'Other';

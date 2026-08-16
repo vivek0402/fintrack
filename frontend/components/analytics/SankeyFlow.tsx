@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { isRealIncome, isCategorizableExpense } from '@/lib/utils';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -24,8 +25,12 @@ export function SankeyFlow({ transactions }: Props) {
         recent.forEach(t => {
             const k = t.category_name ?? t.category ?? (t.type === 'income' ? 'Income' : 'Expenses');
             const amt = parseFloat(t.amount ?? 0);
-            if (t.type === 'income') incMap[k] = (incMap[k] ?? 0) + amt;
-            else expMap[k] = (expMap[k] ?? 0) + amt;
+            // Keeps investment-category spend as its own flow (legitimate to show
+            // where money went) but drops goal contributions and internal
+            // transfers, which would otherwise inflate whichever ordinary
+            // category they happened to be filed under.
+            if (isRealIncome(t)) incMap[k] = (incMap[k] ?? 0) + amt;
+            else if (isCategorizableExpense(t)) expMap[k] = (expMap[k] ?? 0) + amt;
         });
 
         const incEntries = Object.entries(incMap).sort((a, b) => b[1] - a[1]);

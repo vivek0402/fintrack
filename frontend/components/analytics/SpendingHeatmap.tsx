@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { isNonSavingsExpense } from '@/lib/utils';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -13,7 +14,7 @@ export function SpendingHeatmap({ transactions }: Props) {
 
     const { grid, monthMarks, maxVal } = useMemo(() => {
         const map: Record<string, { total: number; count: number }> = {};
-        transactions.filter(t => t.type === 'expense').forEach(t => {
+        transactions.filter(isNonSavingsExpense).forEach(t => {
             const d = (t.date ?? '').split('T')[0];
             if (!d) return;
             if (!map[d]) map[d] = { total: 0, count: 0 };

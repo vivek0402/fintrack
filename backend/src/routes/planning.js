@@ -8,6 +8,7 @@ const { getFundsForPlan } = require('../services/fundCatalog');
 const { aiComplete } = require('../utils/ai');
 const { computeDriftReport } = require('../services/behaviorAnalysis');
 const { fetchCreditCardsWithBalance, fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -598,6 +599,7 @@ async function computeAverageMonthlyIncomeAndExpenses(userId) {
     const result = await pool.query(
         `SELECT type, COALESCE(SUM(amount), 0) AS total FROM transactions
          WHERE user_id = $1 AND date >= $2 AND date < $3
+         AND ${nonSpendingExclusionSQL('transactions')}
          GROUP BY type`,
         [userId, start, end]
     );
@@ -859,13 +861,14 @@ router.get('/cashflow', async (req, res) => {
             pool.query(
                 `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
                  WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3
-                 AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
+                 AND ${nonSpendingExclusionSQL('transactions')}`,
                 [req.user.id, start, end]
             ),
             pool.query(
                 `SELECT c.name AS category, COALESCE(SUM(t.amount), 0) AS total
                  FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1 AND t.type = 'expense' AND t.date >= $2 AND t.date < $3
+                 AND ${nonSpendingExclusionSQL('t')}
                  GROUP BY c.name`,
                 [req.user.id, start, end]
             ),

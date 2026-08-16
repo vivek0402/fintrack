@@ -120,7 +120,8 @@ router.get('/peer-benchmarks', async (req, res) => {
         const incomeRes = await pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total
              FROM transactions
-             WHERE user_id=$1 AND type='income' AND date >= (CURRENT_DATE - INTERVAL '3 months')`,
+             WHERE user_id=$1 AND type='income' AND date >= (CURRENT_DATE - INTERVAL '3 months')
+             AND ${nonSpendingExclusionSQL('transactions')}`,
             [userId]
         );
         const avgMonthlyIncome = fmt(parseFloat(incomeRes.rows[0].total) / 3);
@@ -309,7 +310,8 @@ async function detectBudgetAnchoring(userId) {
 async function detectPresentBias(userId) {
     const { rows } = await pool.query(
         `SELECT date, amount FROM transactions
-         WHERE user_id=$1 AND type='expense' AND date >= (CURRENT_DATE - INTERVAL '3 months')`,
+         WHERE user_id=$1 AND type='expense' AND date >= (CURRENT_DATE - INTERVAL '3 months')
+         AND ${nonSpendingExclusionSQL('transactions')}`,
         [userId]
     );
 

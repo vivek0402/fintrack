@@ -30,7 +30,7 @@ router.get('/summary', async (req, res) => {
         const categoryRes = await pool.query(
             `SELECT c.name, c.color, c.icon, COALESCE(SUM(t.amount),0) AS total
        FROM transactions t JOIN categories c ON t.category_id = c.id
-       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false AND t.goal_id IS NULL
+       WHERE t.user_id=$1 AND t.type='expense' AND ${nonSpendingExclusionSQL('t')}
        AND EXTRACT(MONTH FROM t.date)=$2 AND EXTRACT(YEAR FROM t.date)=$3
        GROUP BY c.id, c.name, c.color, c.icon ORDER BY total DESC`,
             [req.user.id, m, y]
@@ -161,7 +161,7 @@ router.get('/report', async (req, res) => {
         const categoryResult = await pool.query(
             `SELECT c.name, c.color, SUM(t.amount) AS total
        FROM transactions t JOIN categories c ON t.category_id = c.id
-       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false AND t.goal_id IS NULL AND t.date >= $2 AND t.date <= $3
+       WHERE t.user_id=$1 AND t.type='expense' AND ${nonSpendingExclusionSQL('t')} AND t.date >= $2 AND t.date <= $3
        GROUP BY c.id, c.name, c.color ORDER BY total DESC`,
             [req.user.id, from, to]
         );

@@ -5,6 +5,7 @@ const { monthsRemainingForLoan } = require('../utils/amortization');
 const { getCached } = require('../utils/aiCache');
 const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { ANNUAL_EQUITY_FUND_RETURN, RISK_STRATEGY_SPLITS } = require('../services/planningEngine');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -27,7 +28,8 @@ async function getBankBalance(userId) {
 async function getAvgMonthlyExpenses(userId) {
     const res = await pool.query(
         `SELECT COALESCE(SUM(amount), 0) / 3.0 AS avg FROM transactions
-         WHERE user_id = $1 AND type = 'expense' AND date >= (CURRENT_DATE - INTERVAL '3 months')`,
+         WHERE user_id = $1 AND type = 'expense' AND date >= (CURRENT_DATE - INTERVAL '3 months')
+         AND ${nonSpendingExclusionSQL('transactions')}`,
         [userId]
     );
     return fmt(res.rows[0].avg);
@@ -36,7 +38,8 @@ async function getAvgMonthlyExpenses(userId) {
 async function getAvgMonthlyIncome(userId) {
     const res = await pool.query(
         `SELECT COALESCE(SUM(amount), 0) / 3.0 AS avg FROM transactions
-         WHERE user_id = $1 AND type = 'income' AND date >= (CURRENT_DATE - INTERVAL '3 months')`,
+         WHERE user_id = $1 AND type = 'income' AND date >= (CURRENT_DATE - INTERVAL '3 months')
+         AND ${nonSpendingExclusionSQL('transactions')}`,
         [userId]
     );
     return fmt(res.rows[0].avg);
@@ -139,6 +142,7 @@ async function detectSpendingSpike(userId) {
                 COALESCE(SUM(t.amount), 0) AS total
          FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
          WHERE t.user_id = $1 AND t.type = 'expense' AND t.date >= (CURRENT_DATE - INTERVAL '4 months')
+         AND ${nonSpendingExclusionSQL('t')}
          GROUP BY category_name, month
          ORDER BY category_name, month`,
         [userId]

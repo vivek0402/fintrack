@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isNonNegativeNumber, isValidDateString, isValidMilestoneStatus } = require('../utils/validation');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -23,6 +24,7 @@ async function getAverageMonthlySavings(userId) {
     const result = await pool.query(
         `SELECT type, COALESCE(SUM(amount), 0) AS total FROM transactions
          WHERE user_id = $1 AND date >= $2 AND date < $3
+         AND ${nonSpendingExclusionSQL('transactions')}
          GROUP BY type`,
         [userId, start, end]
     );

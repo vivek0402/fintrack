@@ -23,6 +23,20 @@ export function isRealIncome(tx: { type: string; tags?: string[] | null }): bool
     return true;
 }
 
+// Narrower than isNonSavingsExpense: for components that group/plot spending
+// BY category (CategoryTrajectory, SankeyFlow), where an "Investments" line
+// is legitimate information, not noise -- so investment-category expenses
+// are deliberately kept. Goal contributions and internal transfers still get
+// excluded, since those can land under any ordinary category and would
+// silently inflate that category's real-spending trend otherwise.
+export function isCategorizableExpense(tx: { type: string; goal_id?: string | null; tags?: string[] | null }): boolean {
+    if (tx.type !== 'expense') return false;
+    if (tx.goal_id) return false;
+    const tags = tx.tags || [];
+    if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
+    return true;
+}
+
 export function formatCurrency(amount: number, currency = 'INR'): string {
     const symbols: Record<string, string> = {
         INR: '₹', USD: '$', EUR: '€', GBP: '£',

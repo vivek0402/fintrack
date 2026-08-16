@@ -249,7 +249,7 @@ function AnalyticsOverviewTab() {
     const weeklyData = useMemo(() => {
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const totals = [0, 0, 0, 0, 0, 0, 0];
-        allTransactions.filter(tx => tx.type === 'expense').forEach(tx => {
+        allTransactions.filter(isNonSavingsExpense).forEach(tx => {
             const dow = new Date((tx.date || '').split('T')[0] + 'T00:00:00').getDay();
             if (!isNaN(dow)) totals[dow] += parseFloat(tx.amount);
         });
@@ -349,7 +349,7 @@ function AnalyticsOverviewTab() {
 
     const merchantData = useMemo(() => {
         const map: Record<string, { total: number; count: number }> = {};
-        allTransactions.filter((tx: any) => tx.type === 'expense' && tx.description).forEach((tx: any) => {
+        allTransactions.filter((tx: any) => isNonSavingsExpense(tx) && tx.description).forEach((tx: any) => {
             const key = (tx.description as string).trim();
             if (!map[key]) map[key] = { total: 0, count: 0 };
             map[key].total += parseFloat(tx.amount);

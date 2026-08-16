@@ -5,6 +5,7 @@ const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isNonNegativeNumber, isValidDateString, isValidTransactionType, isValidInvestmentType } = require('../utils/validation');
 const { weightedAverageBuy } = require('../utils/investmentMath');
 const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goals');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -390,12 +391,14 @@ router.post('/', async (req, res) => {
                 const [{ rows: [thisRow] }, { rows: [lastRow] }] = await Promise.all([
                     pool.query(
                         `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
-                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4`,
+                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4
+                         AND ${nonSpendingExclusionSQL('transactions')}`,
                         [req.user.id, tx.category_id, monthStart, tx.date]
                     ),
                     pool.query(
                         `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
-                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4`,
+                         WHERE user_id=$1 AND category_id=$2 AND type='expense' AND date BETWEEN $3 AND $4
+                         AND ${nonSpendingExclusionSQL('transactions')}`,
                         [req.user.id, tx.category_id, lastMonthStart, lastMonthSameDay]
                     ),
                 ]);

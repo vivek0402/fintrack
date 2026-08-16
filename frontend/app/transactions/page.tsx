@@ -20,7 +20,7 @@ import { SmsImporter } from '@/components/transactions/SmsImporter';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
-import { exportToCSV, formatCurrency, fmt as fmtBase, getSmartIcon } from '@/lib/utils';
+import { exportToCSV, formatCurrency, fmt as fmtBase, getSmartIcon, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 
 const VIEW_TABS = [
     { key: 'list', label: 'List' },
@@ -808,8 +808,12 @@ function CalendarView() {
         transactions.forEach(tx => {
             const key = (tx.date || '').split('T')[0];
             if (!m[key]) m[key] = { income: 0, expenses: 0, transactions: [] };
-            if (tx.type === 'income') m[key].income   += parseFloat(tx.amount) || 0;
-            else                      m[key].expenses += parseFloat(tx.amount) || 0;
+            // income/expenses power the "Total Spent" stat and day-cell heat
+            // coloring, so they exclude investing/goal contributions/transfers
+            // the same way the Dashboard does -- but the full transaction list
+            // stays unfiltered so the day-detail view still shows everything.
+            if (isRealIncome(tx)) m[key].income   += parseFloat(tx.amount) || 0;
+            else if (isNonSavingsExpense(tx)) m[key].expenses += parseFloat(tx.amount) || 0;
             m[key].transactions.push(tx);
         });
         return m;

@@ -686,7 +686,8 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
              FROM transactions
              WHERE user_id = $1
                AND type = 'expense'
-               AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())`,
+               AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
+               AND ${nonSpendingExclusionSQL('transactions')}`,
             [userId]
         );
         const currentMonthSpent = parseFloat(currentMonthResult.rows[0].total);
@@ -717,6 +718,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                    AND t.type = 'expense'
                    AND t.date >= DATE_TRUNC('month', NOW()) - INTERVAL '3 months'
                    AND t.date < DATE_TRUNC('month', NOW())
+                   AND ${nonSpendingExclusionSQL('t')}
                  GROUP BY c.name, c.icon, c.color
                  HAVING SUM(t.amount) > 0
                  ORDER BY avg_monthly DESC`,
@@ -731,6 +733,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                  WHERE t.user_id = $1
                    AND t.type = 'expense'
                    AND DATE_TRUNC('month', t.date) = DATE_TRUNC('month', NOW())
+                   AND ${nonSpendingExclusionSQL('t')}
                  GROUP BY c.name`,
                 [userId]
             ),
@@ -742,6 +745,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
                  WHERE user_id = $1
                    AND type = 'expense'
                    AND DATE_TRUNC('month', date) = DATE_TRUNC('month', NOW())
+                   AND ${nonSpendingExclusionSQL('transactions')}
                  GROUP BY EXTRACT(DAY FROM date)
                  ORDER BY day`,
                 [userId]
