@@ -18,8 +18,7 @@ import { MilestoneBurst } from '@/components/ui/MilestoneBurst';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
-
-const GOAL_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2'];
+import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
 
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };

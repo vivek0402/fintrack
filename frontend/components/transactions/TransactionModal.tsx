@@ -15,6 +15,7 @@ import { Modal } from '@/components/ui/Modal';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
+import { randomCategoryColor } from '@/lib/categoryColors';
 
 // ─── Category icon helpers ────────────────────────────────────────────────────
 
@@ -274,8 +275,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         if (!pendingNewCategory) return;
         setApprovingCat(true);
         try {
-            const colors = ['#f59e0b', '#6366f1', '#ec4899', '#a855f7', '#00e5a0', '#06b6d4', '#f97316', '#8b5cf6', '#059669', '#f43f5e'];
-            const color = colors[Math.floor(Math.random() * colors.length)];
+            const color = randomCategoryColor();
             const res = await categoriesAPI.create({ name: pendingNewCategory, color, icon: '📦' });
             const newCat = res.data.category;
             setCategories(prev => [...prev, { ...newCat, usage_count: 0, last_used: null }]);
