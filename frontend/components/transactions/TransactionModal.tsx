@@ -7,7 +7,7 @@ import {
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
 } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -108,6 +108,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         account_id: null as number | null,
         to_account_id: null as number | null,
         credit_card_id: null as number | null,
+        goal_id: null as string | null,
         investment: {
             type: 'mutual_fund' as string,
             name: '', ticker_or_folio: '', units: '', price_per_unit: '',
@@ -118,6 +119,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [categories, setCategories] = useState<any[]>([]);
     const [accounts, setAccounts]     = useState<any[]>([]);
     const [cards, setCards]           = useState<any[]>([]);
+    const [goals, setGoals]           = useState<any[]>([]);
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
 
@@ -161,6 +163,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     }, [isOpen]);
 
     useEffect(() => {
+        if (!isOpen) return;
+        goalsAPI.getAll().then(res => setGoals(res.data.goals || [])).catch(() => setGoals([]));
+    }, [isOpen]);
+
+    useEffect(() => {
         if (!catDropdownOpen) return;
         const handler = (e: MouseEvent) => { if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) setCatDropdownOpen(false); };
         document.addEventListener('mousedown', handler);
@@ -181,12 +188,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, investment: blankInvestment });
+            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, investment: blankInvestment });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, investment: blankInvestment });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
             setTagInput('');
         }
         setError('');
@@ -337,7 +344,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 account_label: form.investment.account_label || undefined,
             }
             : undefined;
-        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, investment_details: investmentDetails };
+        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, goal_id: form.goal_id, investment_details: investmentDetails };
         let createdInvestment: { is_new_holding: boolean } | undefined;
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
@@ -634,6 +641,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {isInvestmentCategory && !isEditing && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--bg-surface-2)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
                         <label style={labelStyle}>Fund / Asset details (optional)</label>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-warn)', margin: '-4px 0 0', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>
+                            Without these details, this transaction won't be tracked as an investment asset — it'll only be excluded from your spending totals.
+                        </p>
                         <div>
                             <select value={form.investment.type}
                                 onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, type: e.target.value, name: '', ticker_or_folio: '', scheme_code: '' } }))}
@@ -762,6 +772,18 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 {accounts.filter((a: any) => a.id !== form.account_id).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
+                    </div>
+                )}
+
+                {/* ── Goal contribution (optional) ── */}
+                {!isTransfer && goals.length > 0 && (
+                    <div>
+                        <label style={labelStyle}>Add to a goal (optional)</label>
+                        <select value={form.goal_id ?? ''} onChange={e => setForm({ ...form, goal_id: e.target.value || null })}
+                            style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                            <option value="">— None —</option>
+                            {goals.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                        </select>
                     </div>
                 )}
 

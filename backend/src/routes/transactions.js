@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isNonNegativeNumber, isValidDateString, isValidTransactionType, isValidInvestmentType } = require('../utils/validation');
 const { weightedAverageBuy } = require('../utils/investmentMath');
+const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goals');
 const router = express.Router();
 
 router.use(auth);
@@ -87,7 +88,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { type, amount, description, notes, tags, date, category_id, account_id, credit_card_id, payment_method, investment_details, source } = req.body;
+        const { type, amount, description, notes, tags, date, category_id, account_id, credit_card_id, payment_method, investment_details, goal_id, source } = req.body;
         if (!type || !amount || !description || !date)
             return res.status(400).json({ error: 'Type, amount, description and date are required.' });
         if (!isValidTransactionType(type))
@@ -117,8 +118,9 @@ router.post('/', async (req, res) => {
 
         let tx;
         let investmentResult = null;
+        let goalResult = null;
 
-        if (!investment_details) {
+        if (!investment_details && !goal_id) {
             const result = await pool.query(
                 `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
@@ -141,18 +143,22 @@ router.post('/', async (req, res) => {
                 }
             }
         } else {
-            // Investments category, with fund/asset details — create the transaction
-            // and create-or-update the matching investments holding atomically.
-            const { type: invType, name, ticker_or_folio, units, price_per_unit, scheme_code, account_label, notes: invNotes } = investment_details;
+            // Investments category with fund/asset details, and/or a linked savings
+            // goal — create the transaction and apply whichever of those atomically
+            // alongside it.
+            let invType, name, ticker_or_folio, units, price_per_unit, scheme_code, account_label, invNotes;
+            if (investment_details) {
+                ({ type: invType, name, ticker_or_folio, units, price_per_unit, scheme_code, account_label, notes: invNotes } = investment_details);
 
-            if (!isValidInvestmentType(invType))
-                return res.status(400).json({ error: 'Invalid investment type.' });
-            if (!isPositiveNumber(units))
-                return res.status(400).json({ error: 'Investment units must be greater than 0.' });
-            if (!isNonNegativeNumber(price_per_unit))
-                return res.status(400).json({ error: 'Investment price_per_unit must be 0 or greater.' });
-            if (!name || !name.trim())
-                return res.status(400).json({ error: 'Investment name is required.' });
+                if (!isValidInvestmentType(invType))
+                    return res.status(400).json({ error: 'Invalid investment type.' });
+                if (!isPositiveNumber(units))
+                    return res.status(400).json({ error: 'Investment units must be greater than 0.' });
+                if (!isNonNegativeNumber(price_per_unit))
+                    return res.status(400).json({ error: 'Investment price_per_unit must be 0 or greater.' });
+                if (!name || !name.trim())
+                    return res.status(400).json({ error: 'Investment name is required.' });
+            }
 
             const client = await pool.connect();
             try {
@@ -176,101 +182,116 @@ router.post('/', async (req, res) => {
                     }
                 }
 
-                let investment, isNewHolding;
+                if (investment_details) {
+                    let investment, isNewHolding;
 
-                if (invType === 'mutual_fund' && scheme_code) {
-                    // Race-free path: a unique index on (user_id, scheme_code) lets Postgres
-                    // resolve concurrent/double-submitted buys of the same fund atomically —
-                    // no separate SELECT-then-branch window for two requests to both "see" no
-                    // existing holding and both INSERT a duplicate.
-                    const upsertResult = await client.query(
-                        `INSERT INTO investments
-                            (user_id, type, name, ticker_or_folio, units, purchase_price_per_unit, current_nav_or_price,
-                             purchase_date, account_label, notes, scheme_code, last_price_updated_at, price_source)
-                         VALUES ($1,'mutual_fund',$2,$3,$4,$5,$5,$6,$7,$8,$9,NOW(),'mfapi')
-                         ON CONFLICT (user_id, scheme_code) WHERE scheme_code IS NOT NULL
-                         DO UPDATE SET
-                            units = investments.units + EXCLUDED.units,
-                            purchase_price_per_unit = (investments.units * investments.purchase_price_per_unit
-                                + EXCLUDED.units * EXCLUDED.purchase_price_per_unit) / (investments.units + EXCLUDED.units),
-                            current_nav_or_price = EXCLUDED.current_nav_or_price,
-                            last_price_updated_at = NOW(),
-                            price_source = 'mfapi',
-                            updated_at = NOW()
-                         RETURNING *, (created_at = updated_at) AS is_new_holding`,
-                        [req.user.id, name.trim(), ticker_or_folio || null, units, price_per_unit,
-                         date, account_label || null, invNotes || null, scheme_code]
-                    );
-                    investment = upsertResult.rows[0];
-                    isNewHolding = investment.is_new_holding;
-                } else {
-                    // No scheme_code (non-MF types, or MF entered without autocomplete): no unique
-                    // constraint backs the match (free-text ticker/name could legitimately collide
-                    // with pre-existing rows from manual entry or CAMS import), so serialize
-                    // concurrent buys of the same identifier with a transaction-scoped advisory
-                    // lock instead of a schema constraint.
-                    const lockKey = `${req.user.id}:${invType}:${(ticker_or_folio || name.trim()).toLowerCase()}`;
-                    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [lockKey]);
-
-                    let existing;
-                    if (ticker_or_folio) {
-                        existing = await client.query(
-                            `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND ticker_or_folio = $3`,
-                            [req.user.id, invType, ticker_or_folio]
-                        );
-                    } else {
-                        existing = await client.query(
-                            `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND LOWER(name) = LOWER($3)`,
-                            [req.user.id, invType, name.trim()]
-                        );
-                    }
-
-                    if (existing.rows.length > 0) {
-                        const row = existing.rows[0];
-                        const { newUnits, newPrice } = weightedAverageBuy(
-                            parseFloat(row.units), parseFloat(row.purchase_price_per_unit),
-                            parseFloat(units), parseFloat(price_per_unit)
-                        );
-                        const updateResult = await client.query(
-                            `UPDATE investments SET
-                                units = $1, purchase_price_per_unit = $2, current_nav_or_price = $3,
-                                updated_at = NOW()
-                             WHERE id = $4 RETURNING *`,
-                            [newUnits, newPrice, price_per_unit, row.id]
-                        );
-                        investment = updateResult.rows[0];
-                        isNewHolding = false;
-                    } else {
-                        const insertResult = await client.query(
+                    if (invType === 'mutual_fund' && scheme_code) {
+                        // Race-free path: a unique index on (user_id, scheme_code) lets Postgres
+                        // resolve concurrent/double-submitted buys of the same fund atomically —
+                        // no separate SELECT-then-branch window for two requests to both "see" no
+                        // existing holding and both INSERT a duplicate.
+                        const upsertResult = await client.query(
                             `INSERT INTO investments
                                 (user_id, type, name, ticker_or_folio, units, purchase_price_per_unit, current_nav_or_price,
-                                 purchase_date, account_label, notes, price_source)
-                             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'manual') RETURNING *`,
-                            [req.user.id, invType, name.trim(), ticker_or_folio || null, units, price_per_unit, price_per_unit,
-                             date, account_label || null, invNotes || null]
+                                 purchase_date, account_label, notes, scheme_code, last_price_updated_at, price_source)
+                             VALUES ($1,'mutual_fund',$2,$3,$4,$5,$5,$6,$7,$8,$9,NOW(),'mfapi')
+                             ON CONFLICT (user_id, scheme_code) WHERE scheme_code IS NOT NULL
+                             DO UPDATE SET
+                                units = investments.units + EXCLUDED.units,
+                                purchase_price_per_unit = (investments.units * investments.purchase_price_per_unit
+                                    + EXCLUDED.units * EXCLUDED.purchase_price_per_unit) / (investments.units + EXCLUDED.units),
+                                current_nav_or_price = EXCLUDED.current_nav_or_price,
+                                last_price_updated_at = NOW(),
+                                price_source = 'mfapi',
+                                updated_at = NOW()
+                             RETURNING *, (created_at = updated_at) AS is_new_holding`,
+                            [req.user.id, name.trim(), ticker_or_folio || null, units, price_per_unit,
+                             date, account_label || null, invNotes || null, scheme_code]
                         );
-                        investment = insertResult.rows[0];
-                        isNewHolding = true;
+                        investment = upsertResult.rows[0];
+                        isNewHolding = investment.is_new_holding;
+                    } else {
+                        // No scheme_code (non-MF types, or MF entered without autocomplete): no unique
+                        // constraint backs the match (free-text ticker/name could legitimately collide
+                        // with pre-existing rows from manual entry or CAMS import), so serialize
+                        // concurrent buys of the same identifier with a transaction-scoped advisory
+                        // lock instead of a schema constraint.
+                        const lockKey = `${req.user.id}:${invType}:${(ticker_or_folio || name.trim()).toLowerCase()}`;
+                        await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [lockKey]);
+
+                        let existing;
+                        if (ticker_or_folio) {
+                            existing = await client.query(
+                                `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND ticker_or_folio = $3`,
+                                [req.user.id, invType, ticker_or_folio]
+                            );
+                        } else {
+                            existing = await client.query(
+                                `SELECT * FROM investments WHERE user_id = $1 AND type = $2 AND LOWER(name) = LOWER($3)`,
+                                [req.user.id, invType, name.trim()]
+                            );
+                        }
+
+                        if (existing.rows.length > 0) {
+                            const row = existing.rows[0];
+                            const { newUnits, newPrice } = weightedAverageBuy(
+                                parseFloat(row.units), parseFloat(row.purchase_price_per_unit),
+                                parseFloat(units), parseFloat(price_per_unit)
+                            );
+                            const updateResult = await client.query(
+                                `UPDATE investments SET
+                                    units = $1, purchase_price_per_unit = $2, current_nav_or_price = $3,
+                                    updated_at = NOW()
+                                 WHERE id = $4 RETURNING *`,
+                                [newUnits, newPrice, price_per_unit, row.id]
+                            );
+                            investment = updateResult.rows[0];
+                            isNewHolding = false;
+                        } else {
+                            const insertResult = await client.query(
+                                `INSERT INTO investments
+                                    (user_id, type, name, ticker_or_folio, units, purchase_price_per_unit, current_nav_or_price,
+                                     purchase_date, account_label, notes, price_source)
+                                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'manual') RETURNING *`,
+                                [req.user.id, invType, name.trim(), ticker_or_folio || null, units, price_per_unit, price_per_unit,
+                                 date, account_label || null, invNotes || null]
+                            );
+                            investment = insertResult.rows[0];
+                            isNewHolding = true;
+                        }
+                    }
+
+                    // First writer to investment_transactions — every buy made via this flow
+                    // gets a proper ledger entry for downstream analytics use.
+                    await client.query(
+                        `INSERT INTO investment_transactions (investment_id, user_id, transaction_type, units, price_per_unit, transaction_date, notes)
+                         VALUES ($1, $2, 'buy', $3, $4, $5, $6)`,
+                        [investment.id, req.user.id, units, price_per_unit, date, invNotes || null]
+                    );
+
+                    investmentResult = {
+                        id: investment.id,
+                        is_new_holding: isNewHolding,
+                        units: parseFloat(investment.units),
+                        purchase_price_per_unit: parseFloat(investment.purchase_price_per_unit),
+                        current_nav_or_price: parseFloat(investment.current_nav_or_price),
+                    };
+                }
+
+                let updatedGoal = null;
+                if (goal_id) {
+                    updatedGoal = await applyGoalContribution(client, req.user.id, goal_id, parseFloat(amount));
+                    if (!updatedGoal) {
+                        await client.query('ROLLBACK');
+                        return res.status(400).json({ error: 'Invalid goal_id.' });
                     }
                 }
 
-                // First writer to investment_transactions — every buy made via this flow
-                // gets a proper ledger entry for downstream analytics use.
-                await client.query(
-                    `INSERT INTO investment_transactions (investment_id, user_id, transaction_type, units, price_per_unit, transaction_date, notes)
-                     VALUES ($1, $2, 'buy', $3, $4, $5, $6)`,
-                    [investment.id, req.user.id, units, price_per_unit, date, invNotes || null]
-                );
-
                 await client.query('COMMIT');
-
-                investmentResult = {
-                    id: investment.id,
-                    is_new_holding: isNewHolding,
-                    units: parseFloat(investment.units),
-                    purchase_price_per_unit: parseFloat(investment.purchase_price_per_unit),
-                    current_nav_or_price: parseFloat(investment.current_nav_or_price),
-                };
+                if (updatedGoal) {
+                    goalResult = updatedGoal;
+                    fireGoalMilestoneChecks(req.user.id, updatedGoal, parseFloat(amount));
+                }
             } catch (err) {
                 await client.query('ROLLBACK');
                 throw err;
@@ -279,7 +300,11 @@ router.post('/', async (req, res) => {
             }
         }
 
-        res.status(201).json(investmentResult ? { transaction: tx, investment: investmentResult } : { transaction: tx });
+        res.status(201).json({
+            transaction: tx,
+            ...(investmentResult ? { investment: investmentResult } : {}),
+            ...(goalResult ? { goal: goalResult } : {}),
+        });
 
         // Fire-and-forget: check if transaction count today is unusually high
         setImmediate(async () => {
@@ -427,6 +452,9 @@ router.post('/', async (req, res) => {
 // Note: editing a transaction never touches the investments/investment_transactions
 // rows it may have created — that buy already happened; reversing it via edit could
 // leave undefined states if other buys/sells occurred on the holding since. Deliberate.
+// Goal linkage is different: saved_amount is a plain running total with no
+// weighted-average complexity, so it's safe (and expected) to keep it accurate
+// across edits -- see the goal-reconciliation block below.
 router.put('/:id', async (req, res) => {
     try {
         const { type, amount, description, notes, tags, date, category_id, credit_card_id, payment_method } = req.body;
@@ -448,11 +476,12 @@ router.put('/:id', async (req, res) => {
         }
 
         const existing = await pool.query(
-            'SELECT id FROM transactions WHERE id = $1 AND user_id = $2',
+            'SELECT id, goal_id, amount FROM transactions WHERE id = $1 AND user_id = $2',
             [req.params.id, req.user.id]
         );
         if (existing.rows.length === 0)
             return res.status(404).json({ error: 'Transaction not found.' });
+        const before = existing.rows[0];
 
         // credit_card_id: explicitly clear it (not just leave stale) whenever the
         // client sends payment_method other than 'Credit Card', or sends
@@ -461,21 +490,63 @@ router.put('/:id', async (req, res) => {
         const clearCreditCardId = ('payment_method' in req.body && payment_method !== 'Credit Card')
             || ('credit_card_id' in req.body && req.body.credit_card_id === null);
 
-        const result = await pool.query(
-            `UPDATE transactions SET
-         type = COALESCE($1,type), amount = COALESCE($2,amount),
-         description = COALESCE($3,description),
-         notes = CASE WHEN $4::text IS NOT NULL THEN $4 WHEN $11::boolean THEN NULL ELSE notes END,
-         tags = COALESCE($5,tags), date = COALESCE($6,date),
-         category_id = $7,
-         credit_card_id = CASE WHEN $12::boolean THEN NULL ELSE COALESCE($13,credit_card_id) END,
-         payment_method = COALESCE($8,payment_method), updated_at = NOW()
-       WHERE id = $9 AND user_id = $10 RETURNING *`,
-            [type, amount, description, notes, tags, date, category_id, payment_method,
-             req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null,
-             clearCreditCardId, credit_card_id || null]
-        );
-        res.json({ transaction: result.rows[0] });
+        // goal_id: same "explicit null to clear" pattern. If the goal is changing
+        // (including to/from unlinked) or the amount is changing on a linked goal,
+        // the contribution needs to be reconciled on the goal(s) involved.
+        const goalIdProvided = 'goal_id' in req.body;
+        const clearGoalId = goalIdProvided && req.body.goal_id === null;
+        const newGoalId = goalIdProvided ? (req.body.goal_id || null) : before.goal_id;
+        const newAmount = amount !== undefined ? parseFloat(amount) : parseFloat(before.amount);
+
+        if (newGoalId && newGoalId !== before.goal_id) {
+            const { rows: goalCheck } = await pool.query(
+                'SELECT id FROM savings_goals WHERE id = $1 AND user_id = $2',
+                [newGoalId, req.user.id]
+            );
+            if (!goalCheck.length)
+                return res.status(400).json({ error: 'Invalid goal_id.' });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const result = await client.query(
+                `UPDATE transactions SET
+             type = COALESCE($1,type), amount = COALESCE($2,amount),
+             description = COALESCE($3,description),
+             notes = CASE WHEN $4::text IS NOT NULL THEN $4 WHEN $11::boolean THEN NULL ELSE notes END,
+             tags = COALESCE($5,tags), date = COALESCE($6,date),
+             category_id = $7,
+             credit_card_id = CASE WHEN $12::boolean THEN NULL ELSE COALESCE($13,credit_card_id) END,
+             goal_id = CASE WHEN $14::boolean THEN NULL ELSE COALESCE($15::uuid,goal_id) END,
+             payment_method = COALESCE($8,payment_method), updated_at = NOW()
+           WHERE id = $9 AND user_id = $10 RETURNING *`,
+                [type, amount, description, notes, tags, date, category_id, payment_method,
+                 req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null,
+                 clearCreditCardId, credit_card_id || null,
+                 clearGoalId, goalIdProvided && req.body.goal_id ? req.body.goal_id : null]
+            );
+
+            const goalChanged = before.goal_id !== newGoalId;
+            const amountChangedOnSameGoal = !goalChanged && newGoalId && newAmount !== parseFloat(before.amount);
+            let oldGoalResult = null, newGoalResult = null;
+            if (goalChanged || amountChangedOnSameGoal) {
+                if (before.goal_id) oldGoalResult = await applyGoalContribution(client, req.user.id, before.goal_id, -parseFloat(before.amount));
+                if (newGoalId) newGoalResult = await applyGoalContribution(client, req.user.id, newGoalId, newAmount);
+            }
+
+            await client.query('COMMIT');
+            res.json({ transaction: result.rows[0] });
+
+            if (oldGoalResult) fireGoalMilestoneChecks(req.user.id, oldGoalResult, -parseFloat(before.amount));
+            if (newGoalResult) fireGoalMilestoneChecks(req.user.id, newGoalResult, newAmount);
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     } catch (err) {
         console.error('[Transactions]', err.message);
         res.status(500).json({ error: 'Server error.' });
@@ -491,7 +562,7 @@ router.delete('/:id', async (req, res) => {
         try {
             await client.query('BEGIN');
             const result = await client.query(
-                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source, transfer_group_id',
+                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source, transfer_group_id, goal_id, amount',
                 [req.params.id, req.user.id]
             );
             if (result.rows.length === 0) {
@@ -512,8 +583,13 @@ router.delete('/:id', async (req, res) => {
                 'INSERT INTO transaction_deletions (user_id, source) VALUES ($1, $2)',
                 [req.user.id, result.rows[0].source]
             );
+            let deletedGoalResult = null;
+            if (result.rows[0].goal_id) {
+                deletedGoalResult = await applyGoalContribution(client, req.user.id, result.rows[0].goal_id, -parseFloat(result.rows[0].amount));
+            }
             await client.query('COMMIT');
             res.json({ message: 'Deleted.' });
+            if (deletedGoalResult) fireGoalMilestoneChecks(req.user.id, deletedGoalResult, -parseFloat(result.rows[0].amount));
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;

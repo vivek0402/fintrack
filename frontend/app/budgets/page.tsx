@@ -325,14 +325,26 @@ function BudgetsPageInner() {
         finally { setCopying(false); }
     };
 
-    const totalBudgeted   = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
-    const totalSpent      = budgets.reduce((s, b) => s + parseFloat(b.spent),  0);
+    // Investments-category budgets are excluded from the page's aggregate spend
+    // totals only (Total Budget/Spent So Far/Overall Usage) -- investing isn't
+    // "spending" (every analytics view in the app already treats it that way), so
+    // lumping it in there would be misleading. The health-status chips (All/On
+    // track/Over budget) and each budget's own card intentionally still cover
+    // every budget, investments included -- those classify each budget on its own
+    // terms, not as a slice of total spending.
+    const spendingBudgets = budgets.filter(b => !b.is_investment_category);
+    const totalBudgeted   = spendingBudgets.reduce((s, b) => s + parseFloat(b.amount), 0);
+    const totalSpent      = spendingBudgets.reduce((s, b) => s + parseFloat(b.spent),  0);
     const totalRemaining  = Math.max(totalBudgeted - totalSpent, 0);
     const overallRawPct   = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
     const overBudgetList  = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount));
     const isOverTotal     = totalSpent > totalBudgeted;
     const onTrackCount    = budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount)).length;
-    const unallocated     = monthlyIncome - totalBudgeted;
+    // Zero-based budgeting's "unallocated" tracks every dollar given a job --
+    // an Investments budget is still a job for that money, so this counts all
+    // budgets, not just spendingBudgets.
+    const totalAllocated  = budgets.reduce((s, b) => s + parseFloat(b.amount), 0);
+    const unallocated     = monthlyIncome - totalAllocated;
     const copyableCount   = prevMonthBudgets.filter(pb => !budgets.find(b => b.category_id === pb.category_id)).length;
     const visibleBudgets  = budgets.filter(b => !pendingDeleteBudget.has(b.id));
     const filteredBudgets = healthFilter === 'all'       ? visibleBudgets
