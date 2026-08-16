@@ -268,11 +268,11 @@ function TransactionsPageInner() {
                                 </p>
                                 {view === 'list' && selectedMonth !== null && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <button type="button" onClick={prevMonthList} title="Previous month"
+                                        <button type="button" onClick={prevMonthList} title="Previous month" aria-label="Previous month"
                                             style={{ width: '20px', height: '20px', padding: 0, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <ChevronLeft size={12} />
                                         </button>
-                                        <button type="button" onClick={nextMonthList} title="Next month"
+                                        <button type="button" onClick={nextMonthList} title="Next month" aria-label="Next month"
                                             style={{ width: '20px', height: '20px', padding: 0, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <ChevronRight size={12} />
                                         </button>
@@ -337,6 +337,7 @@ function TransactionsPageInner() {
                             )}
                             <button type="button"
                                 onClick={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
+                                aria-label="Add transaction"
                                 style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                                 <Plus size={18} color="white" />
                             </button>
@@ -522,7 +523,7 @@ function TransactionsPageInner() {
                                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Describe the transaction in plain language</p>
                                 </div>
                             </div>
-                            <button type="button" onClick={() => setQuickAddOpen(false)}
+                            <button type="button" onClick={() => setQuickAddOpen(false)} aria-label="Close quick add"
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}>
                                 <X size={18} />
                             </button>
@@ -931,11 +932,11 @@ function CalendarView() {
                             {isMobile ? CAL_MONTH_NAMES[currentMonth].slice(0, 3) : CAL_MONTH_NAMES[currentMonth]} {currentYear}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <button type="button" onClick={prevMonth}
+                            <button type="button" onClick={prevMonth} aria-label="Previous month"
                                 style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronLeft size={16} />
                             </button>
-                            <button type="button" onClick={nextMonth}
+                            <button type="button" onClick={nextMonth} aria-label="Next month"
                                 style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronRight size={16} />
                             </button>
@@ -1103,7 +1104,7 @@ function CalendarView() {
                 {!isMobile && selectedDate && (
                     <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', animation: 'fadeUp 160ms ease forwards' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                            <button type="button" onClick={() => setSelectedDate(null)}
+                            <button type="button" onClick={() => setSelectedDate(null)} aria-label="Close day details"
                                 style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <X size={13} />
                             </button>

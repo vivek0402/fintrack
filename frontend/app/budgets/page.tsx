@@ -1170,6 +1170,7 @@ function BudgetsPageInner() {
 
                                                         <button type="button" onClick={() => toggleRollover(budget.category_id)}
                                                             title={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
+                                                            aria-label={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
                                                             style={{ ...iconBtn, color: rollover ? 'var(--accent)' : 'var(--text-muted)', borderColor: rollover ? 'var(--accent-border)' : 'var(--border-subtle)', background: rollover ? 'var(--accent-subtle)' : 'transparent' }}>
                                                             <Repeat size={13} />
                                                         </button>
@@ -1187,12 +1188,12 @@ function BudgetsPageInner() {
                                                             </div>
                                                         ) : (
                                                             <div style={{ display: 'flex', gap: '4px' }}>
-                                                                <button type="button" onClick={() => { setEditingId(budget.id); setEditAmount(String(parseFloat(budget.amount))); setEditError(''); }} style={iconBtn}
+                                                                <button type="button" onClick={() => { setEditingId(budget.id); setEditAmount(String(parseFloat(budget.amount))); setEditError(''); }} aria-label={`Edit ${budget.category_name} budget`} style={iconBtn}
                                                                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                                     <Pencil size={13} />
                                                                 </button>
-                                                                <button type="button" onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId} style={iconBtn}
+                                                                <button type="button" onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId} aria-label={`Delete ${budget.category_name} budget`} style={iconBtn}
                                                                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
                                                                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                                     <Trash2 size={13} />
@@ -1331,7 +1332,7 @@ function BudgetsPageInner() {
                                                                     style={{ padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>
                                                                     {addingPattern === realIdx ? 'Adding…' : '+ Add'}
                                                                 </button>
-                                                                <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} style={{ ...recIconBt, border: '1px solid var(--border-subtle)' }}><X size={13} /></button>
+                                                                <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} aria-label="Dismiss suggestion" style={{ ...recIconBt, border: '1px solid var(--border-subtle)' }}><X size={13} /></button>
                                                             </div>
                                                         </div>
                                                     );
@@ -1410,16 +1411,16 @@ function BudgetsPageInner() {
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{isIncome ? '+' : '−'}{fmt(parseFloat(r.amount))}</p>
-                                                        <button type="button" onClick={() => handleRecToggle(r.id)} disabled={togglingId === r.id} title={r.is_active ? 'Pause' : 'Resume'}
+                                                        <button type="button" onClick={() => handleRecToggle(r.id)} disabled={togglingId === r.id} title={r.is_active ? 'Pause' : 'Resume'} aria-label={r.is_active ? `Pause ${r.description}` : `Resume ${r.description}`}
                                                             style={{ ...recIconBt, background: r.is_active ? 'color-mix(in srgb, var(--color-warn) 10%, transparent)' : 'color-mix(in srgb, var(--color-inc) 10%, transparent)', border: `1px solid ${r.is_active ? 'color-mix(in srgb, var(--color-warn) 20%, transparent)' : 'color-mix(in srgb, var(--color-inc) 20%, transparent)'}`, color: r.is_active ? 'var(--color-warn)' : 'var(--color-inc)', opacity: togglingId === r.id ? 0.5 : 1 }}>
                                                             {r.is_active ? <Pause size={13} /> : <Play size={13} />}
                                                         </button>
-                                                        <button type="button" onClick={() => { setRecEditingId(r.id); setRecEditForm({ type: r.type, amount: String(r.amount), description: r.description, frequency: r.frequency, day_of_month: r.day_of_month ? String(r.day_of_month) : '', category_id: r.category_id || '' }); setRecEditError(''); }} style={recIconBt}
+                                                        <button type="button" onClick={() => { setRecEditingId(r.id); setRecEditForm({ type: r.type, amount: String(r.amount), description: r.description, frequency: r.frequency, day_of_month: r.day_of_month ? String(r.day_of_month) : '', category_id: r.category_id || '' }); setRecEditError(''); }} aria-label={`Edit ${r.description}`} style={recIconBt}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Pencil size={14} />
                                                         </button>
-                                                        <button type="button" onClick={() => handleRecDelete(r.id)} disabled={recDeletingId === r.id} style={{ ...recIconBt, opacity: recDeletingId === r.id ? 0.5 : 1 }}
+                                                        <button type="button" onClick={() => handleRecDelete(r.id)} disabled={recDeletingId === r.id} aria-label={`Delete ${r.description}`} style={{ ...recIconBt, opacity: recDeletingId === r.id ? 0.5 : 1 }}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Trash2 size={14} />
@@ -1546,12 +1547,12 @@ function BudgetsPageInner() {
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                                        <button type="button" onClick={() => openEditSplit(split)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                        <button type="button" onClick={() => openEditSplit(split)} aria-label={`Edit ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Pencil size={13} />
                                                         </button>
-                                                        <button type="button" onClick={() => handleSplitDelete(split.id)} disabled={splitDeletingId === split.id} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', opacity: splitDeletingId === split.id ? 0.5 : 1 }}
+                                                        <button type="button" onClick={() => handleSplitDelete(split.id)} disabled={splitDeletingId === split.id} aria-label={`Delete ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', opacity: splitDeletingId === split.id ? 0.5 : 1 }}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Trash2 size={13} />
@@ -1624,7 +1625,7 @@ function BudgetsPageInner() {
                                             <div key={i} style={{ display: 'flex', gap: '8px' }}>
                                                 <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
                                                 {splitForm.participants.length > 1 && (
-                                                    <button type="button" onClick={() => removeParticipant(i)} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
+                                                    <button type="button" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
                                                 )}
                                             </div>
                                         ))}
@@ -1775,12 +1776,14 @@ function BudgetsPageInner() {
                                                         type="button"
                                                         onClick={e => otOpenEditExpense(exp, e)}
                                                         title="Edit"
+                                                        aria-label={`Edit ${exp.title}`}
                                                         style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
                                                     >✏️</button>
                                                     <button
                                                         type="button"
                                                         onClick={e => { e.stopPropagation(); setOtDeleteConfirm(exp); }}
                                                         title="Delete"
+                                                        aria-label={`Delete ${exp.title}`}
                                                         style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid color-mix(in srgb, var(--color-exp) 30%, transparent)', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-exp)', fontSize: 13 }}
                                                     >🗑️</button>
                                                 </div>
@@ -1843,6 +1846,7 @@ function BudgetsPageInner() {
                                                                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
                                                                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
                                                                             title="Edit"
+                                                                            aria-label={`Edit ${item.description}`}
                                                                         >✎</button>
                                                                         <button
                                                                             type="button"
@@ -1851,6 +1855,7 @@ function BudgetsPageInner() {
                                                                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'}
                                                                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
                                                                             title="Remove"
+                                                                            aria-label={`Remove ${item.description}`}
                                                                         >×</button>
                                                                     </div>
                                                                 </div>

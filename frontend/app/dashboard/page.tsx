@@ -509,6 +509,7 @@ export default function DashboardPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
                     <button type="button" title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
+                        aria-label={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
                         onClick={async () => {
                             if (dailyBriefCooldown > 0) return;
                             const now = Date.now();
@@ -788,7 +789,7 @@ export default function DashboardPage() {
                                 Pay down credit →
                             </Link>
                         </div>
-                        <button type="button" onClick={() => setUtilAlertDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
+                        <button type="button" onClick={() => setUtilAlertDismissed(true)} aria-label="Dismiss credit utilization alert" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
                             <X size={14} />
                         </button>
                     </div>
@@ -804,7 +805,7 @@ export default function DashboardPage() {
                                 View optimizer →
                             </Link>
                         </div>
-                        <button type="button" onClick={() => setDtiAlertDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
+                        <button type="button" onClick={() => setDtiAlertDismissed(true)} aria-label="Dismiss debt-to-income alert" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
                             <X size={14} />
                         </button>
                     </div>
