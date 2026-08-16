@@ -556,7 +556,7 @@ function AnalyticsOverviewTab() {
                                         <PieChart>
                                             <Pie data={categories} dataKey="total" nameKey="name" innerRadius={36} outerRadius={54} paddingAngle={2} startAngle={90} endAngle={-270}>
                                                 {categories.map((cat: any) => (
-                                                    <Cell key={cat.name} fill={cat.color || cc.exp} />
+                                                    <Cell key={cat.name} fill={cat.color || cc.exp || '#2563eb'} />
                                                 ))}
                                             </Pie>
                                             <Tooltip content={<ChartTooltip />} />

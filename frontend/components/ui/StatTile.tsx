@@ -78,8 +78,7 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
                 lineHeight: 1.1,
                 letterSpacing: '-0.02em',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                wordBreak: 'break-word',
                 animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both',
             }}>
                 {value}

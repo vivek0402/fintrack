@@ -24,7 +24,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
 import { Tabs } from '@/components/ui/Tabs';
-import { formatDate, fmt as fmtBase } from '@/lib/utils';
+import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -1126,7 +1126,7 @@ function BudgetsPageInner() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                                                         <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: emojiBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>
-                                                            {budget.category_icon || budget.category_emoji || '📊'}
+                                                            {[budget.category_icon, budget.category_emoji].find(looksLikeEmoji) || '📊'}
                                                         </div>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

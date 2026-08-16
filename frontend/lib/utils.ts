@@ -248,3 +248,13 @@ export function getSmartIcon(
 
   return categoryIcon || '💳';
 }
+
+// Distinguishes a real emoji from a raw lucide-react icon-name string (e.g.
+// 'utensils', 'shopping-bag') that can leak through from legacy/unmigrated
+// category rows. Lucide names are always plain ASCII letters/hyphens; emoji
+// never are. Used as a last-line guard wherever an icon field is rendered
+// directly, so a bad DB value shows a safe fallback instead of literal text.
+export function looksLikeEmoji(s: string | null | undefined): boolean {
+  if (!s) return false;
+  return !/^[a-z][a-z-]*$/i.test(s.trim());
+}
