@@ -1917,7 +1917,7 @@ const personalityCardSt: React.CSSProperties = {
 
 function PersonalityTab({ onBack }: { onBack: () => void }) {
     const [data, setData]         = useState<any>(null);
-    const [loading, setLoading]   = useState(false);
+    const [loading, setLoading]   = useState(true);
     const [generated, setGenerated] = useState(false);
     const [error, setError]       = useState('');
 
@@ -1931,6 +1931,12 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
             setData(null);
         } finally { setLoading(false); }
     };
+
+    // Auto-fetch on open instead of waiting for a manual click -- the backend
+    // already caches this per-user for 24h (backend/src/utils/aiCache.js), so
+    // this transparently returns the cached profile on repeat visits instead
+    // of showing an empty state that makes it look like nothing was saved.
+    useEffect(() => { generate(); }, []);
 
     const dims = data?.dimensions ? Object.entries(data.dimensions) : [];
     const strengths = dims.filter(([, d]: [string, any]) => d.score >= 65);
