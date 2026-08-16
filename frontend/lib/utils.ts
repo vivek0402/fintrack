@@ -3,6 +3,26 @@ export function fmt(n: number, currency = 'INR'): string {
     return formatCurrency(Math.round(n), currency);
 }
 
+// Mirrors backend/src/utils/savingsRate.js's isNonSavingsExpense/isRealIncome --
+// keep both definitions in sync. An expense only counts as "real spending" (and
+// income only counts as "real income") when it's not investing, not a goal
+// contribution, and not an internal transfer.
+export function isNonSavingsExpense(tx: { type: string; is_investment_category?: boolean; goal_id?: string | null; tags?: string[] | null }): boolean {
+    if (tx.type !== 'expense') return false;
+    if (tx.is_investment_category) return false;
+    if (tx.goal_id) return false;
+    const tags = tx.tags || [];
+    if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
+    return true;
+}
+
+export function isRealIncome(tx: { type: string; tags?: string[] | null }): boolean {
+    if (tx.type !== 'income') return false;
+    const tags = tx.tags || [];
+    if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
+    return true;
+}
+
 export function formatCurrency(amount: number, currency = 'INR'): string {
     const symbols: Record<string, string> = {
         INR: '₹', USD: '$', EUR: '€', GBP: '£',

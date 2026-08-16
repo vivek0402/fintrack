@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -16,21 +17,20 @@ router.get('/summary', async (req, res) => {
             `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
        WHERE user_id=$1 AND type='income'
        AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
+       AND ${nonSpendingExclusionSQL('transactions')}`,
             [req.user.id, m, y]
         );
         const expenseRes = await pool.query(
             `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
        WHERE user_id=$1 AND type='expense'
        AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
-       AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
+       AND ${nonSpendingExclusionSQL('transactions')}`,
             [req.user.id, m, y]
         );
         const categoryRes = await pool.query(
             `SELECT c.name, c.color, c.icon, COALESCE(SUM(t.amount),0) AS total
        FROM transactions t JOIN categories c ON t.category_id = c.id
-       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false
+       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false AND t.goal_id IS NULL
        AND EXTRACT(MONTH FROM t.date)=$2 AND EXTRACT(YEAR FROM t.date)=$3
        GROUP BY c.id, c.name, c.color, c.icon ORDER BY total DESC`,
             [req.user.id, m, y]
@@ -56,8 +56,7 @@ router.get('/trends', async (req, res) => {
             `SELECT EXTRACT(YEAR FROM date) AS year, EXTRACT(MONTH FROM date) AS month,
               type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND date >= NOW() - INTERVAL '6 months'
-       AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+       AND ${nonSpendingExclusionSQL('transactions')}
        GROUP BY year, month, type ORDER BY year ASC, month ASC`,
             [req.user.id]
         );
@@ -76,16 +75,14 @@ router.get('/yearly', async (req, res) => {
             `SELECT EXTRACT(YEAR FROM date) AS year, EXTRACT(MONTH FROM date) AS month,
               type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND EXTRACT(YEAR FROM date) IN ($2,$3)
-       AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+       AND ${nonSpendingExclusionSQL('transactions')}
        GROUP BY year, month, type ORDER BY year ASC, month ASC`,
             [req.user.id, currentYear, lastYear]
         );
         const totals = await pool.query(
             `SELECT EXTRACT(YEAR FROM date) AS year, type, SUM(amount) AS total
        FROM transactions WHERE user_id=$1 AND EXTRACT(YEAR FROM date) IN ($2,$3)
-       AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+       AND ${nonSpendingExclusionSQL('transactions')}
        GROUP BY year, type ORDER BY year ASC`,
             [req.user.id, currentYear, lastYear]
         );
@@ -108,8 +105,7 @@ router.get('/forecast', async (req, res) => {
         const result = await pool.query(
             `SELECT type, SUM(amount) AS total FROM transactions
        WHERE user_id=$1 AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
-       AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+       AND ${nonSpendingExclusionSQL('transactions')}
        GROUP BY type`,
             [req.user.id, month, year]
         );
@@ -158,15 +154,14 @@ router.get('/report', async (req, res) => {
         const summaryResult = await pool.query(
             `SELECT type, SUM(amount) AS total FROM transactions
        WHERE user_id=$1 AND date >= $2 AND date <= $3
-       AND NOT (type = 'expense' AND EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true))
-       AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+       AND ${nonSpendingExclusionSQL('transactions')}
        GROUP BY type`,
             [req.user.id, from, to]
         );
         const categoryResult = await pool.query(
             `SELECT c.name, c.color, SUM(t.amount) AS total
        FROM transactions t JOIN categories c ON t.category_id = c.id
-       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false AND t.date >= $2 AND t.date <= $3
+       WHERE t.user_id=$1 AND t.type='expense' AND c.is_investment_category = false AND t.goal_id IS NULL AND t.date >= $2 AND t.date <= $3
        GROUP BY c.id, c.name, c.color ORDER BY total DESC`,
             [req.user.id, from, to]
         );
@@ -201,8 +196,7 @@ router.get('/payment-methods', async (req, res) => {
              WHERE user_id = $1 AND type = 'expense'
                AND EXTRACT(MONTH FROM date) = $2
                AND EXTRACT(YEAR FROM date) = $3
-               AND NOT EXISTS (SELECT 1 FROM categories cat WHERE cat.id = transactions.category_id AND cat.is_investment_category = true)
-               AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
+               AND ${nonSpendingExclusionSQL('transactions')}
              GROUP BY method
              ORDER BY total DESC`,
             [req.user.id, m, y]

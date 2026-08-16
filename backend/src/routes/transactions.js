@@ -52,7 +52,7 @@ router.get('/', async (req, res) => {
     try {
         const { type, month, year, category_id, credit_card_id, limit, offset } = req.query;
         let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
-                         g.name AS group_name
+                         c.is_investment_category, g.name AS group_name
                   FROM transactions t
                   LEFT JOIN categories c ON t.category_id = c.id
                   LEFT JOIN expense_groups g ON g.id = t.group_id

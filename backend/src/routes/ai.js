@@ -9,6 +9,7 @@ const { sendToUser, userHasTokens } = require('../utils/fcm');
 const { getCached, setCached } = require('../utils/aiCache');
 const { isPositiveNumber, isValidDateString } = require('../utils/validation');
 const { detectSpendingSpike, detectForecastWarning } = require('./opportunities');
+const { isNonSavingsExpense, isRealIncome, nonSpendingExclusionSQL } = require('../utils/savingsRate');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -68,7 +69,7 @@ router.post('/afford', authMiddleware, async (req, res) => {
 
         const [txRes, budgetRes, goalRes] = await Promise.all([
             pool.query(
-                `SELECT t.*, c.name as category_name FROM transactions t
+                `SELECT t.*, c.name as category_name, c.is_investment_category FROM transactions t
                  LEFT JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1 AND EXTRACT(MONTH FROM t.date) = $2 AND EXTRACT(YEAR FROM t.date) = $3
                  ORDER BY t.date DESC`,
@@ -79,8 +80,8 @@ router.post('/afford', authMiddleware, async (req, res) => {
         ]);
 
         const transactions = txRes.rows;
-        const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0);
-        const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalIncome = transactions.filter(isRealIncome).reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalExpenses = transactions.filter(isNonSavingsExpense).reduce((s, t) => s + parseFloat(t.amount), 0);
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(1) : 0;
 
         const context = JSON.stringify({
@@ -471,8 +472,8 @@ router.post('/personality', authMiddleware, async (req, res) => {
         }
 
         const result = await pool.query(`
-            SELECT t.amount, t.type, t.date,
-                COALESCE(c.name, 'Uncategorized') as category
+            SELECT t.amount, t.type, t.date, t.goal_id, t.tags,
+                COALESCE(c.name, 'Uncategorized') as category, c.is_investment_category
             FROM transactions t
             LEFT JOIN categories c ON c.id = t.category_id
             WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '90 days'
@@ -494,10 +495,10 @@ router.post('/personality', authMiddleware, async (req, res) => {
         let totalIncome = 0;
 
         txns.forEach(t => {
-            if (t.type === 'expense') {
+            if (isNonSavingsExpense(t)) {
                 expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + Number(t.amount);
                 totalExpenses += Number(t.amount);
-            } else {
+            } else if (isRealIncome(t)) {
                 totalIncome += Number(t.amount);
             }
         });
@@ -589,13 +590,15 @@ router.post('/life-event', authMiddleware, async (req, res) => {
         const userId = req.user.id;
 
         const { rows: recentTx } = await pool.query(
-            `SELECT type, amount FROM transactions
-             WHERE user_id = $1 AND date >= NOW() - INTERVAL '3 months'`,
+            `SELECT t.type, t.amount, t.tags, t.goal_id, c.is_investment_category
+             FROM transactions t
+             LEFT JOIN categories c ON c.id = t.category_id
+             WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '3 months'`,
             [userId]
         );
 
-        const totalIncome = recentTx.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0);
-        const totalExpenses = recentTx.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalIncome = recentTx.filter(isRealIncome).reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalExpenses = recentTx.filter(isNonSavingsExpense).reduce((s, t) => s + parseFloat(t.amount), 0);
         const avgMonthlySavings = (totalIncome - totalExpenses) / 3;
 
         const now = new Date();
@@ -837,7 +840,7 @@ router.post('/health-report', authMiddleware, async (req, res) => {
 
         const [txRes, budgetRes, goalRes] = await Promise.all([
             pool.query(
-                `SELECT t.*, c.name as category_name
+                `SELECT t.*, c.name as category_name, c.is_investment_category
                  FROM transactions t
                  LEFT JOIN categories c ON t.category_id = c.id
                  WHERE t.user_id = $1
@@ -856,12 +859,12 @@ router.post('/health-report', authMiddleware, async (req, res) => {
         ]);
 
         const transactions = txRes.rows;
-        const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0);
-        const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalIncome = transactions.filter(isRealIncome).reduce((s, t) => s + parseFloat(t.amount), 0);
+        const totalExpenses = transactions.filter(isNonSavingsExpense).reduce((s, t) => s + parseFloat(t.amount), 0);
         const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100) : 0;
 
         const categorySpending = {};
-        transactions.filter(t => t.type === 'expense').forEach(t => {
+        transactions.filter(isNonSavingsExpense).forEach(t => {
             const cat = t.category_name || 'Uncategorized';
             categorySpending[cat] = (categorySpending[cat] || 0) + parseFloat(t.amount);
         });
@@ -1214,14 +1217,14 @@ async function getBriefingData(userId) {
             `SELECT
                 COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
                 COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
-             FROM transactions WHERE user_id=$1 AND date >= $2`,
+             FROM transactions WHERE user_id=$1 AND date >= $2 AND ${nonSpendingExclusionSQL('transactions')}`,
             [userId, monthStart]
         ),
         pool.query(
             `SELECT
                 COALESCE(SUM(amount) FILTER (WHERE type='income'),0) AS income,
                 COALESCE(SUM(amount) FILTER (WHERE type='expense'),0) AS expense
-             FROM transactions WHERE user_id=$1 AND date >= $2 AND date < $3`,
+             FROM transactions WHERE user_id=$1 AND date >= $2 AND date < $3 AND ${nonSpendingExclusionSQL('transactions')}`,
             [userId, lastMonthStart, lastMonthEnd]
         ),
         pool.query(

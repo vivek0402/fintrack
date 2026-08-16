@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
 const { calculateEMI, monthsRemainingForLoan } = require('../utils/amortization');
 const { computeDtiBreakdown, computeCreditUtilization } = require('./debt');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -229,6 +230,7 @@ async function fetchBudgetMasterData(userId) {
         pool.query(
             `SELECT DATE_TRUNC('month', date) AS month, type, COALESCE(SUM(amount), 0) AS total
              FROM transactions WHERE user_id = $1 AND date >= (CURRENT_DATE - INTERVAL '3 months')
+             AND ${nonSpendingExclusionSQL('transactions')}
              GROUP BY DATE_TRUNC('month', date), type
              ORDER BY month`,
             [userId]

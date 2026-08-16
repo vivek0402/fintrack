@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { aiComplete } = require('../utils/ai');
 const { getCached, setCached } = require('../utils/aiCache');
 const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
+const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
 router.use(auth);
@@ -131,7 +132,7 @@ router.get('/peer-benchmarks', async (req, res) => {
         const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
         const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
 
-        const [expenseRes, monthIncomeRes] = await Promise.all([
+        const [expenseRes, monthIncomeRes, nonSavingsExpenseRes] = await Promise.all([
             pool.query(
                 `SELECT COALESCE(c.name, 'Uncategorized') AS category_name, COALESCE(SUM(t.amount), 0) AS total
                  FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
@@ -145,9 +146,23 @@ router.get('/peer-benchmarks', async (req, res) => {
                  WHERE user_id=$1 AND type='income' AND date >= $2 AND date < $3`,
                 [userId, lastMonthStart, thisMonthStart]
             ),
+            // Separate from expenseRes on purpose: expenseRes/groupTotals below feeds the
+            // "Savings & Investments" peer-comparison bucket via keyword-matched category
+            // names, so it must keep counting Investments-category spend. This query is
+            // only for the savings-rate percentage itself, which should NOT count investing
+            // or goal contributions as "spent" -- excluding them from expenseRes too would
+            // empty out that comparison bucket for anyone using the real "Investments" category.
+            pool.query(
+                `SELECT COALESCE(SUM(amount), 0) AS total
+                 FROM transactions
+                 WHERE user_id=$1 AND type='expense' AND date >= $2 AND date < $3
+                 AND ${nonSpendingExclusionSQL('transactions')}`,
+                [userId, lastMonthStart, thisMonthStart]
+            ),
         ]);
 
         const totalIncomeThatMonth = parseFloat(monthIncomeRes.rows[0].total) || 0;
+        const totalNonSavingsExpense = parseFloat(nonSavingsExpenseRes.rows[0].total) || 0;
 
         // Sum category spend into benchmark groups
         const groupTotals = {};
@@ -183,7 +198,7 @@ router.get('/peer-benchmarks', async (req, res) => {
 
         // Savings rate comparison
         const savingsRatePct = totalIncomeThatMonth > 0
-            ? fmt(((totalIncomeThatMonth - totalExpense) / totalIncomeThatMonth) * 100)
+            ? fmt(((totalIncomeThatMonth - totalNonSavingsExpense) / totalIncomeThatMonth) * 100)
             : 0;
         const savingsBand = benchmarkBands.savings_investments;
         let savingsStatus;

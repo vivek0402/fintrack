@@ -35,7 +35,7 @@ const vizSkeleton = (h: number) => {
 const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
-import { exportToCSV, formatCurrency, formatDate, fmt } from '@/lib/utils';
+import { exportToCSV, formatCurrency, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 
 const OUTER_TABS = [
     { key: 'overview', label: 'Overview' },
@@ -1662,8 +1662,13 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
 
     const stats = useMemo(() => {
         if (!yearTxs.length) return null;
-        const expenses = yearTxs.filter(t => t.type === 'expense');
-        const income   = yearTxs.filter(t => t.type === 'income');
+        // Excludes investing, goal contributions, and internal transfers from
+        // "spending"/"income" -- mirrors the same definition used everywhere
+        // else in the app (backend/src/utils/savingsRate.js), so this tab's
+        // savings rate agrees with the Dashboard/Analytics Overview instead of
+        // recomputing its own from the raw, unfiltered transaction list.
+        const expenses = yearTxs.filter(isNonSavingsExpense);
+        const income   = yearTxs.filter(isRealIncome);
 
         const catMap: Record<string, number> = {};
         expenses.forEach(t => {
@@ -1677,8 +1682,8 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
         yearTxs.forEach(t => {
             const m = new Date((t.date ?? '').split('T')[0] + 'T00:00:00').getMonth() + 1;
             const a = parseFloat(t.amount ?? 0);
-            if (t.type === 'expense') mMap[m].exp += a;
-            else mMap[m].inc += a;
+            if (isNonSavingsExpense(t)) mMap[m].exp += a;
+            else if (isRealIncome(t)) mMap[m].inc += a;
         });
 
         const worstMonth = Object.entries(mMap)
