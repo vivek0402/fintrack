@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, MoreHorizontal, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI } from '@/lib/api';
+import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI, accountsAPI, creditCardsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
 import { GCard } from '@/components/ui/GCard';
 import { StatTile } from '@/components/ui/StatTile';
@@ -58,6 +58,8 @@ function TransactionsPageInner() {
     const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
+    const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
+    const [creditCards, setCreditCards]     = useState<any[]>([]);
     const [importOpen, setImportOpen]       = useState(false);
     const [smsImportOpen, setSmsImportOpen] = useState(false);
     const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
@@ -154,6 +156,14 @@ function TransactionsPageInner() {
         return () => window.removeEventListener('fintrack:queue-synced', handler);
     }, [user, selectedMonth, selectedYear, filterCreditCardId]);
 
+    // Powers the filter bar's Account section and resolves filterCreditCardId
+    // (set from a ?credit_card_id= deep link) to a human-readable chip label.
+    useEffect(() => {
+        if (!user) return;
+        accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
+        creditCardsAPI.getAll().then(res => setCreditCards(res.data.cards || [])).catch(() => setCreditCards([]));
+    }, [user]);
+
     const handleOfflineSave = (pendingTx: any) => {
         setTransactions(prev => [pendingTx, ...prev]);
     };
@@ -245,6 +255,14 @@ function TransactionsPageInner() {
             <SkeletonCard height={300} />
         </>
     );
+
+    const filteredCard = filterCreditCardId ? creditCards.find((c: any) => c.id === filterCreditCardId) : null;
+    const creditCardChips = filterCreditCardId ? [{
+        label: filteredCard
+            ? `Card: ${filteredCard.bank_name} ${filteredCard.card_name}${filteredCard.last_four ? ' ••' + filteredCard.last_four : ''}`
+            : 'Card filter',
+        onClear: () => setFilterCreditCardId(null),
+    }] : [];
 
     return (
         <>
@@ -357,6 +375,8 @@ function TransactionsPageInner() {
                     onFilter={setFiltered}
                     onSetDateContext={handleSetDateContext}
                     initialQuery={initialQuery}
+                    accounts={accounts}
+                    extraChips={creditCardChips}
                 />
 
                 {/* ── SUMMARY GCARDS ── */}

@@ -3,36 +3,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X, SlidersHorizontal, Bookmark, Clock, ChevronDown, MoreHorizontal, Check } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useWindowSize';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { PanelFilters, DEFAULT_PANEL, applyAdvancedFilters, countActiveFilters } from '@/lib/transactionFilters';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-export interface PanelFilters {
-    amountMin: string;
-    amountMax: string;
-    categories: string[];
-    type: 'all' | 'income' | 'expense';
-    datePreset: 'all' | 'this-month' | 'last-month' | 'last-3-months' | 'custom';
-    dateFrom: string;
-    dateTo: string;
-    tags: string[];
-    hasNotes: boolean;
-}
-
-export const DEFAULT_PANEL: PanelFilters = {
-    amountMin: '', amountMax: '',
-    categories: [], type: 'all',
-    datePreset: 'all', dateFrom: '', dateTo: '',
-    tags: [], hasNotes: false,
-};
-
-interface ParsedToken {
-    id: string;
-    prefix: 'amount' | 'category' | 'type' | 'tag' | 'date' | 'notes';
-    value: string;
-    raw: string;
-    color: string;
-    bg: string;
-}
+const PAYMENT_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'];
 
 interface SavedView {
     id: string;
@@ -42,141 +17,25 @@ interface SavedView {
     createdAt: string;
 }
 
-// ── Token colors ──────────────────────────────────────────────────────────────
+interface Account { id: number; name: string }
 
-const TOKEN_STYLES: Record<string, { color: string; bg: string }> = {
-    amount:   { color: 'var(--color-warn)', bg: 'rgba(217,119,6,0.12)'    },
-    category: { color: 'var(--color-info)', bg: 'rgba(79,70,229,0.12)'    },
-    type:     { color: 'var(--accent)',     bg: 'var(--accent-subtle)'      },
-    tag:      { color: '#8b5cf6',           bg: 'rgba(139,92,246,0.12)'   },
-    date:     { color: 'var(--color-inc)',  bg: 'rgba(5,150,105,0.12)'    },
-    notes:    { color: 'var(--text-secondary)', bg: 'var(--bg-surface-2)'       },
-};
-
-// ── Parsing ───────────────────────────────────────────────────────────────────
-
-function parseTokens(input: string): ParsedToken[] {
-    const re = /\b(amount|category|type|tag|date|notes):([^\s]+)/gi;
-    const tokens: ParsedToken[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(input)) !== null) {
-        const prefix = match[1].toLowerCase() as ParsedToken['prefix'];
-        tokens.push({
-            id: `${prefix}-${match[2]}-${match.index}`,
-            prefix,
-            value: match[2],
-            raw: match[0],
-            ...(TOKEN_STYLES[prefix] || TOKEN_STYLES.notes),
-        });
-    }
-    return tokens;
-}
-
-function stripTokens(input: string): string {
-    return input.replace(/\b(amount|category|type|tag|date|notes):[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
-}
-
-// ── Date bounds ────────────────────────────────────────────────────────────────
-
-function getDateBounds(preset: PanelFilters['datePreset'], from: string, to: string): [Date | null, Date | null] {
-    const now = new Date();
-    if (preset === 'this-month') return [new Date(now.getFullYear(), now.getMonth(), 1), null];
-    if (preset === 'last-month') {
-        const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-        const m = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-        return [new Date(y, m, 1), new Date(y, m + 1, 0)];
-    }
-    if (preset === 'last-3-months') return [new Date(now.getFullYear(), now.getMonth() - 3, 1), null];
-    if (preset === 'custom') return [from ? new Date(from) : null, to ? new Date(to) : null];
-    return [null, null];
-}
-
-// ── Filter application (exported for use in page) ─────────────────────────────
-
-export function applyAdvancedFilters(
-    transactions: any[],
-    inputValue: string,
-    panel: PanelFilters,
-): any[] {
-    const tokens = parseTokens(inputValue);
-    const freeText = stripTokens(inputValue).toLowerCase();
-    let r = [...transactions];
-
-    if (freeText) {
-        r = r.filter(tx =>
-            tx.description?.toLowerCase().includes(freeText) ||
-            tx.category_name?.toLowerCase().includes(freeText) ||
-            tx.notes?.toLowerCase().includes(freeText) ||
-            tx.tags?.some((t: string) => t.toLowerCase().includes(freeText))
-        );
-    }
-
-    for (const tok of tokens) {
-        const v = tok.value;
-        if (tok.prefix === 'amount') {
-            if (v.startsWith('>')) { const n = parseFloat(v.slice(1)); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) > n); }
-            else if (v.startsWith('<')) { const n = parseFloat(v.slice(1)); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) < n); }
-            else if (v.includes('-')) {
-                const [a, b] = v.split('-').map(Number);
-                if (!isNaN(a) && !isNaN(b)) r = r.filter(tx => { const amt = parseFloat(tx.amount); return amt >= a && amt <= b; });
-            } else {
-                const n = parseFloat(v); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) === n);
-            }
-        } else if (tok.prefix === 'category') {
-            r = r.filter(tx => tx.category_name?.toLowerCase().includes(v.toLowerCase()));
-        } else if (tok.prefix === 'type') {
-            if (v === 'income' || v === 'expense') r = r.filter(tx => tx.type === v);
-        } else if (tok.prefix === 'tag') {
-            r = r.filter(tx => tx.tags?.some((t: string) => t.toLowerCase().includes(v.toLowerCase())));
-        } else if (tok.prefix === 'date') {
-            const now = new Date(); const vl = v.toLowerCase();
-            if (vl === 'this-month') {
-                r = r.filter(tx => { const d = new Date((tx.date || '').split('T')[0]); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); });
-            } else if (vl === 'last-month') {
-                const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-                const m = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-                r = r.filter(tx => { const d = new Date((tx.date || '').split('T')[0]); return d.getFullYear() === y && d.getMonth() === m; });
-            } else if (vl === 'last-3-months') {
-                const cutoff = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-                r = r.filter(tx => new Date((tx.date || '').split('T')[0]) >= cutoff);
-            }
-        } else if (tok.prefix === 'notes') {
-            r = r.filter(tx => tx.notes?.toLowerCase().includes(v.toLowerCase()));
-        }
-    }
-
-    if (panel.amountMin) { const n = parseFloat(panel.amountMin); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) >= n); }
-    if (panel.amountMax) { const n = parseFloat(panel.amountMax); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) <= n); }
-    if (panel.categories.length > 0) r = r.filter(tx => panel.categories.some(c => tx.category_name?.toLowerCase() === c.toLowerCase()));
-    if (panel.type !== 'all') r = r.filter(tx => tx.type === panel.type);
-    if (panel.datePreset !== 'all') {
-        const [from, to] = getDateBounds(panel.datePreset, panel.dateFrom, panel.dateTo);
-        r = r.filter(tx => {
-            const d = new Date((tx.date || '').split('T')[0]);
-            if (from && d < from) return false;
-            if (to && d > to) return false;
-            return true;
-        });
-    }
-    if (panel.tags.length > 0) r = r.filter(tx => panel.tags.some(tag => tx.tags?.includes(tag)));
-    if (panel.hasNotes) r = r.filter(tx => tx.notes && tx.notes.trim());
-
-    return r;
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
+interface ExtraChip { label: string; onClear: () => void }
 
 interface Props {
     transactions: any[];
     onFilter: (filtered: any[]) => void;
     onSetDateContext: (ctx: 'month' | 'all') => void;
     initialQuery?: string;
+    accounts?: Account[];
+    extraChips?: ExtraChip[];
 }
 
 const LS_VIEWS = 'fintrack-saved-views';
 const SS_HIST  = 'fintrack-search-history';
 
-export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '' }: Props) {
+export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [] }: Props) {
+    const isMobile = useIsMobile();
+
     const [inputValue, setInputValue]     = useState(initialQuery);
     const [panelOpen, setPanelOpen]       = useState(false);
     const [panel, setPanel]               = useState<PanelFilters>(DEFAULT_PANEL);
@@ -205,9 +64,6 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     // Re-apply when initialQuery changes (from URL param)
     useEffect(() => { if (initialQuery) setInputValue(initialQuery); }, [initialQuery]);
 
-    const tokens = useMemo(() => parseTokens(inputValue), [inputValue]);
-    const freeTextDisplay = useMemo(() => stripTokens(inputValue), [inputValue]);
-
     const allCategories = useMemo(() =>
         [...new Set(transactions.map((tx: any) => tx.category_name).filter(Boolean))].sort() as string[],
         [transactions]
@@ -217,33 +73,30 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         [transactions]
     );
 
-    const isAnyFilterActive = useMemo(() =>
-        !!(inputValue.trim() || panel.amountMin || panel.amountMax ||
-           panel.categories.length || panel.type !== 'all' ||
-           panel.datePreset !== 'all' || panel.tags.length ||
-           panel.hasNotes),
-        [inputValue, panel]
-    );
+    const activeFilterCount = useMemo(() => countActiveFilters(inputValue, panel), [inputValue, panel]);
+    const isAnyFilterActive = activeFilterCount > 0;
 
     // Apply filters on every change
     useEffect(() => {
         onFilter(applyAdvancedFilters(transactions, inputValue, panel));
     }, [transactions, inputValue, panel]);
 
-    // Sync date context with parent (drives server-side fetch range)
+    // Sync date context with parent (drives server-side fetch range) --
+    // both 'all' and 'custom' need the fetch widened beyond the current
+    // month so there's data outside it to filter across.
     useEffect(() => {
-        onSetDateContext(panel.datePreset === 'all' ? 'month' : 'all');
-    }, [panel.datePreset]);
+        onSetDateContext(panel.dateMode === 'default' ? 'month' : 'all');
+    }, [panel.dateMode]);
 
-    // Close panel on outside click
+    // Close panel on outside click (desktop overlay only -- BottomSheet handles its own backdrop)
     useEffect(() => {
-        if (!panelOpen) return;
+        if (!panelOpen || isMobile) return;
         const handler = (e: MouseEvent) => {
             if (panelRef.current && !panelRef.current.contains(e.target as Node)) setPanelOpen(false);
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [panelOpen]);
+    }, [panelOpen, isMobile]);
 
     // Close dot menu on outside click
     useEffect(() => {
@@ -264,20 +117,10 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         });
     }, []);
 
-    const handleInputChange = useCallback((newFree: string) => {
-        const tokenPart = tokens.map(t => t.raw).join(' ');
-        const full = [tokenPart, newFree].filter(Boolean).join(' ');
-        setInputValue(full);
-    }, [tokens]);
-
     const handleInputBlur = useCallback(() => {
         setTimeout(() => setHistoryOpen(false), 160);
         if (inputValue.trim()) saveToHistory(inputValue);
     }, [inputValue, saveToHistory]);
-
-    const removeToken = useCallback((raw: string) => {
-        setInputValue(prev => prev.replace(raw, '').replace(/\s+/g, ' ').trim());
-    }, []);
 
     const persistViews = (views: SavedView[]) => {
         setSavedViews(views);
@@ -298,7 +141,11 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         setSaveViewName('');
     };
 
-    const applyView = (view: SavedView) => { setInputValue(view.inputValue); setPanel(view.panel); };
+    // Merge with defaults rather than replacing outright -- a view saved
+    // before this filter shape changed (e.g. old 'datePreset' field, no
+    // paymentMethods/accountIds) would otherwise leave new fields undefined
+    // and crash on the first .length/.includes() call below.
+    const applyView = (view: SavedView) => { setInputValue(view.inputValue); setPanel({ ...DEFAULT_PANEL, ...view.panel }); };
     const deleteView = (id: string) => persistViews(savedViews.filter(v => v.id !== id));
     const finishRename = () => {
         if (!renameId || !renameValue.trim()) { setRenameId(null); return; }
@@ -307,12 +154,12 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     };
     const clearAll = () => { setInputValue(''); setPanel(DEFAULT_PANEL); };
 
-    // Active summary chips (panel-only; token chips are visible in the search bar)
+    // Active summary chips
     const summaryChips: { label: string; onRemove: () => void }[] = [];
     if (panel.type !== 'all') summaryChips.push({ label: panel.type === 'income' ? '↑ Income' : '↓ Expense', onRemove: () => setPanel(p => ({ ...p, type: 'all' })) });
-    if (panel.datePreset !== 'all') summaryChips.push({
-        label: ({ 'this-month': 'This month', 'last-month': 'Last month', 'last-3-months': 'Last 3 months', custom: `${panel.dateFrom || '?'}–${panel.dateTo || '?'}` } as Record<string, string>)[panel.datePreset] || panel.datePreset,
-        onRemove: () => setPanel(p => ({ ...p, datePreset: 'all', dateFrom: '', dateTo: '' })),
+    if (panel.dateMode !== 'default') summaryChips.push({
+        label: panel.dateMode === 'all' ? 'All time' : `${panel.dateFrom || '?'}–${panel.dateTo || '?'}`,
+        onRemove: () => setPanel(p => ({ ...p, dateMode: 'default', dateFrom: '', dateTo: '' })),
     });
     panel.categories.forEach(c => summaryChips.push({ label: c, onRemove: () => setPanel(p => ({ ...p, categories: p.categories.filter(x => x !== c) })) }));
     if (panel.amountMin || panel.amountMax) summaryChips.push({
@@ -320,6 +167,11 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         onRemove: () => setPanel(p => ({ ...p, amountMin: '', amountMax: '' })),
     });
     panel.tags.forEach(t => summaryChips.push({ label: `#${t}`, onRemove: () => setPanel(p => ({ ...p, tags: p.tags.filter(x => x !== t) })) }));
+    panel.paymentMethods.forEach(m => summaryChips.push({ label: m, onRemove: () => setPanel(p => ({ ...p, paymentMethods: p.paymentMethods.filter(x => x !== m) })) }));
+    panel.accountIds.forEach(id => {
+        const acc = accounts.find(a => a.id === id);
+        summaryChips.push({ label: acc?.name || 'Account', onRemove: () => setPanel(p => ({ ...p, accountIds: p.accountIds.filter(x => x !== id) })) });
+    });
     if (panel.hasNotes) summaryChips.push({ label: 'Has notes', onRemove: () => setPanel(p => ({ ...p, hasNotes: false })) });
 
     // ── Style helpers ────────────────────────────────────────────────────────
@@ -337,49 +189,194 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         display: 'block', marginBottom: '6px', fontFamily: 'var(--font-body)',
     };
 
+    const inputS: React.CSSProperties = {
+        padding: '7px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px',
+        fontFamily: 'var(--font-body)', outline: 'none',
+    };
+
+    // ── Filter panel content (shared between desktop overlay and mobile BottomSheet) ──
+    const panelContent = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+            {/* Amount & Type */}
+            <div>
+                <label style={labelS}>Amount &amp; Type</label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    {[['amountMin', 'Min ₹'], ['amountMax', 'Max ₹']].map(([key, ph]) => (
+                        <input key={key} type="number" placeholder={ph}
+                            value={(panel as any)[key]}
+                            onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
+                            style={{ ...inputS, width: '120px', flex: 'none', boxSizing: 'border-box' as const }}
+                            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
+                    ))}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    {(['all', 'income', 'expense'] as const).map(t => (
+                        <button key={t} type="button" onClick={() => setPanel(p => ({ ...p, type: t }))} style={pillS(panel.type === t)}>
+                            {t === 'all' ? 'All' : t === 'income' ? '↑ Income' : '↓ Expense'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Category */}
+            <div>
+                <label style={labelS}>Category</label>
+                <div style={{ position: 'relative' }}>
+                    <button type="button" onClick={() => setCatOpen(o => !o)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', ...inputS, cursor: 'pointer', textAlign: 'left', boxSizing: 'border-box' as const, color: panel.categories.length ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {panel.categories.length ? panel.categories.join(', ') : 'All categories'}
+                        </span>
+                        <ChevronDown size={12} style={{ flexShrink: 0 }} />
+                    </button>
+                    {catOpen && (
+                        <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', maxHeight: '180px', overflowY: 'auto', zIndex: 100, boxShadow: 'var(--shadow-modal)' }}>
+                            {allCategories.length === 0 && (
+                                <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No categories yet</div>
+                            )}
+                            {allCategories.map(cat => {
+                                const active = panel.categories.includes(cat);
+                                return (
+                                    <button key={cat} type="button"
+                                        onClick={() => setPanel(p => ({ ...p, categories: active ? p.categories.filter(c => c !== cat) : [...p.categories, cat] }))}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
+                                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface-3)')}
+                                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                                        <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                                            {active && <Check size={9} color="white" />}
+                                        </div>
+                                        {cat}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Payment method */}
+            <div>
+                <label style={labelS}>Payment Method</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {PAYMENT_METHODS.map(m => {
+                        const active = panel.paymentMethods.includes(m);
+                        return (
+                            <button key={m} type="button"
+                                onClick={() => setPanel(p => ({ ...p, paymentMethods: active ? p.paymentMethods.filter(x => x !== m) : [...p.paymentMethods, m] }))}
+                                style={pillS(active)}>
+                                {m}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Account */}
+            {accounts.length > 0 && (
+                <div>
+                    <label style={labelS}>Account</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {accounts.map(acc => {
+                            const active = panel.accountIds.includes(acc.id);
+                            return (
+                                <button key={acc.id} type="button"
+                                    onClick={() => setPanel(p => ({ ...p, accountIds: active ? p.accountIds.filter(x => x !== acc.id) : [...p.accountIds, acc.id] }))}
+                                    style={pillS(active)}>
+                                    {acc.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Date */}
+            <div>
+                <label style={labelS}>Date</label>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {(['default', 'all', 'custom'] as const).map(d => (
+                        <button key={d} type="button" onClick={() => setPanel(p => ({ ...p, dateMode: d }))} style={pillS(panel.dateMode === d)}>
+                            {{ default: 'This period', all: 'All time', custom: 'Custom range' }[d]}
+                        </button>
+                    ))}
+                </div>
+                {panel.dateMode === 'custom' && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        {[['dateFrom', 'From'], ['dateTo', 'To']].map(([key, label]) => (
+                            <div key={key} style={{ flex: 1 }}>
+                                <label style={{ ...labelS, marginBottom: '4px' }}>{label}</label>
+                                <input type="date" value={(panel as any)[key]}
+                                    onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
+                                    style={{ ...inputS, width: '100%', boxSizing: 'border-box' as const }}
+                                    onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
+                                    onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Tags */}
+            {allTags.length > 0 && (
+                <div>
+                    <label style={labelS}>Tags</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {allTags.map(tag => {
+                            const active = panel.tags.includes(tag);
+                            return (
+                                <button key={tag} type="button"
+                                    onClick={() => setPanel(p => ({ ...p, tags: active ? p.tags.filter(t => t !== tag) : [...p.tags, tag] }))}
+                                    style={{ padding: '3px 10px', borderRadius: '999px', border: `1px solid ${active ? '#8b5cf6' : 'var(--border-subtle)'}`, background: active ? 'rgba(139,92,246,0.12)' : 'var(--bg-surface-2)', color: active ? '#8b5cf6' : 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                    #{tag}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Has notes */}
+            <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', userSelect: 'none' }}
+                    onClick={() => setPanel(p => ({ ...p, hasNotes: !p.hasNotes }))}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${panel.hasNotes ? 'var(--accent)' : 'var(--border-subtle)'}`, background: panel.hasNotes ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}>
+                        {panel.hasNotes && <Check size={10} color="white" />}
+                    </div>
+                    Has notes
+                </label>
+            </div>
+        </div>
+    );
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
             {/* ── Search input + dropdown overlays (position:relative anchors them) ── */}
             <div style={{ position: 'relative' }}>
 
-            {/* ── Search input with token chips ──────────────────────────────────── */}
+            {/* ── Search input ──────────────────────────────────────────────────── */}
             <div
                 style={{
                     position: 'relative',
-                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px',
+                    display: 'flex', alignItems: 'center', gap: '4px',
                     padding: '6px 44px 6px 36px',
                     background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)', minHeight: '44px', cursor: 'text',
+                    borderRadius: 'var(--radius-md)', minHeight: '52px', cursor: 'text',
                     transition: 'border-color var(--transition-fast)',
                 }}
                 onClick={() => inputRef.current?.focus()}
             >
                 <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
 
-                {tokens.map(tok => (
-                    <span key={tok.id} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '4px',
-                        padding: '2px 6px 2px 8px', borderRadius: '999px',
-                        fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)',
-                        color: tok.color, background: tok.bg,
-                        border: `1px solid ${tok.color}33`, flexShrink: 0, whiteSpace: 'nowrap',
-                    }}>
-                        {tok.raw}
-                        <button type="button"
-                            onClick={e => { e.stopPropagation(); removeToken(tok.raw); }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: tok.color, lineHeight: 0, flexShrink: 0 }}>
-                            <X size={10} />
-                        </button>
-                    </span>
-                ))}
-
                 <input
                     ref={inputRef}
                     type="text"
-                    value={freeTextDisplay}
-                    onChange={e => handleInputChange(e.target.value)}
-                    placeholder={tokens.length === 0 ? 'Search or type amount:>500 category:food…' : ''}
+                    value={inputValue}
+                    onChange={e => setInputValue(e.target.value)}
+                    placeholder="Search description, category, notes, tags…"
                     onFocus={() => { if (!inputValue.trim()) setHistoryOpen(true); }}
                     onBlur={handleInputBlur}
                     style={{
@@ -398,6 +395,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     )}
                     <button type="button" onClick={() => setPanelOpen(o => !o)} title="Filters"
                         style={{
+                            position: 'relative',
                             background: panelOpen ? 'var(--accent-subtle)' : 'none',
                             border: 'none', cursor: 'pointer',
                             color: panelOpen ? 'var(--accent)' : 'var(--text-muted)',
@@ -405,6 +403,17 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                             transition: 'all var(--transition-fast)',
                         }}>
                         <SlidersHorizontal size={15} />
+                        {activeFilterCount > 0 && (
+                            <span style={{
+                                position: 'absolute', top: '-4px', right: '-4px',
+                                minWidth: '14px', height: '14px', padding: '0 3px',
+                                borderRadius: '999px', background: 'var(--accent)', color: 'white',
+                                fontSize: '9px', fontWeight: 700, fontFamily: 'var(--font-body)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {activeFilterCount}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
@@ -438,138 +447,34 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                 </div>
             )}
 
-            {/* ── Filter panel ──────────────────────────────────────────────────── */}
-            {panelOpen && (
-                <div ref={panelRef} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, maxHeight: 'min(480px, 60vh)', overflowY: 'auto', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', boxShadow: 'var(--shadow-modal)' }}>
-
-                    {/* Amount range */}
-                    <div>
-                        <label style={labelS}>Amount</label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            {[['amountMin', 'Min ₹'], ['amountMax', 'Max ₹']] .map(([key, ph]) => (
-                                <input key={key} type="number" placeholder={ph}
-                                    value={(panel as any)[key]}
-                                    onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
-                                    style={{ width: '110px', flex: 'none', padding: '6px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }}
-                                    onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                                    onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Category multi-select */}
-                    <div>
-                        <label style={labelS}>Category</label>
-                        <div style={{ position: 'relative' }}>
-                            <button type="button" onClick={() => setCatOpen(o => !o)}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '7px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: panel.categories.length ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)', cursor: 'pointer', textAlign: 'left' }}>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {panel.categories.length ? panel.categories.join(', ') : 'All categories'}
-                                </span>
-                                <ChevronDown size={12} style={{ flexShrink: 0 }} />
-                            </button>
-                            {catOpen && (
-                                <div style={{ position: 'absolute', top: '36px', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', maxHeight: '180px', overflowY: 'auto', zIndex: 100, boxShadow: 'var(--shadow-modal)' }}>
-                                    {allCategories.length === 0 && (
-                                        <div style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No categories yet</div>
-                                    )}
-                                    {allCategories.map(cat => {
-                                        const active = panel.categories.includes(cat);
-                                        return (
-                                            <button key={cat} type="button"
-                                                onClick={() => setPanel(p => ({ ...p, categories: active ? p.categories.filter(c => c !== cat) : [...p.categories, cat] }))}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
-                                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface-3)')}
-                                                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                                                <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
-                                                    {active && <Check size={9} color="white" />}
-                                                </div>
-                                                {cat}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Type toggle */}
-                    <div>
-                        <label style={labelS}>Type</label>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                            {(['all', 'income', 'expense'] as const).map(t => (
-                                <button key={t} type="button" onClick={() => setPanel(p => ({ ...p, type: t }))} style={pillS(panel.type === t)}>
-                                    {t === 'all' ? 'All' : t === 'income' ? '↑ Income' : '↓ Expense'}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Date range */}
-                    <div>
-                        <label style={labelS}>Date range</label>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {(['all', 'this-month', 'last-month', 'last-3-months', 'custom'] as const).map(d => (
-                                <button key={d} type="button" onClick={() => setPanel(p => ({ ...p, datePreset: d }))} style={pillS(panel.datePreset === d)}>
-                                    {{ all: 'All time', 'this-month': 'This month', 'last-month': 'Last month', 'last-3-months': 'Last 3 months', custom: 'Custom' }[d]}
-                                </button>
-                            ))}
-                        </div>
-                        {panel.datePreset === 'custom' && (
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                                {[['dateFrom', 'From'], ['dateTo', 'To']].map(([key, label]) => (
-                                    <div key={key} style={{ flex: 1 }}>
-                                        <label style={{ ...labelS, marginBottom: '4px' }}>{label}</label>
-                                        <input type="date" value={(panel as any)[key]}
-                                            onChange={e => setPanel(p => ({ ...p, [key]: e.target.value }))}
-                                            style={{ width: '100%', padding: '7px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
-                                            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                                            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Tags */}
-                    {allTags.length > 0 && (
-                        <div>
-                            <label style={labelS}>Tags</label>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {allTags.map(tag => {
-                                    const active = panel.tags.includes(tag);
-                                    return (
-                                        <button key={tag} type="button"
-                                            onClick={() => setPanel(p => ({ ...p, tags: active ? p.tags.filter(t => t !== tag) : [...p.tags, tag] }))}
-                                            style={{ padding: '3px 10px', borderRadius: '999px', border: `1px solid ${active ? '#8b5cf6' : 'var(--border-subtle)'}`, background: active ? 'rgba(139,92,246,0.12)' : 'var(--bg-surface-2)', color: active ? '#8b5cf6' : 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                                            #{tag}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Checkboxes */}
-                    <div style={{ display: 'flex', gap: '20px' }}>
-                        {([['hasNotes', 'Has notes']] as const).map(([key, lbl]) => (
-                            <label key={key} style={{ display: 'flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', userSelect: 'none' }}
-                                onClick={() => setPanel(p => ({ ...p, [key]: !p[key] }))}>
-                                <div style={{ width: '16px', height: '16px', borderRadius: '4px', border: `2px solid ${panel[key] ? 'var(--accent)' : 'var(--border-subtle)'}`, background: panel[key] ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', flexShrink: 0 }}>
-                                    {panel[key] && <Check size={10} color="white" />}
-                                </div>
-                                {lbl}
-                            </label>
-                        ))}
-                    </div>
+            {/* ── Filter panel: desktop overlay ─────────────────────────────────── */}
+            {panelOpen && !isMobile && (
+                <div ref={panelRef} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200, maxHeight: 'min(520px, 60vh)', overflowY: 'auto', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', boxShadow: 'var(--shadow-modal)' }}>
+                    {panelContent}
                 </div>
             )}
 
             </div>{/* end: search + dropdown overlays wrapper */}
 
+            {/* ── Filter panel: mobile bottom sheet ─────────────────────────────── */}
+            {isMobile && (
+                <BottomSheet isOpen={panelOpen} onClose={() => setPanelOpen(false)} title="Filters">
+                    {panelContent}
+                </BottomSheet>
+            )}
+
             {/* ── Active filter summary row ─────────────────────────────────────── */}
-            {summaryChips.length > 0 && (
+            {(summaryChips.length > 0 || extraChips.length > 0) && (
                 <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '2px', alignItems: 'center' }}>
+                    {extraChips.map((chip, i) => (
+                        <span key={`extra-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', fontSize: '12px', color: 'var(--accent)', fontFamily: 'var(--font-body)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {chip.label}
+                            <button type="button" onClick={chip.onClear}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--accent)', lineHeight: 0 }}>
+                                <X size={10} />
+                            </button>
+                        </span>
+                    ))}
                     {summaryChips.map((chip, i) => (
                         <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {chip.label}
@@ -579,15 +484,19 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                             </button>
                         </span>
                     ))}
-                    <button type="button" onClick={clearAll}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', fontSize: '12px', fontFamily: 'var(--font-body)', fontWeight: 500, flexShrink: 0, padding: '3px 4px', whiteSpace: 'nowrap' }}>
-                        Clear all
-                    </button>
-                    <button type="button" onClick={() => { setSaveViewName(''); setSaveModalOpen(true); }}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                        <Bookmark size={10} />
-                        Save view
-                    </button>
+                    {summaryChips.length > 0 && (
+                        <>
+                            <button type="button" onClick={clearAll}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', fontSize: '12px', fontFamily: 'var(--font-body)', fontWeight: 500, flexShrink: 0, padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                                Clear all
+                            </button>
+                            <button type="button" onClick={() => { setSaveViewName(''); setSaveModalOpen(true); }}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                <Bookmark size={10} />
+                                Save view
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
