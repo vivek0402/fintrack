@@ -204,6 +204,7 @@ function TransactionsPageInner() {
 
     const totalIncome  = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
+    const netAmount    = totalIncome - totalExpense;
     const visibleTransactions = filtered.slice(0, displayCount);
     const hasMore = filtered.length > displayCount;
 
@@ -380,8 +381,8 @@ function TransactionsPageInner() {
                     extraChips={creditCardChips}
                 />
 
-                {/* ── SUMMARY GCARDS ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
+                {/* ── SUMMARY: INCOME / EXPENSE ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <GCard style={{ textAlign: isMobile ? 'center' : undefined }}>
                         <p style={{ fontSize: '10px', color: 'var(--color-inc)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Income</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
@@ -394,15 +395,15 @@ function TransactionsPageInner() {
                             {fmt(totalExpense)}
                         </p>
                     </GCard>
-                    {!isMobile && (
-                        <GCard>
-                            <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Net</p>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: totalIncome - totalExpense >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                {totalIncome - totalExpense >= 0 ? '+' : '−'}{fmt(totalIncome - totalExpense)}
-                            </p>
-                        </GCard>
-                    )}
                 </div>
+
+                {/* ── SUMMARY: NET (hero tile — deliberately distinct from the two above, not a third identical card) ── */}
+                <StatTile
+                    label="Net for this period"
+                    value={`${netAmount >= 0 ? '+' : '−'}${fmt(netAmount)}`}
+                    accentColor={netAmount >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'}
+                    icon={netAmount >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                />
 
                 {/* ── SELECT ALL BAR ── */}
                 {selectMode && !loading && filtered.length > 0 && (
