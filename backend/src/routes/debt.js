@@ -3,7 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isPositiveNumber } = require('../utils/validation');
 const { calculateEMI, generateAmortization, monthsRemainingForLoan } = require('../utils/amortization');
-const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
+const { fetchCreditCardsWithBalance, fetchCreditCardsWithCycleBreakdown } = require('../utils/creditCardBalance');
 const router = express.Router();
 
 router.use(auth);
@@ -304,8 +304,11 @@ function classifyDti(pct) {
 }
 
 // Canonical DTI calculation -- also used by agents.js's debt_coach persona.
-// Same 3-month trailing income window and 5%-of-outstanding minimum-payment
-// heuristic as before this was extracted; behavior is unchanged.
+// Same 3-month trailing income window as before this was extracted.
+// Minimum payment is 5% of the card's statement balance (what's actually
+// billed as of the last cycle close) when a billing_date is set, so it
+// doesn't count today's unbilled swipes; cards with no billing_date fall
+// back to 5% of current_outstanding_balance, unchanged from before.
 async function computeDtiBreakdown(userId) {
     const now = new Date();
     const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -319,7 +322,7 @@ async function computeDtiBreakdown(userId) {
             [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
         ),
         pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [userId]),
-        fetchCreditCardsWithBalance(pool, userId),
+        fetchCreditCardsWithCycleBreakdown(pool, userId),
     ]);
 
     const monthly_income = parseFloat((parseFloat(incomeRes.rows[0].total) / 3).toFixed(2));
@@ -331,11 +334,16 @@ async function computeDtiBreakdown(userId) {
     }));
     const monthly_loan_emi = parseFloat(breakdown_loans.reduce((s, l) => s + l.emi, 0).toFixed(2));
 
-    const breakdown_cards = cards.map(card => ({
-        id: card.id,
-        name: card.card_name,
-        minimum_payment: parseFloat((parseFloat(card.current_outstanding_balance) * 0.05).toFixed(2)),
-    }));
+    const breakdown_cards = cards.map(card => {
+        const minPaymentBasis = card.statement_balance != null
+            ? parseFloat(card.statement_balance)
+            : parseFloat(card.current_outstanding_balance);
+        return {
+            id: card.id,
+            name: card.card_name,
+            minimum_payment: parseFloat((minPaymentBasis * 0.05).toFixed(2)),
+        };
+    });
     const monthly_credit_obligation = parseFloat(breakdown_cards.reduce((s, c) => s + c.minimum_payment, 0).toFixed(2));
 
     const total_monthly_debt_obligation = parseFloat((monthly_loan_emi + monthly_credit_obligation).toFixed(2));
