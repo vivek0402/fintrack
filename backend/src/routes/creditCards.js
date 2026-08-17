@@ -4,14 +4,14 @@ const crypto  = require('crypto');
 const pool    = require('../db/pool');
 const auth    = require('../middleware/auth');
 const { isNonNegativeNumber, isPositiveNumber, isValidDateString } = require('../utils/validation');
-const { fetchCreditCardsWithBalance, fetchCreditCardWithBalance } = require('../utils/creditCardBalance');
+const { fetchCreditCardsWithBalance, fetchCreditCardWithBalance, fetchCreditCardsWithCycleBreakdown } = require('../utils/creditCardBalance');
 
 router.use(auth);
 
 // GET /api/credit-cards
 router.get('/', async (req, res) => {
     try {
-        const cards = await fetchCreditCardsWithBalance(pool, req.user.id);
+        const cards = await fetchCreditCardsWithCycleBreakdown(pool, req.user.id);
         res.json({ cards });
     } catch (err) {
         console.error(err);

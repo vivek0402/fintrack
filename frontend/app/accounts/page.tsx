@@ -13,7 +13,7 @@ import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useCountUp } from '@/hooks/useCountUp';
-import { fmt as fmtBase } from '@/lib/utils';
+import { fmt as fmtBase, formatDate } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,14 @@ interface CreditCard {
     balance_as_of: string | null;
     billing_date: number | null; due_days: number; network: string; color: string;
     interest_rate_pct: number | null;
+    // Additive billing-cycle breakdown -- null when billing_date isn't set,
+    // since there's no statement close date to compute against. Doesn't
+    // change what current_outstanding_balance means; see
+    // backend/src/utils/creditCardBalance.js's fetchCreditCardsWithCycleBreakdown.
+    statement_balance: number | null;
+    new_charges_since_statement: number | null;
+    last_statement_close_date: string | null;
+    statement_due_date: string | null;
 }
 interface Wallet { id: number; name: string; emoji: string; balance: number; }
 
@@ -395,6 +403,23 @@ export default function AccountsPage() {
                                             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Available: {fmt(Math.max(0, c.credit_limit - c.current_outstanding_balance))}</span>
                                         </div>
                                         <ProgressBar pct={utilPct} color={utilColor} height={5} />
+                                        {c.statement_balance != null ? (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', flexWrap: 'wrap', gap: '4px' }}>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                                    Statement: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(c.statement_balance)}</span>
+                                                    {c.statement_due_date && <> · due {formatDate(c.statement_due_date)}</>}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                                    New charges: <span style={{ fontFamily: 'var(--font-mono)', color: (c.new_charges_since_statement ?? 0) > 0 ? 'var(--color-warn)' : 'var(--text-primary)' }}>
+                                                        {(c.new_charges_since_statement ?? 0) >= 0 ? '+' : '−'}{fmt(c.new_charges_since_statement ?? 0)}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: '8px 0 0' }}>
+                                                Set a billing date to see statement balance vs. new charges
+                                            </p>
+                                        )}
                                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                                             <button type="button" onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)} style={outlineBtn}>History</button>
                                             <button type="button" onClick={() => openPayCard(c)} style={outlineBtn}>Pay Bill</button>
@@ -552,6 +577,12 @@ export default function AccountsPage() {
                             <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
                                 Current outstanding: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(payingCard.current_outstanding_balance)}</span>
                             </p>
+                            {payingCard.statement_balance != null && (
+                                <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
+                                    Statement balance: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(payingCard.statement_balance)}</span>
+                                    {payingCard.statement_due_date && <> (due {formatDate(payingCard.statement_due_date)})</>}
+                                </p>
+                            )}
                             <div>
                                 <label style={labelSt}>Pay From *</label>
                                 <select style={inputSt} value={payForm.bank_account_id} onChange={e => setPayForm(f => ({ ...f, bank_account_id: e.target.value }))}>
@@ -559,7 +590,18 @@ export default function AccountsPage() {
                                     {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                 </select>
                             </div>
-                            <div><label style={labelSt}>Amount (₹) *</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" /></div>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <label style={labelSt}>Amount (₹) *</label>
+                                    {payingCard.statement_balance != null && (
+                                        <button type="button" onClick={() => setPayForm(f => ({ ...f, amount: String(payingCard.statement_balance) }))}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)', padding: 0, marginBottom: 6 }}>
+                                            Pay statement balance
+                                        </button>
+                                    )}
+                                </div>
+                                <input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
+                            </div>
                             <div><label style={labelSt}>Date</label><input style={inputSt} type="date" value={payForm.date} onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))} /></div>
                         </div>
                         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
