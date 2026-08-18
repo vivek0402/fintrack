@@ -129,7 +129,11 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                             <div
                                 onClick={() => selectMode ? onToggleSelect?.(tx.id) : onEdit(tx)}
                                 role="button" tabIndex={0}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMode ? onToggleSelect?.(tx.id) : onEdit(tx); } }}
+                                onKeyDown={e => {
+                                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                                    e.preventDefault();
+                                    if (selectMode) onToggleSelect?.(tx.id); else onEdit(tx);
+                                }}
                                 style={{
                                 display: 'flex',
                                 alignItems: 'center',

@@ -91,7 +91,7 @@ function TransactionsPageInner() {
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
     const [fetchError, setFetchError]       = useState(false);
     const [quickAddFailed, setQuickAddFailed] = useState(false);
-    const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ total_income: number; total_expenses: number } | null>(null);
+    const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ summary: { total_income: number; total_expenses: number } } | null>(null);
     const clearAllRef = useRef<() => void>(() => {});
 
     const QUICK_ADD_PLACEHOLDERS = [
@@ -130,14 +130,24 @@ function TransactionsPageInner() {
             if (!parsed) throw new Error('No parsed result');
             setQuickAddOpen(false);
             setQuickAddText('');
+            setQuickAddFailed(false);
             setEditingTx(null);
             setPrefillData(parsed);
             setModalOpen(true);
         } catch {
             setQuickAddError('Could not parse — try rephrasing');
+            setQuickAddFailed(true);
         } finally {
             setQuickAddLoading(false);
         }
+    };
+
+    const handleQuickAddManualFallback = () => {
+        setQuickAddOpen(false);
+        setQuickAddFailed(false);
+        setEditingTx(null);
+        setPrefillData({ description: quickAddText.trim() });
+        setModalOpen(true);
     };
 
     useEffect(() => { loadFromStorage(); }, []);
@@ -258,6 +268,27 @@ function TransactionsPageInner() {
     const netAmount    = totalIncome - totalExpense;
     const visibleTransactions = filtered.slice(0, displayCount);
     const hasMore = filtered.length > displayCount;
+
+    // ── Period-over-period delta ──────────────────────────────────────────────
+    // "All time" (selectedMonth === null) has no single prior month to compare
+    // against, so the delta is hidden entirely in that case too.
+    useEffect(() => {
+        if (!user || selectedMonth === null) { setPrevPeriodSummary(null); return; }
+        const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+        const prevYear  = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+        apiWithCache.getDashboardSummary({ month: prevMonth, year: prevYear })
+            .then(setPrevPeriodSummary)
+            .catch(() => setPrevPeriodSummary(null));
+    }, [user, selectedMonth, selectedYear]);
+
+    const prevIncome  = prevPeriodSummary?.summary?.total_income;
+    const prevExpense = prevPeriodSummary?.summary?.total_expenses;
+    // null = hide the delta (no prior-period data, or nothing to compare against --
+    // a percentage change from zero is undefined, not "0%" or "∞%").
+    const incomeDelta  = prevIncome  != null && prevIncome  > 0 ? ((totalIncome  - prevIncome)  / prevIncome)  * 100 : null;
+    const expenseDelta = prevExpense != null && prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : null;
+    const prevNet   = prevIncome != null && prevExpense != null ? prevIncome - prevExpense : null;
+    const netDelta  = prevNet != null && prevNet !== 0 ? ((netAmount - prevNet) / Math.abs(prevNet)) * 100 : null;
 
     const handleModalClose = () => { setModalOpen(false); setEditingTx(null); setPrefillData(null); };
 
@@ -422,27 +453,31 @@ function TransactionsPageInner() {
 
                 {view === 'list' && (
                 <>
-                {/* ── ADVANCED SEARCH BAR ── */}
-                <AdvancedSearchBar
-                    transactions={transactions}
-                    onFilter={setFiltered}
-                    onSetDateContext={handleSetDateContext}
-                    initialQuery={initialQuery}
-                    accounts={accounts}
-                    extraChips={creditCardChips}
-                    onRegisterClearAll={fn => { clearAllRef.current = fn; }}
-                />
-
-                {/* ── SUMMARY: INCOME / EXPENSE ── */}
+                {/* ── SUMMARY: INCOME / EXPENSE (numbers are the hero — DESIGN.md — so this
+                     sits above the search bar, not below it) ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     <GCard style={{ textAlign: isMobile ? 'center' : undefined }}>
-                        <p style={{ fontSize: '10px', color: 'var(--color-inc)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Income</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'space-between', gap: '6px' }}>
+                            <p style={{ fontSize: '10px', color: 'var(--color-inc)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Income</p>
+                            {incomeDelta !== null && (
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: incomeDelta >= 0 ? 'var(--color-inc)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {incomeDelta >= 0 ? '↑' : '↓'}{Math.abs(incomeDelta).toFixed(0)}%
+                                </span>
+                            )}
+                        </div>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {fmt(totalIncome)}
                         </p>
                     </GCard>
                     <GCard style={{ textAlign: isMobile ? 'center' : undefined }}>
-                        <p style={{ fontSize: '10px', color: 'var(--color-exp)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Expenses</p>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'center' : 'space-between', gap: '6px' }}>
+                            <p style={{ fontSize: '10px', color: 'var(--color-exp)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 4px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Expenses</p>
+                            {expenseDelta !== null && (
+                                <span style={{ fontSize: '10px', fontWeight: 600, color: expenseDelta > 0 ? 'var(--color-exp)' : 'var(--color-inc)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {expenseDelta > 0 ? '↑' : '↓'}{Math.abs(expenseDelta).toFixed(0)}%
+                                </span>
+                            )}
+                        </div>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {fmt(totalExpense)}
                         </p>
@@ -455,6 +490,18 @@ function TransactionsPageInner() {
                     value={`${netAmount >= 0 ? '+' : '−'}${fmt(netAmount)}`}
                     accentColor={netAmount >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'}
                     icon={netAmount >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    trend={netDelta ?? undefined}
+                />
+
+                {/* ── ADVANCED SEARCH BAR ── */}
+                <AdvancedSearchBar
+                    transactions={transactions}
+                    onFilter={setFiltered}
+                    onSetDateContext={handleSetDateContext}
+                    initialQuery={initialQuery}
+                    accounts={accounts}
+                    extraChips={creditCardChips}
+                    onRegisterClearAll={fn => { clearAllRef.current = fn; }}
                 />
 
                 {/* ── SELECT ALL BAR ── */}
@@ -472,7 +519,7 @@ function TransactionsPageInner() {
                 )}
 
                 {/* ── TRANSACTION LIST ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', maxHeight: '70vh', overflowY: 'auto' }}>
+                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                     {loading ? (
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {[1, 2, 3, 4, 5].map(i => (
@@ -486,6 +533,14 @@ function TransactionsPageInner() {
                                 </div>
                             ))}
                         </div>
+                    ) : fetchError ? (
+                        <FetchErrorCard onRetry={fetchTransactions} />
+                    ) : filtered.length === 0 && transactions.length === 0 ? (
+                        <EmptyState
+                            icon={SearchX}
+                            title="No transactions this month"
+                            subtitle="Tap + to add one."
+                        />
                     ) : filtered.length === 0 ? (
                         <EmptyState
                             icon={SearchX}
@@ -540,7 +595,7 @@ function TransactionsPageInner() {
                         </div>
                     )}
                     <button type="button"
-                        onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); }}
+                        onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); setQuickAddFailed(false); }}
                         onMouseEnter={() => setQuickAddFabHover(true)}
                         onMouseLeave={() => setQuickAddFabHover(false)}
                         aria-label="Quick add with AI"
@@ -582,7 +637,6 @@ function TransactionsPageInner() {
                     onExit={exitSelectMode}
                     onRefresh={fetchTransactions}
                     onRemoveIds={removeIds}
-                    pendingDelete={pendingDelete}
                     onPendingDeleteChange={setPendingDelete}
                 />
             )}
@@ -619,6 +673,12 @@ function TransactionsPageInner() {
                             onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
                         />
                         {quickAddError && <p style={{ fontSize: '0.8rem', color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>{quickAddError}</p>}
+                        {quickAddFailed && (
+                            <button type="button" onClick={handleQuickAddManualFallback}
+                                style={{ background: 'none', border: 'none', padding: 0, marginTop: '8px', color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', textDecoration: 'underline' }}>
+                                Enter manually instead
+                            </button>
+                        )}
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
                             <button type="button" onClick={() => setQuickAddOpen(false)}
                                 style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
@@ -1075,6 +1135,8 @@ function CalendarView() {
                         <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
                             Loading calendar…
                         </div>
+                    ) : fetchError ? (
+                        <FetchErrorCard onRetry={fetchAll} />
                     ) : (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
                             {cells.map((day, idx) => {

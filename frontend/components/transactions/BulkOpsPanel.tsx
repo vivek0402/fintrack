@@ -18,13 +18,12 @@ interface Props {
     onExit: () => void;
     onRefresh: () => void;
     onRemoveIds: (ids: string[]) => void;
-    pendingDelete: Set<string>;
     onPendingDeleteChange: (updater: (prev: Set<string>) => Set<string>) => void;
 }
 
 export function BulkOpsPanel({
     selectedIds, allTransactions, currency, selectedYear, selectedMonth,
-    onSelectAll, onExit, onRefresh, onRemoveIds, pendingDelete, onPendingDeleteChange,
+    onSelectAll, onExit, onRefresh, onRemoveIds, onPendingDeleteChange,
 }: Props) {
     const isMobile = useIsMobile();
     const count = selectedIds.size;
