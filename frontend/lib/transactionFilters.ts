@@ -74,6 +74,18 @@ export function applyAdvancedFilters(
     return r;
 }
 
+// Drops ids that fell out of the current filter results (e.g. select mode was
+// active, then the user narrowed the filter) so bulk ops can't silently act
+// on rows no longer visible. Returns the same `prev` reference when nothing
+// changed, so callers using this as a setState updater don't trigger an
+// unnecessary re-render.
+export function pruneSelectedIds(prev: Set<string>, filtered: { id: string }[]): Set<string> {
+    if (prev.size === 0) return prev;
+    const filteredIds = new Set(filtered.map(tx => tx.id));
+    const next = new Set([...prev].filter(id => filteredIds.has(id)));
+    return next.size === prev.size ? prev : next;
+}
+
 export function countActiveFilters(freeText: string, panel: PanelFilters): number {
     let n = 0;
     if (freeText.trim()) n++;

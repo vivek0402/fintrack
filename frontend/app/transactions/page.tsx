@@ -23,6 +23,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
 import { Tabs } from '@/components/ui/Tabs';
 import { exportToCSV, formatCurrency, fmt as fmtBase, getSmartIcon, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { pruneSelectedIds } from '@/lib/transactionFilters';
 
 const VIEW_TABS = [
     { key: 'list', label: 'List' },
@@ -225,12 +226,7 @@ function TransactionsPageInner() {
     // Prune selectedIds when filtered changes underneath select mode -- otherwise
     // bulk ops can silently operate on ids that fell out of the current filter.
     useEffect(() => {
-        setSelectedIds(prev => {
-            if (prev.size === 0) return prev;
-            const filteredIds = new Set(filtered.map((tx: any) => tx.id));
-            const next = new Set([...prev].filter(id => filteredIds.has(id)));
-            return next.size === prev.size ? prev : next;
-        });
+        setSelectedIds(prev => pruneSelectedIds(prev, filtered));
     }, [filtered]);
 
     // ── Date context from AdvancedSearchBar ───────────────────────────────────
