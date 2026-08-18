@@ -77,6 +77,14 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
+/* Keyboard focus ring for elements with an interactive role but no native
+   focus styling of their own (e.g. divs used as list rows). Mouse/touch
+   activation never triggers :focus-visible, so this is keyboard-only. */
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -2px;
+}
+
 /* ── DARK THEME (default) — AMOLED ───────────────────────────────────────────
    Also bound to :root so the app never renders "naked" (invisible buttons/
    borders/text) if the inline theme-setting script in layout.tsx fails to
@@ -108,6 +116,8 @@ h1, h2, h3, h4, h5, h6 {
 
   --color-info: #0891b2;
   --color-info-subtle: rgba(8, 145, 178, 0.12);
+
+  --color-bill-due: #f97316;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
@@ -187,6 +197,8 @@ h1, h2, h3, h4, h5, h6 {
 
   --color-info: #0891b2;
   --color-info-subtle: rgba(8, 145, 178, 0.10);
+
+  --color-bill-due: #f97316;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.15);

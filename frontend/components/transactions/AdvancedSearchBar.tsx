@@ -28,12 +28,13 @@ interface Props {
     initialQuery?: string;
     accounts?: Account[];
     extraChips?: ExtraChip[];
+    onRegisterClearAll?: (fn: () => void) => void;
 }
 
 const LS_VIEWS = 'fintrack-saved-views';
 const SS_HIST  = 'fintrack-search-history';
 
-export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [] }: Props) {
+export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [], onRegisterClearAll }: Props) {
     const isMobile = useIsMobile();
 
     const [inputValue, setInputValue]     = useState(initialQuery);
@@ -166,6 +167,13 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         setRenameId(null);
     };
     const clearAll = () => { setInputValue(''); setPanel(DEFAULT_PANEL); };
+
+    // Expose clearAll to the parent (e.g. the filtered-empty state's "Clear
+    // filters" action) via callback-prop registration, consistent with this
+    // component's other callback props (onFilter, onSetDateContext) -- not
+    // forwardRef/useImperativeHandle, which has no precedent elsewhere in
+    // components/.
+    useEffect(() => { onRegisterClearAll?.(clearAll); }, []);
 
     // Active summary chips
     const summaryChips: { label: string; onRemove: () => void }[] = [];

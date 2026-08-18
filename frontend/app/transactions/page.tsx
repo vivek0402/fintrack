@@ -7,6 +7,7 @@ import { Plus, Download, Zap, X, CheckSquare, FileUp, MessageSquareText, MoreHor
 import { useAuthStore } from '@/store/authStore';
 import { transactionsAPI, aiAPI, recurringAPI, analyticsAPI, accountsAPI, creditCardsAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
+import { cacheTransactions, getCachedTransactions } from '@/lib/offlineCache';
 import { GCard } from '@/components/ui/GCard';
 import { StatTile } from '@/components/ui/StatTile';
 import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
@@ -31,6 +32,24 @@ const VIEW_TABS = [
 const getNowYear  = () => new Date().getFullYear();
 const getNowMonth = () => new Date().getMonth() + 1;
 const fmt = (n: number) => fmtBase(Math.abs(n));
+
+// ── Shared inline error card (list + calendar fetch failures) ──────────────
+function FetchErrorCard({ onRetry }: { onRetry: () => void }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '40px 20px', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                Couldn't load transactions
+            </p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                Check your connection and try again.
+            </p>
+            <button type="button" onClick={onRetry}
+                style={{ marginTop: '4px', padding: '8px 16px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                Retry
+            </button>
+        </div>
+    );
+}
 
 function TransactionsPageInner() {
     const router       = useRouter();
@@ -57,6 +76,10 @@ function TransactionsPageInner() {
     const [displayCount, setDisplayCount]   = useState(50);
     const [selectMode, setSelectMode]       = useState(false);
     const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
+    // Shared "optimistically hidden but not yet deleted" ids -- both single-row
+    // delete (TransactionList) and bulk delete (BulkOpsPanel) write to this so
+    // rows disappear immediately while the undo window is still open.
+    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
     const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
@@ -66,6 +89,10 @@ function TransactionsPageInner() {
     const [moreMenuOpen, setMoreMenuOpen]   = useState(false);
     const moreMenuRef = useRef<HTMLDivElement>(null);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
+    const [fetchError, setFetchError]       = useState(false);
+    const [quickAddFailed, setQuickAddFailed] = useState(false);
+    const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ total_income: number; total_expenses: number } | null>(null);
+    const clearAllRef = useRef<() => void>(() => {});
 
     const QUICK_ADD_PLACEHOLDERS = [
         'paid 450 for lunch at cafe',
@@ -138,13 +165,26 @@ function TransactionsPageInner() {
     const fetchTransactions = async () => {
         if (!user) return;
         setLoading(true);
+        setFetchError(false);
+        const params: Record<string, any> = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
+        if (filterCreditCardId) params.credit_card_id = filterCreditCardId;
         try {
-            const params: Record<string, any> = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
-            if (filterCreditCardId) params.credit_card_id = filterCreditCardId;
-            const txs = await apiWithCache.getTransactions(params);
+            // Bypass apiWithCache here (which swallows failures and falls back to
+            // cache silently) so a genuine backend error can surface distinctly
+            // from "this month has zero transactions" -- OfflineBanner already
+            // covers pure browser-offline app-wide, so this is specifically for
+            // an online-but-failing backend with no cache to fall back to.
+            const res = await transactionsAPI.getAll(params);
+            const txs = res.data?.transactions ?? [];
             setTransactions(txs);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
+            cacheTransactions(txs).catch(() => {});
+        } catch {
+            const cached = await getCachedTransactions();
+            setTransactions(cached);
+            if (cached.length === 0) setFetchError(true);
+        } finally {
+            setLoading(false);
+        }
     };
 
     useEffect(() => {
@@ -171,6 +211,17 @@ function TransactionsPageInner() {
 
     // Reset display count when filtered changes
     useEffect(() => { setDisplayCount(50); }, [filtered]);
+
+    // Prune selectedIds when filtered changes underneath select mode -- otherwise
+    // bulk ops can silently operate on ids that fell out of the current filter.
+    useEffect(() => {
+        setSelectedIds(prev => {
+            if (prev.size === 0) return prev;
+            const filteredIds = new Set(filtered.map((tx: any) => tx.id));
+            const next = new Set([...prev].filter(id => filteredIds.has(id)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [filtered]);
 
     // ── Date context from AdvancedSearchBar ───────────────────────────────────
     const handleSetDateContext = useCallback((ctx: 'month' | 'all') => {
@@ -202,8 +253,8 @@ function TransactionsPageInner() {
         });
     }, []);
 
-    const totalIncome  = filtered.filter(tx => tx.type === 'income').reduce((s, tx) => s + parseFloat(tx.amount), 0);
-    const totalExpense = filtered.filter(tx => tx.type === 'expense').reduce((s, tx) => s + parseFloat(tx.amount), 0);
+    const totalIncome  = filtered.filter(isRealIncome).reduce((s, tx) => s + parseFloat(tx.amount), 0);
+    const totalExpense = filtered.filter(isNonSavingsExpense).reduce((s, tx) => s + parseFloat(tx.amount), 0);
     const netAmount    = totalIncome - totalExpense;
     const visibleTransactions = filtered.slice(0, displayCount);
     const hasMore = filtered.length > displayCount;
@@ -379,6 +430,7 @@ function TransactionsPageInner() {
                     initialQuery={initialQuery}
                     accounts={accounts}
                     extraChips={creditCardChips}
+                    onRegisterClearAll={fn => { clearAllRef.current = fn; }}
                 />
 
                 {/* ── SUMMARY: INCOME / EXPENSE ── */}
@@ -439,6 +491,7 @@ function TransactionsPageInner() {
                             icon={SearchX}
                             title="No matches"
                             subtitle="No transactions match your current search and filters."
+                            action={<button type="button" onClick={() => clearAllRef.current()} style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear filters</button>}
                         />
                     ) : (
                         <TransactionList
@@ -449,6 +502,8 @@ function TransactionsPageInner() {
                             selectMode={selectMode}
                             selectedIds={selectedIds}
                             onToggleSelect={toggleSelect}
+                            pendingDelete={pendingDelete}
+                            onPendingDeleteChange={setPendingDelete}
                         />
                     )}
                     {hasMore && !loading && (
@@ -527,6 +582,8 @@ function TransactionsPageInner() {
                     onExit={exitSelectMode}
                     onRefresh={fetchTransactions}
                     onRemoveIds={removeIds}
+                    pendingDelete={pendingDelete}
+                    onPendingDeleteChange={setPendingDelete}
                 />
             )}
 
@@ -705,7 +762,7 @@ function DayDetail({
                             const isInc = item.type === 'income';
                             return (
                                 <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
-                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: isInc ? 'var(--color-info)' : '#f97316' }} />
+                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: isInc ? 'var(--color-info)' : 'var(--color-bill-due)' }} />
                                     <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {item.description}
                                     </span>
@@ -755,6 +812,7 @@ function CalendarView() {
     const [editingTx,    setEditingTx]    = useState<any>(null);
     const [defaultDate,  setDefaultDate]  = useState('');
     const [expRgb,       setExpRgb]       = useState<[number, number, number]>([225, 29, 72]);
+    const [fetchError,   setFetchError]   = useState(false);
 
     // Read CSS token once for heat-map colour
     useEffect(() => {
@@ -766,14 +824,20 @@ function CalendarView() {
     const fetchAll = useCallback(async () => {
         if (!user) return;
         setLoading(true);
+        setFetchError(false);
         try {
             const [txRes, recRes, forecastRes] = await Promise.allSettled([
                 transactionsAPI.getAll({ month: currentMonth + 1, year: currentYear }),
                 recurringAPI.getAll(),
                 analyticsAPI.forecast({ month: currentMonth + 1, year: currentYear }),
             ]);
+            // Recurring/forecast failing is non-critical -- the grid still renders
+            // without their overlays. Only the core transactions fetch failing
+            // surfaces an error card, matching the list view's treatment.
             if (txRes.status      === 'fulfilled') {
                 setTransactions(txRes.value.data.transactions ?? []);
+            } else {
+                setFetchError(true);
             }
             if (recRes.status     === 'fulfilled') {
                 const d = recRes.value.data;
@@ -983,7 +1047,7 @@ function CalendarView() {
                         { color: 'var(--color-inc)',  label: 'Income'    },
                         { color: 'var(--color-exp)',  label: 'Expense'   },
                         { color: 'var(--color-info)', label: 'Recurring' },
-                        { color: '#f97316',           label: 'Bill Due'  },
+                        { color: 'var(--color-bill-due)', label: 'Bill Due'  },
                     ].map(({ color, label }) => (
                         <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
@@ -1081,7 +1145,7 @@ function CalendarView() {
                                                 {income   > 0                    && <span style={{ display: 'block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-inc)',  flexShrink: 0 }} />}
                                                 {expenses > 0                    && <span style={{ display: 'block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-exp)',  flexShrink: 0 }} />}
                                                 {(rec?.income.length  ?? 0) > 0  && <span style={{ display: 'block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-info)', flexShrink: 0 }} />}
-                                                {(rec?.expense.length ?? 0) > 0  && <span style={{ display: 'block', width: '5px', height: '5px', borderRadius: '50%', background: '#f97316',           flexShrink: 0 }} />}
+                                                {(rec?.expense.length ?? 0) > 0  && <span style={{ display: 'block', width: '5px', height: '5px', borderRadius: '50%', background: 'var(--color-bill-due)', flexShrink: 0 }} />}
                                             </div>
                                         </div>
 

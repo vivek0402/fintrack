@@ -18,11 +18,13 @@ interface Props {
     onExit: () => void;
     onRefresh: () => void;
     onRemoveIds: (ids: string[]) => void;
+    pendingDelete: Set<string>;
+    onPendingDeleteChange: (updater: (prev: Set<string>) => Set<string>) => void;
 }
 
 export function BulkOpsPanel({
     selectedIds, allTransactions, currency, selectedYear, selectedMonth,
-    onSelectAll, onExit, onRefresh, onRemoveIds,
+    onSelectAll, onExit, onRefresh, onRemoveIds, pendingDelete, onPendingDeleteChange,
 }: Props) {
     const isMobile = useIsMobile();
     const count = selectedIds.size;
@@ -40,7 +42,6 @@ export function BulkOpsPanel({
 
     const [tagInput, setTagInput]   = useState('');
     const [tagLoading, setTagLoading] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(false);
 
     const [splitLines, setSplitLines] = useState<{ amount: string; category_id: string; description: string }[]>([
         { amount: '', category_id: '', description: '' },
@@ -72,60 +73,79 @@ export function BulkOpsPanel({
         const ids = Array.from(selectedIds);
         setBulkCatOpen(false);
         setProgress({ done: 0, total: ids.length });
-        try {
-            for (let i = 0; i < ids.length; i++) {
+        // Continue through the full selection even if individual updates fail --
+        // a single failure used to abort the loop, silently leaving the rest of
+        // the batch untouched with no indication of what actually succeeded.
+        let failCount = 0;
+        for (let i = 0; i < ids.length; i++) {
+            try {
                 await transactionsAPI.update(ids[i], { category_id: catId });
-                setProgress({ done: i + 1, total: ids.length });
+            } catch {
+                failCount++;
             }
-            toast.success(`Categorized ${ids.length} transaction${ids.length !== 1 ? 's' : ''}`);
-            onRefresh();
-        } catch {
-            toast.error('Some updates failed');
-            onRefresh();
-        } finally {
-            setProgress(null);
+            setProgress({ done: i + 1, total: ids.length });
         }
+        setProgress(null);
+        const okCount = ids.length - failCount;
+        if (failCount === 0) toast.success(`Categorized ${okCount} transaction${okCount !== 1 ? 's' : ''}`);
+        else toast.error(`Updated ${okCount} of ${ids.length} — ${failCount} failed`);
+        onRefresh();
     };
 
     const handleBulkTag = async () => {
         const tag = tagInput.trim().replace(/^#/, '');
         if (!tag) return;
         setTagLoading(true);
-        try {
-            for (const id of Array.from(selectedIds)) {
-                const tx = allTransactions.find(t => t.id === id);
-                if (!tx) continue;
-                const existing: string[] = Array.isArray(tx.tags) ? tx.tags : [];
-                if (existing.includes(tag)) continue;
+        const ids = Array.from(selectedIds);
+        let failCount = 0, skipCount = 0;
+        for (const id of ids) {
+            const tx = allTransactions.find(t => t.id === id);
+            if (!tx) { skipCount++; continue; }
+            const existing: string[] = Array.isArray(tx.tags) ? tx.tags : [];
+            if (existing.includes(tag)) { skipCount++; continue; }
+            try {
                 await transactionsAPI.update(id, { tags: [...existing, tag] });
+            } catch {
+                failCount++;
             }
-            toast.success(`Tagged ${count} transaction${count !== 1 ? 's' : ''}`);
-            setBulkTagOpen(false);
-            setTagInput('');
-            onRefresh();
-        } catch {
-            toast.error('Some updates failed');
-        } finally {
-            setTagLoading(false);
         }
+        const okCount = ids.length - failCount - skipCount;
+        if (failCount === 0) toast.success(`Tagged ${okCount} transaction${okCount !== 1 ? 's' : ''}`);
+        else toast.error(`Tagged ${okCount} of ${ids.length} — ${failCount} failed`);
+        setTagLoading(false);
+        setBulkTagOpen(false);
+        setTagInput('');
+        onRefresh();
     };
 
-    const handleBulkDelete = async () => {
-        setDeleteLoading(true);
+    const handleBulkDelete = () => {
         const ids = Array.from(selectedIds);
-        onRemoveIds(ids);
-        try {
-            await Promise.all(ids.map(id => transactionsAPI.delete(id)));
-            toast.success(`Deleted ${ids.length} transaction${ids.length !== 1 ? 's' : ''}`);
-            setBulkDeleteOpen(false);
-            onExit();
-            onRefresh();
-        } catch {
-            toast.error('Some deletions failed — refreshing');
-            onRefresh();
-        } finally {
-            setDeleteLoading(false);
-        }
+        // Optimistically hide the rows locally -- same pendingDelete mechanism and
+        // undo window as single-row delete (TransactionList.handleDelete), so bulk
+        // delete gets the same trust guarantee instead of committing immediately.
+        onPendingDeleteChange(prev => new Set([...prev, ...ids]));
+        setBulkDeleteOpen(false);
+        onExit();
+
+        let cancelled = false;
+        toast.undo(`Deleted ${ids.length} transaction${ids.length !== 1 ? 's' : ''}`, () => {
+            cancelled = true;
+            onPendingDeleteChange(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await Promise.all(ids.map(id => transactionsAPI.delete(id)));
+                onRemoveIds(ids);
+                onPendingDeleteChange(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s; });
+                onRefresh();
+            } catch {
+                onPendingDeleteChange(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s; });
+                toast.error('Some deletions failed — refreshing');
+                onRefresh();
+            }
+        }, 4200);
     };
 
     const handleBulkExport = () => {
@@ -291,13 +311,13 @@ export function BulkOpsPanel({
                     <div onClick={e => e.stopPropagation()} style={sheetStyle}>
                         <ModalHeader title={`Delete ${count} transaction${count !== 1 ? 's' : ''}?`} onClose={() => setBulkDeleteOpen(false)} />
                         <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                            This cannot be undone. {count} transaction{count !== 1 ? 's' : ''} will be permanently removed.
+                            {count} transaction{count !== 1 ? 's' : ''} will be removed. You'll have a few seconds to undo.
                         </p>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setBulkDeleteOpen(false)} style={cancelStyle}>Cancel</button>
-                            <button onClick={() => void handleBulkDelete()} disabled={deleteLoading}
-                                style={{ ...confirmStyle, background: 'var(--color-exp)', opacity: deleteLoading ? 0.7 : 1, cursor: deleteLoading ? 'wait' : 'pointer' }}>
-                                {deleteLoading ? 'Deleting…' : `Delete ${count}`}
+                            <button onClick={handleBulkDelete}
+                                style={{ ...confirmStyle, background: 'var(--color-exp)' }}>
+                                Delete {count}
                             </button>
                         </div>
                     </div>

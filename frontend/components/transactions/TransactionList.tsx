@@ -20,24 +20,25 @@ interface Props {
     selectMode?: boolean;
     selectedIds?: Set<string>;
     onToggleSelect?: (id: string) => void;
+    pendingDelete: Set<string>;
+    onPendingDeleteChange: (updater: (prev: Set<string>) => Set<string>) => void;
 }
 
-export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh, selectMode, selectedIds, onToggleSelect }: Props) {
+export function TransactionList({ transactions, currency = 'INR', onEdit, onRefresh, selectMode, selectedIds, onToggleSelect, pendingDelete, onPendingDeleteChange }: Props) {
     const isMobile = useIsMobile();
     const { user } = useAuthStore();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
-    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
 
     const handleDelete = (id: string) => {
         // Optimistically hide the row locally
-        setPendingDelete(prev => new Set([...prev, id]));
+        onPendingDeleteChange(prev => new Set([...prev, id]));
         setConfirmId(null);
 
         let cancelled = false;
         toast.undo('Transaction deleted', () => {
             cancelled = true;
-            setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+            onPendingDeleteChange(prev => { const s = new Set(prev); s.delete(id); return s; });
         });
 
         // Commit delete after undo window closes
@@ -46,7 +47,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             setDeletingId(id);
             try {
                 await transactionsAPI.delete(id);
-                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                onPendingDeleteChange(prev => { const s = new Set(prev); s.delete(id); return s; });
                 // Bust dashboard and analytics cache for current month and the transaction's own month
                 if (user) {
                     const now = new Date();
@@ -67,7 +68,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                 }
                 onRefresh();
             } catch {
-                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                onPendingDeleteChange(prev => { const s = new Set(prev); s.delete(id); return s; });
                 toast.error('Failed to delete — transaction restored');
             } finally {
                 setDeletingId(null);
@@ -105,11 +106,15 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             {Object.entries(groups).map(([date, txs]) => {
                 const visibleTxs = txs.filter(tx => !pendingDelete.has(tx.id));
                 if (visibleTxs.length === 0) return null;
+                const groupNet = visibleTxs.reduce((s, tx) => s + (tx.type === 'income' ? 1 : -1) * (parseFloat(tx.amount) || 0), 0);
                 return (
                 <div key={date}>
                     <div style={{ position: 'sticky', top: 0, zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-5) 6px', background: 'var(--bg-surface-1)' }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{getDateLabel(date)}</span>
                         <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
+                        <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                            net {groupNet >= 0 ? '+' : '−'}{fmt(Math.abs(groupNet))}
+                        </span>
                     </div>
                     {visibleTxs.map(tx => {
                         const staggerDelay = Math.min(rowIndex++ * 28, 280);
@@ -123,6 +128,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         const mobileRowInner = (
                             <div
                                 onClick={() => selectMode ? onToggleSelect?.(tx.id) : onEdit(tx)}
+                                role="button" tabIndex={0}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectMode ? onToggleSelect?.(tx.id) : onEdit(tx); } }}
                                 style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -187,9 +194,16 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         );
 
                         // ── Desktop row ─────────────────────────────────────────────
+                        // Only the row itself is interactive-as-a-whole in select mode;
+                        // outside select mode, editing happens via the dedicated pencil
+                        // button below (already natively keyboard-focusable), so the
+                        // row doesn't need its own role/tabIndex there.
                         const desktopRowInner = (
                             <div
                                 onClick={selectMode ? () => onToggleSelect?.(tx.id) : undefined}
+                                role={selectMode ? 'button' : undefined}
+                                tabIndex={selectMode ? 0 : undefined}
+                                onKeyDown={selectMode ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleSelect?.(tx.id); } }) : undefined}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--border-subtle)',
