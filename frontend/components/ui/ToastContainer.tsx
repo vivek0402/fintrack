@@ -48,7 +48,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
             <span style={{
                 flex: 1,
                 fontSize: '13px',
-                fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                fontFamily: 'var(--font-body)',
                 fontWeight: 500,
                 color: 'var(--text-primary)',
                 lineHeight: 1.4,
@@ -68,7 +68,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
                         fontSize: '12px',
                         fontWeight: 600,
                         cursor: 'pointer',
-                        fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                        fontFamily: 'var(--font-body)',
                         flexShrink: 0,
                     }}
                 >

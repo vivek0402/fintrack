@@ -27,7 +27,7 @@ export function ThemeToggle() {
                 textTransform: 'uppercase',
                 margin: '0 0 8px 0',
                 padding: '0 12px',
-                fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                fontFamily: 'var(--font-body)',
             }}>
                 Theme
             </p>
@@ -55,7 +55,7 @@ export function ThemeToggle() {
                                 padding: '6px 14px',
                                 borderRadius: 'var(--radius-lg)',
                                 fontSize: '13px',
-                                fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                                fontFamily: 'var(--font-body)',
                                 fontWeight: 500,
                                 cursor: 'pointer',
                                 border: 'none',

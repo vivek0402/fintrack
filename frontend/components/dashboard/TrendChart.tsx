@@ -14,7 +14,7 @@ function CustomTooltip({ active, payload, label }: any) {
             borderRadius: '12px', padding: '12px 16px', fontSize: '0.8rem',
             boxShadow: 'var(--shadow-modal)',
         }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{label}</p>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{label}</p>
             {payload.map((p: any) => (
                 <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.stroke, flexShrink: 0 }} />
@@ -39,7 +39,7 @@ export function TrendChart({ trends }: Props) {
 
     return (
         <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
-            <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 20px 0' }}>
                 Income vs Expenses
             </h3>
             {chartData.length === 0 ? (

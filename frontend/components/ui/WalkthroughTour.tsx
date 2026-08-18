@@ -182,7 +182,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                         style={{
                             fontSize: '22px',
                             fontWeight: 700,
-                            fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
+                            fontFamily: 'var(--font-display)',
                             color: 'var(--text-primary)',
                             textAlign: 'center',
                             marginBottom: '12px',

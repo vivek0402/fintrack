@@ -13,7 +13,7 @@ function CustomTooltip({ active, payload, total, currency }: { active?: boolean;
     const pct = total > 0 ? ((item.value / total) * 100).toFixed(1) : 0;
     return (
         <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-visible)', borderRadius: '12px', padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
-            <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif" }}>{item.name}</p>
+            <p style={{ color: item.payload.color, margin: 0, fontWeight: 600, fontFamily: 'var(--font-display)' }}>{item.name}</p>
             <p style={{ color: 'var(--text-primary)', margin: '4px 0 0 0' }}>
                 {formatCurrency(item.value, currency)} <span style={{ color: 'var(--text-secondary)' }}>({pct}%)</span>
             </p>
@@ -27,7 +27,7 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
 
     return (
         <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '20px', boxShadow: 'var(--shadow-card)' }}>
-            <h3 style={{ fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif", fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
                 Spending by Category
             </h3>
             {data.length === 0 ? (
@@ -45,8 +45,8 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
                                 animationDuration={800}
                                 label={({ cx, cy }) => (
                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                                        <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" fontFamily="Satoshi">Total</tspan>
-                                        <tspan x={cx} dy="16" fontSize="13" fontWeight="700" fill="var(--text-primary)" fontFamily="DM Mono">₹{(total / 1000).toFixed(1)}k</tspan>
+                                        <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" style={{ fontFamily: 'var(--font-body)' }}>Total</tspan>
+                                        <tspan x={cx} dy="16" fontSize="13" fontWeight="700" fill="var(--text-primary)" style={{ fontFamily: 'var(--font-mono)' }}>₹{(total / 1000).toFixed(1)}k</tspan>
                                     </text>
                                 )}
                                 labelLine={false}

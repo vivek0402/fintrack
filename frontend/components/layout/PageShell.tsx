@@ -27,7 +27,7 @@ export function PageShell({ title, subtitle, headerRight, children }: PageShellP
             }}>
                 <div>
                     <h1 style={{
-                        fontFamily: "'Cabinet Grotesk', 'Sora', sans-serif",
+                        fontFamily: 'var(--font-display)',
                         fontSize: isMobile ? '18px' : '22px',
                         fontWeight: 700,
                         color: 'var(--text-primary)',
@@ -38,7 +38,7 @@ export function PageShell({ title, subtitle, headerRight, children }: PageShellP
                     </h1>
                     {subtitle && (
                         <p style={{
-                            fontFamily: "'Satoshi', 'DM Sans', sans-serif",
+                            fontFamily: 'var(--font-body)',
                             fontSize: '13px',
                             fontWeight: 400,
                             color: 'var(--text-secondary)',
