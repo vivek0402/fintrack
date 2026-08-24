@@ -36,15 +36,11 @@ const CategoryIcon = ({ name, size = 14, color = 'currentColor' }: { name: strin
 
 // ─── Category dropdown option ────────────────────────────────────────────────
 
-function CatOption({ cat, selected, onSelect, onDelete }: { cat: any; selected: boolean; onSelect: () => void; onDelete: () => void }) {
-    const handleDelete = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const msg = cat.is_default
-            ? `Delete "${cat.name}"? This is a default category. Existing transactions using it will become uncategorized.`
-            : `Delete "${cat.name}"? Existing transactions using it will become uncategorized.`;
-        if (window.confirm(msg)) onDelete();
-    };
-
+// Deleting a category is a data-destroying action — it uncategorises every
+// transaction using it. It used to sit as a ✕ on every row of this dropdown,
+// one mis-tap away from a routine field selection, guarded only by
+// window.confirm. It belongs in category management, not in the add form.
+function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; onSelect: () => void }) {
     return (
         <div
             onClick={onSelect}
@@ -57,12 +53,6 @@ function CatOption({ cat, selected, onSelect, onDelete }: { cat: any; selected: 
             {Number(cat.usage_count) > 0 && (
                 <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{cat.usage_count}×</span>
             )}
-            <button type="button" onClick={handleDelete}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px 4px', borderRadius: '4px', fontSize: '11px', lineHeight: 1, flexShrink: 0, display: 'flex', alignItems: 'center', transition: 'color 0.1s' }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
-                title="Delete category"
-            >✕</button>
         </div>
     );
 }
@@ -296,12 +286,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         }
     };
 
-    const handleDeleteCategory = async (cat: any) => {
-        setCategories(prev => prev.filter(c => c.id !== cat.id));
-        if (form.category_id === String(cat.id)) setForm(prev => ({ ...prev, category_id: '' }));
-        try { await categoriesAPI.delete(String(cat.id)); } catch { setCategories(prev => [...prev, cat]); }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setLoading(true);
@@ -436,6 +420,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     const isIncome = form.type === 'income';
     const isTransfer = form.type === 'transfer';
+    // A transfer is neither a gain nor a loss — colouring it red read as a loss.
+    const amountColor = isTransfer ? 'var(--accent)' : isIncome ? 'var(--color-inc)' : 'var(--color-exp)';
     const safeCats = categories || [];
     const sortedCategories = useMemo(() => {
         if (!safeCats.length) return [];
@@ -466,10 +452,86 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setCalMonth(m); setCalYear(y); setCalOpen(false);
     };
 
+    // Most entries are today or yesterday — these skip the grid entirely.
+    const quickDates = useMemo(() => {
+        const mk = (offset: number, label: string) => {
+            const d = new Date();
+            d.setDate(d.getDate() - offset);
+            return { label, value: d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) };
+        };
+        return [mk(0, 'Today'), mk(1, 'Yesterday'), mk(2, '2 days ago')];
+    }, []);
+
+    const dateLabel = (() => {
+        if (!selectedDate) return 'Select a date';
+        const quick = quickDates.find(q => q.value === form.date);
+        if (quick) return quick.label;
+        return `${selectedDate.getDate()} ${SHORT_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+    })();
+
+    const pickDate = (value: string) => {
+        setForm((prev: any) => ({ ...prev, date: value }));
+        const d = new Date(value + 'T00:00:00');
+        setCalMonth(d.getMonth()); setCalYear(d.getFullYear());
+        setCalOpen(false);
+    };
+
     const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-body)' };
     const inputBase: React.CSSProperties  = { background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
 
+    // Rendered alongside the main sheet rather than inside the form, so it
+    // portals to the body and can never be clipped by the form's own scroll.
+    const dateSheet = (
+        <Modal isOpen={calOpen} onClose={() => setCalOpen(false)} title="Date" maxWidth="360px">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                    {quickDates.map(q => {
+                        const active = form.date === q.value;
+                        return (
+                            <button key={q.value} type="button" onClick={() => pickDate(q.value)}
+                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                {q.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <button type="button" aria-label="Previous month" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }}
+                            style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
+                        <button type="button" aria-label="Next month" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }}
+                            style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
+                        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px' }}>
+                        {buildCalDays(calMonth, calYear).map((cell, i) => {
+                            const cy = cell.month === 'prev' ? (calMonth === 0 ? calYear - 1 : calYear) : cell.month === 'next' ? (calMonth === 11 ? calYear + 1 : calYear) : calYear;
+                            const cm = cell.month === 'prev' ? (calMonth === 0 ? 12 : calMonth) : cell.month === 'next' ? (calMonth === 11 ? 1 : calMonth + 2) : calMonth + 1;
+                            const dateStr  = `${cy}-${String(cm).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+                            const isSelected = form.date === dateStr;
+                            const isToday    = todayStr === dateStr;
+                            const isOtherMonth = cell.month !== 'cur';
+                            return (
+                                <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
+                                    style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
+                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-surface-3)'; }}
+                                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
+                                >{cell.day}</div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </Modal>
+    );
+
     return (
+      <>
+        {dateSheet}
         <Modal
             isOpen={isOpen}
             onClose={onClose}
@@ -542,12 +604,35 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <div>
                     <label style={labelStyle}>Amount</label>
                     <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.2rem' }}>₹</span>
+                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: amountColor, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.2rem' }}>₹</span>
                         <input type="number" placeholder="0" min="0.01" step="any" value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
-                            style={{ width: '100%', padding: '14px 16px 14px 36px', ...inputBase, fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', boxSizing: 'border-box', border: `1px solid ${isIncome ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)'}`, fontVariantNumeric: 'tabular-nums', transition: 'border-color var(--transition-fast)' }}
+                            style={{ width: '100%', padding: '14px 16px 14px 36px', ...inputBase, fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 700, color: amountColor, boxSizing: 'border-box', border: `1px solid color-mix(in srgb, ${amountColor} 30%, transparent)`, fontVariantNumeric: 'tabular-nums', transition: 'border-color var(--transition-fast)' }}
                         />
                     </div>
                 </div>
+
+                {/* ── Transfer accounts — sits with the amount, since for a transfer
+                       these three fields are the whole transaction ── */}
+                {isTransfer && accounts.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div>
+                            <label style={labelStyle}>From account</label>
+                            <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
+                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                <option value="">Select account</option>
+                                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label style={labelStyle}>To account</label>
+                            <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
+                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                <option value="">Select account</option>
+                                {accounts.filter((a: any) => a.id !== form.account_id).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Payment Method (expense only) ── */}
                 {!isIncome && !isTransfer && (
@@ -578,7 +663,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                <Input label="Description" type="text" placeholder="e.g. Swiggy order, Monthly salary" icon={<FileText size={15} />} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} required />
+                <Input
+                    label={isTransfer ? 'What is this transfer for?' : 'Description'}
+                    type="text"
+                    placeholder={isTransfer ? 'e.g. Monthly SIP, moving to savings' : 'e.g. Swiggy order, Monthly salary'}
+                    icon={<FileText size={15} />}
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                    required
+                />
 
                 {/* Auto-category suggestions */}
                 {suggestedCats.length > 0 && !isTransfer && (
@@ -614,9 +707,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 ) : (
                                     <>
                                         {frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Frequently Used</div>}
-                                        {frequentCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} onDelete={() => handleDeleteCategory(cat)} />))}
+                                        {frequentCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />))}
                                         {neverUsedCats.length > 0 && frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--border-subtle)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'var(--font-body)' }}>All Categories</div>}
-                                        {neverUsedCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} onDelete={() => handleDeleteCategory(cat)} />))}
+                                        {neverUsedCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />))}
                                     </>
                                 )}
                             </div>
@@ -710,70 +803,24 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── Date picker ── */}
+                {/* ── Date — opens its own sheet ──
+                    This used to be a popover anchored upward (bottom: calc(100% + 8px))
+                    inside the sheet's own scroll container, so near the top of the sheet
+                    it clipped off. A portalled sheet cannot clip, and the quick options
+                    mean most entries never reach the grid at all. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={labelStyle}>Date</label>
-                    <div ref={dateRef} style={{ position: 'relative', width: '100%' }}>
-                        <div onClick={() => setCalOpen(o => !o)}
+                    <div ref={dateRef} style={{ width: '100%' }}>
+                        <div onClick={() => setCalOpen(true)} role="button" tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCalOpen(true); } }}
                             style={{ ...inputBase, padding: '10px 12px', color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                            <span>{selectedDate ? `${selectedDate.getDate()} ${SHORT_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}` : 'Select a date'}</span>
+                            <span>{dateLabel}</span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: 'var(--text-secondary)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                             </svg>
                         </div>
-                        {calOpen && (
-                            <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: '100%', minWidth: '300px', zIndex: 9999, backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', boxShadow: 'var(--shadow-modal)', boxSizing: 'border-box' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                    <button type="button" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}>‹</button>
-                                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
-                                    <button type="button" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '18px', padding: '0 8px', lineHeight: 1 }}>›</button>
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
-                                    {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0' }}>{d}</div>))}
-                                </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px' }}>
-                                    {buildCalDays(calMonth, calYear).map((cell, i) => {
-                                        const cy = cell.month === 'prev' ? (calMonth === 0 ? calYear - 1 : calYear) : cell.month === 'next' ? (calMonth === 11 ? calYear + 1 : calYear) : calYear;
-                                        const cm = cell.month === 'prev' ? (calMonth === 0 ? 12 : calMonth) : cell.month === 'next' ? (calMonth === 11 ? 1 : calMonth + 2) : calMonth + 1;
-                                        const dateStr  = `${cy}-${String(cm).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
-                                        const isSelected = form.date === dateStr;
-                                        const isToday    = todayStr === dateStr;
-                                        const isOtherMonth = cell.month !== 'cur';
-                                        return (
-                                            <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
-                                                style={{ width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
-                                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-surface-3)'; }}
-                                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
-                                            >{cell.day}</div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </div>
-
-                {/* ── Transfer accounts ── */}
-                {isTransfer && accounts.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        <div>
-                            <label style={labelStyle}>From account</label>
-                            <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">Select account</option>
-                                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>To account</label>
-                            <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">Select account</option>
-                                {accounts.filter((a: any) => a.id !== form.account_id).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                )}
 
                 {/* ── Goal contribution (optional) ── */}
                 {!isTransfer && goals.length > 0 && (
@@ -787,8 +834,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── Tags ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* ── Tags — expense/income only ── */}
+                {!isTransfer && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={labelStyle}>Tags (optional)</label>
                     {form.tags.length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
@@ -805,14 +852,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             style={{ flex: 1, padding: '10px 16px', ...inputBase }} />
                         <button type="button" onClick={addTag} style={{ padding: '10px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: '10px', color: 'var(--accent)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500, fontFamily: 'var(--font-body)' }}>Add</button>
                     </div>
-                </div>
+                </div>}
 
-                {/* ── Notes ── */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {/* ── Notes — expense/income only; a transfer's description is its note ── */}
+                {!isTransfer && <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={labelStyle}>Notes (optional)</label>
                     <textarea placeholder="Any additional notes..." value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2}
                         style={{ width: '100%', padding: '10px 16px', ...inputBase, resize: 'vertical', boxSizing: 'border-box' }} />
-                </div>
+                </div>}
 
                 {error && (
                     <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: '10px', fontSize: '0.8rem', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>
@@ -821,5 +868,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 )}
             </form>
         </Modal>
+      </>
     );
 }

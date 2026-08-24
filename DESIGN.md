@@ -324,6 +324,34 @@ soft bloom. Light theme drops the whole layer to 35% opacity.
   icon, icon switches to solid fill and `--text-primary`. Not a coloured pill — the accent
   colour is reserved for the action button, so the nav stays quiet and the action stays loud.
 
+## Forms
+
+### Destructive actions never sit inside routine forms
+Deleting a category uncategorises every transaction using it. It used to be a `✕` on every
+row of the category dropdown *inside the add-transaction form* — one mis-tap from a routine
+field selection, guarded only by `window.confirm`. Destructive operations belong in a
+management surface, never inline in a picker. Additive actions (create a category on the
+spot) are fine and stay.
+
+### Pickers open in their own sheet, never as popovers inside a scrolling container
+The date picker was a popover anchored upward (`bottom: calc(100% + 8px)`) inside the form's
+own `overflow-y: auto` container, so near the top of the sheet it clipped. Any picker that
+needs more than a row of space gets its own portalled sheet — it cannot clip, and it works
+identically on mobile and desktop via `Modal`.
+
+Pair every date picker with quick options (Today / Yesterday / 2 days ago). Most entries never
+need the grid.
+
+### A form's shape follows its type
+Transfer shares only *amount* and *date* with expense and income. It has no category, tags,
+goal, payment method or investment block, and it needs two account pickers nothing else uses.
+Those fields are hidden for transfers rather than rendered and ignored, and the From/To
+pickers sit directly beneath the amount, because for a transfer those three fields are the
+entire transaction.
+
+Transfer amounts use `--accent`, not `--color-exp` — a transfer is neither a gain nor a loss,
+and colouring it red read as money lost.
+
 ## Anti-Patterns (never do these)
 
 - No colour-orb backdrops, gradient haze, or film-grain texture behind glass — the three
@@ -363,3 +391,6 @@ soft bloom. Light theme drops the whole layer to 35% opacity.
 | 2026-08-24 | **AMOLED black retained over navy** | A dark-navy base was trialled during the Samsung-Health-inspired review and rejected. `#0a0a0a` stays — genuine OLED pixel-off, and it makes the curve backdrop read as light rather than paint |
 | 2026-08-24 | **Mobile nav → floating pill + detached action button** | Inspired by Samsung Health's dock. The full-width docked bar became a floating glass pill; the add button moved out of `AppLayout` and into the dock so the two morph as one unit. Tab count dropped 5 → 4 (AI Chat moved into More → Tools) to keep the pill uncrowded once the button took horizontal space |
 | 2026-08-24 | **Nav active state is neutral, not accent** | A soft rounded-square behind the icon rather than a blue pill. Keeps `--accent` exclusive to the action button, so the primary action stays the loudest thing in the dock |
+| 2026-08-25 | **Category delete removed from the add form** | It sat as a `✕` on every row of the category dropdown, guarded only by `window.confirm` — the only one in that surface. A data-destroying action (it uncategorises every transaction using that category) one mis-tap from picking a field. Moves to category management |
+| 2026-08-25 | **Date picker moved into its own sheet** | Was a popover opening upward inside the form's scrolling container, which clips near the top of the sheet. Portalled sheets cannot clip. Quick options (Today / Yesterday / 2 days ago) added, since most entries never need the calendar grid |
+| 2026-08-25 | **Transfer form stripped to its own shape** | Transfer shares only amount and date with expense/income. Tags, notes, category, goal, payment method and the investment block are now hidden for transfers instead of rendered-and-ignored, and From/To sit directly under the amount. Amount uses `--accent` rather than `--color-exp` — a transfer is not a loss |
