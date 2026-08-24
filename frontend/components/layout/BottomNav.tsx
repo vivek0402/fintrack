@@ -9,16 +9,20 @@ import {
     Waves,
     Flame, GitBranch, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
-    FileText, Award, Brain,
+    FileText, Award, Brain, Plus,
 } from 'lucide-react';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
     { href: '/transactions', icon: ArrowLeftRight,  label: 'Money' },
-    { href: '/ai-advisor',   icon: Bot,             label: 'AI Chat' },
     { href: '/analytics',    icon: PieChart,        label: 'Insights' },
 ];
+
+// Routes where the add-transaction button is suppressed — mirrors
+// hideAddFabRoutes in AppLayout, which used to own this button before it
+// moved into the dock beside the pill.
+const hideAddRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/transactions'];
 
 // Grouped 2-column grids shown in the More sheet
 const moreGroups = [
@@ -53,10 +57,12 @@ const moreGroups = [
     {
         label: 'Tools',
         items: [
-            { href: '/accounts',  icon: CreditCard, label: 'Accounts' },
-            { href: '/documents', icon: FolderOpen, label: 'Documents' },
-            { href: '/groups',    icon: Users,      label: 'Groups' },
-            { href: '/profile',   icon: Settings,   label: 'Profile' },
+            // AI Chat moved here when the tab row dropped to four items
+            { href: '/ai-advisor', icon: Bot,        label: 'AI Chat' },
+            { href: '/accounts',   icon: CreditCard, label: 'Accounts' },
+            { href: '/documents',  icon: FolderOpen, label: 'Documents' },
+            { href: '/groups',     icon: Users,      label: 'Groups' },
+            { href: '/profile',    icon: Settings,   label: 'Profile' },
         ],
     },
 ];
@@ -82,6 +88,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
 
     const isActive   = (href: string) => pathname === href || pathname.startsWith(href);
     const moreActive = !mainTabs.some(t => isActive(t.href));
+    const showAdd    = !hideAddRoutes.some(r => pathname.startsWith(r));
 
     // Opens the panel defaulted to the group containing the current route
     const openMorePanel = useCallback(() => {
@@ -247,8 +254,17 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 style={{ position: 'fixed', inset: 0, zIndex: 998, backgroundColor: 'rgba(0,0,0,0.45)', opacity: moreOpen ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: moreOpen ? 'all' : 'none' }}
             />
 
-            {/* Dock: a single surface whose height morphs to reveal the More panel above the tab row */}
-            <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 999, background: 'var(--bg-surface-1)', borderTop: '1px solid var(--border-subtle)', borderRadius: moreOpen ? 'var(--radius-lg) var(--radius-lg) 0 0' : '0px', overflow: 'hidden', transition: 'border-radius 320ms cubic-bezier(0.4,0,0.2,1)', paddingLeft: 'env(safe-area-inset-left, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)' }}>
+            {/* Dock: floating pill + detached action button.
+                The pill is the morphing surface — its height grows to reveal the
+                More panel, and it expands to full width as the button folds away. */}
+            <div style={{
+                position: 'fixed', zIndex: 999,
+                left: 'calc(12px + env(safe-area-inset-left, 0px))',
+                right: 'calc(12px + env(safe-area-inset-right, 0px))',
+                bottom: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+                display: 'flex', alignItems: 'flex-end', gap: '10px',
+            }}>
+            <nav className="glass-surface" style={{ flex: 1, minWidth: 0, borderRadius: moreOpen ? 'var(--radius-xl)' : 'var(--radius-full)', overflow: 'hidden', transition: 'border-radius 320ms cubic-bezier(0.4,0,0.2,1)' }}>
 
                 {/* Morphing panel */}
                 <div ref={panelRef} style={{ maxHeight: panelMaxH, overflow: 'hidden', transition: 'max-height 320ms cubic-bezier(0.4,0,0.2,1)' }}>
@@ -313,16 +329,16 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 <div style={{ height: '1px', background: 'var(--border-subtle)', opacity: moreOpen ? 1 : 0, transition: 'opacity 280ms ease' }} />
 
                 {/* Tab row — always docked at the bottom of the surface */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '6px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', paddingTop: '8px', paddingBottom: '8px' }}>
                     {mainTabs.map(({ href, icon: Icon, label }) => {
                         const active = isActive(href);
                         return (
                             <a key={href} href={href} onClick={e => { e.preventDefault(); router.push(href); }}
-                                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 6px', flex: 1, minWidth: 0 }}>
-                                <div key={active ? 'active' : 'inactive'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: active ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
-                                    <Icon size={22} color={active ? '#fff' : 'var(--text-muted)'} />
+                                style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0 }}>
+                                <div key={active ? 'active' : 'inactive'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: active ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                                    <Icon size={19} color={active ? 'var(--text-primary)' : 'var(--text-muted)'} fill={active ? 'currentColor' : 'none'} />
                                 </div>
-                                <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--accent)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                     {label}
                                 </span>
                             </a>
@@ -331,16 +347,42 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
 
                     {/* More button */}
                     <button ref={moreButtonRef} type="button" onClick={handleMoreButtonClick}
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', padding: '2px 6px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                        <div key={moreOpen ? 'open' : 'closed'} style={{ padding: '5px 14px', borderRadius: 'var(--radius-full)', background: moreActive || moreOpen ? 'var(--accent)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
-                            <MoreHorizontal size={22} color={moreActive || moreOpen ? '#fff' : 'var(--text-muted)'} />
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
+                        <div key={moreOpen ? 'open' : 'closed'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: moreActive || moreOpen ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: moreActive || moreOpen ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                            <MoreHorizontal size={19} color={moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)'} />
                         </div>
-                        <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--accent)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                             More
                         </span>
                     </button>
                 </div>
             </nav>
+
+            {/* Add transaction — detached circle beside the pill. Folds away as
+                the More panel opens so the pill can take the full width. */}
+            {showAdd && (
+                <button
+                    className="fab-btn"
+                    type="button"
+                    onClick={() => router.push('/transactions?add=true')}
+                    aria-label="Add transaction"
+                    aria-hidden={moreOpen}
+                    tabIndex={moreOpen ? -1 : 0}
+                    style={{
+                        width: moreOpen ? 0 : '62px', height: '62px', flexShrink: 0,
+                        borderRadius: 'var(--radius-full)', background: 'var(--accent)', border: 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', overflow: 'hidden', padding: 0,
+                        opacity: moreOpen ? 0 : 1,
+                        pointerEvents: moreOpen ? 'none' : 'auto',
+                        boxShadow: '0 14px 30px -10px rgba(37,99,235,0.75), inset 0 1px 0 rgba(255,255,255,0.25)',
+                        transition: 'width 320ms cubic-bezier(0.4,0,0.2,1), opacity 200ms ease',
+                    }}
+                >
+                    <Plus size={24} color="#fff" strokeWidth={2.5} />
+                </button>
+            )}
+            </div>
         </>
     );
 }

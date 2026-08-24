@@ -87,6 +87,40 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     50% { opacity:0.5; transform:scale(1.5); }
                 }
             `}</style>
+            {/* Ambient backdrop — income and expense curves blown up behind the whole
+                app. This is what the glass surfaces frost; without it the blur has
+                nothing to sample and the panels read as flat tinted rectangles. */}
+            <div className="ambient-curves" aria-hidden="true">
+                <svg viewBox="0 0 1200 1000" preserveAspectRatio="none">
+                    <defs>
+                        <filter id="ambGlow" x="-60%" y="-60%" width="220%" height="220%">
+                            <feGaussianBlur stdDeviation="40" />
+                        </filter>
+                        <linearGradient id="ambInc" x1="0" y1="1" x2="1" y2="0">
+                            <stop offset="0%" stopColor="var(--color-inc)" />
+                            <stop offset="100%" stopColor="var(--accent)" />
+                        </linearGradient>
+                        <linearGradient id="ambExp" x1="0" y1="1" x2="1" y2="0">
+                            <stop offset="0%" stopColor="var(--color-exp)" />
+                            <stop offset="100%" stopColor="var(--color-warn)" />
+                        </linearGradient>
+                        <linearGradient id="ambFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.10" />
+                            <stop offset="100%" stopColor="var(--color-inc)" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M-40,950 C200,920 380,830 560,760 C800,665 980,540 1240,470" fill="none"
+                        stroke="url(#ambExp)" strokeWidth="30" opacity="0.26" filter="url(#ambGlow)" />
+                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180" fill="none"
+                        stroke="url(#ambInc)" strokeWidth="32" opacity="0.30" filter="url(#ambGlow)" />
+                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180 L1240,1040 L-40,1040 Z"
+                        fill="url(#ambFill)" />
+                    <path d="M-40,950 C200,920 380,830 560,760 C800,665 980,540 1240,470" fill="none"
+                        stroke="url(#ambExp)" strokeWidth="3" opacity="0.46" />
+                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180" fill="none"
+                        stroke="url(#ambInc)" strokeWidth="3.5" opacity="0.62" />
+                </svg>
+            </div>
             <OfflineBanner />
             <Sidebar onOpenTour={() => setShowTour(true)} />
             <main
@@ -98,6 +132,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     overflowX: 'hidden',
                     color: 'var(--text-primary)',
                     animation: 'pageEnter 0.2s ease-out forwards',
+                    // Lifts page content above the fixed ambient backdrop, which is
+                    // positioned and would otherwise paint over unpositioned content.
+                    position: 'relative',
+                    zIndex: 1,
                 }}
             >
                 <div style={{
@@ -110,34 +148,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
                 </div>
             </main>
+            {/* The mobile add-transaction button now lives inside BottomNav, docked
+                beside the pill, so the two move and morph as one unit. */}
             {isMobile && <BottomNav onOpenTour={() => setShowTour(true)} />}
-
-            {/* Mobile Add Transaction FAB */}
-            {isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
-                <button
-                    onClick={() => router.push('/transactions?add=true')}
-                    aria-label="Add transaction"
-                    style={{
-                        position: 'fixed',
-                        bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)',
-                        right: '16px',
-                        zIndex: 996,
-                        width: '52px',
-                        height: '52px',
-                        borderRadius: '50%',
-                        background: 'var(--accent)',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 4px 20px var(--accent-subtle)',
-                        animation: 'springIn 400ms cubic-bezier(0.34,1.56,0.64,1) both',
-                    }}
-                >
-                    <Plus size={24} color="white" strokeWidth={2.5} />
-                </button>
-            )}
 
             {/* Desktop Add Transaction FAB */}
             {!isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (

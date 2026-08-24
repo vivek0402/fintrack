@@ -122,6 +122,20 @@ h1, h2, h3, h4, h5, h6 {
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
 
+  /* ── Glass surfaces (v3) ──────────────────────────────────────────────
+     Translucent panels that frost the ambient curve backdrop behind them.
+     Applied via the .glass-surface class, never by redefining --bg-surface-1
+     (203 call sites still expect that token to be opaque). */
+  --glass-surface: rgba(255, 255, 255, 0.045);
+  --glass-border:  rgba(255, 255, 255, 0.09);
+  --glass-blur:    blur(24px) saturate(125%) brightness(1.06);
+  /* Light from above: specular hairline on the top edge, faint lift at the
+     bottom, contact shadow underneath. This is what reads as a physical sheet. */
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 8px 24px -12px rgba(0, 0, 0, 0.7);
+
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
   --cat-4: #7c3aed; --cat-5: #0891b2; --cat-6: #db2777; --cat-7: #65a30d;
@@ -203,6 +217,16 @@ h1, h2, h3, h4, h5, h6 {
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.15);
 
+  /* ── Glass surfaces (v3) — light theme ──
+     On a light ground the sheet tints toward white and the specular edge
+     inverts to a soft shadow, otherwise the panel reads as a grey smudge. */
+  --glass-surface: rgba(255, 255, 255, 0.62);
+  --glass-border:  rgba(20, 22, 45, 0.08);
+  --glass-blur:    blur(24px) saturate(135%);
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 24px -14px rgba(20, 22, 45, 0.28);
+
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
   --cat-4: #7c3aed; --cat-5: #0891b2; --cat-6: #db2777; --cat-7: #65a30d;
@@ -269,6 +293,42 @@ aside::-webkit-scrollbar, aside nav::-webkit-scrollbar {
 
 aside, aside nav {
   scrollbar-width: none;
+}
+
+/* ── Glass surfaces (v3) ──────────────────────────────────────────────────
+   Opt-in: add `glass-surface` alongside a card's existing inline styles and
+   drop its `background`/`border`. Elements keep their own border-radius. */
+
+.glass-surface {
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge);
+}
+
+/* Ambient backdrop — the user's income/expense curves, blown up behind the
+   whole app. Fixed and inert; every page scrolls over it. It is the thing the
+   glass panels actually frost, so it must sit below all content. */
+.ambient-curves {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ambient-curves svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Light theme keeps the curves, dialled right down — on a pale ground the
+   same opacities read as smeared paint rather than light. */
+[data-theme="light"] .ambient-curves {
+  opacity: 0.35;
 }
 
 /* ── Micro-interaction utilities ──────────────────────────────────────────── */

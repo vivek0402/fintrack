@@ -7,13 +7,29 @@
 - **Project type:** Dashboard web app + mobile PWA
 
 ## Aesthetic Direction
-- **Direction:** Industrial / Refined
-- **Decoration level:** Intentional — solid surfaces with precise borders. No glassmorphism (enforced in code, not just spec).
+- **Direction:** Industrial / Refined, now rendered in glass
+- **Decoration level:** Intentional — translucent panels over an ambient data backdrop. Restraint still governs: colour is rare, type does the work, nothing decorates for its own sake.
 - **Mood:** Cold obsidian surfaces, surgical typography, data that feels live. "This was built for someone who takes money seriously." The user should feel competent and calm in the first 3 seconds — not overwhelmed by UI tricks.
 - **Reference products:** Linear, Superhuman (craft tier); Copilot Money (design leadership in the category)
 - **Category departures:**
   1. Numbers are always the hero — every currency figure is the most prominent element in its region; everything else supports it
   2. FAB + dedicated pages as the primary AI surface — not sidebar widgets
+  3. The backdrop *is* the user's data — income and expense curves blown up behind the entire app, which the glass panels frost
+
+### Glassmorphism (reversal of the v2 ban — approved 2026-08-24)
+The v2 system banned `backdrop-filter` outright. That ban is lifted, but on conditions,
+because unconditional glass is what makes an interface look generated:
+
+- **Glass needs something real behind it.** A blurred panel over flat black samples black and
+  returns black — the frosting does nothing. The ambient curve backdrop exists to give the blur
+  genuine structure. Never ship glass panels over an empty background.
+- **No colour orbs, no gradient haze, no film grain.** These are the AI-design clichés this
+  system rejects; each was tried and rejected explicitly during the 2026-08-24 review.
+- **Character comes from edge and shadow, not backdrop colour** — a specular hairline on the top
+  edge, a faint lift at the bottom, a contact shadow underneath. That is what reads as a physical
+  sheet rather than a tinted div.
+- **Legibility outranks the effect.** Any text over glass must still clear WCAG AA. If a panel's
+  content can't be read, the panel loses its translucency, not the text its contrast.
 
 ## Typography
 
@@ -88,6 +104,15 @@
   /* Shadows */
   --shadow-card:  0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
+
+  /* Glass surfaces (v3) — consumed via the .glass-surface class, never inline */
+  --glass-surface: rgba(255, 255, 255, 0.045);
+  --glass-border:  rgba(255, 255, 255, 0.09);
+  --glass-blur:    blur(24px) saturate(125%) brightness(1.06);
+  --glass-edge:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03),
+    0 8px 24px -12px rgba(0, 0, 0, 0.7);
 
   /* Chart category palette */
   --cat-0: #2563eb;  --cat-1: #16a34a;  --cat-2: #d97706;  --cat-3: #dc2626;
@@ -259,9 +284,51 @@ Labels: `11px / 600 / var(--text-secondary) / uppercase / 0.5px letter-spacing`
 
 Error text: `11px / var(--color-exp)`
 
+## Surfaces & Backdrop (v3)
+
+### `.glass-surface` — the card material
+Defined once in `globals.css`. Cards opt in by adding the class and dropping their own
+`background`/`border`; they keep their own `border-radius` and padding.
+
+```jsx
+// before
+<div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+// after
+<div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
+```
+
+Never redefine `--bg-surface-1` to a translucent value — 200+ call sites still rely on it
+being opaque, and blanket-converting them produces unreadable stacked translucency.
+
+### `.ambient-curves` — what the glass frosts
+A fixed, inert SVG layer mounted once in `AppLayout`, sitting at `z-index: 0` beneath all
+page content (`main` is lifted to `z-index: 1`). Two curves:
+
+| Curve | Stroke | Meaning |
+|---|---|---|
+| Income | `--color-inc` → `--accent` | Money in, rising |
+| Expenses | `--color-exp` → `--color-warn` | Money out, behind |
+
+All four hues are existing semantic tokens — the light means something rather than decorating.
+Both curves carry a wide blurred pass beneath a crisp thin stroke, which is what produces the
+soft bloom. Light theme drops the whole layer to 35% opacity.
+
+## Navigation
+
+- **Desktop:** left sidebar, collapsible, 240px
+- **Mobile:** floating glass pill docked 14px from the bottom, inset 12px each side, with the
+  add-transaction button as a **detached blue circle beside it**. The two are one flex row —
+  as the More panel opens, the button folds to zero width and the pill expands to fill it.
+- **Tabs:** four only — Home, Money, Insights, More. AI Chat lives in More → Tools.
+- **Active state:** a soft rounded-square (`rgba(255,255,255,0.15)`, `--radius-md`) behind the
+  icon, icon switches to solid fill and `--text-primary`. Not a coloured pill — the accent
+  colour is reserved for the action button, so the nav stays quiet and the action stays loud.
+
 ## Anti-Patterns (never do these)
 
-- No glassmorphism on cards or panels (enforced — `backdropFilter` banned on surfaces)
+- No colour-orb backdrops, gradient haze, or film-grain texture behind glass — the three
+  canonical AI-generated-design tells. The ambient curves are the only sanctioned backdrop.
+- No glass over an empty background — if there's nothing behind it, use an opaque surface
 - No hardcoded hex in component files — always use CSS variables
 - No proportional fonts for currency figures
 - No looping chart animations
@@ -291,3 +358,8 @@ Error text: `11px / var(--color-exp)`
 | 2026-06-20 | **`--text-muted` darkened/lightened for contrast** | Both themes' `--text-muted` failed WCAG AA (dark: 2.66:1, light: 2.19:1) on surface backgrounds — used for the 11px `xs` scale (timestamps, captions, labels) where it mattered most |
 | 2026-06-20 | **IA consolidation — hub/tab pages** | Net Worth + Wealth Intelligence merged into one tabbed page; 33 nav entries were causing choice paralysis. New `Tabs` component added for reuse across remaining hub merges |
 | 2026-08-17 | **`--color-bill-due: #f97316` added** | Calendar's "Bill Due" indicator was hardcoded, violating the no-hardcoded-hex rule. Kept distinct from `--color-warn` (#d97706) — "bill due" and "budget risk" are different semantic concepts and conflating them would blur meaning across the app's other `--color-warn` usages |
+| 2026-08-24 | **Glassmorphism ban lifted, conditionally** | Reverses the 2026-06-04 decision. Glass is permitted *only* over the ambient curve backdrop — over flat black the blur samples nothing and the panel is just a tinted div. Delivered as an opt-in `.glass-surface` class rather than by redefining `--bg-surface-1`, so the 200+ existing call sites stay opaque and legible |
+| 2026-08-24 | **Ambient curve backdrop added** | Glass needs real structure behind it. Rather than the usual colour orbs, the backdrop is the user's own income/expense curves — reviewed against a grey wash, colour orbs, film grain, a ledger grid and contour rings, all rejected. Meaningful beats decorative, and it dodges the AI-generated look |
+| 2026-08-24 | **AMOLED black retained over navy** | A dark-navy base was trialled during the Samsung-Health-inspired review and rejected. `#0a0a0a` stays — genuine OLED pixel-off, and it makes the curve backdrop read as light rather than paint |
+| 2026-08-24 | **Mobile nav → floating pill + detached action button** | Inspired by Samsung Health's dock. The full-width docked bar became a floating glass pill; the add button moved out of `AppLayout` and into the dock so the two morph as one unit. Tab count dropped 5 → 4 (AI Chat moved into More → Tools) to keep the pill uncrowded once the button took horizontal space |
+| 2026-08-24 | **Nav active state is neutral, not accent** | A soft rounded-square behind the icon rather than a blue pill. Keeps `--accent` exclusive to the action button, so the primary action stays the loudest thing in the dock |
