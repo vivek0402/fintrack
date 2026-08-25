@@ -17,6 +17,12 @@ interface ModalProps {
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+// Ref-counted so stacked Modals (e.g. the add-transaction form with its own
+// date-picker Modal open on top of it) compose correctly -- body scroll only
+// unlocks once the *last* open Modal closes, instead of the inner one's
+// close resetting it while the outer one is still open.
+let openModalCount = 0;
+
 export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px' }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
@@ -55,8 +61,13 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
     }, [isOpen]);
 
     useEffect(() => {
-        document.body.style.overflow = isOpen ? 'hidden' : '';
-        return () => { document.body.style.overflow = ''; };
+        if (!isOpen) return;
+        openModalCount++;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            openModalCount = Math.max(0, openModalCount - 1);
+            if (openModalCount === 0) document.body.style.overflow = '';
+        };
     }, [isOpen]);
 
     if (!isOpen || !mounted) return null;

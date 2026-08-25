@@ -134,7 +134,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [calOpen, setCalOpen]   = useState(false);
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
     const [calYear, setCalYear]   = useState(new Date().getFullYear());
-    const dateRef = useRef<HTMLDivElement>(null);
 
     // Four fields by default (amount, description, category, date) --
     // payment method, card, investment details, goal, tags and notes
@@ -167,13 +166,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [catDropdownOpen]);
-
-    useEffect(() => {
-        if (!calOpen) return;
-        const handler = (e: MouseEvent) => { if (dateRef.current && !dateRef.current.contains(e.target as Node)) setCalOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [calOpen]);
 
     // Populate form
      
@@ -557,9 +549,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     // Shared between the Category+Date row (expense/income) and the
     // standalone Date field (transfer) -- the two are mutually exclusive per
-    // render, so reusing dateRef across them is safe.
+    // render.
     const dateTrigger = (
-        <div ref={dateRef} style={{ width: '100%' }}>
+        <div style={{ width: '100%' }}>
             <div onClick={() => setCalOpen(true)} role="button" tabIndex={0}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCalOpen(true); } }}
                 style={{ ...inputBase, padding: '10px 12px', color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
