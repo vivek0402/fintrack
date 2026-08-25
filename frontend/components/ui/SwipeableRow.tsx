@@ -21,14 +21,17 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
         startX.current = e.touches[0].clientX;
         draggingRef.current = true;
         didSwipeRef.current = false;
-        setIsDragging(true);
         setTransitioning(false);
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!draggingRef.current) return;
         const raw = e.touches[0].clientX - startX.current;
-        if (Math.abs(raw) > 8) didSwipeRef.current = true;
+        // Only treat this as an actual swipe (and switch the row into its
+        // opaque dragging visual) once horizontal movement clears the noise
+        // threshold -- setting this on touchstart instead fired on every
+        // touch, including the start of a plain vertical scroll.
+        if (Math.abs(raw) > 8) { didSwipeRef.current = true; setIsDragging(true); }
         setDragX(Math.max(-100, Math.min(0, raw)));
     };
 
