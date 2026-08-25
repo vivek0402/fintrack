@@ -87,38 +87,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     50% { opacity:0.5; transform:scale(1.5); }
                 }
             `}</style>
-            {/* Ambient backdrop — income and expense curves blown up behind the whole
-                app. This is what the glass surfaces frost; without it the blur has
-                nothing to sample and the panels read as flat tinted rectangles. */}
-            <div className="ambient-curves" aria-hidden="true">
+            {/* Ambient backdrop — two soft light pools in the income/expense colour
+                pairs, blown up behind the whole app. This is what the glass surfaces
+                frost; without it the blur has nothing to sample and the panels read
+                as flat tinted rectangles. Replaces the earlier curve-traced version --
+                same colours, softer and dimmer than the first pass at this (see
+                DESIGN.md decision log, 2026-08-25). */}
+            <div className="ambient-lighting" aria-hidden="true">
                 <svg viewBox="0 0 1200 1000" preserveAspectRatio="none">
                     <defs>
-                        <filter id="ambGlow" x="-60%" y="-60%" width="220%" height="220%">
-                            <feGaussianBlur stdDeviation="40" />
+                        <filter id="ambGlow" x="-100%" y="-100%" width="300%" height="300%">
+                            <feGaussianBlur stdDeviation="90" />
                         </filter>
-                        <linearGradient id="ambInc" x1="0" y1="1" x2="1" y2="0">
-                            <stop offset="0%" stopColor="var(--color-inc)" />
-                            <stop offset="100%" stopColor="var(--accent)" />
-                        </linearGradient>
-                        <linearGradient id="ambExp" x1="0" y1="1" x2="1" y2="0">
-                            <stop offset="0%" stopColor="var(--color-exp)" />
-                            <stop offset="100%" stopColor="var(--color-warn)" />
-                        </linearGradient>
-                        <linearGradient id="ambFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.10" />
-                            <stop offset="100%" stopColor="var(--color-inc)" stopOpacity="0" />
-                        </linearGradient>
+                        <radialGradient id="ambInc" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="var(--color-inc)" stopOpacity="0.32" />
+                            <stop offset="55%" stopColor="var(--accent)" stopOpacity="0.16" />
+                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+                        </radialGradient>
+                        <radialGradient id="ambExp" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stopColor="var(--color-exp)" stopOpacity="0.28" />
+                            <stop offset="55%" stopColor="var(--color-warn)" stopOpacity="0.14" />
+                            <stop offset="100%" stopColor="var(--color-warn)" stopOpacity="0" />
+                        </radialGradient>
                     </defs>
-                    <path d="M-40,950 C200,920 380,830 560,760 C800,665 980,540 1240,470" fill="none"
-                        stroke="url(#ambExp)" strokeWidth="30" opacity="0.26" filter="url(#ambGlow)" />
-                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180" fill="none"
-                        stroke="url(#ambInc)" strokeWidth="32" opacity="0.30" filter="url(#ambGlow)" />
-                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180 L1240,1040 L-40,1040 Z"
-                        fill="url(#ambFill)" />
-                    <path d="M-40,950 C200,920 380,830 560,760 C800,665 980,540 1240,470" fill="none"
-                        stroke="url(#ambExp)" strokeWidth="3" opacity="0.46" />
-                    <path d="M-40,860 C200,810 360,620 540,560 C790,478 960,270 1240,180" fill="none"
-                        stroke="url(#ambInc)" strokeWidth="3.5" opacity="0.62" />
+                    <ellipse cx="950" cy="180" rx="520" ry="440" fill="url(#ambInc)" filter="url(#ambGlow)" />
+                    <ellipse cx="180" cy="880" rx="500" ry="420" fill="url(#ambExp)" filter="url(#ambGlow)" />
                 </svg>
             </div>
             <OfflineBanner />

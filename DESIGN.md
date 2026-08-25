@@ -305,18 +305,20 @@ modal and sheet in the app inherits it. Their scrim (`rgba(0,0,0,0.55–0.7)` + 
 the dialog, so the glass frosts dimmed page content rather than flat black, same rule as any
 other `.glass-surface` use.
 
-### `.ambient-curves` — what the glass frosts
+### `.ambient-lighting` — what the glass frosts
 A fixed, inert SVG layer mounted once in `AppLayout`, sitting at `z-index: 0` beneath all
-page content (`main` is lifted to `z-index: 1`). Two curves:
+page content (`main` is lifted to `z-index: 1`). Two soft radial light pools (replaced the
+original data-curve version on 2026-08-25 — see Decisions Log):
 
-| Curve | Stroke | Meaning |
+| Pool | Colour | Position |
 |---|---|---|
-| Income | `--color-inc` → `--accent` | Money in, rising |
-| Expenses | `--color-exp` → `--color-warn` | Money out, behind |
+| Income | `--color-inc` → `--accent` | Upper-right |
+| Expenses | `--color-exp` → `--color-warn` | Lower-left |
 
-All four hues are existing semantic tokens — the light means something rather than decorating.
-Both curves carry a wide blurred pass beneath a crisp thin stroke, which is what produces the
-soft bloom. Light theme drops the whole layer to 35% opacity.
+All four hues are existing semantic tokens, kept from the curve version — the colour still
+means something even though the shape no longer traces real data. Deliberately dim
+(0.28–0.32 peak stop-opacity) so it reads as light, not paint. Light theme drops the whole
+layer to 35% opacity.
 
 ## Navigation
 
@@ -359,8 +361,10 @@ and colouring it red read as money lost.
 
 ## Anti-Patterns (never do these)
 
-- No colour-orb backdrops, gradient haze, or film-grain texture behind glass — the three
-  canonical AI-generated-design tells. The ambient curves are the only sanctioned backdrop.
+- No gradient haze or film-grain texture behind glass — two of the three canonical
+  AI-generated-design tells (the third, colour orbs, is now the sanctioned backdrop itself —
+  see `.ambient-lighting` above and the 2026-08-25 decision log entry for why this one's
+  different from the generic version that was rejected).
 - No glass over an empty background — if there's nothing behind it, use an opaque surface
 - No hardcoded hex in component files — always use CSS variables
 - No proportional fonts for currency figures
@@ -407,5 +411,6 @@ and colouring it red read as money lost.
 | 2026-08-25 | **`Modal`/`BottomSheet` converted to glass** | The 2026-08-24 rollout was Dashboard-only; every modal and sheet in the app (add-transaction, imports, filters, pickers) still rendered the old opaque `--bg-surface-1`, so they looked stale next to the now-glass pages that open them. Converting the two shared components fixes every call site at once |
 | 2026-08-25 | **Bottom nav's glass fill: lighter, then reversed to dense (`.glass-nav`)** | First made more translucent than `.glass-surface`. Once the transaction rows behind it were actually rendering as busy, colorful glass content (see the mobile-rows fix below), that translucency hurt legibility, so `--glass-nav-surface` went dense instead (`rgba(10,10,10,0.88)` dark / `rgba(255,255,255,0.9)` light) — near `--bg-base` but not quite, so the blur still has some presence. Kept as its own modifier rather than touching the shared token |
 | 2026-08-25 | **Beside-pill Add button re-enabled on `/transactions`** | `hideAddRoutes` in `BottomNav.tsx` excluded `/transactions` from day one, back when that page's own header owned an add button. It still does (the top bar's `+` icon, plus the separate Quick Add sheet), but the beside-pill button's *position* had drifted out of sync with every other page. Removed the exclusion so the position is uniform everywhere; the page keeps its own additional entry points rather than losing them |
+| 2026-08-25 | **Backdrop switched from data curves to ambient lighting** | Reverses the 2026-08-24 decision. Colour orbs were rejected then as one of the three AI-generated-design tells; requested again, mocked up side-by-side against the live curves with that history flagged explicitly, and approved after seeing it fresh. What's different from the originally-rejected generic version: same four semantic hues as the curves (not invented decoration), positioned where the curves used to sit (income upper-right, expense lower-left) rather than arbitrarily, and deliberately dim (0.28–0.32 peak opacity, down from an initial 0.5+ pass) per direct feedback on the first cut. The trade-off named at approval time: the glow position is no longer tied to real data the way the curve's bend was — legible-but-arbitrary was chosen over meaningful-but-busier |
 | 2026-08-25 | **Add-transaction form actually rebuilt to match the approved mockup** | The 2026-08-25 "safer add form" pass only shipped the structural safety fixes (category-delete removal, date sheet, transfer split) — the mockup's actual point, four fields by default with the rest collapsed behind "More details," was never built; the form still showed 8-14 groups unconditionally. Fixed: `showMore` state collapses payment method / card / investment details / goal / tags / notes behind a toggle (auto-opens when editing, or when an investment category is picked); Category and Date now sit in the two-col row the mockup shows; fields, the type toggle and pills switched from opaque `--bg-surface-2` to the glass-field look (`color-mix` wash + `--glass-border`); the footer became a single dynamic-label CTA (`Add ₹200 expense`, `Transfer ₹5,000`) instead of a Cancel+Submit pair, since the header's ✕ already closes it; transfer gets a violet swap icon and violet CTA (`#8b5cf6`, matching the existing hardcoded tag-pill violet) since it's neither a gain nor a loss |
 | 2026-08-25 | **`Modal`/`BottomSheet` get a denser `.glass-sheet` fill** | The generic `.glass-surface` card recipe (4.5% dark tint) is too faint for a form that must stay legible regardless of what's scrolled behind it. New `--glass-sheet-surface` token (denser than the card default, matching the approved mockup's sheet) applies to both, plus the header close button went from an opaque `--bg-surface-2` square to a translucent `color-mix` circle |

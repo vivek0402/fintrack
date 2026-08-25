@@ -332,10 +332,12 @@ aside, aside nav {
   background: var(--glass-sheet-surface);
 }
 
-/* Ambient backdrop — the user's income/expense curves, blown up behind the
-   whole app. Fixed and inert; every page scrolls over it. It is the thing the
-   glass panels actually frost, so it must sit below all content. */
-.ambient-curves {
+/* Ambient backdrop — two soft light pools in the income/expense colour
+   pairs, blown up behind the whole app. Fixed and inert; every page scrolls
+   over it. It is the thing the glass panels actually frost, so it must sit
+   below all content. Replaces the earlier data-curve version (2026-08-25) --
+   same colours, no longer traced from the actual trend line. */
+.ambient-lighting {
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -343,16 +345,16 @@ aside, aside nav {
   overflow: hidden;
 }
 
-.ambient-curves svg {
+.ambient-lighting svg {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
 }
 
-/* Light theme keeps the curves, dialled right down — on a pale ground the
+/* Light theme keeps the glow, dialled right down — on a pale ground the
    same opacities read as smeared paint rather than light. */
-[data-theme="light"] .ambient-curves {
+[data-theme="light"] .ambient-lighting {
   opacity: 0.35;
 }
 
