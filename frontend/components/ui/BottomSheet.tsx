@@ -71,7 +71,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                 }}
             />
             <div
-                className={`glass-surface ${closing ? 'sheet-exit' : 'sheet-enter'}`}
+                className={`glass-surface glass-sheet ${closing ? 'sheet-exit' : 'sheet-enter'}`}
                 style={{
                     position: 'fixed',
                     bottom: 0,
@@ -122,13 +122,13 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                                 type="button"
                                 onClick={handleClose}
                                 style={{
-                                    background: 'var(--bg-surface-2)',
+                                    background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)',
                                     border: 'none',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',
                                     display: 'flex',
                                     padding: '6px',
-                                    borderRadius: '8px',
+                                    borderRadius: '50%',
                                 }}
                             >
                                 <X size={18} />
