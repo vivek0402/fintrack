@@ -135,6 +135,10 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 -1px 0 rgba(255, 255, 255, 0.03),
     0 8px 24px -12px rgba(0, 0, 0, 0.7);
+  /* The bottom nav sits over scrolling page content rather than a card
+     grid, so it can afford to read more see-through than a text-bearing
+     card without hurting legibility. */
+  --glass-nav-surface: rgba(255, 255, 255, 0.02);
 
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
@@ -226,6 +230,7 @@ h1, h2, h3, h4, h5, h6 {
   --glass-edge:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 8px 24px -14px rgba(20, 22, 45, 0.28);
+  --glass-nav-surface: rgba(255, 255, 255, 0.42);
 
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
@@ -305,6 +310,14 @@ aside, aside nav {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-edge);
+}
+
+/* Modifier for the bottom nav — same border/blur/shadow recipe as
+   .glass-surface, just a more translucent fill. Pair as
+   className="glass-surface glass-nav"; this rule's background wins by
+   source order. */
+.glass-nav {
+  background: var(--glass-nav-surface);
 }
 
 /* Ambient backdrop — the user's income/expense curves, blown up behind the
