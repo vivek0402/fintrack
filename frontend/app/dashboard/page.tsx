@@ -209,6 +209,10 @@ export default function DashboardPage() {
     const [dataLoading, setDataLoading] = useState(true);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
+    // Distinct from "haven't loaded one yet" -- a failed fetch used to just
+    // set dailyBrief to null, which is indistinguishable from "nothing to
+    // show," so the whole card silently disappeared with no way to tell why.
+    const [dailyBriefError, setDailyBriefError] = useState(false);
     const [dailyBriefRefreshing, setDailyBriefRefreshing] = useState(false);
     const [dailyBriefCooldown, setDailyBriefCooldown] = useState(0);
     const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -378,13 +382,18 @@ export default function DashboardPage() {
     }, [user, month, year]);
 
     // Daily brief — only relevant for the current month/today, server-cached per day
-    useEffect(() => {
-        if (!user || !isCurrentMonth) { setDailyBrief(null); setDailyBriefLoading(false); return; }
+    const fetchDailyBrief = () => {
         setDailyBriefLoading(true);
+        setDailyBriefError(false);
         dailyBriefingAPI.getLatest()
             .then(res => setDailyBrief(res.data))
-            .catch(() => setDailyBrief(null))
+            .catch(() => { setDailyBrief(null); setDailyBriefError(true); })
             .finally(() => setDailyBriefLoading(false));
+    };
+
+    useEffect(() => {
+        if (!user || !isCurrentMonth) { setDailyBrief(null); setDailyBriefError(false); setDailyBriefLoading(false); return; }
+        fetchDailyBrief();
     }, [user, isCurrentMonth]);
 
     // Current week's Monday (matches backend mondayOf())
@@ -508,7 +517,7 @@ export default function DashboardPage() {
     );
 
     // ── Daily Brief — replaces the old monthly AI insight ──
-    const dailyBriefCard = isCurrentMonth && (dailyBriefLoading || dailyBrief) && (
+    const dailyBriefCard = isCurrentMonth && (dailyBriefLoading || dailyBrief || dailyBriefError) && (
         <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                 <div>
@@ -553,7 +562,17 @@ export default function DashboardPage() {
 
             {dailyBriefLoading && !dailyBrief ? (
                 <Skeleton width="100%" height={60} borderRadius={6} />
-            ) : (
+            ) : dailyBriefError && !dailyBrief ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                        Couldn't load today's brief.
+                    </p>
+                    <button type="button" onClick={fetchDailyBrief}
+                        style={{ padding: '6px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                        Retry
+                    </button>
+                </div>
+            ) : dailyBrief ? (
                 <>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', fontFamily: 'var(--font-body)' }}>
                         {dailyBrief.narrative}
@@ -592,7 +611,7 @@ export default function DashboardPage() {
                         </div>
                     )}
                 </>
-            )}
+            ) : null}
         </div>
     );
 
