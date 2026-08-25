@@ -20,7 +20,12 @@ import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
-const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/transactions'];
+// /transactions used to be excluded -- it had its own header add button.
+// That's gone now (removed along with the top bar's + icon), so the
+// global desktop Add FAB shows here too, same as every other page. The
+// page's own Quick Add FAB shifts to a third slot to make room (see
+// app/transactions/page.tsx).
+const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
