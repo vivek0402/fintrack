@@ -83,7 +83,11 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
                 }} />
             )}
 
-            {/* Content layer — moves with finger, solid background to block reveal bleed */}
+            {/* Content layer — moves with finger. Solid background only while a
+                drag/snap is actually in motion, to block the red reveal from
+                bleeding through the row as it slides; transparent at rest so
+                the row shows the glass container behind it like every other
+                idle row. */}
             <div
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -95,7 +99,7 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
                     transition: transitioning ? 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none',
                     willChange: 'transform',
                     zIndex: 1,
-                    background: 'var(--bg-surface-1)',
+                    background: (isDragging || transitioning) ? 'var(--bg-surface-1)' : 'transparent',
                 }}
             >
                 {children}
