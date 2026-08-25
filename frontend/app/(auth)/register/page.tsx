@@ -121,14 +121,14 @@ export default function RegisterPage() {
                     </div>
 
                     <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <Input label="Full Name" type="text" placeholder="Your full name" icon={<User size={15} />}
+                        <Input label="Full Name" type="text" placeholder="Your full name" icon={<User size={15} />} variant="glass"
                             value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} autoComplete="off" required />
 
-                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />}
+                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />} variant="glass"
                             value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} autoComplete="off" required />
 
                         <div>
-                            <Input label="Password" type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" icon={<Lock size={15} />}
+                            <Input label="Password" type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" icon={<Lock size={15} />} variant="glass"
                                 suffix={
                                     <button type="button" onClick={() => setShowPassword(v => !v)}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>

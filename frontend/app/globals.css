@@ -338,6 +338,15 @@ aside, aside nav {
   background: var(--glass-sheet-surface);
 }
 
+/* Standalone (not paired with .glass-surface) -- for option tiles/rows/
+   inputs living *inside* an already-glass card. No backdrop-filter: blurring
+   twice reads muddy, so this is just a subtle tint + border, promoted from a
+   per-page pattern first used in the add-transaction form and onboarding. */
+.glass-field {
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  border: 1px solid var(--glass-border);
+}
+
 /* Ambient backdrop — two soft light pools in the income/expense colour
    pairs, blown up behind the whole app. Fixed and inert; every page scrolls
    over it. It is the thing the glass panels actually frost, so it must sit

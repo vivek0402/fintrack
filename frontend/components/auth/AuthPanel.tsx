@@ -29,9 +29,9 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
     return (
         <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--bg-base)' }}>
             {/* ── Left brand panel ── */}
-            <div style={{
+            <div className="glass-surface" style={{
                 width: '44%', minHeight: '100vh', position: 'sticky', top: 0, height: '100vh',
-                background: 'var(--bg-surface-1)', borderRight: '1px solid var(--border-subtle)',
+                borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderBottom: 'none',
                 display: 'flex', flexDirection: 'column', padding: '48px 52px', overflow: 'hidden',
             }}>
                 {/* Subtle grid */}
@@ -60,11 +60,9 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
                             Personal finance built for people<br />who take money seriously.
                         </p>
 
-                        {/* Mini financial preview */}
-                        <div style={{
-                            background: 'var(--bg-base)', border: '1px solid var(--border-subtle)',
-                            borderRadius: '12px', padding: '20px 22px',
-                        }}>
+                        {/* Mini financial preview -- full glass, not the lighter field wash,
+                            since this is meant to look like a real dashboard card. */}
+                        <div className="glass-surface" style={{ borderRadius: '12px', padding: '20px 22px' }}>
                             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.09em', fontFamily: 'var(--font-body)', marginBottom: '6px' }}>
                                 Net Position · June
                             </div>

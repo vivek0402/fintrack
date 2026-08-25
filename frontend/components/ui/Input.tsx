@@ -9,9 +9,13 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
     icon?: React.ReactNode;
     prefix?: React.ReactNode;
     suffix?: React.ReactNode;
+    // 'glass' swaps the resting (unfocused, no error) fill/border to the
+    // .glass-field look, for pages whose card is already glass -- focus and
+    // error states stay exactly as-is either way.
+    variant?: 'default' | 'glass';
 }
 
-export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, error, hint, icon, prefix, suffix, variant = 'default', style, onFocus, onBlur, ...props }: InputProps) {
     const [focused, setFocused] = useState(false);
 
     const leading = icon ?? prefix;
@@ -43,9 +47,9 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
                         width: '100%',
                         height: '40px',
                         padding: `0 ${suffix ? '38px' : '14px'} 0 ${leading ? '38px' : '14px'}`,
-                        background: 'var(--bg-surface-2)',
+                        background: variant === 'glass' ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : 'var(--bg-surface-2)',
                         color: 'var(--text-primary)',
-                        border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                        border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : variant === 'glass' ? 'var(--glass-border)' : 'var(--border-subtle)'}`,
                         borderRadius: 'var(--radius-md)',
                         fontSize: 'var(--text-body)',
                         fontFamily: 'var(--font-body)',
