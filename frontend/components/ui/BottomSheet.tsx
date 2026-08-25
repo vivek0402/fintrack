@@ -71,7 +71,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                 }}
             />
             <div
-                className={closing ? 'sheet-exit' : 'sheet-enter'}
+                className={`glass-surface ${closing ? 'sheet-exit' : 'sheet-enter'}`}
                 style={{
                     position: 'fixed',
                     bottom: 0,
@@ -80,8 +80,8 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     maxHeight,
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-surface-1)',
                     borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0',
+                    borderBottom: 'none',
                     zIndex: 10000,
                     transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
                     transition: dragY > 0 ? 'none' : 'transform 200ms ease-out',
@@ -148,7 +148,6 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                         flexShrink: 0,
                         padding: 'calc(16px + env(safe-area-inset-bottom, 0px)) 20px 16px',
                         borderTop: '1px solid var(--border-subtle)',
-                        background: 'var(--bg-surface-1)',
                     }}>
                         {footer}
                     </div>

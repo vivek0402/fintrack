@@ -95,6 +95,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 aria-modal="true"
                 aria-label={title}
                 tabIndex={-1}
+                className="glass-surface"
                 style={{
                     position: 'relative',
                     width: '90%',
@@ -102,10 +103,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    background: 'var(--bg-surface-1)',
-                    border: '1px solid var(--border-subtle)',
                     borderRadius: 'var(--radius-lg)',
-                    boxShadow: 'var(--shadow-modal)',
                     overflow: 'hidden',
                     zIndex: 10000,
                     animation: 'scaleIn 150ms ease both',

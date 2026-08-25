@@ -300,6 +300,11 @@ Defined once in `globals.css`. Cards opt in by adding the class and dropping the
 Never redefine `--bg-surface-1` to a translucent value — 200+ call sites still rely on it
 being opaque, and blanket-converting them produces unreadable stacked translucency.
 
+The shared `Modal`/`BottomSheet` components (`components/ui/`) are glass by default — every
+modal and sheet in the app inherits it. Their scrim (`rgba(0,0,0,0.55–0.7)` + blur) sits behind
+the dialog, so the glass frosts dimmed page content rather than flat black, same rule as any
+other `.glass-surface` use.
+
 ### `.ambient-curves` — what the glass frosts
 A fixed, inert SVG layer mounted once in `AppLayout`, sitting at `z-index: 0` beneath all
 page content (`main` is lifted to `z-index: 1`). Two curves:
@@ -399,3 +404,4 @@ and colouring it red read as money lost.
 | 2026-08-25 | **Transactions top bar rebuilt as a floating glass bar (B2)** | Replaces the old header card + income/expense `GCard` pair + List/Calendar `Tabs`. Net amount is the hero (numbers-as-hero stays the brand rule); income/expense demoted to chips underneath. Search and filter are icon-only — search expands inline in place rather than opening a persistent box (the "B2" option over a docked search box) |
 | 2026-08-25 | **Transaction rows go two-line on mobile** | Old mobile row was icon / description+category / amount+re-printed-date — the date duplicated the sticky group header above it, and payment method, tags and the category's colour never showed at all. New shape: line 1 is icon + description + amount; line 2 is a category dot + name, plus a payment-method chip and up to 2 tags, or an amber "Uncategorised" flag when there's no category |
 | 2026-08-25 | **Swipe-to-delete gained a resting affordance** | The red delete reveal only rendered while actively dragging — nothing hinted the gesture existed at rest. Added a thin, always-visible red edge strip on the row's right side; the full reveal still only appears mid-drag |
+| 2026-08-25 | **`Modal`/`BottomSheet` converted to glass** | The 2026-08-24 rollout was Dashboard-only; every modal and sheet in the app (add-transaction, imports, filters, pickers) still rendered the old opaque `--bg-surface-1`, so they looked stale next to the now-glass pages that open them. Converting the two shared components fixes every call site at once |
