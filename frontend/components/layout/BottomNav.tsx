@@ -21,8 +21,10 @@ const mainTabs = [
 
 // Routes where the add-transaction button is suppressed — mirrors
 // hideAddFabRoutes in AppLayout, which used to own this button before it
-// moved into the dock beside the pill.
-const hideAddRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/transactions'];
+// moved into the dock beside the pill. /transactions used to be excluded
+// (it had its own header add button) but now shows the same beside-pill
+// button as every other page, for a uniform position across the app.
+const hideAddRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
 // Grouped 2-column grids shown in the More sheet
 const moreGroups = [
