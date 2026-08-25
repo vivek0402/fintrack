@@ -9,6 +9,14 @@ const withPWA = withPWAInit({
   disable: false,
   workboxOptions: {
     disableDevLogs: true,
+    // Without these, a new service worker installs but stays in "waiting"
+    // until every open instance of the app fully closes -- which an
+    // installed PWA / the Android WebView almost never does, so deploys
+    // could sit invisible indefinitely. skipWaiting activates the new
+    // worker immediately; clientsClaim lets it take control of already-open
+    // pages right away instead of only on the next full navigation.
+    skipWaiting: true,
+    clientsClaim: true,
     runtimeCaching: [
       {
         urlPattern: /\/api\/(transactions|budgets|goals)/,
