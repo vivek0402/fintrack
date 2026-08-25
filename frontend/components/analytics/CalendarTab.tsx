@@ -26,6 +26,14 @@ const CAL_MONTH_NAMES = [
 
 const fmtAmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
+// StatTile takes a style override, not a className — this is the .glass-surface
+// recipe inlined so its callers below can opt in without touching the component.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
+
 function hexToRgb(hex: string): [number, number, number] {
     const h = hex.trim().replace('#', '');
     if (h.length !== 6) return [225, 29, 72];
@@ -95,7 +103,7 @@ function DayDetail({
                             return (
                                 <div key={tx.id} onClick={() => onEdit(tx)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 6%, transparent)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, background: isInc ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {tx.category_icon
@@ -135,7 +143,7 @@ function DayDetail({
                         {[...recIncome, ...recExpense].map((item: any, i: number) => {
                             const isInc = item.type === 'income';
                             return (
-                                <div key={item.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
+                                <div key={item.id ?? i} className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: 'var(--radius-md)' }}>
                                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: isInc ? 'var(--color-info)' : 'var(--color-bill-due)' }} />
                                     <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {item.description}
@@ -390,18 +398,18 @@ export function CalendarTab() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                 {/* ── MONTH NAV ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
+                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? '14px' : '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
                             {isMobile ? CAL_MONTH_NAMES[currentMonth].slice(0, 3) : CAL_MONTH_NAMES[currentMonth]} {currentYear}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <button type="button" onClick={prevMonth} aria-label="Previous month"
-                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button type="button" onClick={prevMonth} aria-label="Previous month" className="glass-field"
+                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronLeft size={16} />
                             </button>
-                            <button type="button" onClick={nextMonth} aria-label="Next month"
-                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button type="button" onClick={nextMonth} aria-label="Next month" className="glass-field"
+                                style={{ width: '34px', height: '34px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <ChevronRight size={16} />
                             </button>
                         </div>
@@ -410,13 +418,13 @@ export function CalendarTab() {
 
                 {/* ── STAT CHIPS ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: '10px' }}>
-                    <StatTile label="Total Spent" value={fmtAmt(totalSpent)} accentColor="var(--color-exp)" loading={loading} />
-                    <StatTile label="Income Days" value={`${incomeDays} day${incomeDays !== 1 ? 's' : ''}`} accentColor="var(--color-inc)" loading={loading} />
-                    <StatTile label="Busiest Day" value={busiestLabel} loading={loading} style={{ gridColumn: isMobile ? '1 / -1' : undefined }} />
+                    <StatTile label="Total Spent" value={fmtAmt(totalSpent)} accentColor="var(--color-exp)" loading={loading} style={glassTileStyle} />
+                    <StatTile label="Income Days" value={`${incomeDays} day${incomeDays !== 1 ? 's' : ''}`} accentColor="var(--color-inc)" loading={loading} style={glassTileStyle} />
+                    <StatTile label="Busiest Day" value={busiestLabel} loading={loading} style={{ ...glassTileStyle, gridColumn: isMobile ? '1 / -1' : undefined }} />
                 </div>
 
                 {/* ── LEGEND ── */}
-                <div style={{ display: 'flex', gap: isMobile ? '12px' : '20px', alignItems: 'center', flexWrap: 'wrap', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 16px' }}>
+                <div className="glass-surface" style={{ display: 'flex', gap: isMobile ? '12px' : '20px', alignItems: 'center', flexWrap: 'wrap', borderRadius: 'var(--radius-md)', padding: '10px 16px' }}>
                     {[
                         { color: 'var(--color-inc)',  label: 'Income'    },
                         { color: 'var(--color-exp)',  label: 'Expense'   },
@@ -434,10 +442,11 @@ export function CalendarTab() {
                 <div
                     onTouchStart={handleTouchStart}
                     onTouchEnd={handleTouchEnd}
-                    style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
+                    className="glass-surface"
+                    style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
                 >
                     {/* Day-of-week header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-surface-2)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'color-mix(in srgb, var(--text-primary) 4%, transparent)', borderBottom: '1px solid var(--glass-border)' }}>
                         {DAY_LABELS.map(d => (
                             <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>
                                 {d}
@@ -461,9 +470,9 @@ export function CalendarTab() {
                                     return (
                                         <div key={`e-${idx}`} style={{
                                             minHeight: isMobile ? '60px' : '90px',
-                                            borderRight:  !isLastInRow ? '1px solid var(--border-subtle)' : 'none',
-                                            borderBottom: '1px solid var(--border-subtle)',
-                                            background: 'var(--bg-surface-2)',
+                                            borderRight:  !isLastInRow ? '1px solid var(--glass-border)' : 'none',
+                                            borderBottom: '1px solid var(--glass-border)',
+                                            background: 'color-mix(in srgb, var(--text-primary) 3%, transparent)',
                                             opacity: 0.5,
                                         }} />
                                     );
@@ -485,8 +494,8 @@ export function CalendarTab() {
                                     <div key={dateStr} onClick={() => handleDayClick(dateStr)}
                                         style={{
                                             minHeight: isMobile ? '60px' : '90px',
-                                            borderRight:  !isLastInRow ? '1px solid var(--border-subtle)' : 'none',
-                                            borderBottom: '1px solid var(--border-subtle)',
+                                            borderRight:  !isLastInRow ? '1px solid var(--glass-border)' : 'none',
+                                            borderBottom: '1px solid var(--glass-border)',
                                             /* Accent top-border marks today */
                                             borderTop:    isToday ? '2px solid var(--accent)' : undefined,
                                             padding:      isMobile ? '4px' : '6px',
@@ -496,7 +505,7 @@ export function CalendarTab() {
                                             position:     'relative',
                                             boxSizing:    'border-box',
                                         }}
-                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                                         onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = cellBg; }}
                                     >
                                         {/* Day number + indicator dots */}
@@ -553,10 +562,10 @@ export function CalendarTab() {
 
                 {/* ── DESKTOP: inline day detail panel ── */}
                 {!isMobile && selectedDate && (
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', animation: 'fadeUp 160ms ease forwards' }}>
+                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '20px', animation: 'fadeUp 160ms ease forwards' }}>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-                            <button type="button" onClick={() => setSelectedDate(null)} aria-label="Close day details"
-                                style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button type="button" onClick={() => setSelectedDate(null)} aria-label="Close day details" className="glass-field"
+                                style={{ width: '28px', height: '28px', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <X size={13} />
                             </button>
                         </div>
