@@ -337,7 +337,6 @@ function TransactionsPageInner() {
                     onSortChange={setSortKey}
                     selectMode={selectMode}
                     onToggleSelectMode={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                    onAddTransaction={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
                 />
 
                 {/* ── ADVANCED SEARCH BAR (triggers hidden — top bar's icons open it) ── */}

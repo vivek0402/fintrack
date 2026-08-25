@@ -15,7 +15,7 @@
 // further than this pattern supports cleanly. Net figure stays static.
 
 import { useState } from 'react';
-import { Search, SlidersHorizontal, ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Check, Plus } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Check } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { fmt as fmtBase } from '@/lib/utils';
 import type { SortKey } from '@/lib/transactionFilters';
@@ -51,14 +51,13 @@ interface Props {
     onSortChange: (key: SortKey) => void;
     selectMode: boolean;
     onToggleSelectMode: () => void;
-    onAddTransaction: () => void;
 }
 
 export function TransactionsTopBar({
     selectedMonth, selectedYear, onPrevMonth, onNextMonth, onPickMonth, onShowAllTime,
     netAmount, netDelta, totalIncome, totalExpense, incomeDelta, expenseDelta,
     activeFilterCount, onOpenSearch, onOpenFilter, sortKey, onSortChange,
-    selectMode, onToggleSelectMode, onAddTransaction,
+    selectMode, onToggleSelectMode,
 }: Props) {
     const [monthSheetOpen, setMonthSheetOpen] = useState(false);
     const [sortSheetOpen, setSortSheetOpen]   = useState(false);
@@ -114,10 +113,6 @@ export function TransactionsTopBar({
                         <button type="button" onClick={onToggleSelectMode} title={selectMode ? 'Cancel select' : 'Select'} aria-label={selectMode ? 'Cancel select' : 'Select'}
                             style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: selectMode ? 'var(--accent-subtle)' : 'none', border: 'none', borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                             <CheckSquare size={17} />
-                        </button>
-                        <button type="button" onClick={onAddTransaction} title="Add transaction" aria-label="Add transaction"
-                            style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', cursor: 'pointer', marginLeft: '4px' }}>
-                            <Plus size={18} />
                         </button>
                     </div>
                 </div>
