@@ -180,6 +180,16 @@ function AnalyticsOverviewTab() {
     const [showSankey,        setShowSankey]        = useState(true);
     const [showTrajectory,    setShowTrajectory]    = useState(true);
 
+    // The Overview/Spending/Income/Trends sections used to just be comment-labeled
+    // blocks stacked in one long scroll -- promoted to a real sub-tab switch.
+    const [innerTab, setInnerTab] = useState<'overview' | 'spending' | 'income' | 'trends'>('overview');
+    const INNER_TABS: { key: typeof innerTab; label: string }[] = [
+        { key: 'overview', label: 'Overview' },
+        { key: 'spending', label: 'Spending' },
+        { key: 'income',   label: 'Income' },
+        { key: 'trends',   label: 'Trends' },
+    ];
+
     // Re-read CSS custom properties whenever theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme]);
 
@@ -386,12 +396,19 @@ function AnalyticsOverviewTab() {
     };
 
     // ── Shared card wrapper ───────────────────────────────────────────────────
-    const sectionCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
+    const sectionCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
+    // GCard takes a style override, not a className — this is the .glass-surface
+    // recipe inlined so its callers below can opt in without touching the component.
+    const glassTileStyle: React.CSSProperties = {
+        background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+        backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+        boxShadow: 'var(--glass-edge)',
+    };
 
     return (
         <>
             {/* ── HEADER ── */}
-            <div style={{ ...sectionCard, marginBottom: 0 }}>
+            <div className="glass-surface" style={{ ...sectionCard, marginBottom: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Analytics</h1>
@@ -405,21 +422,48 @@ function AnalyticsOverviewTab() {
                             </button>
                         </div>
                     </div>
-                    <button type="button" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                    <button type="button" className="glass-field" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                         <Download size={14} /> Export
                     </button>
                 </div>
             </div>
 
+            {/* ── INNER SUB-TABS ── */}
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+                {INNER_TABS.map(t => {
+                    const isActive = innerTab === t.key;
+                    return (
+                        <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setInnerTab(t.key)}
+                            className={isActive ? undefined : 'glass-field'}
+                            style={{
+                                padding: '7px 15px', borderRadius: 999, border: 'none',
+                                background: isActive ? 'var(--accent)' : undefined,
+                                color: isActive ? '#fff' : 'var(--text-secondary)',
+                                fontSize: '13px', fontWeight: isActive ? 600 : 500, fontFamily: 'var(--font-body)',
+                                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                                transition: 'all var(--transition-fast)',
+                            }}
+                        >
+                            {t.label}
+                        </button>
+                    );
+                })}
+            </div>
+
             {/* ── OVERVIEW ── */}
-            <>
+            {innerTab === 'overview' && (
+                <>
                     {/* Period pills + 2x2 KPI grid */}
                     <div>
                         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                             {(['month', 'quarter', 'year'] as const).map(p => (
                                 <button key={p} type="button" onClick={() => handleSetPeriod(p)}
-                                    style={{ padding: '6px 14px', borderRadius: '999px', border: `1px solid ${period === p ? 'var(--accent)' : 'var(--border-subtle)'}`, background: period === p ? 'var(--accent)' : 'var(--bg-surface-1)', color: period === p ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: period === p ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', textTransform: 'capitalize' }}>
+                                    className={period === p ? undefined : 'glass-field'}
+                                    style={{ padding: '6px 14px', borderRadius: '999px', border: period === p ? '1px solid var(--accent)' : undefined, background: period === p ? 'var(--accent)' : undefined, color: period === p ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: period === p ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', textTransform: 'capitalize' }}>
                                     {p}
                                 </button>
                             ))}
@@ -432,7 +476,7 @@ function AnalyticsOverviewTab() {
                                 { label: periodStats.vsLabel, value: periodStats.vsLast !== null ? `${periodStats.vsLast > 0 ? '+' : ''}${periodStats.vsLast}%` : '—', sub: 'expenses', color: periodStats.vsLast !== null && periodStats.vsLast > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
                                 { label: 'Savings Rate', value: `${periodStats.savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
                             ].map(kpi => (
-                                <GCard key={kpi.label}>
+                                <GCard key={kpi.label} style={glassTileStyle}>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
                                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
@@ -442,7 +486,7 @@ function AnalyticsOverviewTab() {
                     </div>
 
                     {/* Income vs Expenses area chart */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <SectionHead title="Income vs Expenses" />
                         {dataLoading ? <SkeletonCard height={200} /> : areaData.length === 0 ? (
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No trend data yet. Add transactions to see the chart.</p>
@@ -482,7 +526,7 @@ function AnalyticsOverviewTab() {
 
                     {/* Savings Rate Sparkline */}
                     {!dataLoading && savingsRateData.length >= 2 && (
-                        <div style={sectionCard}>
+                        <div className="glass-surface" style={sectionCard}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Monthly Savings Rate</h2>
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: savingsRate >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{savingsRate}%</span>
@@ -502,7 +546,7 @@ function AnalyticsOverviewTab() {
 
                     {/* Bank Balances */}
                     {(accountsLoading || accounts.length > 0) && (
-                        <div style={sectionCard}>
+                        <div className="glass-surface" style={sectionCard}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
                                     <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Bank Balances</p>
@@ -519,12 +563,12 @@ function AnalyticsOverviewTab() {
                             </div>
                             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' } as React.CSSProperties}>
                                 {accountsLoading
-                                    ? [1, 2, 3].map(i => <div key={i} style={{ minWidth: '160px', height: '130px', background: 'var(--bg-surface-3)', borderRadius: 'var(--radius-md)', flexShrink: 0, opacity: 0.5 }} />)
+                                    ? [1, 2, 3].map(i => <div key={i} className="glass-field" style={{ minWidth: '160px', height: '130px', borderRadius: 'var(--radius-md)', flexShrink: 0, opacity: 0.5 }} />)
                                     : accounts.map((a: any) => {
                                         const bal = parseFloat(a.current_balance ?? 0);
                                         const net = bal - parseFloat(a.starting_balance ?? 0);
                                         return (
-                                            <div key={a.id} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${a.color || 'var(--accent)'}`, borderRadius: 'var(--radius-md)', padding: '14px', minWidth: '160px', flexShrink: 0 }}>
+                                            <div key={a.id} className="glass-field" style={{ borderLeft: `3px solid ${a.color || 'var(--accent)'}`, borderRadius: 'var(--radius-md)', padding: '14px', minWidth: '160px', flexShrink: 0 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                                                     <span style={{ fontSize: '15px' }}>{a.icon || '🏦'}</span>
                                                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>{a.name}</span>
@@ -545,12 +589,14 @@ function AnalyticsOverviewTab() {
                             )}
                         </div>
                     )}
-            </>
+                </>
+            )}
 
             {/* ── SPENDING ── */}
-            <>
+            {innerTab === 'spending' && (
+                <>
                     {/* Spending Breakdown — Pie + list */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <SectionHead title={`Spending — ${FULL_MONTHS[currentMonth]}`} />
                         {dataLoading ? <SkeletonCard height={150} /> : categories.length === 0 ? (
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>No expenses this month.</p>
@@ -591,7 +637,7 @@ function AnalyticsOverviewTab() {
                     </div>
 
                     {/* Day-of-Week Spending Heatmap */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <SectionHead title="Spending by Day of Week" />
                         {dataLoading ? <SkeletonCard height={120} /> : (() => {
                             // Mon-first order: indices 1,2,3,4,5,6,0
@@ -609,7 +655,7 @@ function AnalyticsOverviewTab() {
                                             return (
                                                 <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                                                     <span style={{ fontSize: '10px', color: isPeak ? cc.exp : 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: isPeak ? 700 : 400 }}>{d.day}</span>
-                                                    <div style={{ width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)', background: d.amount > 0 ? `color-mix(in srgb, ${cc.exp} ${intensity}%, var(--bg-surface-2))` : 'var(--bg-surface-2)', border: isPeak ? `1.5px solid color-mix(in srgb, ${cc.exp} 40%, transparent)` : '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }} />
+                                                    <div style={{ width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)', background: d.amount > 0 ? `color-mix(in srgb, ${cc.exp} ${intensity}%, var(--glass-surface))` : 'var(--glass-surface)', border: isPeak ? `1.5px solid color-mix(in srgb, ${cc.exp} 40%, transparent)` : '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }} />
                                                     <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1.2 }}>
                                                         {d.amount > 0 ? (d.amount >= 1000 ? `${Math.round(d.amount/1000)}k` : Math.round(d.amount)) : '—'}
                                                     </span>
@@ -632,7 +678,7 @@ function AnalyticsOverviewTab() {
 
                     {/* Payment Methods */}
                     {paymentMethods.length > 0 && (
-                        <div style={sectionCard}>
+                        <div className="glass-surface" style={sectionCard}>
                             <SectionHead title={`Payment Methods — ${FULL_MONTHS[currentMonth]}`} />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {paymentMethods.map((pm: any) => {
@@ -667,7 +713,7 @@ function AnalyticsOverviewTab() {
 
                     {/* Merchant Breakdown */}
                     {!dataLoading && merchantData.length > 0 && (
-                        <div style={sectionCard}>
+                        <div className="glass-surface" style={sectionCard}>
                             <SectionHead title={`Top Merchants — ${FULL_MONTHS[currentMonth]}`} />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {merchantData.map((m, i) => (
@@ -690,7 +736,7 @@ function AnalyticsOverviewTab() {
                     )}
 
                     {/* Category Trajectory (collapsible) */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <button type="button" onClick={() => setShowTrajectory(v => !v)}
                             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -701,13 +747,13 @@ function AnalyticsOverviewTab() {
                         {!showTrajectory && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>6-month sparklines per category — green = improving, red = rising</p>}
                         {showTrajectory && (
                             <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div style={{ height: 200, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> : <CategoryTrajectory transactions={allTransactions} isMobile={isMobile} />}
+                                {dataLoading ? <div className="glass-field" style={{ height: 200, borderRadius: 8 }} /> : <CategoryTrajectory transactions={allTransactions} isMobile={isMobile} />}
                             </div>
                         )}
                     </div>
 
                     {/* Spending Heatmap (collapsible) */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <button type="button" onClick={() => setShowHeatmap(v => !v)}
                             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -718,21 +764,23 @@ function AnalyticsOverviewTab() {
                         {!showHeatmap && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>GitHub-style calendar showing daily spending intensity</p>}
                         {showHeatmap && (
                             <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div style={{ height: 100, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> : <SpendingHeatmap transactions={yearTransactions} />}
+                                {dataLoading ? <div className="glass-field" style={{ height: 100, borderRadius: 8 }} /> : <SpendingHeatmap transactions={yearTransactions} />}
                             </div>
                         )}
                     </div>
-            </>
+                </>
+            )}
 
             {/* ── INCOME ── */}
-            <>
+            {innerTab === 'income' && (
+                <>
                     {/* Income KPIs */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {[
                             { label: 'Total Income', value: fmt(summary?.total_income ?? 0), sub: FULL_MONTHS[currentMonth], color: 'var(--color-inc)' },
                             { label: 'vs Last Month', value: incVsLastMonth !== null ? `${incVsLastMonth > 0 ? '+' : ''}${incVsLastMonth}%` : '—', sub: 'income', color: incVsLastMonth !== null && incVsLastMonth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' },
                         ].map(kpi => (
-                            <GCard key={kpi.label}>
+                            <GCard key={kpi.label} style={glassTileStyle}>
                                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
                                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
@@ -741,7 +789,7 @@ function AnalyticsOverviewTab() {
                     </div>
 
                     {/* Income trend chart */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <SectionHead title="Income Trend" />
                         {dataLoading ? <SkeletonCard height={180} /> : incomeAreaData.length === 0 ? (
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No income data yet.</p>
@@ -766,23 +814,26 @@ function AnalyticsOverviewTab() {
 
                     {/* Year over Year */}
                     {yearlyData && (
-                        <div style={sectionCard}>
+                        <div className="glass-surface" style={sectionCard}>
                             <SectionHead title={`Year-over-Year — ${yearlyData.years?.current} vs ${yearlyData.years?.last}`} />
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                                 {[
-                                    { label: `${yearlyData.years?.current} Income`, curr: getYearlyTotal(yearlyData.years?.current, 'income'), last: getYearlyTotal(yearlyData.years?.last, 'income'), color: 'var(--color-inc)' },
-                                    { label: `${yearlyData.years?.current} Expenses`, curr: getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--color-exp)' },
-                                    { label: `${yearlyData.years?.current} Savings`, curr: getYearlyTotal(yearlyData.years?.current, 'income') - getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'income') - getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--accent)' },
+                                    { label: `${yearlyData.years?.current} Income`, curr: getYearlyTotal(yearlyData.years?.current, 'income'), last: getYearlyTotal(yearlyData.years?.last, 'income'), color: 'var(--color-inc)', higherIsBetter: true },
+                                    { label: `${yearlyData.years?.current} Expenses`, curr: getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--color-exp)', higherIsBetter: false },
+                                    { label: `${yearlyData.years?.current} Savings`, curr: getYearlyTotal(yearlyData.years?.current, 'income') - getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'income') - getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--accent)', higherIsBetter: true },
                                 ].map(card => {
                                     const change = pctChange(card.curr, card.last);
                                     const isUp = change !== null && parseFloat(change) >= 0;
+                                    // isGood drives the badge color; isUp alone (used for the arrow) doesn't say
+                                    // whether a rise is welcome — a rise in Expenses is bad even though it's "up".
+                                    const isGood = card.higherIsBetter ? isUp : !isUp;
                                     return (
-                                        <div key={card.label} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                                        <div key={card.label} className="glass-field" style={{ borderRadius: 'var(--radius-md)', padding: '14px' }}>
                                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{card.label}</p>
                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 6px', fontVariantNumeric: 'tabular-nums' }}>{fmt(card.curr)}</p>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
                                                 <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{yearlyData.years?.last}: {fmt(card.last)}</span>
-                                                {change && <Badge color={isUp ? 'var(--color-inc)' : 'var(--color-exp)'} bg={isUp ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)'}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</Badge>}
+                                                {change && <Badge color={isGood ? 'var(--color-inc)' : 'var(--color-exp)'} bg={isGood ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)'}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</Badge>}
                                             </div>
                                         </div>
                                     );
@@ -792,7 +843,7 @@ function AnalyticsOverviewTab() {
                     )}
 
                     {/* AI Salary Allocation */}
-                    <div style={{ ...sectionCard, overflow: 'hidden' }}>
+                    <div className="glass-surface" style={{ ...sectionCard, overflow: 'hidden' }}>
                         {!planGenerated && !allocationLoading && (
                             <div style={{ textAlign: 'center', padding: '16px 0' }}>
                                 <Wallet size={40} color="var(--accent)" style={{ margin: '0 auto 12px' }} />
@@ -802,7 +853,7 @@ function AnalyticsOverviewTab() {
                                 </p>
                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
                                     {['50/30/20 Rule', 'Goal-Based', 'Indian Context'].map(pill => (
-                                        <span key={pill} style={{ background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pill}</span>
+                                        <span key={pill} className="glass-field" style={{ borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pill}</span>
                                     ))}
                                 </div>
                                 {allocationError && <p style={{ color: 'var(--color-exp)', fontSize: '13px', marginBottom: '12px', fontFamily: 'var(--font-body)' }}>{allocationError}</p>}
@@ -840,7 +891,7 @@ function AnalyticsOverviewTab() {
                                 </div>
 
                                 {allocationPlan.month_comparison && (
-                                    <GCard style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                                    <GCard style={{ ...glassTileStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                                         <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--color-inc)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--color-exp)' : 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                             {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
                                         </span>
@@ -852,7 +903,7 @@ function AnalyticsOverviewTab() {
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                                     {allocationPlan.allocation?.map((bucket: any) => (
-                                        <div key={bucket.bucket} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: `4px solid ${bucket.color}`, borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                                        <div key={bucket.bucket} className="glass-field" style={{ borderLeft: `4px solid ${bucket.color}`, borderRadius: 'var(--radius-md)', padding: '16px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                                 <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{bucket.bucket}</span>
                                                 <Badge color={bucket.color} bg={hexToRgba(bucket.color, 0.12)}>{bucket.percentage}%</Badge>
@@ -882,7 +933,7 @@ function AnalyticsOverviewTab() {
                                     <div>
                                         <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Insights</p>
                                         {allocationPlan.insights.map((insight: string, i: number) => (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
+                                            <div key={i} className="glass-field" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
                                                 <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
                                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>{insight}</span>
                                             </div>
@@ -892,12 +943,14 @@ function AnalyticsOverviewTab() {
                             </div>
                         )}
                     </div>
-            </>
+                </>
+            )}
 
             {/* ── TRENDS ── */}
-            <>
+            {innerTab === 'trends' && (
+                <>
                     {/* Money Flow Sankey (collapsible) */}
-                    <div style={sectionCard}>
+                    <div className="glass-surface" style={sectionCard}>
                         <button type="button" onClick={() => setShowSankey(v => !v)}
                             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
@@ -908,12 +961,12 @@ function AnalyticsOverviewTab() {
                         {!showSankey && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>Income sources → spending categories (last 3 months)</p>}
                         {showSankey && (
                             <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div style={{ height: 200, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> : <SankeyFlow transactions={allTransactions} />}
+                                {dataLoading ? <div className="glass-field" style={{ height: 200, borderRadius: 8 }} /> : <SankeyFlow transactions={allTransactions} />}
                             </div>
                         )}
                     </div>
-
-            </>
+                </>
+            )}
         </>
     );
 }
