@@ -135,10 +135,11 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 rgba(255, 255, 255, 0.16),
     inset 0 -1px 0 rgba(255, 255, 255, 0.03),
     0 8px 24px -12px rgba(0, 0, 0, 0.7);
-  /* The bottom nav sits over scrolling page content rather than a card
-     grid, so it can afford to read more see-through than a text-bearing
-     card without hurting legibility. */
-  --glass-nav-surface: rgba(255, 255, 255, 0.02);
+  /* Went lighter than .glass-surface at first, then back to dense --
+     the nav sits over busy, colorful scrolling content (unlike a modal's
+     dimmed scrim), so it needs real contrast to stay legible. Still a hair
+     short of --bg-base so the blur keeps some presence. */
+  --glass-nav-surface: rgba(10, 10, 10, 0.88);
   /* Modal/BottomSheet need denser fill than a passive card -- they carry
      a form, not a glance-and-move-on stat, so they need to stay legible
      on their own regardless of what's scrolled behind them. */
@@ -234,7 +235,7 @@ h1, h2, h3, h4, h5, h6 {
   --glass-edge:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 8px 24px -14px rgba(20, 22, 45, 0.28);
-  --glass-nav-surface: rgba(255, 255, 255, 0.42);
+  --glass-nav-surface: rgba(255, 255, 255, 0.9);
   --glass-sheet-surface: rgba(255, 255, 255, 0.82);
 
   /* ── Category palette (Analytics) ── */
