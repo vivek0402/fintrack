@@ -31,6 +31,12 @@ const POPULAR_BUDGETS = [
 
 type ImportMethod = 'sms' | 'pdf' | 'cams' | null;
 
+// Subtle wash for option tiles/rows living inside the wizard's own glass
+// card -- full nested .glass-surface would double up the blur; this reuses
+// the same lighter treatment the add-transaction form's fields use.
+const GLASS_FIELD_BG = 'color-mix(in srgb, var(--text-primary) 5%, transparent)';
+const GLASS_FIELD_BORDER = '1px solid var(--glass-border)';
+
 export default function OnboardingPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage, setAuth, token } = useAuthStore();
@@ -159,7 +165,7 @@ export default function OnboardingPage() {
             </div>
 
             {/* Card */}
-            <div style={{ width: '100%', maxWidth: '580px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '48px 52px', boxShadow: 'var(--shadow-card)' }}>
+            <div className="glass-surface" style={{ width: '100%', maxWidth: '580px', borderRadius: 'var(--radius-xl)', padding: '48px 52px' }}>
 
                 {/* ── Step 0: Welcome ── */}
                 {step === 0 && (
@@ -181,7 +187,7 @@ export default function OnboardingPage() {
                                 { Icon: Target,      label: 'Budgets & Goals',      desc: 'Set limits and hit milestones' },
                                 { Icon: Sparkles,    label: 'AI Insights',          desc: 'Monthly reports powered by AI' },
                             ].map(({ Icon, label, desc }) => (
-                                <div key={label} style={{ padding: '16px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                                <div key={label} style={{ padding: '16px', background: GLASS_FIELD_BG, border: GLASS_FIELD_BORDER, borderRadius: 'var(--radius-md)' }}>
                                     <Icon size={18} color="var(--accent)" style={{ marginBottom: '10px' }} />
                                     <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 3px', fontFamily: 'var(--font-display)' }}>{label}</p>
                                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>{desc}</p>
@@ -213,8 +219,8 @@ export default function OnboardingPage() {
                                 <button key={c.code} type="button" onClick={() => setCurrency(c.code)}
                                     style={{
                                         padding: '14px 16px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
-                                        border: currency === c.code ? '1.5px solid var(--accent-border)' : '1px solid var(--border-subtle)',
-                                        background: currency === c.code ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
+                                        border: currency === c.code ? '1.5px solid var(--accent-border)' : GLASS_FIELD_BORDER,
+                                        background: currency === c.code ? 'var(--accent-subtle)' : GLASS_FIELD_BG,
                                         transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
                                     }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -281,11 +287,11 @@ export default function OnboardingPage() {
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 20px',
                                         borderRadius: 'var(--radius-lg)', textAlign: 'left', cursor: 'pointer',
-                                        border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)',
+                                        border: GLASS_FIELD_BORDER, background: GLASS_FIELD_BG,
                                         transition: 'all 0.15s', width: '100%',
                                     }}
                                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--accent-border)'; el.style.background = 'var(--accent-subtle)'; }}
-                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--border-subtle)'; el.style.background = 'var(--bg-surface-2)'; }}>
+                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = 'var(--glass-border)'; el.style.background = GLASS_FIELD_BG; }}>
 
                                     {/* Mini preview */}
                                     <div style={{ width: '64px', height: '48px', borderRadius: '8px', background: t.previewBg, flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -334,7 +340,7 @@ export default function OnboardingPage() {
                                         { method: 'cams' as const, Icon: Landmark, label: 'Upload a CAMS statement', desc: 'Import your mutual fund holdings' },
                                     ].map(({ method, Icon, label, desc }) => (
                                         <button key={method} type="button" onClick={() => setImportMethod(method)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', borderRadius: 'var(--radius-lg)', textAlign: 'left', cursor: 'pointer', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', width: '100%', fontFamily: 'var(--font-body)' }}>
+                                            style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 18px', borderRadius: 'var(--radius-lg)', textAlign: 'left', cursor: 'pointer', border: GLASS_FIELD_BORDER, background: GLASS_FIELD_BG, width: '100%', fontFamily: 'var(--font-body)' }}>
                                             <Icon size={20} color="var(--accent)" style={{ flexShrink: 0 }} />
                                             <div style={{ flex: 1 }}>
                                                 <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-display)' }}>{label}</p>
@@ -393,7 +399,7 @@ export default function OnboardingPage() {
                                 if (!cat) return null;
                                 return (
                                     <div key={budget.name}
-                                        style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: selected ? '1.5px solid var(--accent-border)' : '1px solid var(--border-subtle)', background: selected ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', transition: 'all 0.15s', gap: '12px', cursor: 'pointer' }}
+                                        style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderRadius: 'var(--radius-md)', border: selected ? '1.5px solid var(--accent-border)' : GLASS_FIELD_BORDER, background: selected ? 'var(--accent-subtle)' : GLASS_FIELD_BG, transition: 'all 0.15s', gap: '12px', cursor: 'pointer' }}
                                         onClick={() => { if (!isEditing) toggleBudget(budget.name); }}>
 
                                         <span style={{ fontSize: '18px', flexShrink: 0, lineHeight: 1 }}>{budget.icon}</span>
@@ -410,7 +416,7 @@ export default function OnboardingPage() {
                                                         onChange={e => setEditingValue(e.target.value)}
                                                         onBlur={() => commitEdit(budget.name)}
                                                         onKeyDown={e => { if (e.key === 'Enter') commitEdit(budget.name); if (e.key === 'Escape') setEditingBudget(null); }}
-                                                        style={{ width: '96px', padding: '5px 6px 5px 24px', fontSize: '13px', color: 'var(--text-primary)', background: 'var(--bg-surface-3)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', outline: 'none', textAlign: 'right', fontFamily: 'var(--font-mono)' }} />
+                                                        style={{ width: '96px', padding: '5px 6px 5px 24px', fontSize: '13px', color: 'var(--text-primary)', background: GLASS_FIELD_BG, border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', outline: 'none', textAlign: 'right', fontFamily: 'var(--font-mono)' }} />
                                                 </div>
                                             ) : (
                                                 <span onClick={e => { e.stopPropagation(); startEditing(budget.name); }} title="Tap to edit"
