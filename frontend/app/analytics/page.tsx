@@ -36,10 +36,12 @@ const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHea
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
 import { exportToCSV, formatCurrency, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { CalendarTab } from '@/components/analytics/CalendarTab';
 
 const OUTER_TABS = [
     { key: 'overview', label: 'Overview' },
     { key: 'insights', label: 'Insights' },
+    { key: 'calendar', label: 'Calendar' },
 ];
 // Reports/Year Review/Personality no longer show as pills on this page --
 // they're reached via the bottom-nav More sheet (app/reports, /year-review,
@@ -2176,6 +2178,7 @@ function AnalyticsPageInner() {
 
                 {tab === 'overview' && <AnalyticsOverviewTab />}
                 {tab === 'insights' && <InsightsTab />}
+                {tab === 'calendar' && <CalendarTab />}
                 {tab === 'reports' && <ReportsTab onBack={() => router.back()} />}
                 {tab === 'year-review' && <YearReviewTab onBack={() => router.back()} />}
                 {tab === 'personality' && <PersonalityTab onBack={() => router.back()} />}

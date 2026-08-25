@@ -124,7 +124,11 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
                         const isSelected = selectMode ? (selectedIds?.has(tx.id) ?? false) : false;
 
-                        // ── Mobile row ──────────────────────────────────────────────
+                        // ── Mobile row (two-line: icon+description+amount / category+payment-or-tags) ──
+                        const hasCategory = !!tx.category_name;
+                        const paymentChip = !isIncome && tx.payment_method && tx.payment_method !== 'Cash' ? tx.payment_method : null;
+                        const rowTags: string[] = (tx.tags || []).slice(0, 2);
+
                         const mobileRowInner = (
                             <div
                                 onClick={() => selectMode ? onToggleSelect?.(tx.id) : onEdit(tx)}
@@ -144,7 +148,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 cursor: 'pointer',
                                 transition: 'background var(--transition-fast)',
                             }}>
-                                {/* Selection checkbox or category dot */}
+                                {/* Selection checkbox or category icon */}
                                 {selectMode ? (
                                     <div style={{
                                         width: 20, height: 20, borderRadius: '5px', flexShrink: 0, marginRight: 12,
@@ -170,27 +174,42 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     </div>
                                 )}
 
-                                {/* Left: description + category */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>
-                                        {tx.description}
+                                    {/* Line 1: description + amount */}
+                                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
+                                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)', minWidth: 0 }}>
+                                            {tx.description}
+                                        </span>
+                                        <span style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                            {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
+                                        </span>
                                     </div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
-                                        {tx.category_name || 'Uncategorized'}
-                                    </div>
-                                </div>
-
-                                {/* Right: amount + date */}
-                                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                                    <div style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
-                                        {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
-                                    </div>
-                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-body)' }}>
-                                        {formatDate((tx.date || '').split('T')[0])}
+                                    {/* Line 2: category + payment/tags, or an amber "Uncategorised" flag */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 3, overflow: 'hidden' }}>
+                                        {hasCategory ? (
+                                            <>
+                                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: categoryColor, flexShrink: 0 }} />
+                                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {tx.category_name}
+                                                </span>
+                                                {paymentChip && (
+                                                    <span style={{ fontSize: '10px', fontWeight: 500, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                                                        {paymentChip}
+                                                    </span>
+                                                )}
+                                                {rowTags.map(tag => (
+                                                    <span key={tag} style={{ fontSize: '10px', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', padding: '1px 6px', borderRadius: '8px', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>#{tag}</span>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-warn)', background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                                                Uncategorised
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 {(tx as any)._pending && (
-                                    <span style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
+                                    <span style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
                                         <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
                                     </span>
                                 )}

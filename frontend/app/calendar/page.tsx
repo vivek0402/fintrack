@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function CalendarRedirect() {
-    redirect('/transactions?view=calendar');
+    redirect('/analytics?tab=calendar');
 }

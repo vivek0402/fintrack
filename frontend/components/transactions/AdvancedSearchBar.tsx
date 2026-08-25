@@ -29,12 +29,23 @@ interface Props {
     accounts?: Account[];
     extraChips?: ExtraChip[];
     onRegisterClearAll?: (fn: () => void) => void;
+    // When an external top bar renders its own search/filter icons, this
+    // suppresses this component's own trigger row (collapsed search icon +
+    // filter icon) while keeping the expanded search input, filter panel,
+    // history dropdown, summary chips and saved views intact -- those are
+    // driven by the same internal state, just opened from outside.
+    hideTriggers?: boolean;
+    onRegisterOpenSearch?: (fn: () => void) => void;
+    onRegisterOpenFilter?: (fn: () => void) => void;
+    // Lets an external top bar mirror the active-filter-count badge on its
+    // own filter icon when hideTriggers suppresses this component's own one.
+    onActiveFilterCountChange?: (n: number) => void;
 }
 
 const LS_VIEWS = 'fintrack-saved-views';
 const SS_HIST  = 'fintrack-search-history';
 
-export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [], onRegisterClearAll }: Props) {
+export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [], onRegisterClearAll, hideTriggers = false, onRegisterOpenSearch, onRegisterOpenFilter, onActiveFilterCountChange }: Props) {
     const isMobile = useIsMobile();
 
     const [inputValue, setInputValue]     = useState(initialQuery);
@@ -89,6 +100,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     const pctOf = (v: number) => ((v - amountBounds.min) / boundsSpan) * 100;
 
     const activeFilterCount = useMemo(() => countActiveFilters(inputValue, panel), [inputValue, panel]);
+    useEffect(() => { onActiveFilterCountChange?.(activeFilterCount); }, [activeFilterCount]);
 
     // Apply filters on every change
     useEffect(() => {
@@ -174,6 +186,12 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     // forwardRef/useImperativeHandle, which has no precedent elsewhere in
     // components/.
     useEffect(() => { onRegisterClearAll?.(clearAll); }, []);
+
+    // Same registration pattern for an external top bar's search/filter icons.
+    useEffect(() => {
+        onRegisterOpenSearch?.(() => { setSearchExpanded(true); setTimeout(() => inputRef.current?.focus(), 30); });
+    }, []);
+    useEffect(() => { onRegisterOpenFilter?.(() => setPanelOpen(o => !o)); }, []);
 
     // Active summary chips
     const summaryChips: { label: string; onRemove: () => void }[] = [];
@@ -405,6 +423,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
                 {!searchExpanded ? (
+                    !hideTriggers && (
                     <button type="button" onClick={() => { setSearchExpanded(true); setTimeout(() => inputRef.current?.focus(), 30); }}
                         title="Search"
                         style={{
@@ -417,6 +436,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         }}>
                         <Search size={18} />
                     </button>
+                    )
                 ) : (
                     <div
                         style={{
@@ -454,6 +474,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     </div>
                 )}
 
+                {!hideTriggers && (
                 <button type="button" onClick={() => setPanelOpen(o => !o)} title="Filters"
                     style={{
                         position: 'relative', flexShrink: 0,
@@ -478,6 +499,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         </span>
                     )}
                 </button>
+                )}
             </div>
 
             {/* ── Search history dropdown ───────────────────────────────────────── */}

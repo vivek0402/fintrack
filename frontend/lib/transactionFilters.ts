@@ -86,6 +86,21 @@ export function pruneSelectedIds(prev: Set<string>, filtered: { id: string }[]):
     return next.size === prev.size ? prev : next;
 }
 
+export type SortKey = 'newest' | 'oldest' | 'largest' | 'smallest';
+
+export const DEFAULT_SORT: SortKey = 'newest';
+
+export function sortTransactions(transactions: any[], key: SortKey): any[] {
+    const r = [...transactions];
+    switch (key) {
+        case 'oldest':   return r.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        case 'largest':  return r.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+        case 'smallest': return r.sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
+        case 'newest':
+        default:         return r.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+}
+
 export function countActiveFilters(freeText: string, panel: PanelFilters): number {
     let n = 0;
     if (freeText.trim()) n++;

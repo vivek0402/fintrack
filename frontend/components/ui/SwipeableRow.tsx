@@ -72,6 +72,17 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
                 </div>
             )}
 
+            {/* Resting affordance — a thin always-visible edge so swipe-to-delete
+                is discoverable without first dragging; the drag reveal above
+                takes over once a drag actually starts. */}
+            {!isDragging && (
+                <div style={{
+                    position: 'absolute', top: 0, bottom: 0, right: 0, width: '4px',
+                    background: 'color-mix(in srgb, var(--color-exp) 35%, transparent)',
+                    pointerEvents: 'none',
+                }} />
+            )}
+
             {/* Content layer — moves with finger, solid background to block reveal bleed */}
             <div
                 onTouchStart={handleTouchStart}
