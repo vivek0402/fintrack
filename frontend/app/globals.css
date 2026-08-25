@@ -56,6 +56,12 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Chrome/WebView (incl. the Capacitor Android app) paints its own default
+     semi-transparent black flash on any tappable element on touch, entirely
+     outside the app's own CSS/React state -- this was the real cause of
+     transaction rows "turning black" on touch, not anything in
+     SwipeableRow's own background handling. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
