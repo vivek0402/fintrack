@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { Tabs } from '@/components/ui/Tabs';
-import { GCard } from '@/components/ui/GCard';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { StatTile } from '@/components/ui/StatTile';
@@ -25,6 +24,7 @@ import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
 
 const AUTO_SAVE_KEY = 'fintrack-auto-save-plan';
+const ROUND_UP_KEY = 'fintrack-round-up-plan';
 const CH_KEY = (id: string) => `fintrack-challenge-${id}`;
 
 const TABS = [
@@ -100,7 +100,7 @@ interface CalendarDay { day: number; actual?: number; projected?: number; isFutu
 interface ForecastCategory { name: string; icon: string; color: string | null; avgMonthly: number; projected: number; spentSoFar: number; percentOfTotal: number; }
 interface ForecastData { totalForecast: number; avgDaily: number; currentMonthSpent: number; daysElapsed: number; daysInMonth: number; daysRemaining: number; categories: ForecastCategory[]; calendarDays: CalendarDay[]; insight: string; insufficientData?: boolean; }
 
-const forecastCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 16 };
+const forecastCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 16 };
 const DAYS_HEADER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -108,8 +108,17 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 // MILESTONES — shared constants
 // ─────────────────────────────────────────────────────────────────────────
 
+// StatTile/Card/GCard take style overrides, not a className — this is the .glass-surface
+// recipe inlined so their callers below can opt in without touching the shared components.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
+
 const labelSt: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'block', marginBottom: '6px' };
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
+// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
 
 interface Feasibility {
     days_remaining: number;
@@ -232,6 +241,14 @@ function SavingsPlanPageInner() {
         try {
             const raw = localStorage.getItem(AUTO_SAVE_KEY);
             if (raw) setSavePlan(JSON.parse(raw));
+        } catch {}
+        try {
+            const raw = localStorage.getItem(ROUND_UP_KEY);
+            if (raw) {
+                const { enabled, goalId } = JSON.parse(raw);
+                setRoundUpEnabled(!!enabled);
+                setRoundUpGoalId(goalId || '');
+            }
         } catch {}
         const starts: Record<string, string> = {};
         CHALLENGES.forEach(c => { const v = localStorage.getItem(CH_KEY(c.id)); if (v) starts[c.id] = v; });
@@ -379,6 +396,12 @@ function SavingsPlanPageInner() {
         localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(next));
     };
 
+    const updateRoundUp = (next: { enabled: boolean; goalId: string }) => {
+        setRoundUpEnabled(next.enabled);
+        setRoundUpGoalId(next.goalId);
+        localStorage.setItem(ROUND_UP_KEY, JSON.stringify(next));
+    };
+
     const startChallenge = (id: string) => {
         const today = new Date().toISOString().split('T')[0];
         setChallengeStarts(prev => ({ ...prev, [id]: today }));
@@ -465,13 +488,12 @@ function SavingsPlanPageInner() {
     const autoSavePct = income > 0 ? (totalAutoSave / income * 100).toFixed(1) : '0';
 
     const spCard: React.CSSProperties = {
-        background: 'var(--bg-card)', border: '1px solid var(--border)',
         borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0,
     };
     const sHead = (icon: React.ReactNode, title: string) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             {icon}
-            <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{title}</h2>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{title}</h2>
         </div>
     );
 
@@ -502,9 +524,9 @@ function SavingsPlanPageInner() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24, animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
-                <div style={spCard}>
+                <div className="glass-surface" style={spCard}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'color-mix(in srgb, var(--color-inc) 12%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-inc) 22%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'color-mix(in srgb, var(--color-inc) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 22%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <PiggyBank size={20} color="var(--color-inc)" />
                         </div>
                         <div>
@@ -513,7 +535,7 @@ function SavingsPlanPageInner() {
                         </div>
                     </div>
                     {income > 0 && tab === 'savings-plan' && (
-                        <div style={{ marginTop: 14, padding: '10px 14px', background: 'color-mix(in srgb, var(--color-inc) 8%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ marginTop: 14, padding: '10px 14px', background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-md)' }}>
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
                                 💰 Income detected:&nbsp;
                                 <strong style={{ color: 'var(--color-inc)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(income)}/mo</strong>
@@ -528,7 +550,7 @@ function SavingsPlanPageInner() {
                 {tab === 'savings-plan' && (
                     <>
                         {/* ── SECTION 1 — PAY YOURSELF FIRST ── */}
-                        <div style={spCard}>
+                        <div className="glass-surface" style={spCard}>
                             {sHead(<PiggyBank size={16} color="var(--accent)" />, 'Pay Yourself First')}
 
                             {dataLoading ? (
@@ -556,12 +578,12 @@ function SavingsPlanPageInner() {
                                         })() : null;
 
                                         return (
-                                            <div key={goal.id} style={{ padding: 14, background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                                            <div key={goal.id} className="glass-field" style={{ padding: 14, borderRadius: 'var(--radius-md)' }}>
                                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
                                                             <span style={{ fontSize: 16 }}>{goal.icon || goal.emoji || '🎯'}</span>
-                                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{goal.name}</span>
+                                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{goal.name}</span>
                                                             {isOnTrack !== null && (
                                                                 <Badge color={isOnTrack ? 'var(--color-inc)' : 'var(--color-warn)'} bg={isOnTrack ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
                                                                     {isOnTrack ? '✓ On track' : '⚠ Adjust'}
@@ -582,7 +604,7 @@ function SavingsPlanPageInner() {
                                                                 value={monthly || ''}
                                                                 placeholder="0"
                                                                 onChange={e => updateSavePlan(goal.id, parseFloat(e.target.value) || 0)}
-                                                                style={{ width: 76, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                                                                style={{ width: 76, background: 'color-mix(in srgb, var(--text-primary) 6%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                                                             />
                                                         </div>
                                                     </div>
@@ -599,8 +621,8 @@ function SavingsPlanPageInner() {
                             )}
 
                             {totalAutoSave > 0 && (
-                                <div style={{ marginTop: 14, padding: '12px 16px', background: 'color-mix(in srgb, var(--accent) 6%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius: 'var(--radius-md)' }}>
-                                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-head)' }}>
+                                <div style={{ marginTop: 14, padding: '12px 16px', background: 'color-mix(in srgb, var(--accent) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderRadius: 'var(--radius-md)' }}>
+                                    <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
                                         Total auto-saving:{' '}
                                         <span style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalAutoSave)}/mo</span>
                                         {income > 0 && <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}> ({autoSavePct}% of income)</span>}
@@ -610,15 +632,15 @@ function SavingsPlanPageInner() {
                         </div>
 
                         {/* ── SECTION 2 — ROUND-UP SIMULATOR ── */}
-                        <div style={spCard}>
+                        <div className="glass-surface" style={spCard}>
                             {sHead(<Zap size={16} color="var(--color-warn)" />, 'Round-Up Savings Simulator')}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Enable round-up savings</p>
                                 <button
                                     type="button"
-                                    onClick={() => setRoundUpEnabled(v => !v)}
+                                    onClick={() => updateRoundUp({ enabled: !roundUpEnabled, goalId: roundUpGoalId })}
                                     aria-label={roundUpEnabled ? 'Disable round-up' : 'Enable round-up'}
-                                    style={{ width: 44, height: 24, borderRadius: 12, background: roundUpEnabled ? 'var(--color-inc)' : 'var(--border)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background var(--transition-fast)', flexShrink: 0 }}
+                                    style={{ width: 44, height: 24, borderRadius: 12, background: roundUpEnabled ? 'var(--color-inc)' : 'var(--border-visible)', border: 'none', cursor: 'pointer', position: 'relative', transition: 'background var(--transition-fast)', flexShrink: 0 }}
                                 >
                                     <span style={{ position: 'absolute', top: 2, left: roundUpEnabled ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left var(--transition-fast)', display: 'block' }} />
                                 </button>
@@ -626,7 +648,7 @@ function SavingsPlanPageInner() {
 
                             {roundUpEnabled && (
                                 <>
-                                    <div style={{ padding: '14px 16px', background: 'color-mix(in srgb, var(--color-warn) 8%, var(--bg-card))', border: '1px solid color-mix(in srgb, var(--color-warn) 20%, transparent)', borderRadius: 'var(--radius-md)', marginBottom: 12 }}>
+                                    <div className="glass-field" style={{ padding: '14px 16px', borderRadius: 'var(--radius-md)', marginBottom: 12 }}>
                                         <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>Based on your last 30 days:</p>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--color-warn)', margin: '0 0 2px', fontVariantNumeric: 'tabular-nums' }}>
                                             ~{fmt(roundUpMonthly)}/mo in round-ups
@@ -640,8 +662,9 @@ function SavingsPlanPageInner() {
                                             <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 6px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Assign round-ups to a goal:</p>
                                             <select
                                                 value={roundUpGoalId}
-                                                onChange={e => setRoundUpGoalId(e.target.value)}
-                                                style={{ width: '100%', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }}
+                                                onChange={e => updateRoundUp({ enabled: roundUpEnabled, goalId: e.target.value })}
+                                                className="glass-field"
+                                                style={{ width: '100%', borderRadius: 8, padding: '8px 12px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-body)', outline: 'none' }}
                                             >
                                                 <option value="">— Select a goal —</option>
                                                 {activeGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -658,7 +681,7 @@ function SavingsPlanPageInner() {
                         </div>
 
                         {/* ── SECTION 3 — CHALLENGES ── */}
-                        <div style={spCard}>
+                        <div className="glass-surface" style={spCard}>
                             {sHead(<Trophy size={16} color="var(--color-info)" />, '30-Day Challenges')}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {CHALLENGES.map((ch, idx) => {
@@ -667,15 +690,15 @@ function SavingsPlanPageInner() {
                                     const isDone  = prog.daysCompleted >= ch.days;
 
                                     return (
-                                        <div key={ch.id} style={{ background: 'var(--bg-alt)', border: `1px solid ${prog.active ? 'color-mix(in srgb, var(--accent) 30%, transparent)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', padding: 14, transition: 'border-color var(--transition-fast)' }}>
+                                        <div key={ch.id} className="glass-field" style={{ borderColor: prog.active ? 'color-mix(in srgb, var(--accent) 30%, transparent)' : undefined, borderRadius: 'var(--radius-md)', padding: 14, transition: 'border-color var(--transition-fast)' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                                                 <div style={{ display: 'flex', gap: 10, flex: 1, minWidth: 0 }}>
                                                     <span style={{ fontSize: 22, flexShrink: 0, lineHeight: 1 }}>{ch.emoji}</span>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-                                                            <span style={{ fontFamily: 'var(--font-head)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{ch.title}</span>
+                                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{ch.title}</span>
                                                             {isDone && <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--color-inc) 10%, transparent)">✓ Done!</Badge>}
-                                                            {prog.active && !isDone && <Badge color="var(--accent)" bg="var(--accent-light)">Active</Badge>}
+                                                            {prog.active && !isDone && <Badge color="var(--accent)" bg="var(--accent-subtle)">Active</Badge>}
                                                         </div>
                                                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 3px', fontFamily: 'var(--font-body)' }}>{ch.desc}</p>
                                                         {estimate > 0 && (
@@ -690,7 +713,7 @@ function SavingsPlanPageInner() {
                                                     </button>
                                                 ) : (
                                                     <button type="button" onClick={() => stopChallenge(ch.id)}
-                                                        style={{ flexShrink: 0, padding: '6px 12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                                                        style={{ flexShrink: 0, padding: '6px 12px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                                         Stop
                                                     </button>
                                                 )}
@@ -711,7 +734,7 @@ function SavingsPlanPageInner() {
                         </div>
 
                         {/* ── SECTION 4 — SAVINGS STREAK ── */}
-                        <div style={spCard}>
+                        <div className="glass-surface" style={spCard}>
                             {sHead(<Flame size={16} color="#f97316" />, 'Savings Streak')}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                                 <span style={{ fontSize: `${Math.max(28, Math.min(52, 28 + streak * 4))}px`, lineHeight: 1, userSelect: 'none', flexShrink: 0 }}>🔥</span>
@@ -726,7 +749,7 @@ function SavingsPlanPageInner() {
                                     </div>
                                 ) : (
                                     <div>
-                                        <p style={{ fontFamily: 'var(--font-head)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No streak yet</p>
+                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No streak yet</p>
                                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>Spend less than you earn this month to start your streak</p>
                                     </div>
                                 )}
@@ -744,17 +767,17 @@ function SavingsPlanPageInner() {
 
                         {/* Error */}
                         {forecastError && (
-                            <div style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 40 }}>
+                            <div className="glass-surface" style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 40 }}>
                                 <AlertCircle size={28} color="var(--color-exp)" />
                                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>Could not generate forecast</p>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{forecastError}</p>
-                                <button type="button" onClick={() => fetchForecast(true)} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '8px 20px', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try Again</button>
+                                <button type="button" onClick={() => fetchForecast(true)} style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '8px 20px', color: 'var(--text-primary)', fontSize: 14, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try Again</button>
                             </div>
                         )}
 
                         {/* Loading */}
                         {forecastLoading && (
-                            <div style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 14 }}>
+                            <div className="glass-surface" style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 80, gap: 14 }}>
                                 <Loader2 size={28} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
                                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>Generating your forecast...</p>
                             </div>
@@ -772,7 +795,7 @@ function SavingsPlanPageInner() {
 
                         {/* Insufficient data */}
                         {forecast?.insufficientData && !forecastLoading && (
-                            <div style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 50, textAlign: 'center' }}>
+                            <div className="glass-surface" style={{ ...forecastCard, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 50, textAlign: 'center' }}>
                                 <Sparkles size={32} color="var(--text-muted)" />
                                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>Not enough data yet</p>
                                 <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, maxWidth: 340, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>Add at least 1 week of transactions to generate a forecast.</p>
@@ -789,7 +812,7 @@ function SavingsPlanPageInner() {
                                         { label: 'SPENT SO FAR',     value: fmt(forecast.currentMonthSpent), color: 'var(--color-exp)' },
                                         { label: 'DAILY AVERAGE',    value: fmt(forecast.avgDaily), color: 'var(--color-warn)' },
                                     ].map(tile => (
-                                        <div key={tile.label} style={{ flex: 1, minWidth: 140, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
+                                        <div key={tile.label} className="glass-surface" style={{ flex: 1, minWidth: 140, borderRadius: 'var(--radius-md)', padding: '20px 24px' }}>
                                             <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.8px', margin: '0 0 8px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{tile.label}</p>
                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700, color: tile.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{tile.value}</p>
                                         </div>
@@ -797,7 +820,7 @@ function SavingsPlanPageInner() {
                                 </div>
 
                                 {/* Calendar */}
-                                <div style={forecastCard}>
+                                <div className="glass-surface" style={forecastCard}>
                                     <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>{monthLabel}</p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 4 }}>
                                         {DAYS_HEADER.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' as const, letterSpacing: '0.5px', padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>)}
@@ -808,7 +831,7 @@ function SavingsPlanPageInner() {
                                             const isToday  = cd.day === todayDay;
                                             const hasActual = !cd.isFuture && (cd.actual || 0) > 0;
                                             return (
-                                                <div key={cd.day} style={{ minHeight: 64, padding: '6px 8px', borderRadius: 8, background: hasActual ? 'var(--bg-surface-3)' : 'transparent', border: isToday ? '1px solid var(--accent)' : '1px solid transparent', opacity: cd.isFuture ? 0.75 : 1 }}>
+                                                <div key={cd.day} style={{ minHeight: 64, padding: '6px 8px', borderRadius: 8, background: hasActual ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : 'transparent', border: isToday ? '1px solid var(--accent)' : '1px solid transparent', opacity: cd.isFuture ? 0.75 : 1 }}>
                                                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: isToday ? 700 : 400, marginBottom: 4, fontFamily: 'var(--font-body)' }}>{cd.day}</div>
                                                     {hasActual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--color-exp)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmt(cd.actual!)}</div>}
                                                     {cd.isFuture && cd.projected! > 0 && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>~{fmt(cd.projected!)}</div>}
@@ -819,7 +842,7 @@ function SavingsPlanPageInner() {
                                 </div>
 
                                 {/* Category breakdown */}
-                                <div style={forecastCard}>
+                                <div className="glass-surface" style={forecastCard}>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 20 }}>
                                         <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Category Breakdown</p>
                                         <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>(last 3 months average)</span>
@@ -831,7 +854,7 @@ function SavingsPlanPageInner() {
                                                 <span style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, flex: 1, fontFamily: 'var(--font-body)' }}>{cat.name}</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(cat.projected)}</span>
                                             </div>
-                                            <div style={{ background: 'var(--bg-surface-3)', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
+                                            <div style={{ background: 'var(--border-subtle)', height: 6, borderRadius: 3, overflow: 'hidden', marginBottom: 4 }}>
                                                 <div style={{ height: '100%', width: `${Math.min(cat.percentOfTotal, 100)}%`, background: cat.color || 'var(--accent)', borderRadius: 3 }} />
                                             </div>
                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(cat.spentSoFar)} spent so far this month</p>
@@ -841,7 +864,7 @@ function SavingsPlanPageInner() {
 
                                 {/* AI Insight */}
                                 {forecast.insight && (
-                                    <GCard style={{ background: 'color-mix(in srgb, var(--color-info) 6%, var(--bg-surface-1))', border: '1.5px solid color-mix(in srgb, var(--color-info) 18%, transparent)' }}>
+                                    <div className="glass-surface" style={{ padding: 'var(--space-4)', background: 'color-mix(in srgb, var(--color-info) 6%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--color-info) 18%, var(--glass-border))' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                                             <Sparkles size={16} color="var(--color-info)" />
                                             <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>AI Insight</span>
@@ -849,7 +872,7 @@ function SavingsPlanPageInner() {
                                         <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 16 }}>
                                             <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.8, fontFamily: 'var(--font-body)' }}>{forecast.insight}</p>
                                         </div>
-                                    </GCard>
+                                    </div>
                                 )}
                             </>
                         )}
@@ -872,14 +895,14 @@ function SavingsPlanPageInner() {
 
                             {/* ── SUMMARY ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                                <StatTile label="Total Milestones" value={String(totalCount)} icon={<Flag size={14} />} />
-                                <StatTile label="On Track" value={String(onTrackCount)} accentColor="var(--color-inc)" icon={<CheckCircle2 size={14} />} />
-                                <StatTile label="Achieved" value={String(achievedCount)} accentColor="var(--color-inc)" />
+                                <StatTile label="Total Milestones" value={String(totalCount)} icon={<Flag size={14} />} style={glassTileStyle} />
+                                <StatTile label="On Track" value={String(onTrackCount)} accentColor="var(--color-inc)" icon={<CheckCircle2 size={14} />} style={glassTileStyle} />
+                                <StatTile label="Achieved" value={String(achievedCount)} accentColor="var(--color-inc)" style={glassTileStyle} />
                             </div>
 
                             {/* ── MILESTONE TREE ── */}
                             {milestones.length === 0 ? (
-                                <Card>
+                                <Card style={glassTileStyle}>
                                     <EmptyState
                                         icon={Flag}
                                         title="No milestones yet"
@@ -1038,7 +1061,7 @@ function MilestoneNode({
 
     return (
         <div>
-            <Card onClick={() => toggleExpand(milestone.id)} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: 'var(--space-4)' }}>
+            <Card onClick={() => toggleExpand(milestone.id)} style={{ ...glassTileStyle, display: 'flex', flexDirection: 'column', gap: '10px', padding: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
@@ -1090,7 +1113,7 @@ function MilestoneNode({
                         )}
 
                         {progressEditId === milestone.id ? (
-                            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                            <div className="glass-field" onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
                                     <div>
                                         <label style={labelSt}>Current amount (₹)</label>
