@@ -28,7 +28,7 @@ const FIN_COLOR = 'var(--accent)';
 const STARTER_PROMPTS = [
     'Which loan should I pay off first?',
     'Where am I overspending this month?',
-    'Am I on track for my FIRE goal?',
+    'How is my investment portfolio allocated?',
 ];
 
 function timeAgo(dateStr: string): string {

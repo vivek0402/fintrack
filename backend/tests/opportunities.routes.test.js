@@ -7,7 +7,6 @@ const {
     getFinancialPlan,
     detectIdleCash,
     detectEmergencyFundLow,
-    detectSipUnderinvesting,
     detectCreditCardInterest,
     detectSpendingSpike,
 } = require('../src/routes/opportunities');
@@ -54,31 +53,6 @@ describe('detectIdleCash / detectEmergencyFundLow — personalized emergency fun
         pool.query.mockResolvedValueOnce({ rows: [{ avg: '50000' }] });
         const idle = await detectIdleCash('user-1', plan);
         expect(idle.description).toContain('6-month');
-    });
-});
-
-describe('detectSipUnderinvesting — risk-profile-aware target %', () => {
-    test('safety profile never fires (target is 0%)', async () => {
-        const plan = { risk_profile: 'safety', emergency_fund_target_months: 6, has_plan: true };
-        const result = await detectSipUnderinvesting('user-1', plan);
-        expect(result).toBeNull();
-        expect(pool.query).not.toHaveBeenCalled();
-    });
-
-    test('balanced profile matches the prior flat 15% behavior', async () => {
-        const plan = { risk_profile: 'balanced', emergency_fund_target_months: 6, has_plan: true };
-        pool.query.mockResolvedValueOnce({ rows: [{ total: '100000' }] }); // income
-        pool.query.mockResolvedValueOnce({ rows: [{ total: '5000' }] });  // invested (5%)
-        const result = await detectSipUnderinvesting('user-1', plan);
-        expect(result.title).toContain('15%');
-    });
-
-    test('growth profile targets 21%', async () => {
-        const plan = { risk_profile: 'growth', emergency_fund_target_months: 6, has_plan: true };
-        pool.query.mockResolvedValueOnce({ rows: [{ total: '100000' }] });
-        pool.query.mockResolvedValueOnce({ rows: [{ total: '5000' }] });
-        const result = await detectSipUnderinvesting('user-1', plan);
-        expect(result.title).toContain('21%');
     });
 });
 

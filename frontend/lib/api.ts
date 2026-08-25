@@ -355,14 +355,6 @@ export const planningAPI = {
     getNarrative: () => api.post('/api/planning/narrative'),
     recalculate: () => api.post('/api/planning/recalculate'),
     applyRecalculation: () => api.post('/api/planning/apply-recalculation'),
-    computeFire: (params: {
-        monthly_expenses?: number; expected_annual_return_pct?: number; inflation_pct?: number;
-        swr_pct?: number; extra_monthly_savings?: number;
-    }) => api.post('/api/planning/fire', params),
-    computeSip: (params: {
-        mode: 'goal_based' | 'growth_based'; target_years: number; expected_annual_return_pct?: number;
-        goal_amount?: number; monthly_sip?: number;
-    }) => api.post('/api/planning/sip', params),
     getCashflow: () => api.get('/api/planning/cashflow'),
     getScenarios: () => api.get('/api/planning/scenarios'),
     getScenario: (id: string) => api.get(`/api/planning/scenarios/${id}`),

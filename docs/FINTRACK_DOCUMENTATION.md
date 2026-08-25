@@ -71,7 +71,6 @@
 
 ### Financial Planning
 - [x] Financial Plan Builder (`/planning`) — guided plan covering monthly income, risk profile, emergency fund target/current balance, a primary goal, and loan payoff inputs; AI-generated narrative; recalculates on data drift
-- [x] FIRE calculator (corpus needed, years-to-FIRE, step-up + extra-payment scenarios, portfolio projection)
 - [x] SIP calculator (goal-based + growth-based, lumpsum alternative, wealth ratio)
 - [x] 12-month cash flow forecast (income, expenses, EMIs, savings)
 - [x] Financial scenario modeling (`/scenarios`): SIP compounding, new loan impact, expense cut, salary raise

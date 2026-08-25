@@ -4,7 +4,6 @@ const auth = require('../middleware/auth');
 const { monthsRemainingForLoan } = require('../utils/amortization');
 const { getCached } = require('../utils/aiCache');
 const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
-const { ANNUAL_EQUITY_FUND_RETURN, RISK_STRATEGY_SPLITS } = require('../services/planningEngine');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const router = express.Router();
 
@@ -239,51 +238,6 @@ async function detectAllocationGap(userId) {
     };
 }
 
-async function detectSipUnderinvesting(userId, plan) {
-    const BASELINE_SIP_PCT_OF_INCOME = 15; // balanced-profile baseline, matches prior flat behavior
-    const split = RISK_STRATEGY_SPLITS[plan.risk_profile];
-    const targetPct = fmt(BASELINE_SIP_PCT_OF_INCOME * (split.sip / RISK_STRATEGY_SPLITS.balanced.sip));
-    if (targetPct <= 0) return null; // safety profile: 100% emergency-fund-first, not "underinvesting"
-
-    const [incomeRes, investedRes] = await Promise.all([
-        pool.query(
-            `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
-             WHERE user_id = $1 AND type = 'income' AND date >= date_trunc('month', CURRENT_DATE)`,
-            [userId]
-        ),
-        pool.query(
-            `SELECT COALESCE(SUM(it.units * it.price_per_unit), 0) AS total
-             FROM investment_transactions it
-             WHERE it.user_id = $1 AND it.transaction_type = 'buy' AND it.transaction_date >= date_trunc('month', CURRENT_DATE)`,
-            [userId]
-        ),
-    ]);
-
-    const income = fmt(incomeRes.rows[0].total);
-    const invested = fmt(investedRes.rows[0].total);
-    if (income <= 0) return null;
-
-    const ratioPct = fmt((invested / income) * 100);
-    if (ratioPct >= targetPct) return null;
-
-    const targetMonthly = income * (targetPct / 100);
-    const monthlyRate = ANNUAL_EQUITY_FUND_RETURN / 12;
-    const months = 120;
-    const futureValue = (pmt) => pmt * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-    const amountSaved = fmt(futureValue(targetMonthly) - futureValue(invested));
-
-    return {
-        type: 'sip_underinvesting',
-        title: `You're only investing ${ratioPct}% of income — ${targetPct}% is the recommended minimum`,
-        description: `This month you invested ${inr(invested)} out of ${inr(income)} income (${ratioPct}%). Raising your SIP to ${targetPct}% of income (${inr(targetMonthly)}/month) could grow your corpus by an estimated ${inr(amountSaved)} more over 10 years at ${fmt(ANNUAL_EQUITY_FUND_RETURN * 100)}% CAGR.`,
-        amount_saved: amountSaved,
-        priority: 2,
-        action_label: 'Plan your SIP',
-        action_route: '/fire',
-        expires_at: null,
-    };
-}
-
 async function detectEmergencyFundLow(userId, plan) {
     const [bankBalance, avgExpenses] = await Promise.all([getBankBalance(userId), getAvgMonthlyExpenses(userId)]);
     const targetMonths = plan.emergency_fund_target_months;
@@ -396,7 +350,6 @@ async function detectOpportunities(userId) {
         detectHighInterestLoan(userId),
         detectSpendingSpike(userId),
         detectAllocationGap(userId),
-        detectSipUnderinvesting(userId, plan),
         detectEmergencyFundLow(userId, plan),
         detectForecastWarning(userId),
         detectPersonalityInsight(userId),
@@ -499,7 +452,6 @@ module.exports = router;
 module.exports.getFinancialPlan = getFinancialPlan;
 module.exports.detectIdleCash = detectIdleCash;
 module.exports.detectEmergencyFundLow = detectEmergencyFundLow;
-module.exports.detectSipUnderinvesting = detectSipUnderinvesting;
 module.exports.detectCreditCardInterest = detectCreditCardInterest;
 module.exports.detectSpendingSpike = detectSpendingSpike;
 module.exports.detectForecastWarning = detectForecastWarning;

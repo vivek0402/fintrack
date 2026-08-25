@@ -1,6 +1,6 @@
 # FinTrack — AI-Powered Personal Finance
 
-> A production-grade personal finance application with real-time AI insights, multi-account tracking, investment portfolio management, Indian tax planning, debt intelligence, FIRE simulation, and a premium AMOLED-first design system.
+> A production-grade personal finance application with real-time AI insights, multi-account tracking, investment portfolio management, Indian tax planning, debt intelligence, and a premium AMOLED-first design system.
 
 ---
 
@@ -25,7 +25,7 @@
 
 ## Overview
 
-FinTrack is a full-stack personal finance tracker built for users who take their money seriously. It goes beyond basic budgeting — it ingests your transactions, tracks your investments, plans your debt payoff, runs FIRE projections, handles Indian tax compliance, and gives you an AI co-pilot you can actually ask questions in plain English.
+FinTrack is a full-stack personal finance tracker built for users who take their money seriously. It goes beyond basic budgeting — it ingests your transactions, tracks your investments, plans your debt payoff, handles Indian tax compliance, and gives you an AI co-pilot you can actually ask questions in plain English.
 
 **Who it's for:** Individuals who want surgical clarity over their complete financial picture — not another pastel dashboard full of pie charts.
 
@@ -138,12 +138,9 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | Feature | Description |
 |---|---|
 | **Financial Plan Builder** | Guided plan covering monthly income, risk profile, emergency fund target/current balance, a primary goal, and loan payoff inputs; AI-generated narrative summary; recalculates when underlying data drifts |
-| **FIRE Calculator** | Compute corpus needed for Financial Independence using the 4% rule; real vs nominal returns; years-to-FIRE with step-up and extra-payment scenarios |
 | **SIP Calculator** | Goal-based and growth-based SIP projections — monthly SIP amount, lumpsum alternative, total returns, wealth ratio |
 | **Cash Flow Forecast** | Monthly projected income, expenses, EMIs, and savings for the next 12 months |
 | **Scenario Modeling** | What-if simulations: SIP compounding, new loan impact, expense cut savings, salary raise effect |
-| **Portfolio Projection** | Year-by-year portfolio value chart up to your FIRE date |
-| **Savings Targets** | Required savings to reach FIRE in 10/15/20 years |
 
 ### Milestones
 
@@ -369,7 +366,7 @@ Four specialized agents with full conversation history stored in `agent_conversa
 │ Agent                │ Specialization                                     │
 ├──────────────────────┼────────────────────────────────────────────────────┤
 │ Debt Coach           │ Loan prioritization, EMI prepayment, payoff plans  │
-│ Investment Advisor   │ Portfolio review, asset allocation, FIRE progress  │
+│ Investment Advisor   │ Portfolio review, asset allocation, SIP planning   │
 │ Tax Planner          │ 80C optimization, regime comparison, ITR readiness │
 │ Budget Master        │ Category budgeting, spending cuts, savings habits  │
 └──────────────────────┴────────────────────────────────────────────────────┘
@@ -694,7 +691,6 @@ DELETE /api/planning                Delete financial plan
 POST   /api/planning/narrative      AI-generated narrative summary of the plan
 POST   /api/planning/recalculate    Recompute plan projections from current financial data
 POST   /api/planning/apply-recalculation  Apply a recalculation to the saved plan
-POST   /api/planning/fire           FIRE corpus + years-to-FIRE calculator
 POST   /api/planning/sip            SIP amount calculator (goal-based or growth-based)
 GET    /api/planning/cashflow       12-month projected cash flow
 GET    /api/planning/scenarios      List saved scenarios
@@ -1015,7 +1011,6 @@ fintrack/
 │   │   ├── debt-intelligence/      # Payoff optimizer + DTI + utilization
 │   │   ├── tax/                    # Full Indian tax center (80C, capital gains, ITR)
 │   │   ├── tax-estimate/           # Quick AI Old vs New regime comparison
-│   │   ├── fire/                   # FIRE + SIP calculator
 │   │   ├── planning/               # Guided financial plan builder + AI narrative
 │   │   ├── cash-flow/              # 12-month cash flow projection
 │   │   ├── scenarios/              # What-if financial scenario modeling
@@ -1097,7 +1092,7 @@ fintrack/
 │       │   ├── loans.js            # Loan tracker + amortization + prepayments
 │       │   ├── debt.js             # Payoff optimizer + DTI + utilization
 │       │   ├── tax.js              # Full Indian tax center
-│       │   ├── planning.js         # Financial plan CRUD + AI narrative, FIRE, SIP, cash flow, scenarios
+│       │   ├── planning.js         # Financial plan CRUD + AI narrative, SIP, cash flow, scenarios
 │       │   ├── milestones.js       # Financial milestones
 │       │   ├── documents.js        # Document vault (Supabase Storage)
 │       │   ├── pdfImport.js        # PDF bank statement import
@@ -1156,7 +1151,7 @@ fintrack/
 
 ## Contributing
 
-This is a personal project. If you're a recruiter or developer reading this — the architecture decisions, AI routing system, tax engine, debt simulation, FIRE calculator, and design system were all designed and built from scratch. Feel free to reach out.
+This is a personal project. If you're a recruiter or developer reading this — the architecture decisions, AI routing system, tax engine, debt simulation, and design system were all designed and built from scratch. Feel free to reach out.
 
 ---
 

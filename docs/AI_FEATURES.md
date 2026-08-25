@@ -95,7 +95,7 @@ injected into every message. Uses `aiComplete()` with the `chat` route key (groq
 | Agent type | Specialization |
 |---|---|
 | `debt_coach` | Loan prioritization, EMI prepayment strategy, credit utilization, payoff plans |
-| `investment_advisor` | Portfolio review, asset allocation, SIP, FIRE progress |
+| `investment_advisor` | Portfolio review, asset allocation, SIP |
 | `tax_planner` | 80C optimization, Old vs New regime, advance tax, ITR readiness |
 | `budget_master` | Category budgeting, spending patterns, savings habits |
 
@@ -119,13 +119,13 @@ file. Results are upserted into the `opportunities` table (`ON CONFLICT (user_id
 status='active'`, partial unique index from migration 050) and can be dismissed or marked as acted on.
 The top active opportunity (by priority, then recency) also surfaces in both the daily and weekly brief.
 
-13 detector types: `detectIdleCash`, `detectCreditCardInterest`, `detectHighInterestLoan`,
-`detectTax80cGap`, `detectSpendingSpike`, `detectAllocationGap`, `detectSipUnderinvesting`,
+12 detector types: `detectIdleCash`, `detectCreditCardInterest`, `detectHighInterestLoan`,
+`detectTax80cGap`, `detectSpendingSpike`, `detectAllocationGap`,
 `detectEmergencyFundLow`, `detectForecastWarning`, `detectPersonalityInsight`,
 `detectAdvanceTaxDue`, `detectBehavioralPattern`, `detectSalaryIntelligenceInsight`.
 
 Endpoints:
-- `POST /api/ai/opportunities/detect` — run all 13 detectors, upsert results
+- `POST /api/ai/opportunities/detect` — run all 12 detectors, upsert results
 - `GET  /api/ai/opportunities` — list all detected opportunities for the user
 - `PATCH /api/ai/opportunities/:id/dismiss` — dismiss an opportunity
 - `PATCH /api/ai/opportunities/:id/acted-on` — mark an opportunity as acted on

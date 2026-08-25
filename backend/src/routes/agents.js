@@ -91,11 +91,8 @@ async function fetchDebtCoachData(userId) {
 }
 
 async function fetchInvestmentAdvisorData(userId) {
-    // Five independent queries — none depends on another's result — run in
-    // parallel. The fire_targets query keeps its own failure isolation (.catch)
-    // since fire_target is allowed to be null on error, same as the original
-    // try/catch behavior.
-    const [holdingsRes, topHoldingsRes, snapshotsRes, bankRes, fireRes] = await Promise.all([
+    // Four independent queries — none depends on another's result — run in parallel.
+    const [holdingsRes, topHoldingsRes, snapshotsRes, bankRes] = await Promise.all([
         pool.query(
             `SELECT name, type, units, purchase_price_per_unit, current_nav_or_price
              FROM investments WHERE user_id = $1`,
@@ -122,10 +119,6 @@ async function fetchInvestmentAdvisorData(userId) {
              FROM bank_accounts a WHERE a.user_id = $1`,
             [userId]
         ),
-        pool.query(
-            `SELECT * FROM fire_targets WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-            [userId]
-        ).catch(() => ({ rows: [] })),
     ]);
 
     let total_invested = 0;
@@ -162,15 +155,6 @@ async function fetchInvestmentAdvisorData(userId) {
         total_liabilities: fmt(r.total_liabilities),
     }));
 
-    let fire_target = null;
-    if (fireRes.rows.length > 0) {
-        const f = fireRes.rows[0];
-        fire_target = {
-            corpus_needed: f.corpus_needed != null ? fmt(f.corpus_needed) : null,
-            target_date: f.target_date || null,
-        };
-    }
-
     const bank_balance = fmt(bankRes.rows[0].total);
     const total_assets = bank_balance + total_current_value;
     const RECOMMENDED_PCT = { bank: 10, mutual_fund: 30, stock: 30, fd: 8.33, ppf: 8.33, nps: 8.34, gold: 5, crypto: 0, other: 0 };
@@ -189,7 +173,6 @@ async function fetchInvestmentAdvisorData(userId) {
         portfolio_summary: { total_invested, total_current_value, unrealized_gain, by_type_breakdown },
         top_holdings,
         net_worth_snapshots,
-        fire_target,
         asset_allocation,
     };
 }
@@ -328,9 +311,6 @@ function buildInvestmentAdvisorPrompt(data) {
     const allocation = data.asset_allocation.length > 0
         ? data.asset_allocation.map(a => `- ${a.category}: ${a.current_pct}% (recommended ${a.recommended_pct}%)`).join('\n')
         : '- Not enough data to compute allocation.';
-    const fireText = data.fire_target
-        ? `Corpus needed: ${data.fire_target.corpus_needed != null ? inr(data.fire_target.corpus_needed) : 'not set'}, target date: ${data.fire_target.target_date || 'not set'}.`
-        : 'No FIRE target set yet.';
 
     return `You are Investment Advisor, a calm, data-driven wealth builder. You focus on long-term compounding and risk-appropriate asset allocation.
 
@@ -344,8 +324,6 @@ ${topHoldings}
 
 Net worth history (most recent first):
 ${snapshots}
-
-FIRE target: ${fireText}
 
 Asset allocation (current vs recommended):
 ${allocation}

@@ -7,7 +7,7 @@ import {
     Target, Trophy, X, Settings, LineChart,
     Briefcase, Bot, Gauge,
     Waves,
-    Flame, GitBranch, PiggyBank, Compass,
+    GitBranch, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
     FileText, Award, Brain, Plus,
 } from 'lucide-react';
@@ -45,7 +45,6 @@ const moreGroups = [
             { href: '/goals',             icon: Trophy,    label: 'Goals' },
             { href: '/investments',       icon: Briefcase, label: 'Investments' },
             { href: '/debt-intelligence', icon: Gauge,     label: 'Debt' },
-            { href: '/fire',              icon: Flame,     label: 'FIRE' },
             { href: '/scenarios',         icon: GitBranch, label: 'Scenarios' },
         ],
     },
