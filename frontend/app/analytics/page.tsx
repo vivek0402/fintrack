@@ -1021,7 +1021,7 @@ function BenchmarkBar({ userPct, min, max }: { userPct: number; min: number; max
     const userPos = Math.min(100, (userPct / scaleMax) * 100);
 
     return (
-        <div style={{ position: 'relative', height: '8px', background: 'var(--bg-surface-2)', borderRadius: '999px', marginTop: '6px' }}>
+        <div style={{ position: 'relative', height: '8px', background: 'var(--border-subtle)', borderRadius: '999px', marginTop: '6px' }}>
             <div style={{
                 position: 'absolute', top: 0, bottom: 0,
                 left: `${minPos}%`, width: `${Math.max(maxPos - minPos, 1)}%`,
@@ -1093,28 +1093,32 @@ function InsightsTab() {
             </div>
 
             {/* Tabs */}
-            <div style={{ display: 'flex', gap: '6px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
                 {[
                     { key: 'opportunities', label: 'Opportunities' },
                     { key: 'benchmarks', label: 'Peer Benchmarks' },
                     { key: 'behavioral', label: 'Behavioral Patterns' },
-                ].map(t => (
-                    <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => setTab(t.key as any)}
-                        style={{
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            padding: '10px 4px', marginRight: '16px',
-                            fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)',
-                            color: tab === t.key ? 'var(--accent)' : 'var(--text-muted)',
-                            borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                            marginBottom: '-1px',
-                        }}
-                    >
-                        {t.label}
-                    </button>
-                ))}
+                ].map(t => {
+                    const isActive = tab === t.key;
+                    return (
+                        <button
+                            key={t.key}
+                            type="button"
+                            onClick={() => setTab(t.key as any)}
+                            className={isActive ? undefined : 'glass-field'}
+                            style={{
+                                padding: '7px 15px', borderRadius: 999, border: 'none',
+                                background: isActive ? 'var(--accent)' : undefined,
+                                color: isActive ? '#fff' : 'var(--text-secondary)',
+                                fontSize: '13px', fontWeight: isActive ? 600 : 500, fontFamily: 'var(--font-body)',
+                                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+                                transition: 'all var(--transition-fast)',
+                            }}
+                        >
+                            {t.label}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* ── TAB 0: OPPORTUNITIES ── */}
@@ -1129,8 +1133,8 @@ function InsightsTab() {
                             const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
                             const isDismissing = dismissingIds.has(opp.id);
                             return (
-                                <div key={opp.id} style={{
-                                    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
+                                <div key={opp.id} className="glass-surface" style={{
+                                    borderLeft: `3px solid ${borderColor}`,
                                     borderRadius: 'var(--radius-lg)', padding: '14px 18px',
                                     opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
                                     transition: 'opacity 250ms ease, transform 250ms ease',
@@ -1173,17 +1177,17 @@ function InsightsTab() {
                             </span>
                         </div>
 
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
+                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
                             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{benchmarks.summary}</p>
                         </div>
 
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             {benchmarks.benchmark_groups.map((g: any, idx: number) => {
                                 const Icon = GROUP_ICONS[g.group] || PiggyBank;
                                 const badge = statusBadge(g.status, false);
                                 return (
                                     <div key={g.group} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', borderBottom: idx < benchmarks.benchmark_groups.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <div className="glass-field" style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             <Icon size={16} color="var(--text-secondary)" />
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1211,9 +1215,9 @@ function InsightsTab() {
                             return (
                                 <div>
                                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Savings Rate</h2>
-                                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
+                                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                            <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <div className="glass-field" style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <PiggyBank size={16} color="var(--text-secondary)" />
                                             </div>
                                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1247,7 +1251,7 @@ function InsightsTab() {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         {/* AI insight card */}
-                        <div style={{ background: 'var(--accent-subtle)', border: '1.5px solid var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                        <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--glass-border))', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
                             <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 <Brain size={18} color="white" />
                             </div>
@@ -1261,13 +1265,13 @@ function InsightsTab() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="glass-field" style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px' }}>
                             <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                 {patterns.detected_count} of 5 patterns detected in your spending
                             </span>
                         </div>
 
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                             {patterns.patterns.map((p: any, idx: number) => (
                                 <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                                     <div style={{ width: 32, height: 32, borderRadius: '50%', background: p.detected ? 'color-mix(in srgb, var(--color-warn) 12%, transparent)' : 'color-mix(in srgb, var(--color-inc) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1281,9 +1285,11 @@ function InsightsTab() {
                                         </p>
                                         {p.detected ? (
                                             <>
-                                                <p style={{ fontSize: '12px', color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                                    {patternContext(p)}
-                                                </p>
+                                                {patternContext(p) && (
+                                                    <p style={{ fontSize: '12px', color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                                        {patternContext(p)}
+                                                    </p>
+                                                )}
                                                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
                                                     {p.description}
                                                 </p>
