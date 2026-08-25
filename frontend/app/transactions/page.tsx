@@ -15,12 +15,9 @@ import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionsTopBar } from '@/components/transactions/TransactionsTopBar';
 import { BulkOpsPanel } from '@/components/transactions/BulkOpsPanel';
 import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
-import { BankStatementImporter } from '@/components/transactions/BankStatementImporter';
-import { SmsImporter } from '@/components/transactions/SmsImporter';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Modal } from '@/components/ui/Modal';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
-import { exportToCSV, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
 const getNowYear  = () => new Date().getFullYear();
@@ -57,9 +54,15 @@ function TransactionsPageInner() {
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
     const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
     const [creditCards, setCreditCards]     = useState<any[]>([]);
-    const [importOpen, setImportOpen]       = useState(false);
-    const [smsImportOpen, setSmsImportOpen] = useState(false);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
+    // AppLayout's <main> runs a page-enter animation whose final keyframe
+    // leaves `transform: translateY(0)` applied via fill-mode: forwards --
+    // an identity transform still makes it a containing block for
+    // position:fixed descendants, so anything fixed *inside* a page (like
+    // this FAB) ends up pinned to <main> instead of the viewport and
+    // scrolls with it. Portalling to document.body sidesteps that entirely.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
     const [fetchError, setFetchError]       = useState(false);
     const [quickAddFailed, setQuickAddFailed] = useState(false);
     const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ summary: { total_income: number; total_expenses: number } } | null>(null);
@@ -334,9 +337,6 @@ function TransactionsPageInner() {
                     onSortChange={setSortKey}
                     selectMode={selectMode}
                     onToggleSelectMode={() => selectMode ? exitSelectMode() : setSelectMode(true)}
-                    onExport={() => void exportToCSV(filtered, `fintrack-${selectedYear}-${String(selectedMonth ?? getNowMonth()).padStart(2, '0')}.csv`)}
-                    onImportPDF={() => setImportOpen(true)}
-                    onImportSMS={() => setSmsImportOpen(true)}
                     onAddTransaction={() => { setEditingTx(null); setPrefillData(null); setModalOpen(true); }}
                 />
 
@@ -422,53 +422,47 @@ function TransactionsPageInner() {
 
             </div>
 
-            {/* ── QUICK ADD FAB ── */}
-            <div style={{
-                position: 'fixed',
-                bottom: isMobile ? 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)' : '32px',
-                right: isMobile ? '16px' : '96px',
-                zIndex: isMobile ? 996 : 500,
-            }}>
-                {!isMobile && quickAddFabHover && (
-                    <div style={{
-                        position: 'absolute', bottom: '100%', left: '50%',
-                        transform: 'translateX(-50%)', marginBottom: '8px',
-                        backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                        borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
-                        color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
-                    }}>
-                        Quick Add
-                    </div>
-                )}
-                <button type="button"
-                    onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); setQuickAddFailed(false); }}
-                    onMouseEnter={() => setQuickAddFabHover(true)}
-                    onMouseLeave={() => setQuickAddFabHover(false)}
-                    aria-label="Quick add with AI"
-                    style={{
-                        width: '52px', height: '52px', borderRadius: '50%',
-                        background: 'var(--accent)', border: 'none', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: quickAddFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
-                        transform: quickAddFabHover ? 'scale(1.1)' : 'scale(1)',
-                        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                    }}>
-                    <Zap size={22} color="white" strokeWidth={2.5} />
-                </button>
-            </div>
+            {/* ── QUICK ADD FAB — portalled to document.body so it's pinned to the
+                viewport, not to <main> (see the `mounted` comment above) ── */}
+            {mounted && createPortal(
+                <div style={{
+                    position: 'fixed',
+                    bottom: isMobile ? 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)' : '32px',
+                    right: isMobile ? '16px' : '96px',
+                    zIndex: isMobile ? 996 : 500,
+                }}>
+                    {!isMobile && quickAddFabHover && (
+                        <div style={{
+                            position: 'absolute', bottom: '100%', left: '50%',
+                            transform: 'translateX(-50%)', marginBottom: '8px',
+                            backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
+                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
+                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
+                        }}>
+                            Quick Add
+                        </div>
+                    )}
+                    <button type="button"
+                        onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); setQuickAddFailed(false); }}
+                        onMouseEnter={() => setQuickAddFabHover(true)}
+                        onMouseLeave={() => setQuickAddFabHover(false)}
+                        aria-label="Quick add with AI"
+                        style={{
+                            width: '52px', height: '52px', borderRadius: '50%',
+                            background: 'var(--accent)', border: 'none', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: quickAddFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
+                            transform: quickAddFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                        }}>
+                        <Zap size={22} color="white" strokeWidth={2.5} />
+                    </button>
+                </div>,
+                document.body
+            )}
 
             {/* ── TRANSACTION MODAL ── */}
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} pastTransactions={transactions} />
-
-            {/* ── IMPORT PDF MODAL ── */}
-            <Modal isOpen={importOpen} onClose={() => setImportOpen(false)} title="Import Bank Statement" maxWidth="560px">
-                <BankStatementImporter onClose={() => setImportOpen(false)} onSuccess={() => fetchTransactions()} />
-            </Modal>
-
-            {/* ── IMPORT SMS MODAL ── */}
-            <Modal isOpen={smsImportOpen} onClose={() => setSmsImportOpen(false)} title="Import from SMS" maxWidth="480px">
-                <SmsImporter onClose={() => setSmsImportOpen(false)} onSuccess={() => fetchTransactions()} />
-            </Modal>
 
             {/* ── BULK OPS PANEL ── */}
             {selectMode && selectedIds.size > 0 && (

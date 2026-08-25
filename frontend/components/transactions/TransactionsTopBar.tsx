@@ -15,7 +15,7 @@
 // further than this pattern supports cleanly. Net figure stays static.
 
 import { useState } from 'react';
-import { Search, SlidersHorizontal, ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, MoreHorizontal, Download, FileUp, MessageSquareText, TrendingUp, TrendingDown, Check, Plus } from 'lucide-react';
+import { Search, SlidersHorizontal, ArrowUpDown, CheckSquare, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Check, Plus } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { fmt as fmtBase } from '@/lib/utils';
 import type { SortKey } from '@/lib/transactionFilters';
@@ -51,9 +51,6 @@ interface Props {
     onSortChange: (key: SortKey) => void;
     selectMode: boolean;
     onToggleSelectMode: () => void;
-    onExport: () => void;
-    onImportPDF: () => void;
-    onImportSMS: () => void;
     onAddTransaction: () => void;
 }
 
@@ -61,11 +58,10 @@ export function TransactionsTopBar({
     selectedMonth, selectedYear, onPrevMonth, onNextMonth, onPickMonth, onShowAllTime,
     netAmount, netDelta, totalIncome, totalExpense, incomeDelta, expenseDelta,
     activeFilterCount, onOpenSearch, onOpenFilter, sortKey, onSortChange,
-    selectMode, onToggleSelectMode, onExport, onImportPDF, onImportSMS, onAddTransaction,
+    selectMode, onToggleSelectMode, onAddTransaction,
 }: Props) {
     const [monthSheetOpen, setMonthSheetOpen] = useState(false);
     const [sortSheetOpen, setSortSheetOpen]   = useState(false);
-    const [moreOpen, setMoreOpen]             = useState(false);
 
     const monthLabel = selectedMonth
         ? `${MONTH_NAMES[selectedMonth - 1].slice(0, 3)} ${selectedYear}`
@@ -119,31 +115,6 @@ export function TransactionsTopBar({
                             style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: selectMode ? 'var(--accent-subtle)' : 'none', border: 'none', borderRadius: 'var(--radius-md)', color: selectMode ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer' }}>
                             <CheckSquare size={17} />
                         </button>
-                        <div style={{ position: 'relative' }}>
-                            <button type="button" onClick={() => setMoreOpen(o => !o)} title="More" aria-label="More actions"
-                                style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: moreOpen ? 'var(--accent-subtle)' : 'none', border: 'none', borderRadius: 'var(--radius-md)', color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer' }}>
-                                <MoreHorizontal size={17} />
-                            </button>
-                            {moreOpen && (
-                                <>
-                                    <div onClick={() => setMoreOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 299 }} />
-                                    <div style={{ position: 'absolute', top: '46px', right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', zIndex: 300, minWidth: '170px', overflow: 'hidden' }}>
-                                        <button type="button" onClick={() => { onExport(); setMoreOpen(false); }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
-                                            <Download size={15} /> Export CSV
-                                        </button>
-                                        <button type="button" onClick={() => { onImportPDF(); setMoreOpen(false); }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
-                                            <FileUp size={15} /> Import PDF
-                                        </button>
-                                        <button type="button" onClick={() => { onImportSMS(); setMoreOpen(false); }}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
-                                            <MessageSquareText size={15} /> Import SMS
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
                         <button type="button" onClick={onAddTransaction} title="Add transaction" aria-label="Add transaction"
                             style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', cursor: 'pointer', marginLeft: '4px' }}>
                             <Plus size={18} />
