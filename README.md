@@ -140,7 +140,6 @@ FinTrack is a full-stack personal finance tracker built for users who take their
 | **Financial Plan Builder** | Guided plan covering monthly income, risk profile, emergency fund target/current balance, a primary goal, and loan payoff inputs; AI-generated narrative summary; recalculates when underlying data drifts |
 | **SIP Calculator** | Goal-based and growth-based SIP projections — monthly SIP amount, lumpsum alternative, total returns, wealth ratio |
 | **Cash Flow Forecast** | Monthly projected income, expenses, EMIs, and savings for the next 12 months |
-| **Scenario Modeling** | What-if simulations: SIP compounding, new loan impact, expense cut savings, salary raise effect |
 
 ### Milestones
 
@@ -544,9 +543,6 @@ nim    → groq1  → gemini   (also used when NVIDIA_API_KEY is unset)
 │                      │ target_amount, current_amount, parent_id,   │
 │                      │ priority, status                            │
 ├──────────────────────┼─────────────────────────────────────────────┤
-│ scenarios            │ id, user_id, title, type, inputs_json,      │
-│                      │ result_json, created_at                     │
-├──────────────────────┼─────────────────────────────────────────────┤
 │ financial_plans      │ id, user_id (unique), monthly_income,       │
 │                      │ risk_profile, emergency_fund_target_months, │
 │                      │ emergency_fund_current_balance, goal_name,  │
@@ -693,12 +689,6 @@ POST   /api/planning/recalculate    Recompute plan projections from current fina
 POST   /api/planning/apply-recalculation  Apply a recalculation to the saved plan
 POST   /api/planning/sip            SIP amount calculator (goal-based or growth-based)
 GET    /api/planning/cashflow       12-month projected cash flow
-GET    /api/planning/scenarios      List saved scenarios
-GET    /api/planning/scenarios/:id  Get a saved scenario
-POST   /api/planning/scenarios      Save a new scenario
-PATCH  /api/planning/scenarios/:id  Update scenario
-DELETE /api/planning/scenarios/:id  Delete scenario
-POST   /api/planning/scenarios/simulate  Run a what-if simulation
 ```
 
 ### Milestones
@@ -1013,7 +1003,6 @@ fintrack/
 │   │   ├── tax-estimate/           # Quick AI Old vs New regime comparison
 │   │   ├── planning/               # Guided financial plan builder + AI narrative
 │   │   ├── cash-flow/              # 12-month cash flow projection
-│   │   ├── scenarios/              # What-if financial scenario modeling
 │   │   ├── milestones/             # Financial life milestones
 │   │   ├── documents/              # Financial document vault
 │   │   ├── insights/               # Peer benchmarking + behavioral patterns
@@ -1092,7 +1081,7 @@ fintrack/
 │       │   ├── loans.js            # Loan tracker + amortization + prepayments
 │       │   ├── debt.js             # Payoff optimizer + DTI + utilization
 │       │   ├── tax.js              # Full Indian tax center
-│       │   ├── planning.js         # Financial plan CRUD + AI narrative, SIP, cash flow, scenarios
+│       │   ├── planning.js         # Financial plan CRUD + AI narrative, SIP, cash flow
 │       │   ├── milestones.js       # Financial milestones
 │       │   ├── documents.js        # Document vault (Supabase Storage)
 │       │   ├── pdfImport.js        # PDF bank statement import

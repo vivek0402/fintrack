@@ -356,14 +356,6 @@ export const planningAPI = {
     recalculate: () => api.post('/api/planning/recalculate'),
     applyRecalculation: () => api.post('/api/planning/apply-recalculation'),
     getCashflow: () => api.get('/api/planning/cashflow'),
-    getScenarios: () => api.get('/api/planning/scenarios'),
-    getScenario: (id: string) => api.get(`/api/planning/scenarios/${id}`),
-    createScenario: (data: { title: string; type: string; inputs_json: object; result_json?: object }) =>
-        api.post('/api/planning/scenarios', data),
-    updateScenario: (id: string, data: { title?: string; inputs_json?: object; result_json?: object }) =>
-        api.patch(`/api/planning/scenarios/${id}`, data),
-    deleteScenario: (id: string) => api.delete(`/api/planning/scenarios/${id}`),
-    simulate: (type: string, inputs: object) => api.post('/api/planning/scenarios/simulate', { type, inputs }),
 };
 
 export const milestoneAPI = {
