@@ -1986,8 +1986,6 @@ function scoreLabel(score: number) {
 }
 
 const personalityCardSt: React.CSSProperties = {
-    background: 'var(--bg-surface-1)',
-    border: '1px solid var(--border-subtle)',
     borderRadius: 'var(--radius-lg)',
     padding: '20px 24px',
 };
@@ -2027,7 +2025,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
             </button>
 
             {/* Header */}
-            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Personality</h1>
@@ -2051,7 +2049,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
 
             {/* Loading */}
             {loading && (
-                <div style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '16px' }}>
+                <div className="glass-surface" style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '16px' }}>
                     <Loader2 size={28} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
                     <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Building your financial profile…</p>
                 </div>
@@ -2059,10 +2057,10 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
 
             {/* Error */}
             {error && !loading && (
-                <div style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
+                <div className="glass-surface" style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
                     <AlertTriangle size={28} color="var(--color-exp)" />
                     <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
-                    <button type="button" onClick={generate} style={{ background: 'none', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
+                    <button type="button" onClick={generate} style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
                 </div>
             )}
 
@@ -2072,7 +2070,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                         {/* LEFT: Hero card */}
                         <div style={{ flex: '1.2 1 300px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ background: 'color-mix(in srgb, var(--accent-3) 8%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent-3) 25%, transparent)', borderRadius: 'var(--radius-lg)', padding: '28px 24px' }}>
+                            <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent-3) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent-3) 26%, var(--glass-border))', borderRadius: 'var(--radius-lg)', padding: '28px 24px' }}>
                                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                                     <Badge color="var(--accent-3)" bg="color-mix(in srgb, var(--accent-3) 15%, transparent)">✦ FINANCIAL PROFILE</Badge>
                                     {data.from_cache && <Badge>Cached</Badge>}
@@ -2090,12 +2088,12 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                                     </div>
                                     <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{scoreLabel(data.overall_score)}</span>
                                 </div>
-                                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '20px 0' }} />
+                                <div style={{ height: '1px', background: 'var(--glass-border)', margin: '20px 0' }} />
                                 <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-body)' }}>{data.summary}</p>
                             </div>
 
                             {/* Dimension scores */}
-                            <div style={personalityCardSt}>
+                            <div className="glass-surface" style={personalityCardSt}>
                                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 14px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Dimension scores</p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {dims.map(([key, dim]: [string, any]) => {
@@ -2110,7 +2108,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                                                     </div>
                                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: scoreColor(dim.score), fontVariantNumeric: 'tabular-nums' }}>{dim.score}</span>
                                                 </div>
-                                                <div style={{ height: '6px', background: 'var(--bg-surface-3)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <div style={{ height: '6px', background: 'var(--border-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
                                                     <div style={{ height: '100%', width: `${dim.score}%`, background: meta.color, borderRadius: '3px', transition: 'width 0.8s ease' }} />
                                                 </div>
                                             </div>
@@ -2127,7 +2125,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
 
                         {/* RIGHT */}
                         <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={personalityCardSt}>
+                            <div className="glass-surface" style={personalityCardSt}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                     <Sparkles size={16} color="var(--accent)" />
                                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Traits</span>
@@ -2143,7 +2141,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                             </div>
 
                             {strengths.length > 0 && (
-                                <div style={personalityCardSt}>
+                                <div className="glass-surface" style={personalityCardSt}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                         <TrendingUp size={16} color="var(--color-inc)" />
                                         <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Strengths</span>
@@ -2162,7 +2160,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                             )}
 
                             {watchOuts.length > 0 && (
-                                <div style={personalityCardSt}>
+                                <div className="glass-surface" style={personalityCardSt}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                                         <AlertCircle size={16} color="var(--color-warn)" />
                                         <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Watch Outs</span>
@@ -2183,7 +2181,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                     </div>
 
                     {/* Tips */}
-                    <GCard style={{ background: 'color-mix(in srgb, var(--accent) 4%, var(--bg-surface-1))', border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)' }}>
+                    <GCard style={{ ...glassTileStyle, background: 'color-mix(in srgb, var(--accent) 6%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 18%, var(--glass-border))' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                             <Lightbulb size={16} color="var(--accent)" />
                             <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>What to focus on</span>
