@@ -20,11 +20,19 @@ import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
 import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
-const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
-const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
+const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+// GCard takes a style override, not a className — this is the .glass-surface
+// recipe inlined so its caller below can opt in without touching the component.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
 
 function CircularProgress({ pct, color, size = 56 }: { pct: number; color: string; size?: number }) {
     const stroke = 5;
@@ -223,34 +231,31 @@ export default function GoalsPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── HEADER ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'var(--bg-glow)', borderRadius: '50%', pointerEvents: 'none', opacity: 0.4 }} />
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                            <div>
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                                    {activeCount} active goal{activeCount !== 1 ? 's' : ''}
-                                </p>
-                                <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: isMobile ? '28px' : '34px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                                    Your Goals
-                                </h1>
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSaved)}</span> saved
-                                    <span style={{ margin: '0 6px', color: 'var(--border-subtle)' }}>·</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalRemaining)}</span> remaining
-                                </p>
-                            </div>
-                            <button type="button" onClick={() => { setShowForm(true); setFormError(''); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                                <Plus size={14} /> New Goal
-                            </button>
+                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px 20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                        <div>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                                {activeCount} active goal{activeCount !== 1 ? 's' : ''}
+                            </p>
+                            <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: isMobile ? '28px' : '34px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                                Your Goals
+                            </h1>
+                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSaved)}</span> saved
+                                <span style={{ margin: '0 6px', color: 'var(--border-subtle)' }}>·</span>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalRemaining)}</span> remaining
+                            </p>
                         </div>
+                        <button type="button" className="glass-field" onClick={() => { setShowForm(true); setFormError(''); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                            <Plus size={14} /> New Goal
+                        </button>
                     </div>
                 </div>
 
                 {/* ── OVERALL PROGRESS ── */}
                 {goals.length > 0 && (
-                    <GCard>
+                    <GCard style={glassTileStyle}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Progress</p>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 800, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
@@ -267,7 +272,8 @@ export default function GoalsPage() {
                 {/* ── AI LIFE EVENT STRIP ── */}
                 <div
                     onClick={() => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); }}
-                    style={{ background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-surface-1))', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+                    className="glass-surface"
+                    style={{ background: 'color-mix(in srgb, var(--color-info) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--color-info) 24%, var(--glass-border))', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
                 >
                     <Brain size={18} color="var(--color-info)" style={{ flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
@@ -311,7 +317,7 @@ export default function GoalsPage() {
                         icon={Target}
                         title="No goals match your search"
                         subtitle={`Nothing found for "${searchQuery}".`}
-                        action={<button type="button" onClick={() => setSearchQuery('')} style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear search</button>}
+                        action={<button type="button" onClick={() => setSearchQuery('')} className="glass-field" style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear search</button>}
                     />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -327,7 +333,7 @@ export default function GoalsPage() {
                             const ringColor = isComplete ? 'var(--color-inc)' : (goal.color || 'var(--accent)');
 
                             return (
-                                <div key={goal.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${isComplete ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                                <div key={goal.id} className="glass-surface" style={{ borderColor: isComplete ? 'color-mix(in srgb, var(--color-inc) 25%, var(--glass-border))' : undefined, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                                     {/* Top row: ring | emoji + name + deadline */}
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
                                         <CircularProgress pct={pct} color={ringColor} />
@@ -380,7 +386,7 @@ export default function GoalsPage() {
                                                     <button type="button" onClick={() => handleDelete(goal.id)} disabled={deletingId === goal.id} style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         {deletingId === goal.id ? '…' : 'Delete'}
                                                     </button>
-                                                    <button type="button" onClick={() => setConfirmDeleteId(null)} style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                    <button type="button" onClick={() => setConfirmDeleteId(null)} className="glass-field" style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         Cancel
                                                     </button>
                                                 </div>
@@ -407,7 +413,7 @@ export default function GoalsPage() {
             <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} title="New Goal" maxWidth="460px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="new-goal-form" disabled={formLoading || !form.name.trim() || !form.target_amount} style={{ padding: 10, background: formLoading || !form.name.trim() || !form.target_amount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {formLoading ? 'Creating…' : 'Create Goal'}
                         </button>
@@ -445,7 +451,7 @@ export default function GoalsPage() {
             <Modal isOpen={!!editingId} onClose={() => { setEditingId(null); setEditError(''); }} title="Edit Goal" maxWidth="460px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="edit-goal-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {editLoading ? 'Saving…' : 'Save Changes'}
                         </button>
@@ -478,7 +484,7 @@ export default function GoalsPage() {
             <Modal isOpen={!!fundsGoalId} onClose={() => { setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); }} title="Update Savings" maxWidth="360px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setFundsGoalId(null); setFundsAmount(''); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setFundsGoalId(null); setFundsAmount(''); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="button" onClick={handleAddFunds} disabled={fundsLoading || !fundsAmount} style={{ padding: 10, background: fundsLoading || !fundsAmount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: fundsLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {fundsLoading ? 'Saving…' : 'Confirm'}
                         </button>
@@ -487,7 +493,9 @@ export default function GoalsPage() {
             >
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
                     {(['add', 'withdraw'] as const).map(t => (
-                        <button key={t} type="button" onClick={() => setFundsType(t)} style={{ padding: '10px', borderRadius: '10px', border: `1px solid ${fundsType === t ? (t === 'add' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)') : 'var(--border-subtle)'}`, background: fundsType === t ? (t === 'add' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : 'var(--bg-surface-2)', color: fundsType === t ? (t === 'add' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
+                        <button key={t} type="button" onClick={() => setFundsType(t)}
+                            className={fundsType === t ? undefined : 'glass-field'}
+                            style={{ padding: '10px', borderRadius: '10px', border: fundsType === t ? `1px solid ${t === 'add' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)'}` : undefined, background: fundsType === t ? (t === 'add' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : undefined, color: fundsType === t ? (t === 'add' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
                             {t === 'add' ? '+ Add Funds' : '− Withdraw'}
                         </button>
                     ))}
@@ -514,7 +522,8 @@ export default function GoalsPage() {
                                     { type: 'emergency', emoji: '🛡️', label: 'Emergency' },
                                 ].map(ev => (
                                     <button key={ev.type} type="button" onClick={() => setLifeEventForm({ ...lifeEventForm, event_type: ev.type })}
-                                        style={{ padding: '12px 8px', borderRadius: 12, border: lifeEventForm.event_type === ev.type ? '2px solid var(--accent)' : '1px solid var(--border-subtle)', background: lifeEventForm.event_type === ev.type ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.15s' }}>
+                                        className={lifeEventForm.event_type === ev.type ? undefined : 'glass-field'}
+                                        style={{ padding: '12px 8px', borderRadius: 12, border: lifeEventForm.event_type === ev.type ? '2px solid var(--accent)' : undefined, background: lifeEventForm.event_type === ev.type ? 'var(--accent-subtle)' : undefined, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.15s' }}>
                                         <span style={{ fontSize: '1.4rem' }}>{ev.emoji}</span>
                                         <span style={{ fontSize: '0.72rem', color: lifeEventForm.event_type === ev.type ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: lifeEventForm.event_type === ev.type ? 600 : 400, fontFamily: 'var(--font-body)' }}>{ev.label}</span>
                                     </button>
@@ -536,7 +545,7 @@ export default function GoalsPage() {
                     </form>
                 ) : (
                     <div>
-                        <div style={{ padding: 16, background: lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 8%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-warn) 8%, var(--bg-surface-1))', border: `1px solid ${lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'color-mix(in srgb, var(--color-warn) 20%, transparent)'}`, borderRadius: 12, marginBottom: 16 }}>
+                        <div style={{ padding: 16, background: lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 10%, var(--glass-surface))' : 'color-mix(in srgb, var(--color-warn) 10%, var(--glass-surface))', borderColor: lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 24%, var(--glass-border))' : 'color-mix(in srgb, var(--color-warn) 24%, var(--glass-border))', borderRadius: 12, marginBottom: 16 }} className="glass-surface">
                             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 8px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{lifeEventResult.plan?.summary}</p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(lifeEventResult.plan?.monthly_required || 0)}/month needed</span>
@@ -548,7 +557,7 @@ export default function GoalsPage() {
                                 <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Key Milestones</p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {lifeEventResult.plan.milestones.map((m: any, i: number) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--bg-surface-2)', borderRadius: 8 }}>
+                                        <div key={i} className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8 }}>
                                             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: 50, fontFamily: 'var(--font-body)' }}>Month {m.month}</span>
                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', flex: 1, fontFamily: 'var(--font-body)' }}>{m.label}</span>
                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(m.target_saved || 0)}</span>
