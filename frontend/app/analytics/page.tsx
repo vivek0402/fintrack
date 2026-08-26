@@ -1785,7 +1785,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
         setTimeout(() => { setScreenshotMsg(true); setTimeout(() => setScreenshotMsg(false), 3000); }, 350);
     };
 
-    const sCard: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
+    const sCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
 
     return (
         <>
@@ -1801,7 +1801,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                 </button>
 
                 {/* Header */}
-                <div style={sCard}>
+                <div className="glass-surface" style={sCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
                         <div>
                             <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Year in Review 🎉</h1>
@@ -1810,7 +1810,8 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                         <div style={{ display: 'flex', gap: '6px' }}>
                             {[cy - 2, cy - 1, cy].map(y => (
                                 <button key={y} type="button" onClick={() => setSelectedYear(y)}
-                                    style={{ padding: '6px 12px', borderRadius: '999px', border: `1px solid ${selectedYear === y ? 'var(--accent)' : 'var(--border-subtle)'}`, background: selectedYear === y ? 'var(--accent)' : 'var(--bg-surface-2)', color: selectedYear === y ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: selectedYear === y ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
+                                    className={selectedYear === y ? undefined : 'glass-field'}
+                                    style={{ padding: '6px 12px', borderRadius: '999px', border: selectedYear === y ? '1px solid var(--accent)' : undefined, background: selectedYear === y ? 'var(--accent)' : undefined, color: selectedYear === y ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: selectedYear === y ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
                                     {y}
                                 </button>
                             ))}
@@ -1821,7 +1822,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                 {loading ? (
                     <><SkeletonCard height={200} /><SkeletonCard height={200} /></>
                 ) : !stats ? (
-                    <div style={{ ...sCard, padding: 0 }}>
+                    <div className="glass-surface" style={{ ...sCard, padding: 0 }}>
                         <EmptyState
                             icon={BarChart3}
                             title={`No data for ${selectedYear}`}
@@ -1831,7 +1832,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                 ) : (
                     <>
                         {/* Big animated count */}
-                        <div style={{ ...sCard, textAlign: 'center', padding: '36px 24px', background: 'var(--bg-surface-1)' }}>
+                        <div className="glass-surface" style={{ ...sCard, textAlign: 'center', padding: '36px 24px' }}>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 12vw, 72px)', fontWeight: 800, color: 'var(--accent)', margin: '0 0 6px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                                 {animCount.toLocaleString('en-IN')}
                             </p>
@@ -1847,7 +1848,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                                 { emoji: '🏦', label: 'Total Saved',    value: yrFmt(stats.saved),    color: 'var(--accent)'    },
                                 { emoji: '📈', label: 'Savings Rate',   value: `${stats.rate}%`,    color: 'var(--accent)'    },
                             ].map(s => (
-                                <div key={s.label} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px' }}>
+                                <div key={s.label} className="glass-surface" style={{ borderRadius: 'var(--radius-md)', padding: '16px' }}>
                                     <div style={{ fontSize: 22, marginBottom: 6 }}>{s.emoji}</div>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{s.label}</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: s.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
@@ -1856,11 +1857,11 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                         </div>
 
                         {/* Highlights */}
-                        <div style={sCard}>
+                        <div className="glass-surface" style={sCard}>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Highlights</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {stats.topCategory && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-exp)' }}>
+                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-exp)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🏆</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Top Spending Category</p>
@@ -1872,7 +1873,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                                 )}
 
                                 {stats.worstMonth && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-warn)' }}>
+                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-warn)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>📅</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Most Expensive Month</p>
@@ -1884,7 +1885,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                                 )}
 
                                 {stats.bestSavings && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--color-inc)' }}>
+                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-inc)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🌟</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Best Savings Month</p>
@@ -1896,7 +1897,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                                 )}
 
                                 {personality && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--accent)' }}>
+                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--accent)' }}>
                                         <span style={{ fontSize: 24, flexShrink: 0 }}>🧠</span>
                                         <div>
                                             <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Your Money Personality</p>
@@ -1908,7 +1909,7 @@ function YearReviewTab({ onBack }: { onBack: () => void }) {
                         </div>
 
                         {/* Shareable card */}
-                        <div style={sCard}>
+                        <div className="glass-surface" style={sCard}>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Share Your Story</h2>
 
                             <div ref={cardRef} style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%)', borderRadius: 'var(--radius-xl)', padding: '28px 24px', color: 'white', marginBottom: '14px' }}>
