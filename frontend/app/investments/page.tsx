@@ -29,9 +29,17 @@ const relativeTime = (iso?: string | null) => {
     return `${Math.floor(hrs / 24)}d ago`;
 };
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
+// Card/StatTile take a style override, not a className — this is the .glass-surface
+// recipe inlined so their many callers below can opt in without touching the components.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -285,16 +293,17 @@ export default function InvestmentsPage() {
                         [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
                     ) : (
                         <>
-                            <StatTile label="Total Invested" value={fmt(summary.total_invested)} icon={<Wallet size={16} />} />
-                            <StatTile label="Current Value" value={fmt(summary.total_current_value)} icon={<Briefcase size={16} />} />
+                            <StatTile label="Total Invested" value={fmt(summary.total_invested)} icon={<Wallet size={16} />} style={glassTileStyle} />
+                            <StatTile label="Current Value" value={fmt(summary.total_current_value)} icon={<Briefcase size={16} />} style={glassTileStyle} />
                             <StatTile
                                 label="Unrealized Gain"
                                 value={fmtSigned(summary.total_unrealized_gain)}
                                 subLabel={`${summary.total_unrealized_gain_pct >= 0 ? '+' : ''}${summary.total_unrealized_gain_pct}%`}
                                 icon={<TrendingUp size={16} />}
                                 accentColor={summary.total_unrealized_gain >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'}
+                                style={glassTileStyle}
                             />
-                            <StatTile label="Holdings" value={String(investments.length)} icon={<Layers size={16} />} />
+                            <StatTile label="Holdings" value={String(investments.length)} icon={<Layers size={16} />} style={glassTileStyle} />
                         </>
                     )}
                 </div>
@@ -306,7 +315,8 @@ export default function InvestmentsPage() {
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         placeholder="Search by name, ticker, or type…"
-                        style={{ width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }}
+                        className="glass-field"
+                        style={{ width: '100%', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }}
                     />
                 )}
 
@@ -346,7 +356,7 @@ export default function InvestmentsPage() {
                                             {fmt(groupTotal)}
                                         </span>
                                     </div>
-                                    <Card padding={0}>
+                                    <Card padding={0} style={glassTileStyle}>
                                         {group.holdings.map((inv, idx) => {
                                             const isGain = inv.unrealized_gain >= 0;
                                             return (
@@ -356,7 +366,7 @@ export default function InvestmentsPage() {
                                                     style={{
                                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
                                                         padding: '12px 16px',
-                                                        borderBottom: idx < group.holdings.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                                                        borderBottom: idx < group.holdings.length - 1 ? '1px solid var(--glass-border)' : 'none',
                                                         cursor: 'pointer',
                                                     }}
                                                 >
@@ -425,7 +435,7 @@ export default function InvestmentsPage() {
             <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setFormErrors({}); }} title="Add Investment" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setFormErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setShowAdd(false); setFormErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="add-investment-form" disabled={formLoading} style={{ padding: 10, background: formLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {formLoading ? 'Adding…' : 'Add Investment'}
                         </button>
@@ -492,7 +502,7 @@ export default function InvestmentsPage() {
             <Modal isOpen={!!activeInvestment} onClose={() => setActiveInvestment(null)} title={activeInvestment?.name || 'Update Investment'} maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setActiveInvestment(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => setActiveInvestment(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="update-price-form" disabled={priceLoading} style={{ padding: 10, background: priceLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: priceLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {priceLoading ? 'Saving…' : 'Save'}
                         </button>
@@ -507,14 +517,14 @@ export default function InvestmentsPage() {
                     </div>
                 </form>
 
-                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--glass-border)' }}>
                     {confirmDelete ? (
                         <div style={{ display: 'flex', gap: 8 }}>
                             <button type="button" onClick={handleDelete}
                                 style={{ flex: 1, padding: 10, borderRadius: 10, background: 'color-mix(in srgb, var(--color-exp) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Confirm Delete
                             </button>
-                            <button type="button" onClick={() => setConfirmDelete(false)} style={{ flex: 1, padding: 10, borderRadius: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            <button type="button" onClick={() => setConfirmDelete(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Cancel
                             </button>
                         </div>
