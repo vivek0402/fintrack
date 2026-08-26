@@ -11,7 +11,15 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { AlertTriangle, ChevronDown, Wallet, TrendingUp, Landmark } from 'lucide-react';
 import { fmt } from '@/lib/utils';
 
-const chartSkeleton = (height: number) => () => <div style={{ height, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+const chartSkeleton = (height: number) => () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+
+// Card/StatTile take a style override, not a className — this is the .glass-surface
+// recipe inlined so their many callers below can opt in without touching the components.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
 
 const WaterfallChart = dynamic(() => import('@/components/cash-flow/WaterfallChart').then(m => m.WaterfallChart), { ssr: false, loading: chartSkeleton(260) });
 const RunningBalanceChart = dynamic(() => import('@/components/cash-flow/RunningBalanceChart').then(m => m.RunningBalanceChart), { ssr: false, loading: chartSkeleton(220) });
@@ -113,23 +121,25 @@ export default function CashFlowPage() {
 
                 {/* ── SUMMARY BANNER ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                    <StatTile label="Projected Annual Income" value={fmt(summary.total_projected_annual_income)} accentColor="var(--color-inc)" />
-                    <StatTile label="Projected Annual Expenses" value={fmt(summary.total_projected_annual_expenses)} accentColor="var(--color-exp)" />
+                    <StatTile label="Projected Annual Income" value={fmt(summary.total_projected_annual_income)} accentColor="var(--color-inc)" style={glassTileStyle} />
+                    <StatTile label="Projected Annual Expenses" value={fmt(summary.total_projected_annual_expenses)} accentColor="var(--color-exp)" style={glassTileStyle} />
                     <StatTile
                         label="Average Monthly Surplus"
                         value={fmtSigned(summary.average_monthly_surplus)}
                         accentColor={surplusIsPositive ? 'var(--color-inc)' : 'var(--color-exp)'}
+                        style={glassTileStyle}
                     />
                     <StatTile
                         label="Months at Risk"
                         value={String(summary.months_at_risk)}
                         accentColor={summary.months_at_risk > 0 ? 'var(--color-exp)' : undefined}
                         icon={summary.months_at_risk > 0 ? <AlertTriangle size={14} /> : undefined}
+                        style={glassTileStyle}
                     />
                 </div>
 
                 {/* ── WATERFALL CHART ── */}
-                <Card>
+                <Card style={glassTileStyle}>
                     <p style={sectionTitleSt}><TrendingUp size={16} /> Cash Flow Waterfall</p>
                     <p style={sectionSubSt}>Projected net cash flow for each of the next 12 months</p>
                     <div style={{ width: '100%', height: 260 }}>
@@ -138,7 +148,7 @@ export default function CashFlowPage() {
                 </Card>
 
                 {/* ── RUNNING BALANCE CHART ── */}
-                <Card>
+                <Card style={glassTileStyle}>
                     <p style={sectionTitleSt}><Wallet size={16} /> Running Balance</p>
                     <p style={sectionSubSt}>
                         Cumulative surplus/deficit over the next 12 months — {balanceEnd >= balanceStart ? 'you end the year stronger' : 'you end the year weaker'}
@@ -149,7 +159,7 @@ export default function CashFlowPage() {
                 </Card>
 
                 {/* ── 12-MONTH PROJECTION TABLE ── */}
-                <Card padding={0}>
+                <Card padding={0} style={glassTileStyle}>
                     <div style={{ padding: 'var(--space-6) var(--space-6) 0' }}>
                         <p style={sectionTitleSt}>12-Month Projection</p>
                         <p style={sectionSubSt}>Income, expenses, and fixed outflows assumed flat across the projection</p>
@@ -157,7 +167,7 @@ export default function CashFlowPage() {
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)', fontSize: 13 }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                                     {['Month', 'Income', 'Expenses', 'Fixed Outflows', 'Net Cash Flow', 'Status'].map(h => (
                                         <th key={h} style={{ textAlign: h === 'Month' ? 'left' : 'right', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                             {h}
@@ -167,7 +177,7 @@ export default function CashFlowPage() {
                             </thead>
                             <tbody>
                                 {months.map((m, i) => (
-                                    <tr key={i} style={{ background: STATUS_ROW_BG[m.status] || 'transparent', borderBottom: i < months.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                                    <tr key={i} style={{ background: STATUS_ROW_BG[m.status] || 'transparent', borderBottom: i < months.length - 1 ? '1px solid var(--glass-border)' : 'none' }}>
                                         <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>{m.month}</td>
                                         <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_income)}</td>
                                         <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_expenses)}</td>
@@ -192,7 +202,7 @@ export default function CashFlowPage() {
                 </Card>
 
                 {/* ── FIXED OBLIGATIONS ── */}
-                <Card>
+                <Card style={glassTileStyle}>
                     <p style={sectionTitleSt}><Landmark size={16} /> Fixed Obligations</p>
                     <p style={sectionSubSt}>What makes up your {fmt(data.fixed_monthly_outflows)}/month in fixed outflows</p>
                     {loan_breakdown.length === 0 ? (
@@ -200,7 +210,7 @@ export default function CashFlowPage() {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {loan_breakdown.map(loan => (
-                                <div key={loan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border-subtle)' }}>
+                                <div key={loan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
                                     <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{loan.name}</span>
                                     <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(loan.emi)}/mo</span>
                                 </div>
@@ -216,7 +226,7 @@ export default function CashFlowPage() {
                 </Card>
 
                 {/* ── ASSUMPTIONS (COLLAPSIBLE) ── */}
-                <Card padding={0}>
+                <Card padding={0} style={glassTileStyle}>
                     <button
                         onClick={() => setAssumptionsOpen(o => !o)}
                         style={{
