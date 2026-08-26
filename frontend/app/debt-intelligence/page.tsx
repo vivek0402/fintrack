@@ -19,17 +19,25 @@ import { toast } from '@/store/toastStore';
 import { Loan, AmortizationEntry, AmortizationSummary, LoanPrepayment, LOAN_TYPES, LOAN_TYPE_LABELS } from '@/types/loans';
 import { fmt } from '@/lib/utils';
 
-const CumulativeInterestChart = dynamic(() => import('@/components/debt-intelligence/CumulativeInterestChart').then(m => m.CumulativeInterestChart), { ssr: false, loading: () => <div style={{ height: 160, background: 'var(--bg-surface-2)', borderRadius: 8 }} /> });
+const CumulativeInterestChart = dynamic(() => import('@/components/debt-intelligence/CumulativeInterestChart').then(m => m.CumulativeInterestChart), { ssr: false, loading: () => <div className="glass-field" style={{ height: 160, borderRadius: 8 }} /> });
 
 const today = () => new Date().toISOString().split('T')[0];
 const PAGE_SIZE = 12;
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const noteSt: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
+// Card/StatTile take a style override, not a className — this is the .glass-surface
+// recipe inlined so their many callers below can opt in without touching the components.
+const glassTileStyle: React.CSSProperties = {
+    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+    boxShadow: 'var(--glass-edge)',
+};
 
 const TABS = [
     { key: 'overview', label: 'Overview' },
@@ -483,7 +491,7 @@ function DebtIntelligencePageInner() {
                         <>
                             {/* ── DEBT-TO-INCOME ── */}
                             {dti && (
-                                <Card>
+                                <Card style={glassTileStyle}>
                                     <p style={sectionTitleSt}><Gauge size={16} /> Debt-to-Income Ratio</p>
                                     <p style={sectionSubSt}>Based on your average monthly income over the last 3 months</p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
@@ -498,7 +506,7 @@ function DebtIntelligencePageInner() {
                                         />
                                     </div>
                                     {(dti.breakdown_loans.length > 0 || dti.breakdown_cards.length > 0) && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--glass-border)' }}>
                                             {dti.breakdown_loans.map(l => (
                                                 <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                     <span>{l.name} (EMI)</span>
@@ -518,7 +526,7 @@ function DebtIntelligencePageInner() {
 
                             {/* ── CREDIT UTILIZATION ── */}
                             {utilization && (
-                                <Card>
+                                <Card style={glassTileStyle}>
                                     <p style={sectionTitleSt}><CreditCard size={16} /> Credit Utilization</p>
                                     <p style={sectionSubSt}>Keeping utilization under 30% helps your credit profile</p>
                                     {utilization.per_card.length === 0 ? (
@@ -566,7 +574,7 @@ function DebtIntelligencePageInner() {
                             )}
 
                             {/* ── PAYOFF OPTIMIZER ── */}
-                            <Card>
+                            <Card style={glassTileStyle}>
                                 <p style={sectionTitleSt}><TrendingDown size={16} /> Payoff Optimizer</p>
                                 <p style={sectionSubSt}>Compare avalanche (highest interest first) vs snowball (smallest balance first) strategies</p>
 
@@ -601,7 +609,7 @@ function DebtIntelligencePageInner() {
                                                 </div>
 
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
+                                                    <div className="glass-field" style={{ borderRadius: 'var(--radius-lg)', padding: '14px' }}>
                                                         <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Mountain size={14} /> Avalanche</p>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.avalanche.months}</span></div>
@@ -609,7 +617,7 @@ function DebtIntelligencePageInner() {
                                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.avalanche.interest_saved)}</span></div>
                                                         </div>
                                                         {payoff.avalanche.payoff_sequence.length > 0 && (
-                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {payoff.avalanche.payoff_sequence.map(p => (
                                                                     <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                                         <span>{p.name}</span>
@@ -620,7 +628,7 @@ function DebtIntelligencePageInner() {
                                                         )}
                                                     </div>
 
-                                                    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px', background: 'var(--bg-surface-2)' }}>
+                                                    <div className="glass-field" style={{ borderRadius: 'var(--radius-lg)', padding: '14px' }}>
                                                         <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Snowflake size={14} /> Snowball</p>
                                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.snowball.months}</span></div>
@@ -628,7 +636,7 @@ function DebtIntelligencePageInner() {
                                                             <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.snowball.interest_saved)}</span></div>
                                                         </div>
                                                         {payoff.snowball.payoff_sequence.length > 0 && (
-                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {payoff.snowball.payoff_sequence.map(p => (
                                                                     <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                                         <span>{p.name}</span>
@@ -653,7 +661,7 @@ function DebtIntelligencePageInner() {
                             </Card>
 
                             {/* ── PREPAYMENT IMPACT CALCULATOR ── */}
-                            <Card>
+                            <Card style={glassTileStyle}>
                                 <p style={sectionTitleSt}><Calculator size={16} /> Prepayment Impact Calculator</p>
                                 <p style={sectionSubSt}>See how a one-time lump-sum prepayment affects your loan tenure and interest</p>
 
@@ -728,10 +736,10 @@ function DebtIntelligencePageInner() {
                                 [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
                             ) : (
                                 <>
-                                    <StatTile label="Total Outstanding" value={fmt(totalOutstanding)} icon={<Wallet size={16} />} />
-                                    <StatTile label="Monthly EMI Burden" value={fmt(monthlyEMIBurden)} icon={<Landmark size={16} />} />
-                                    <StatTile label="Avg. Interest Rate" value={`${avgInterestRate.toFixed(2)}%`} icon={<Percent size={16} />} />
-                                    <StatTile label="Active Loans" value={String(activeLoans.length)} icon={<Layers size={16} />} />
+                                    <StatTile label="Total Outstanding" value={fmt(totalOutstanding)} icon={<Wallet size={16} />} style={glassTileStyle} />
+                                    <StatTile label="Monthly EMI Burden" value={fmt(monthlyEMIBurden)} icon={<Landmark size={16} />} style={glassTileStyle} />
+                                    <StatTile label="Avg. Interest Rate" value={`${avgInterestRate.toFixed(2)}%`} icon={<Percent size={16} />} style={glassTileStyle} />
+                                    <StatTile label="Active Loans" value={String(activeLoans.length)} icon={<Layers size={16} />} style={glassTileStyle} />
                                 </>
                             )}
                         </div>
@@ -767,7 +775,7 @@ function DebtIntelligencePageInner() {
                                     const loanPrepayments = prepayments[loan.id] || [];
 
                                     return (
-                                        <Card key={loan.id} padding={0}>
+                                        <Card key={loan.id} padding={0} style={glassTileStyle}>
                                             {/* Collapsed header */}
                                             <div onClick={() => toggleExpand(loan.id)}
                                                 role="button" tabIndex={0} aria-expanded={isExpanded}
@@ -784,12 +792,12 @@ function DebtIntelligencePageInner() {
                                                         )}
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                                        <button type="button" onClick={e => { e.stopPropagation(); openEdit(loan); }} title="Edit loan"
-                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                                                        <button type="button" onClick={e => { e.stopPropagation(); openEdit(loan); }} title="Edit loan" className="glass-field"
+                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}>
                                                             <Pencil size={14} />
                                                         </button>
-                                                        <button type="button" onClick={e => { e.stopPropagation(); handleMarkRepaid(loan); }} title="Mark as repaid"
-                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--color-inc)', cursor: 'pointer' }}>
+                                                        <button type="button" onClick={e => { e.stopPropagation(); handleMarkRepaid(loan); }} title="Mark as repaid" className="glass-field"
+                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--color-inc)', cursor: 'pointer' }}>
                                                             <CheckCircle size={14} />
                                                         </button>
                                                         <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -828,7 +836,7 @@ function DebtIntelligencePageInner() {
 
                                             {/* Expanded section */}
                                             {isExpanded && (
-                                                <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '16px' }}>
+                                                <div style={{ borderTop: '1px solid var(--glass-border)', padding: '16px' }}>
                                                     {amortLoading[loan.id] ? (
                                                         <SkeletonCard height={160} />
                                                     ) : !data ? (
@@ -844,7 +852,7 @@ function DebtIntelligencePageInner() {
                                                             </div>
 
                                                             {/* Summary row */}
-                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px', background: 'var(--bg-surface-2)', borderRadius: 10 }}>
+                                                            <div className="glass-field" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px', borderRadius: 10 }}>
                                                                 <div>
                                                                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Total Interest</p>
                                                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{fmt(data.summary.total_interest)}</p>
@@ -865,7 +873,7 @@ function DebtIntelligencePageInner() {
                                                                 <div style={{ overflowX: 'auto' }}>
                                                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                                         <thead>
-                                                                            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                                                            <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                                                                                 {['#', 'Opening', 'EMI', 'Interest', 'Principal', 'Closing'].map(h => (
                                                                                     <th key={h} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                                                                                 ))}
@@ -873,7 +881,7 @@ function DebtIntelligencePageInner() {
                                                                         </thead>
                                                                         <tbody>
                                                                             {pageRows.map(row => (
-                                                                                <tr key={row.month} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                                                                <tr key={row.month} style={{ borderBottom: '1px solid var(--glass-border)' }}>
                                                                                     <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{row.month}</td>
                                                                                     <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.opening_balance)}</td>
                                                                                     <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.emi)}</td>
@@ -887,13 +895,13 @@ function DebtIntelligencePageInner() {
                                                                 </div>
                                                                 {totalPages > 1 && (
                                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '10px' }}>
-                                                                        <button type="button" disabled={page === 0} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.max(0, page - 1) }))}
-                                                                            style={{ padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+                                                                        <button type="button" disabled={page === 0} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.max(0, page - 1) }))} className="glass-field"
+                                                                            style={{ padding: '6px 12px', borderRadius: 8, color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
                                                                             Previous
                                                                         </button>
                                                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Page {page + 1} of {totalPages}</span>
-                                                                        <button type="button" disabled={page >= totalPages - 1} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.min(totalPages - 1, page + 1) }))}
-                                                                            style={{ padding: '6px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, color: page >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
+                                                                        <button type="button" disabled={page >= totalPages - 1} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.min(totalPages - 1, page + 1) }))} className="glass-field"
+                                                                            style={{ padding: '6px 12px', borderRadius: 8, color: page >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
                                                                             Next
                                                                         </button>
                                                                     </div>
@@ -913,7 +921,7 @@ function DebtIntelligencePageInner() {
                                                                 ) : (
                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                                         {loanPrepayments.map(p => (
-                                                                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-surface-2)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)' }}>
+                                                                            <div key={p.id} className="glass-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)' }}>
                                                                                 <span style={{ color: 'var(--text-secondary)' }}>{new Date(p.prepayment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                                                                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(p.amount)}</span>
                                                                                 <span style={{ color: 'var(--color-inc)' }}>{p.months_saved} mo saved</span>
@@ -940,7 +948,7 @@ function DebtIntelligencePageInner() {
             <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddErrors({}); }} title="Add Loan" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setAddErrors({}); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => { setShowAdd(false); setAddErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="add-loan-form" disabled={addLoading} style={{ padding: 10, background: addLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: addLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {addLoading ? 'Adding…' : 'Add Loan'}
                         </button>
@@ -1014,7 +1022,7 @@ function DebtIntelligencePageInner() {
             <Modal isOpen={!!editLoan} onClose={() => setEditLoan(null)} title={editLoan ? `Edit ${editLoan.name}` : 'Edit Loan'} maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setEditLoan(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => setEditLoan(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="edit-loan-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {editLoading ? 'Saving…' : 'Save'}
                         </button>
@@ -1058,7 +1066,7 @@ function DebtIntelligencePageInner() {
             <Modal isOpen={!!logPrepayLoanId} onClose={() => setLogPrepayLoanId(null)} title="Log Prepayment" maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setLogPrepayLoanId(null)} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                        <button type="button" onClick={() => setLogPrepayLoanId(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                         <button type="submit" form="prepayment-form" disabled={logPrepayLoading} style={{ padding: 10, background: logPrepayLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: logPrepayLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                             {logPrepayLoading ? 'Saving…' : 'Log Prepayment'}
                         </button>
