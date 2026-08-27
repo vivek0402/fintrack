@@ -148,14 +148,31 @@ describe('POST /api/transactions', () => {
 });
 
 describe('PUT /api/transactions/:id — credit_card_id', () => {
+    // The handler runs its UPDATE through a transactional client (pool.connect()),
+    // not the plain pool — added in 9ce4a77 to keep the goal-contribution
+    // reconciliation atomic with the transaction update. Without mocking
+    // pool.connect(), client.query('BEGIN') throws on an undefined client.
+    function mockClient(queryImpl) {
+        return { query: jest.fn(queryImpl), release: jest.fn() };
+    }
+
     afterEach(() => {
         pool.query.mockReset();
+        pool.connect.mockReset();
     });
 
     test('clears credit_card_id when payment_method moves away from Credit Card', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [{ id: 1 }] })       // ownership check
-            .mockResolvedValueOnce({ rows: [{ id: 1, payment_method: 'Cash', credit_card_id: null }] }); // UPDATE ... RETURNING *
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // ownership check
+        let updateParams;
+        const client = mockClient(async (sql, params) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.startsWith('UPDATE transactions')) {
+                updateParams = params;
+                return { rows: [{ id: 1, payment_method: 'Cash', credit_card_id: null }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
 
         const res = await request(buildApp())
             .put('/api/transactions/1')
@@ -164,21 +181,27 @@ describe('PUT /api/transactions/:id — credit_card_id', () => {
         expect(res.status).toBe(200);
         // clearCreditCardId (param index 11, 0-based) must be true so the SQL's
         // CASE WHEN sets credit_card_id = NULL regardless of any stale value.
-        const [, updateParams] = pool.query.mock.calls[1];
         expect(updateParams[11]).toBe(true);
     });
 
     test('does not touch credit_card_id when payment_method is unrelated to the update', async () => {
-        pool.query
-            .mockResolvedValueOnce({ rows: [{ id: 1 }] })
-            .mockResolvedValueOnce({ rows: [{ id: 1 }] });
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // ownership check
+        let updateParams;
+        const client = mockClient(async (sql, params) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.startsWith('UPDATE transactions')) {
+                updateParams = params;
+                return { rows: [{ id: 1 }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
 
         const res = await request(buildApp())
             .put('/api/transactions/1')
             .send({ amount: 75 });
 
         expect(res.status).toBe(200);
-        const [, updateParams] = pool.query.mock.calls[1];
         expect(updateParams[11]).toBe(false); // clearCreditCardId false -> COALESCE keeps existing value
     });
 });
