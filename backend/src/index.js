@@ -41,7 +41,22 @@ const app = express();
 async function runMigrations() {
     const migrationsDir = path.join(__dirname, 'db', 'migrations');
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+
+    // Skip files already applied — avoids re-executing all migrations (catalog
+    // IO on every CREATE ... IF NOT EXISTS) on every single server boot.
+    let applied = new Set();
+    try {
+        const { rows } = await pool.query(
+            `SELECT filename FROM schema_migrations_log WHERE status = 'success'`
+        );
+        applied = new Set(rows.map(r => r.filename));
+    } catch { /* log table absent on a fresh DB — treat everything as pending */ }
+
     for (const file of files) {
+        if (applied.has(file)) {
+            console.log(`⏭️  Skipping already-applied migration: ${file}`);
+            continue;
+        }
         const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
         try {
             await pool.query(sql);
