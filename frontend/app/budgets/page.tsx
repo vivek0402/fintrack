@@ -879,26 +879,35 @@ function BudgetsPageInner() {
         return () => window.removeEventListener('resize', onResize);
     }, []);
 
+    // Hand-rolled sheet/dialog (not the shared Modal), so the glass-sheet recipe
+    // is inlined here -- same approach as the Accounts page's own modals.
+    const otGlassSheet: React.CSSProperties = {
+        background: 'var(--glass-sheet-surface)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
+        boxShadow: 'var(--glass-edge)',
+    };
+
     const otModalStyle: React.CSSProperties = otIsMobile ? {
         position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'var(--bg-surface-1)',
+        ...otGlassSheet,
         borderRadius: '20px 20px 0 0',
-        borderTop: '1px solid var(--border-subtle)',
+        borderTop: '1px solid var(--glass-border)',
         padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
         zIndex: 10000, maxHeight: '92vh', overflowY: 'auto',
     } : {
         position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        background: 'var(--bg-surface-1)',
+        ...otGlassSheet,
         borderRadius: '16px',
-        border: '1px solid var(--border-subtle)',
+        border: '1px solid var(--glass-border)',
         padding: '28px', zIndex: 10000,
         width: '480px', maxHeight: '90vh', overflowY: 'auto',
     };
 
     const otInputStyle: React.CSSProperties = {
-        width: '100%', background: 'var(--bg-surface-2)',
-        border: '1px solid var(--border-subtle)', borderRadius: '8px',
+        width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+        border: '1px solid var(--glass-border)', borderRadius: '8px',
         padding: '10px 12px', color: 'var(--text-primary)',
         fontSize: '14px', outline: 'none', boxSizing: 'border-box',
     };
@@ -1669,7 +1678,7 @@ function BudgetsPageInner() {
                 {tab === 'one-time' && (
                     <>
                         {/* Header */}
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -1699,7 +1708,7 @@ function BudgetsPageInner() {
                                 { label: 'THIS YEAR',   value: otFmt(otThisYear),   color: 'var(--accent)'   },
                                 { label: 'ENTRIES',     value: String(otExpenses.length), color: 'var(--text-primary)' },
                             ].map(tile => (
-                                <div key={tile.label} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '14px 16px' }}>
+                                <div key={tile.label} className="glass-surface" style={{ borderRadius: 12, padding: '14px 16px' }}>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', margin: '0 0 6px', fontWeight: 600 }}>{tile.label}</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: tile.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{tile.value}</p>
                                 </div>
@@ -1737,7 +1746,7 @@ function BudgetsPageInner() {
                                 };
                                 const fieldInput: React.CSSProperties = {
                                     width: '100%', height: 36, borderRadius: 8,
-                                    border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)',
+                                    border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
                                     color: 'var(--text-primary)', fontSize: 13, padding: '0 10px',
                                     outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                                 };
@@ -1745,9 +1754,9 @@ function BudgetsPageInner() {
                                 return (
                                     <div
                                         key={exp.id}
+                                        className="glass-surface"
                                         style={{
-                                            background: 'var(--bg-surface-1)',
-                                            border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--accent) 40%, transparent)' : 'var(--border-subtle)'}`,
+                                            border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--accent) 40%, transparent)' : 'var(--glass-border)'}`,
                                             borderRadius: 14, marginBottom: 12, overflow: 'hidden',
                                             transition: 'border-color 0.15s',
                                         }}
@@ -1790,7 +1799,8 @@ function BudgetsPageInner() {
                                                         onClick={e => otOpenEditExpense(exp, e)}
                                                         title="Edit"
                                                         aria-label={`Edit ${exp.title}`}
-                                                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
+                                                        className="glass-field"
+                                                        style={{ width: 30, height: 30, borderRadius: 8, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
                                                     >✏️</button>
                                                     <button
                                                         type="button"
@@ -1807,7 +1817,7 @@ function BudgetsPageInner() {
                                         {isExpanded && (
                                             <>
                                                 {/* Divider */}
-                                                <div style={{ height: 1, background: 'var(--border-subtle)' }} />
+                                                <div style={{ height: 1, background: 'var(--glass-border)' }} />
 
                                                 <div style={{ padding: '0 20px 4px' }}>
 
@@ -1815,7 +1825,7 @@ function BudgetsPageInner() {
                                                     {exp.items.length > 0 && (
                                                         <div style={{ overflowX: 'auto' }}>
                                                             {/* Table header */}
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', minWidth: 460 }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--glass-border)', minWidth: 460 }}>
                                                                 <span>Date</span>
                                                                 <span>What</span>
                                                                 <span>How Paid</span>
@@ -1825,7 +1835,7 @@ function BudgetsPageInner() {
 
                                                             {/* Item rows */}
                                                             {exp.items.map(item => (
-                                                                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--border-subtle)', minWidth: 460 }}>
+                                                                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', minWidth: 460 }}>
                                                                     {/* Date */}
                                                                     <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
                                                                         {new Date((item.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
@@ -1836,7 +1846,7 @@ function BudgetsPageInner() {
                                                                             {item.description}
                                                                         </span>
                                                                         {item.category && item.category !== 'Other' && (
-                                                                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-surface-3)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                                            <span className="glass-field" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, color: 'var(--text-secondary)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
                                                                                 {item.category}
                                                                             </span>
                                                                         )}
@@ -1875,7 +1885,7 @@ function BudgetsPageInner() {
                                                             ))}
 
                                                             {/* Total row */}
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--border-subtle)' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--glass-border)' }}>
                                                                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Total spent</span>
                                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{otFmt(Number(exp.total_amount))}</span>
                                                             </div>
@@ -1896,7 +1906,7 @@ function BudgetsPageInner() {
 
                                                     {/* Expanded add item form */}
                                                     {isAddingItem && (
-                                                        <div style={{ background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                                                        <div className="glass-field" style={{ borderRadius: 10, padding: 16, marginBottom: 12 }}>
 
                                                             {/* Row 1: description */}
                                                             <div style={{ marginBottom: 12 }}>
@@ -1998,7 +2008,7 @@ function BudgetsPageInner() {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => { setOtAddingItemFor(null); setOtEditingItem(null); setOtItemForm(otEmptyItemForm()); }}
-                                                                    style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                                                    style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--glass-border)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
                                                                 >
                                                                     Cancel
                                                                 </button>
@@ -2026,7 +2036,7 @@ function BudgetsPageInner() {
                         {otDeleteConfirm && otMounted && createPortal(
                             <>
                                 <div onClick={() => setOtDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
-                                <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-surface-1)', borderRadius: 14, border: '1px solid var(--border-subtle)', padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
+                                <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: 14, padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
                                     <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>
                                         Delete {otDeleteConfirm.title}?
                                     </p>
@@ -2036,7 +2046,7 @@ function BudgetsPageInner() {
                                             : 'This action cannot be undone.'}
                                     </p>
                                     <div style={{ display: 'flex', gap: 10 }}>
-                                        <button onClick={() => setOtDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+                                        <button onClick={() => setOtDeleteConfirm(null)} className="glass-field" style={{ flex: 1, border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
                                         <button onClick={() => otHandleDeleteExpense(otDeleteConfirm)} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>Delete</button>
                                     </div>
                                 </div>
@@ -2047,7 +2057,7 @@ function BudgetsPageInner() {
                         {/* Add/Edit modal */}
                         {otShowModal && otMounted && createPortal(
                             <div onClick={e => e.stopPropagation()} style={otModalStyle}>
-                                {otIsMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border-subtle)', margin: '0 auto 16px' }} />}
+                                {otIsMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--glass-border)', margin: '0 auto 16px' }} />}
                                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>
                                     {otEditingExp ? 'Edit Expense' : 'New One-Time Expense'}
                                 </h2>
@@ -2092,7 +2102,7 @@ function BudgetsPageInner() {
                                         </div>
 
                                         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                                            <button type="button" onClick={() => setOtShowModal(false)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
+                                            <button type="button" onClick={() => setOtShowModal(false)} className="glass-field" style={{ flex: 1, border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
                                             <button type="submit" disabled={otSavingExp} style={{ flex: 2, background: otSavingExp ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: otSavingExp ? 'not-allowed' : 'pointer' }}>
                                                 {otSavingExp ? 'Saving…' : otEditingExp ? 'Save Changes' : 'Create Expense'}
                                             </button>
