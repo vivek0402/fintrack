@@ -134,7 +134,7 @@ export function TransactionsTopBar({
 
                 {/* ── Income / expense chips ── */}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)' }}>
                         <TrendingUp size={13} color="var(--color-inc)" style={{ flexShrink: 0 }} />
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalIncome)}</span>
                         {incomeDelta !== null && (
@@ -143,7 +143,7 @@ export function TransactionsTopBar({
                             </span>
                         )}
                     </div>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'var(--bg-surface-2)', borderRadius: 'var(--radius-md)' }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)' }}>
                         <TrendingDown size={13} color="var(--color-exp)" style={{ flexShrink: 0 }} />
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalExpense)}</span>
                         {expenseDelta !== null && (
@@ -168,7 +168,7 @@ export function TransactionsTopBar({
                             const active = selectedMonth === m && selectedYear === now.getFullYear();
                             return (
                                 <button key={m} type="button" onClick={() => { onPickMonth(m, now.getFullYear()); setMonthSheetOpen(false); }}
-                                    style={{ padding: '10px 6px', background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: active ? 600 : 400, fontFamily: 'var(--font-body)' }}>
+                                    style={{ padding: '10px 6px', background: active ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', cursor: 'pointer', color: active ? 'var(--accent)' : 'var(--text-secondary)', fontSize: '13px', fontWeight: active ? 600 : 400, fontFamily: 'var(--font-body)' }}>
                                     {MONTH_NAMES[m - 1].slice(0, 3)}
                                 </button>
                             );

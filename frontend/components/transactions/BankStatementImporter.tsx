@@ -30,7 +30,7 @@ interface BankStatementImporterProps {
 }
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8,
+    width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8,
     padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
 const labelSt: React.CSSProperties = {
@@ -155,7 +155,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'border-color 150ms ease',
-                        background: dragOver ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
+                        background: dragOver ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
                     }}
                 >
                     <Upload size={28} style={{ margin: '0 auto 10px', color: 'var(--text-muted)' }} />
@@ -193,7 +193,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
                             {history.map(job => {
                                 const status = statusColors[job.status?.toLowerCase()] || statusColors.pending;
                                 return (
-                                    <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
+                                    <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--border-subtle)', borderRadius: 8 }}>
                                         <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
                                             {job.bank_name || job.bank || 'Unknown bank'}
                                         </span>
@@ -240,7 +240,7 @@ export function BankStatementImporter({ onClose, onSuccess }: BankStatementImpor
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '360px', overflowY: 'auto' }}>
                     {editableTransactions.map((t, idx) => (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px', background: 'var(--bg-surface-2)', border: `1px solid ${t.possible_duplicate ? 'color-mix(in srgb, #f59e0b 40%, var(--border-subtle))' : 'var(--border-subtle)'}`, borderRadius: 8 }}>
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: `1px solid ${t.possible_duplicate ? 'color-mix(in srgb, #f59e0b 40%, var(--border-subtle))' : 'var(--border-subtle)'}`, borderRadius: 8 }}>
                             {t.possible_duplicate && (
                                 <span style={{ fontSize: 10, fontWeight: 600, color: '#f59e0b', fontFamily: 'var(--font-body)' }}>
                                     Possible duplicate — matches an existing transaction

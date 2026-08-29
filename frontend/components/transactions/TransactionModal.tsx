@@ -43,8 +43,8 @@ function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; o
     return (
         <div
             onClick={onSelect}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'var(--bg-surface-3)' : 'transparent', transition: 'background 0.1s' }}
-            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : 'transparent', transition: 'background 0.1s' }}
+            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
             onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
             <CategoryIcon name={cat.icon} size={14} color={cat.color} />
@@ -507,7 +507,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         const active = form.date === q.value;
                         return (
                             <button key={q.value} type="button" onClick={() => pickDate(q.value)}
-                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
                                 {q.label}
                             </button>
                         );
@@ -517,10 +517,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <button type="button" aria-label="Previous month" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
+                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
                         <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
                         <button type="button" aria-label="Next month" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
+                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
                         {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
@@ -536,7 +536,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             return (
                                 <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
                                     style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
-                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--bg-surface-3)'; }}
+                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                                     onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
                                 >{cell.day}</div>
                             );
@@ -602,7 +602,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <button type="button" onClick={() => { dupBypassRef.current = true; setDupWarning(null); (document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit?.(); }}
                             style={{ padding: '5px 12px', background: 'var(--color-warn)', border: 'none', borderRadius: 6, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Save anyway</button>
                         <button type="button" onClick={() => setDupWarning(null)}
-                            style={{ padding: '5px 12px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
+                            style={{ padding: '5px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
                     </div>
                 </div>
             )}
@@ -620,7 +620,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             {approvingCat ? '…' : 'Add it'}
                         </button>
                         <button type="button" onClick={() => setShowNewCategoryPrompt(false)}
-                            style={{ background: 'var(--bg-surface-1)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                             Skip
                         </button>
                     </div>
@@ -733,7 +733,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                     <ChevronDown size={13} style={{ transform: catDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
                                 </button>
                                 {catDropdownOpen && (
-                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '10px', zIndex: 60, maxHeight: '220px', overflowY: 'auto', boxShadow: 'var(--shadow-card)' }}>
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--glass-sheet-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)', border: '1px solid var(--glass-border)', borderRadius: '10px', zIndex: 60, maxHeight: '220px', overflowY: 'auto' }}>
                                         {sortedCategories.length === 0 ? (
                                             <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading…</div>
                                         ) : (
@@ -766,7 +766,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 style={{ flex: 1, padding: '7px 12px', ...inputBase, fontSize: '0.8rem' }} />
                             <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--glass-border)', borderRadius: '6px', cursor: 'pointer', background: 'none' }} />
                             <button type="button" onClick={handleAddCategory} disabled={addCatLoading || !newCatName.trim()} style={{ padding: '7px 12px', background: 'var(--accent)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '0.8rem', cursor: addCatLoading || !newCatName.trim() ? 'not-allowed' : 'pointer', opacity: addCatLoading || !newCatName.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>{addCatLoading ? '…' : 'Add'}</button>
-                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
+                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
                         </div>
                     )
                 )}
@@ -846,13 +846,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                         onChange={e => handleMfNameChange(e.target.value)}
                                         placeholder="Search fund name, e.g. Axis Bluechip" />
                                     {mfDropdownOpen && (mfLoading || mfResults.length > 0) && (
-                                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '10px', zIndex: 60, maxHeight: '200px', overflowY: 'auto', boxShadow: 'var(--shadow-card)' }}>
+                                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--glass-sheet-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)', border: '1px solid var(--glass-border)', borderRadius: '10px', zIndex: 60, maxHeight: '200px', overflowY: 'auto' }}>
                                             {mfLoading ? (
                                                 <div style={{ padding: '10px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Searching…</div>
                                             ) : mfResults.map(r => (
                                                 <div key={r.schemeCode} onClick={() => handleMfSelect(r)}
                                                     style={{ padding: '9px 14px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}
                                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                                     {r.schemeName}
                                                 </div>

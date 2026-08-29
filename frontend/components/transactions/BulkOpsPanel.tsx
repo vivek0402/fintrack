@@ -216,8 +216,9 @@ export function BulkOpsPanel({
             {/* ── Sticky bulk action bar ── */}
             <div style={{
                 position: 'fixed', bottom: barBottom, left: '50%', transform: 'translateX(-50%)',
-                zIndex: 990, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)',
+                zIndex: 990, background: 'var(--glass-sheet-surface)', border: '1px solid var(--glass-border)',
+                backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
+                borderRadius: 'var(--radius-lg)', boxShadow: 'var(--glass-edge)',
                 padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '6px',
                 maxWidth: 'calc(100vw - 32px)', animation: 'fadeUp 180ms ease both',
             }}>
@@ -266,7 +267,7 @@ export function BulkOpsPanel({
                             ) : categories.map(cat => (
                                 <div key={cat.id} onClick={() => void handleBulkCategorize(String(cat.id))}
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', cursor: 'pointer', borderRadius: '10px', transition: 'background 0.1s' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                                 >
                                     <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || 'var(--text-muted)', display: 'block', flexShrink: 0 }} />
@@ -291,7 +292,7 @@ export function BulkOpsPanel({
                             value={tagInput}
                             onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
                             onKeyDown={e => { if (e.key === 'Enter') void handleBulkTag(); }}
-                            style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '10px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', marginBottom: '16px' }}
+                            style={{ width: '100%', padding: '10px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', marginBottom: '16px' }}
                         />
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                             <button onClick={() => { setBulkTagOpen(false); setTagInput(''); }} style={cancelStyle}>Cancel</button>
@@ -329,7 +330,7 @@ export function BulkOpsPanel({
                     <div onClick={e => e.stopPropagation()} style={{ ...sheetStyle, maxWidth: '540px' }}>
                         <ModalHeader title="Split Transaction" onClose={() => setSplitOpen(false)} />
                         {/* Original amount banner */}
-                        <div style={{ padding: '12px 14px', background: 'var(--bg-surface-2)', borderRadius: '10px', border: '1px solid var(--border-subtle)', marginBottom: '16px' }}>
+                        <div style={{ padding: '12px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '16px' }}>
                             <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Original</p>
                             <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                                 {formatCurrency(splitTotal, currency)} — {splitTx.description}
@@ -343,17 +344,17 @@ export function BulkOpsPanel({
                                     <input type="number" placeholder="Amount" min="0.01" step="any"
                                         value={line.amount}
                                         onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, amount: e.target.value } : l))}
-                                        style={{ width: '96px', flexShrink: 0, padding: '8px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '96px', flexShrink: 0, padding: '8px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                     <input type="text" placeholder="Description"
                                         value={line.description}
                                         onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, description: e.target.value } : l))}
-                                        style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                     <select
                                         value={line.category_id}
                                         onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, category_id: e.target.value } : l))}
-                                        style={{ width: '110px', flexShrink: 0, padding: '8px 8px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontSize: '12px', color: line.category_id ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
+                                        style={{ width: '110px', flexShrink: 0, padding: '8px 8px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '12px', color: line.category_id ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
                                     >
                                         <option value="">Category</option>
                                         {categories.map(cat => <option key={cat.id} value={String(cat.id)}>{cat.name}</option>)}
@@ -368,7 +369,7 @@ export function BulkOpsPanel({
                             ))}
                         </div>
                         {/* Sum validation row */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '8px 12px', background: 'var(--bg-surface-2)', borderRadius: '8px', border: `1px solid ${splitValid ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'var(--border-subtle)'}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: '8px', border: `1px solid ${splitValid ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'var(--border-subtle)'}` }}>
                             <span style={{ fontSize: '13px', fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}>
                                 Sum:&nbsp;
                                 <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: splitValid ? 'var(--color-inc)' : splitSum > splitTotal ? 'var(--color-exp)' : 'var(--text-primary)' }}>
@@ -416,7 +417,7 @@ function ModalHeader({ title, onClose }: { title: string; onClose: () => void })
 
 const barBtnStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px',
-    borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-2)',
+    borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
     color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500,
     cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0, whiteSpace: 'nowrap',
 };
@@ -428,16 +429,17 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const sheetStyle: React.CSSProperties = {
-    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
+    background: 'var(--glass-sheet-surface)', border: '1px solid var(--glass-border)',
+    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
     borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%',
-    maxWidth: '460px', boxShadow: 'var(--shadow-modal)',
+    maxWidth: '460px', boxShadow: 'var(--glass-edge)',
     animation: 'springIn 320ms cubic-bezier(0.34,1.56,0.64,1) both',
     maxHeight: '85vh', overflowY: 'auto',
 };
 
 const cancelStyle: React.CSSProperties = {
-    padding: '9px 18px', borderRadius: '10px', border: '1px solid var(--border-subtle)',
-    background: 'var(--bg-surface-2)', color: 'var(--text-secondary)',
+    padding: '9px 18px', borderRadius: '10px', border: '1px solid var(--glass-border)',
+    background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-secondary)',
     fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
 };
 

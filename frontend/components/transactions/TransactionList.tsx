@@ -142,8 +142,8 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 display: 'flex',
                                 alignItems: 'center',
                                 padding: '12px 16px',
-                                borderBottom: '1px solid var(--border-subtle)',
-                                background: isSelected ? 'var(--bg-surface-2)' : 'transparent',
+                                borderBottom: '1px solid var(--glass-border)',
+                                background: isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                                 minHeight: '64px',
                                 cursor: 'pointer',
                                 transition: 'background var(--transition-fast)',
@@ -229,14 +229,14 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                 onKeyDown={selectMode ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleSelect?.(tx.id); } }) : undefined}
                                 style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--border-subtle)',
+                                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--glass-border)',
                                     borderLeft: `3px solid ${isSelected ? 'var(--accent)' : categoryColor}`,
                                     gap: '12px', transition: 'background var(--transition-fast)',
-                                    background: isSelected ? 'var(--bg-surface-2)' : 'transparent',
+                                    background: isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                                     cursor: selectMode ? 'pointer' : 'default',
                                 }}
-                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
-                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'var(--bg-surface-2)' : 'transparent'; }}
+                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent'; }}
                             >
                                 {selectMode && (
                                     <div style={{
@@ -290,7 +290,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                                         {deletingId === tx.id ? '...' : 'Delete'}
                                                     </button>
                                                     <button onClick={() => setConfirmId(null)}
-                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         Cancel
                                                     </button>
                                                 </div>
