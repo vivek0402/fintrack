@@ -85,7 +85,7 @@ function SectionHead({ title, total, totalColor, onAdd }: { title: string; total
 // ── Shared modal style helpers ────────────────────────────────────────────────
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
+    width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)',
     borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14,
     outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
@@ -95,12 +95,13 @@ const labelSt: React.CSSProperties = {
 };
 const outlineBtn: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
-    background: 'transparent', border: '1px solid var(--border-subtle)',
+    background: 'transparent', border: '1px solid var(--glass-border)',
     borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)',
     fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
     transition: 'all var(--transition-fast)',
 };
 const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' };
+const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -269,8 +270,7 @@ export default function AccountsPage() {
                 )}
 
                 {/* ── NET WORTH HEADER ── */}
-                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, background: 'var(--bg-glow)', borderRadius: '50%', pointerEvents: 'none', opacity: 0.4 }} />
+                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Net Worth</p>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '32px' : '2.5rem', fontWeight: 800, color: netWorth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: '20px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
@@ -296,8 +296,8 @@ export default function AccountsPage() {
                     <SectionHead title="Bank Accounts" total={fmt(totalBanks)} totalColor="var(--color-inc)" onAdd={openAddBank} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {dataLoading ? [1, 2].map(i => (
-                            <div key={i} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div style={{ background: 'var(--bg-surface-2)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div className="glass-field" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                         <Skeleton width="120px" height={14} borderRadius={4} />
                                         <Skeleton width="80px" height={11} borderRadius={4} />
@@ -307,7 +307,7 @@ export default function AccountsPage() {
                                 <div style={{ padding: '10px 16px' }}><Skeleton width="120px" height={10} borderRadius={4} /></div>
                             </div>
                         )) : banks.map(b => (
-                            <div key={b.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                            <div key={b.id} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                 {/* Coloured band */}
                                 <div style={{ background: b.color || 'var(--accent)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
@@ -324,7 +324,7 @@ export default function AccountsPage() {
                                     </p>
                                 </div>
                                 {/* Action row */}
-                                <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--border-subtle)' }}>
+                                <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--glass-border)' }}>
                                     <button type="button" onClick={() => router.push('/transactions')} style={outlineBtn}>History</button>
                                     <button type="button" onClick={() => openEditBank(b)} style={outlineBtn}><Pencil size={12} /> Edit</button>
                                     {!b.is_default && (
@@ -354,8 +354,8 @@ export default function AccountsPage() {
                     <SectionHead title="Credit Cards" total={fmt(totalCards)} totalColor="var(--color-exp)" onAdd={openAddCard} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {dataLoading ? [1, 2].map(i => (
-                            <div key={i} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div style={{ background: 'var(--bg-surface-2)', padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div className="glass-field" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
                                     <Skeleton width="120px" height={14} borderRadius={4} />
                                     <Skeleton width={70} height={20} borderRadius={4} />
                                 </div>
@@ -369,7 +369,7 @@ export default function AccountsPage() {
                             const dueLabel  = dueDays === null ? null : dueDays < 0 ? 'Overdue' : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`;
 
                             return (
-                                <div key={c.id} style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                <div key={c.id} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                     {/* Coloured panel */}
                                     <div style={{ background: c.color, padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                         <div>
@@ -448,9 +448,9 @@ export default function AccountsPage() {
                     <SectionHead title="Wallets & UPI" total={fmt(totalWallets)} totalColor="var(--color-inc)" onAdd={openAddWallet} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         {dataLoading ? [1, 2, 3, 4].map(i => (
-                            <div key={i} style={{ background: 'var(--bg-surface-2)', border: '1.5px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
+                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
                         )) : wallets.map(w => (
-                            <GCard key={w.id} padding="var(--space-4)">
+                            <GCard key={w.id} padding="var(--space-4)" style={glassTileStyle}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                                     <span style={{ fontSize: '24px', lineHeight: 1 }}>{w.emoji}</span>
                                     <div style={{ display: 'flex', gap: '2px' }}>
@@ -464,7 +464,7 @@ export default function AccountsPage() {
                                         onChange={e => setWalletBalanceInput(e.target.value)}
                                         onBlur={() => saveWalletBalance(w)}
                                         onKeyDown={e => { if (e.key === 'Enter') saveWalletBalance(w); if (e.key === 'Escape') setEditingWalletBalanceId(null); }}
-                                        style={{ width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 ) : (
                                     <p onClick={() => startWalletBalanceEdit(w)} title="Tap to edit"
@@ -492,10 +492,10 @@ export default function AccountsPage() {
             {/* Bank Account Modal */}
             {showBankModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowBankModal(false)}>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingBank ? 'Edit Account' : 'Add Bank Account'}</span>
-                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div><label style={labelSt}>Account Name *</label><input style={inputSt} value={bankForm.name} onChange={e => setBankForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Savings" /></div>
@@ -505,7 +505,7 @@ export default function AccountsPage() {
                             <div><label style={labelSt}>Balance As Of (optional)</label><input style={inputSt} type="date" value={bankForm.balance_as_of} onChange={e => setBankForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
                         </div>
                         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowBankModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={() => setShowBankModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                             <button type="button" onClick={saveBank} disabled={saving || !bankForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingBank ? 'Save Changes' : 'Add Account'}
                             </button>
@@ -518,10 +518,10 @@ export default function AccountsPage() {
             {/* Credit Card Modal */}
             {showCardModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowCardModal(false)}>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingCard ? 'Edit Card' : 'Add Credit Card'}</span>
-                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -555,7 +555,7 @@ export default function AccountsPage() {
                             </div>
                         </div>
                         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowCardModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={() => setShowCardModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                             <button type="button" onClick={saveCard} disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()} style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingCard ? 'Save Changes' : 'Add Card'}
                             </button>
@@ -568,10 +568,10 @@ export default function AccountsPage() {
             {/* Pay Bill Modal */}
             {showPayModal && mounted && payingCard && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowPayModal(false)}>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Pay {payingCard.bank_name} {payingCard.card_name}</span>
-                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
@@ -605,7 +605,7 @@ export default function AccountsPage() {
                             <div><label style={labelSt}>Date</label><input style={inputSt} type="date" value={payForm.date} onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))} /></div>
                         </div>
                         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowPayModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={() => setShowPayModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                             <button type="button" onClick={savePay} disabled={saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0} style={{ flex: 2, padding: 10, background: (saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Recording…' : 'Record Payment'}
                             </button>
@@ -618,10 +618,10 @@ export default function AccountsPage() {
             {/* Wallet Modal */}
             {showWalletModal && mounted && createPortal(
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowWalletModal(false)}>
-                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
+                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingWallet ? 'Edit Wallet' : 'Add Wallet'}</span>
-                            <button type="button" style={{ background: 'var(--bg-surface-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: 8, display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>
@@ -638,7 +638,7 @@ export default function AccountsPage() {
                             <div><label style={labelSt}>Balance (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={walletForm.balance} onChange={e => setWalletForm(f => ({ ...f, balance: e.target.value }))} placeholder="0" /></div>
                         </div>
                         <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowWalletModal(false)} style={{ flex: 1, padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                            <button type="button" onClick={() => setShowWalletModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                             <button type="button" onClick={saveWallet} disabled={saving || !walletForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                 {saving ? 'Saving…' : editingWallet ? 'Save Changes' : 'Add Wallet'}
                             </button>
@@ -652,11 +652,11 @@ export default function AccountsPage() {
             {deleteConfirm && mounted && createPortal(
                 <>
                     <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} />
-                    <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: 28, zIndex: 10000, width: 340, maxWidth: '90vw', boxShadow: 'var(--shadow-modal)' }}>
+                    <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', borderRadius: 'var(--radius-xl)', padding: 28, zIndex: 10000, width: 340, maxWidth: '90vw' }}>
                         <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>Delete {deleteConfirm.name}?</p>
                         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>This action cannot be undone.</p>
                         <div style={{ display: 'flex', gap: 10 }}>
-                            <button type="button" onClick={() => setDeleteConfirm(null)} style={{ flex: 1, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
+                            <button type="button" onClick={() => setDeleteConfirm(null)} className="glass-field" style={{ flex: 1, borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
                             <button type="button" onClick={executeDelete} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Delete</button>
                         </div>
                     </div>
