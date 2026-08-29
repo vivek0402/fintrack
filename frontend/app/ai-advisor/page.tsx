@@ -177,14 +177,12 @@ export default function AiAdvisorPage() {
 
                 {/* ── LEFT PANEL ── */}
                 {(!isMobile || mobileSidebarOpen) && (
-                    <div style={{
+                    <div className="glass-surface" style={{
                         width: isMobile ? '100%' : '280px',
                         flexShrink: 0,
                         position: isMobile ? 'absolute' : 'static',
                         inset: isMobile ? 0 : undefined,
                         zIndex: isMobile ? 10 : undefined,
-                        background: 'var(--bg-surface-1)',
-                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-xl)',
                         padding: '16px',
                         display: 'flex',
@@ -209,14 +207,14 @@ export default function AiAdvisorPage() {
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                                 padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
                                 border: `1px solid color-mix(in srgb, ${FIN_COLOR} 35%, transparent)`,
-                                background: `color-mix(in srgb, ${FIN_COLOR} 10%, var(--bg-surface-1))`,
+                                background: `color-mix(in srgb, ${FIN_COLOR} 10%, transparent)`,
                                 color: 'var(--accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)',
                             }}>
                             <Plus size={15} /> New chat
                         </button>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '4px 0 8px' }} />
+                            <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0 8px' }} />
                             {conversationsLoaded && conversations.length === 0 ? (
                                 <EmptyState
                                     icon={MessageSquare}
@@ -235,7 +233,7 @@ export default function AiAdvisorPage() {
                                             background: active ? 'var(--accent-subtle)' : 'transparent',
                                             width: '100%',
                                         }}
-                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                                         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', minWidth: 0, flex: 1 }}>
                                             <span style={{
@@ -270,9 +268,9 @@ export default function AiAdvisorPage() {
                 )}
 
                 {/* ── RIGHT PANEL ── */}
-                <div style={{
+                <div className="glass-surface" style={{
                     flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-                    background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)',
+                    borderRadius: 'var(--radius-xl)',
                     overflow: 'hidden',
                 }}>
                     <ChatHeader isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
@@ -281,7 +279,7 @@ export default function AiAdvisorPage() {
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '18px', overflowY: 'auto' }}>
                             <div style={{
                                 width: 56, height: 56, borderRadius: '50%',
-                                background: `color-mix(in srgb, ${FIN_COLOR} 12%, var(--bg-surface-1))`,
+                                background: `color-mix(in srgb, ${FIN_COLOR} 12%, transparent)`,
                                 border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
@@ -300,8 +298,8 @@ export default function AiAdvisorPage() {
                                     <button key={q} type="button" onClick={() => handleSend(q)}
                                         style={{
                                             padding: '10px 14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
-                                            border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, var(--border-subtle))`,
-                                            background: `color-mix(in srgb, ${FIN_COLOR} 6%, var(--bg-surface-1))`,
+                                            border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, var(--glass-border))`,
+                                            background: `color-mix(in srgb, ${FIN_COLOR} 6%, transparent)`,
                                             color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)',
                                             transition: 'all var(--transition-fast)',
                                         }}>
@@ -318,7 +316,7 @@ export default function AiAdvisorPage() {
                                         <>
                                             <div style={{
                                                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginBottom: 2,
-                                                background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                                                background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
                                                 border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             }}>
@@ -326,8 +324,8 @@ export default function AiAdvisorPage() {
                                             </div>
                                             <div style={{
                                                 maxWidth: isMobile ? '88%' : '72%', padding: '10px 14px', borderRadius: '15px 15px 15px 4px',
-                                                background: `color-mix(in srgb, ${FIN_COLOR} 8%, var(--bg-surface-1))`,
-                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--border-subtle))`,
+                                                background: `color-mix(in srgb, ${FIN_COLOR} 8%, transparent)`,
+                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--glass-border))`,
                                                 color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6,
                                                 fontFamily: 'var(--font-body)',
                                             }}>
@@ -350,13 +348,13 @@ export default function AiAdvisorPage() {
                                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
                                     <div style={{
                                         width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                                        background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                                        background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
                                         border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
                                         <Sparkles size={14} color={FIN_COLOR} />
                                     </div>
-                                    <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ background: `color-mix(in srgb, ${FIN_COLOR} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--glass-border))`, borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         {[0, 1, 2].map(j => (
                                             <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: FIN_COLOR, animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
                                         ))}
@@ -377,8 +375,8 @@ function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => voi
     return (
         <div style={{
             display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', flexShrink: 0,
-            borderBottom: '1px solid var(--border-subtle)',
-            background: `color-mix(in srgb, ${FIN_COLOR} 6%, var(--bg-surface-1))`,
+            borderBottom: '1px solid var(--glass-border)',
+            background: `color-mix(in srgb, ${FIN_COLOR} 6%, transparent)`,
         }}>
             {isMobile && (
                 <button type="button" onClick={onMenu}
@@ -388,7 +386,7 @@ function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => voi
             )}
             <div style={{
                 width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                background: `color-mix(in srgb, ${FIN_COLOR} 15%, var(--bg-surface-1))`,
+                background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
                 border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
@@ -414,7 +412,7 @@ function ChatInput({ input, setInput, sending, canSend, onSend }: {
     onSend: (text: string) => void;
 }) {
     return (
-        <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-subtle)', padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+        <div style={{ flexShrink: 0, borderTop: '1px solid var(--glass-border)', padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
             <textarea
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -424,13 +422,13 @@ function ChatInput({ input, setInput, sending, canSend, onSend }: {
                 placeholder="Type your message…"
                 rows={1}
                 style={{
-                    flex: 1, padding: '8px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)',
-                    border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
+                    flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)',
+                    border: '1px solid var(--glass-border)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
                     outline: 'none', resize: 'none', lineHeight: 1.5, maxHeight: '120px', overflowY: 'auto',
                     transition: 'border-color var(--transition-fast)',
                 }}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
+                onBlur={e => (e.target.style.borderColor = 'var(--glass-border)')}
             />
             <button type="button" onClick={() => onSend(input)} disabled={!canSend}
                 style={{
