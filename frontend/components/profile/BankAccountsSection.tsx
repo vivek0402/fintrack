@@ -157,9 +157,7 @@ export function BankAccountsSection() {
     const totalBalance = accounts.reduce((s, a) => s + Number(a.current_balance), 0);
 
     return (
-        <div style={{
-            backgroundColor: 'var(--bg-surface-1)',
-            border: '1px solid var(--border-subtle)',
+        <div className="glass-surface" style={{
             borderRadius: '16px',
             padding: '24px',
             marginTop: '24px',
@@ -228,7 +226,7 @@ export function BankAccountsSection() {
             {loading && (
                 <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                     {[1, 2].map(i => (
-                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--border-subtle)', animation: 'pulse 1.5s ease-in-out infinite' }} />
                     ))}
                 </div>
             )}
@@ -272,8 +270,8 @@ export function BankAccountsSection() {
                             <div
                                 key={account.id}
                                 style={{
-                                    backgroundColor: 'var(--bg-surface-2)',
-                                    border: '1px solid var(--border-subtle)',
+                                    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                    border: '1px solid var(--glass-border)',
                                     borderLeft: `3px solid ${account.color}`,
                                     borderRadius: '12px',
                                     padding: '16px',
@@ -317,8 +315,10 @@ export function BankAccountsSection() {
                                                 right: 0,
                                                 top: '100%',
                                                 zIndex: 50,
-                                                backgroundColor: 'var(--bg-surface-1)',
-                                                border: '1px solid var(--border-subtle)',
+                                                backgroundColor: 'var(--glass-sheet-surface)',
+                                                backdropFilter: 'var(--glass-blur)',
+                                                WebkitBackdropFilter: 'var(--glass-blur)',
+                                                border: '1px solid var(--glass-border)',
                                                 borderRadius: '8px',
                                                 padding: '4px',
                                                 minWidth: '140px',
@@ -448,9 +448,7 @@ export function BankAccountsSection() {
                 }}
                     onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
                 >
-                    <div style={{
-                        backgroundColor: 'var(--bg-surface-1)',
-                        border: '1px solid var(--border-subtle)',
+                    <div className="glass-surface glass-sheet" style={{
                         borderRadius: '16px',
                         width: '100%',
                         maxWidth: '440px',
@@ -491,7 +489,7 @@ export function BankAccountsSection() {
                                                 height: '40px',
                                                 borderRadius: '8px',
                                                 border: form.icon === ic ? '2px solid var(--accent)' : '1px solid var(--border-subtle)',
-                                                backgroundColor: 'var(--bg-surface-2)',
+                                                backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
                                                 fontSize: '18px',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -609,7 +607,7 @@ export function BankAccountsSection() {
                                             width: '36px',
                                             height: '20px',
                                             borderRadius: '10px',
-                                            backgroundColor: form.is_default ? 'var(--accent)' : 'var(--bg-surface-3)',
+                                            backgroundColor: form.is_default ? 'var(--accent)' : 'color-mix(in srgb, var(--text-primary) 14%, transparent)',
                                             border: 'none',
                                             cursor: 'pointer',
                                             position: 'relative',
@@ -688,8 +686,8 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
     width: '100%',
-    backgroundColor: 'var(--bg-surface-2)',
-    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+    border: '1px solid var(--glass-border)',
     borderRadius: '8px',
     padding: '10px 12px',
     color: 'var(--text-primary)',
@@ -717,8 +715,8 @@ const cancelBtnStyle: React.CSSProperties = {
     flex: 1,
     padding: '10px',
     borderRadius: '8px',
-    border: '1px solid var(--border-subtle)',
-    backgroundColor: 'var(--bg-surface-2)',
+    border: '1px solid var(--glass-border)',
+    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
     color: 'var(--text-secondary)',
     fontSize: '14px',
     cursor: 'pointer',

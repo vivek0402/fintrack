@@ -57,7 +57,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
                 const stroke  = isUp ? 'var(--color-exp)' : 'var(--color-inc)';
                 const trendBg = isUp ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'color-mix(in srgb, var(--color-inc) 10%, transparent)';
                 return (
-                    <div key={cat.name} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '12px', minWidth: 0, overflow: 'hidden' }}>
+                    <div key={cat.name} className="glass-field" style={{ borderRadius: 'var(--radius-md)', padding: '12px', minWidth: 0, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2, gap: 4 }}>
                             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                                 {cat.name}
