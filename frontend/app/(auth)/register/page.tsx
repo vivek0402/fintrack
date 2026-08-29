@@ -203,7 +203,7 @@ export default function RegisterPage() {
                                     style={{
                                         width: '48px', height: '56px', textAlign: 'center',
                                         fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-mono)',
-                                        background: 'var(--bg-surface-2)',
+                                        background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
                                         border: `1.5px solid ${focusedOtp === i || digit ? 'var(--accent)' : 'var(--border-subtle)'}`,
                                         borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none',
                                         boxShadow: focusedOtp === i ? '0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)' : 'none',

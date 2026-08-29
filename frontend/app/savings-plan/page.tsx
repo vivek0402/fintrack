@@ -137,7 +137,7 @@ interface Milestone {
 }
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'var(--bg-surface-2)' },
+    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'color-mix(in srgb, var(--text-primary) 8%, transparent)' },
     in_progress: { label: 'In Progress', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
     achieved: { label: 'Achieved', color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 10%, transparent)' },
     missed: { label: 'Missed', color: 'var(--color-exp)', bg: 'color-mix(in srgb, var(--color-exp) 10%, transparent)' },

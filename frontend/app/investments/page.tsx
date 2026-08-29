@@ -342,7 +342,7 @@ export default function InvestmentsPage() {
                                             <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                                 {group.label}
                                             </span>
-                                            <Badge color="var(--text-muted)" bg="var(--bg-surface-2)">{group.holdings.length}</Badge>
+                                            <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{group.holdings.length}</Badge>
                                         </div>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                                             {fmt(groupTotal)}
@@ -368,7 +368,7 @@ export default function InvestmentsPage() {
                                                                 {inv.name}
                                                             </p>
                                                             {inv.price_source === 'mfapi' && (
-                                                                <Badge color="var(--color-inc)" bg="var(--bg-surface-2)">Live</Badge>
+                                                                <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">Live</Badge>
                                                             )}
                                                         </div>
                                                         {inv.ticker_or_folio && (

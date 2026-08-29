@@ -24,7 +24,7 @@ import { CoachAlerts } from '@/components/coach/CoachAlerts';
 // app/analytics/page.tsx's dynamic imports -- keeps recharts out of the
 // dashboard's initial bundle until these widgets actually render.
 const vizSkeleton = (h: number) => {
-    const VizSkeleton = () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+    const VizSkeleton = () => <div style={{ height: h, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 8 }} />;
     VizSkeleton.displayName = 'VizSkeleton';
     return VizSkeleton;
 };
@@ -130,7 +130,7 @@ function BezierSparkline({ data, incColor, expColor }: {
                     top: '-4px',
                     left: `${tipXPct}%`,
                     transform: tipXPct > 75 ? 'translateX(-100%)' : tipXPct < 10 ? 'translateX(0)' : 'translateX(-50%)',
-                    background: 'var(--bg-surface-2)',
+                    background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
                     border: '1px solid var(--border-visible)',
                     borderRadius: 'var(--radius-md)',
                     padding: '6px 10px',
@@ -568,7 +568,7 @@ export default function DashboardPage() {
                         Couldn't load today's brief.
                     </p>
                     <button type="button" onClick={fetchDailyBrief}
-                        style={{ padding: '6px 14px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                        style={{ padding: '6px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                         Retry
                     </button>
                 </div>
@@ -593,7 +593,7 @@ export default function DashboardPage() {
                         return (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
                                 {chips.map((pt: any) => (
-                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
                                     </div>
@@ -703,7 +703,7 @@ export default function DashboardPage() {
 
                         return visibleTiles.map(tile => (
                             <div key={tile.label} onClick={(tile as any).onClick} style={{
-                                background: `color-mix(in srgb, ${tile.color} 10%, var(--bg-surface-1))`,
+                                background: `color-mix(in srgb, ${tile.color} 10%, transparent)`,
                                 border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
                                 borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden',
                                 cursor: (tile as any).onClick ? 'pointer' : 'default',
@@ -729,7 +729,7 @@ export default function DashboardPage() {
 
                 {/* ── GUILT-FREE BUDGET CARD ── */}
                 {!dataLoading && guiltFreeData && (
-                    <div style={{ background: guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 8%, var(--bg-surface-1))' : 'color-mix(in srgb, var(--color-warn) 8%, var(--bg-surface-1))', border: `1px solid ${guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : 'color-mix(in srgb, var(--color-warn) 22%, transparent)'}`, borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+                    <div style={{ background: guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : 'color-mix(in srgb, var(--color-warn) 8%, transparent)', border: `1px solid ${guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : 'color-mix(in srgb, var(--color-warn) 22%, transparent)'}`, borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
                             <div>
                                 <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
@@ -745,7 +745,7 @@ export default function DashboardPage() {
                             </div>
                         </div>
                         {/* Progress bar */}
-                        <div style={{ height: 6, background: 'var(--bg-surface-2)', borderRadius: 99, overflow: 'hidden', marginBottom: '8px' }}>
+                        <div style={{ height: 6, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 99, overflow: 'hidden', marginBottom: '8px' }}>
                             <div style={{ height: '100%', width: `${guiltFreeData.usedPct}%`, background: guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)', borderRadius: 99, transition: 'width 0.6s ease' }} />
                         </div>
                         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
@@ -783,7 +783,7 @@ export default function DashboardPage() {
                         {Array.isArray(briefing.points) && briefing.points.length > 0 && (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
                                 {briefing.points.map((pt: any) => (
-                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
+                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)' }}>
                                         <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
                                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
                                     </div>
@@ -902,7 +902,7 @@ export default function DashboardPage() {
                                     const isDismissing = dismissingIds.has(opp.id);
                                     return (
                                         <div key={opp.id} style={{
-                                            background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: `3px solid ${borderColor}`,
+                                            background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderLeft: `3px solid ${borderColor}`,
                                             borderRadius: 'var(--radius-lg)', padding: '14px 16px',
                                             opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
                                             transition: 'opacity 250ms ease, transform 250ms ease',
@@ -1048,9 +1048,9 @@ export default function DashboardPage() {
                                 return (
                                     <div key={tx.id} onClick={() => router.push('/transactions')}
                                         style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderTop: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '15px' }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '15px' }}>
                                             {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0 }}>

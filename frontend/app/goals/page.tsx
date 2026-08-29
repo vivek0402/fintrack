@@ -542,7 +542,7 @@ export default function GoalsPage() {
                             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 8px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{lifeEventResult.plan?.summary}</p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(lifeEventResult.plan?.monthly_required || 0)}/month needed</span>
-                                <Badge color="var(--text-muted)" bg="var(--bg-surface-2)">{lifeEventResult.plan?.difficulty}</Badge>
+                                <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{lifeEventResult.plan?.difficulty}</Badge>
                             </div>
                         </div>
                         {lifeEventResult.plan?.milestones?.length > 0 && (

@@ -28,7 +28,7 @@ import {
     FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
 const vizSkeleton = (h: number) => {
-    const VizSkeleton = () => <div style={{ height: h, background: 'var(--bg-surface-2)', borderRadius: 8 }} />;
+    const VizSkeleton = () => <div style={{ height: h, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 8 }} />;
     VizSkeleton.displayName = 'VizSkeleton';
     return VizSkeleton;
 };
@@ -55,12 +55,12 @@ const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
 // ── Chart colour state read from CSS custom properties at runtime ─────────────
 // This ensures charts update when the theme changes.
-type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; bgCard: string; };
+type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; };
 // Values mirror DESIGN.md's dark theme (default) tokens: --color-inc,
 // --accent (used for `exp`/`accent2` in this chart, not --color-exp -- see
 // readChartColors() below), --accent-subtle, --border-subtle, --text-muted,
 // --bg-surface-1. Only used for the brief pre-hydration/SSR window.
-const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#2563eb', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080', bgCard: '#111111' };
+const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#2563eb', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080' };
 function readChartColors(): ChartColors {
     if (typeof document === 'undefined') return DEFAULT_CC;
     const s = getComputedStyle(document.documentElement);
@@ -72,7 +72,6 @@ function readChartColors(): ChartColors {
         tint: g('--accent-subtle', 'tint'),
         border: g('--border-subtle', 'border'),
         faint: g('--text-muted', 'faint'),
-        bgCard: g('--bg-surface-1', 'bgCard'),
     };
 }
 
@@ -617,7 +616,7 @@ function AnalyticsOverviewTab() {
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color || cc.exp, flexShrink: 0 }} />
                                                 <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(amt)}</span>
-                                                <Badge color="var(--text-muted)" bg="var(--bg-surface-3)">{pct}%</Badge>
+                                                <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{pct}%</Badge>
                                             </div>
                                         );
                                     })}
@@ -687,7 +686,7 @@ function AnalyticsOverviewTab() {
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <Badge color="var(--text-muted)" bg="var(--bg-surface-3)">{pm.percent}%</Badge>
+                                                    <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{pm.percent}%</Badge>
                                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', minWidth: '80px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(pm.total)}</span>
                                                 </div>
                                             </div>
