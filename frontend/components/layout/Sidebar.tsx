@@ -105,7 +105,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     }}
                     onMouseEnter={e => {
                         if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)';
+                            (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)';
                             (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
                         }
                     }}
@@ -128,12 +128,16 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
         : '?';
 
     return (
-        <aside style={{
+        // `.glass-nav` rather than the lighter `.glass-surface`: page content
+        // scrolls right beside this, the same legibility problem the mobile nav
+        // pill hit on 2026-08-25, resolved there by going dense. Border is set
+        // to a right edge only, so it overrides the class's all-round border.
+        <aside className="glass-surface glass-nav" style={{
             width: '240px',
             flexShrink: 0,
             height: '100vh',
-            background: 'var(--bg-surface-1)',
-            borderRight: '1px solid var(--border-subtle)',
+            border: 'none',
+            borderRight: '1px solid var(--glass-border)',
             display: 'flex',
             flexDirection: 'column',
             padding: 'var(--space-6) var(--space-4)',
@@ -189,7 +193,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                                 justifyContent: 'center',
                                 transition: 'background var(--transition-fast)',
                             }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
                             <HelpCircle size={18} />

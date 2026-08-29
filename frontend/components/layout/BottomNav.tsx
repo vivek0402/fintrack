@@ -305,11 +305,12 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                                         const active = isActive(href);
                                         return (
                                             <button key={href} type="button" onClick={() => handleNavigate(href)}
+                                                className={active ? undefined : 'glass-field'}
                                                 style={{
                                                     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-2)',
                                                     padding: 'var(--space-4)', borderRadius: 'var(--radius-md)',
-                                                    background: active ? 'var(--accent-subtle)' : 'var(--bg-surface-2)',
-                                                    border: `1px solid ${active ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
+                                                    background: active ? 'var(--accent-subtle)' : undefined,
+                                                    border: active ? '1px solid var(--accent-border)' : 'none',
                                                     cursor: 'pointer', textAlign: 'left',
                                                 }}>
                                                 <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-secondary)'} />

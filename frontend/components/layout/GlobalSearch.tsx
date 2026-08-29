@@ -65,14 +65,15 @@ export function GlobalSearch() {
     ];
 
     const rowHover = (e: React.MouseEvent<HTMLElement>, enter: boolean) => {
-        (e.currentTarget as HTMLElement).style.background = enter ? 'var(--bg-surface-3)' : 'transparent';
+        (e.currentTarget as HTMLElement).style.background = enter ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)' : 'transparent';
     };
 
     return (
         <>
             <button
                 onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: '10px', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', marginBottom: '8px', fontFamily: 'var(--font-body)' }}
+                className="glass-field"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', borderRadius: '10px', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', marginBottom: '8px', fontFamily: 'var(--font-body)' }}
             >
                 <Search size={14} />
                 Search… (Ctrl+K)
@@ -83,10 +84,10 @@ export function GlobalSearch() {
                     <div onClick={close}
                         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 9999 }} />
 
-                    <div style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '580px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', zIndex: 10000, overflow: 'hidden', boxShadow: 'var(--shadow-modal)', animation: 'springIn 260ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                    <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '580px', borderRadius: 'var(--radius-lg)', zIndex: 10000, overflow: 'hidden', animation: 'springIn 260ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
 
                         {/* Search input */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)' }}>
                             <Search size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                             <input
                                 ref={inputRef}
@@ -97,7 +98,7 @@ export function GlobalSearch() {
                             />
                             {query
                                 ? <button onClick={() => setQuery('')} aria-label="Clear search" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
-                                : <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '2px 6px' }}>ESC</span>
+                                : <span className="glass-field" style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', borderRadius: '4px', padding: '2px 6px' }}>ESC</span>
                             }
                         </div>
 
@@ -121,7 +122,7 @@ export function GlobalSearch() {
                                         return (
                                             <div key={tx.id}
                                                 onClick={() => navigateToTransactions(query)}
-                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
+                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
                                                 onMouseEnter={e => rowHover(e, true)}
                                                 onMouseLeave={e => rowHover(e, false)}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
@@ -144,7 +145,7 @@ export function GlobalSearch() {
                                     })}
                                     {results.length > 5 && (
                                         <button onClick={() => navigateToTransactions(query)}
-                                            style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', textAlign: 'left', fontWeight: 500 }}
+                                            style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', textAlign: 'left', fontWeight: 500 }}
                                             onMouseEnter={e => rowHover(e, true)}
                                             onMouseLeave={e => rowHover(e, false)}>
                                             See all {results.length} results →
@@ -162,7 +163,7 @@ export function GlobalSearch() {
                                     {topCategories.map(cat => (
                                         <div key={cat}
                                             onClick={() => navigateToTransactions(`category:${cat}`)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 16px', cursor: 'pointer', borderBottom: '1px solid var(--border-subtle)' }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
                                             onMouseEnter={e => rowHover(e, true)}
                                             onMouseLeave={e => rowHover(e, false)}>
                                             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
@@ -183,7 +184,7 @@ export function GlobalSearch() {
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 16px', cursor: 'pointer' }}
                                     onMouseEnter={e => rowHover(e, true)}
                                     onMouseLeave={e => rowHover(e, false)}>
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-secondary)' }}>
+                                    <div className="glass-field" style={{ width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-secondary)' }}>
                                         {action.icon}
                                     </div>
                                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{action.label}</span>
