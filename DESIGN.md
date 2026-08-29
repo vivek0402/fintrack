@@ -144,20 +144,21 @@ because unconditional glass is what makes an interface look generated:
 }
 ```
 
-### Legacy Aliases (compat — do not use in new code)
-Older page files still reference the pre-v2 token names. These are mapped in globals.css via compat aliases and will be phased out:
-```
---bg-page        → --bg-base
---bg-card        → --bg-surface-1
---bg-alt         → --bg-surface-2
---bg-hover       → --bg-surface-3
---border         → --border-subtle
---accent-mint    → --color-inc
---accent-rose    → --color-exp
---accent-indigo  → --accent
---accent-amber   → --color-warn
-```
-Always use the canonical v2 tokens in new code. Never use the legacy names.
+### Legacy Aliases — migration complete (2026-08-26)
+The pre-v2 token names (`--bg-page`, `--bg-card`, `--bg-alt`, `--bg-hover`, `--border`,
+`--accent-mint/rose/indigo/amber`, `--font-head`, and 17 others) are **gone**. The
+app-wide redesign finished the migration incidentally — the last stragglers were
+normalized during the Savings Plan pass — leaving all 26 at zero references, so their
+definitions were deleted from `globals.css`.
+
+A handful of alias-style names survive because they are still genuinely in use, and
+should be treated as ordinary tokens rather than legacy:
+`--accent-2`, `--accent-3`, `--accent-red-border`, `--accent-green-border`,
+`--accent-yellow-border`, `--bg-border`, `--bg-border-strong`, `--gradient-red`,
+`--gradient-green`, `--gradient-yellow`, `--shadow-elevated`, `--surface-1`,
+`--surface-2`, `--transition-slow`.
+
+Always use the canonical v2 tokens in new code.
 
 ### Semantic Rules
 - Positive values, income, savings: always `--color-inc`
@@ -238,8 +239,8 @@ Always use the canonical v2 tokens in new code. Never use the legacy names.
 The AI layer is spread across dedicated pages and a persistent FAB:
 
 - **Quick Add FAB:** Floating action button in bottom-right (56px). Tapping opens the quick-add sheet to log a transaction in natural language.
-- **AI Chat (`/ai-chat`):** Full conversational interface with the general-purpose financial assistant.
-- **AI Advisor (`/ai-advisor`):** Four specialized domain agents (Debt Coach, Investment Advisor, Tax Planner, Budget Master) with persistent conversation history. Each agent panel has conversation starters and a compact sidebar for switching agents.
+- **AI Advisor (`/ai-advisor`):** The single conversational assistant, **Fin**. One general-purpose agent covering debt, investments, taxes and spending — not the four separate domain agents this section described until 2026-08-26; that split was consolidated away and the docs had not caught up. Persistent conversation history in a left sidebar (new chat, select, delete), starter prompts on the empty state.
+- **AI Chat (`/ai-chat`):** Not a separate surface — redirects to `/ai-advisor`.
 - **Inline AI features:** Monthly report, personality analysis, regret patterns, forecast, opportunities, and health report are each surfaced within their respective domain pages — not a central hub.
 
 ## Component Library
@@ -445,3 +446,4 @@ and colouring it red read as money lost.
 | 2026-08-26 | **Budgets — One-Time tab redesigned, fourth of four — the rollout is complete** | Mechanical, no bug found. Largest of this page's four tabs. Header card, the three summary tiles, and each expandable expense card → `.glass-surface`; the expanded-body divider and the item table's header/row/total borders → `--glass-border`. The inline add-item form panel (opaque `--bg-surface-3`), its local `fieldInput` const, the per-item category pill, and the card's edit button → `.glass-field`. Both hand-rolled modals got the glass-sheet treatment established on Accounts and reapplied on Groups: the delete-confirm dialog via `className="glass-surface glass-sheet"`, and `otModalStyle` — which is a style *object* serving as a bottom sheet on mobile and a centred dialog on desktop, so it can't take a className — via a new `otGlassSheet` spread that inlines the same recipe. `otInputStyle`, both Cancel buttons, and the mobile sheet's grab handle converted to match. **This closes the app-wide redesign begun 2026-08-25 with Profile**: every route is now on the glass/ambient-lighting language. The only surfaces deliberately left opaque throughout are small badge chips, disabled-button fills, recharts tooltips, and the shared `Tabs` component |
 | 2026-08-26 | **`Card`/`GCard`/`StatTile` flipped to glass by default; 12 duplicated override consts deleted** | Post-rollout cleanup. These three were deliberately left opaque back on 2026-08-25 because 200+ call sites across then-unconverted pages relied on it — that rationale died when the last page shipped. By this point **57 of 79 call sites (72%) were passing an identical `glassTileStyle` override**, and the same const was copy-pasted into 12 page files. The components now carry `className="glass-surface"` themselves and only set what differs from that baseline inline (`Card`'s hover lift and its `elevated` variant, which maps to `--glass-sheet-surface`); `undefined` values are skipped by React so the class wins. All 65 override props and 12 const definitions removed — net −64 lines. This also fixed a real defect the audit surfaced: **12 `StatTile`s (11 on Debt Intelligence's DTI section, 1 on Investments' loading state) had been missed during their own passes and were still rendering opaque on pages already shipped as converted** — they now inherit the correct default rather than needing a per-site fix. One override survives on purpose: `glassFieldStyle` in `budgets/page.tsx`, for the two `GCard`s nested inside the already-glass split modal, which need the lighter `.glass-field` wash rather than glass-on-glass |
 | 2026-08-26 | **Shared `Tabs` converted to glass — the last opaque surface** | The final piece of the 2026-08-25 rollout. `Tabs` was held back the whole way through on the grounds that ~30 pages still rendered it unconverted; once the last page shipped, the opposite was true — on Analytics and Budgets it sat *directly above* hand-rolled glass pill rows built during the rollout, so the same control rendered in two different materials on one screen. Inactive pills now take `.glass-field` with the border dropped to `none`, matching those inner rows exactly; the active pill is untouched (solid `--accent`, white text, existing `scale(1.04)` spring). One knock-on fix: the hover handler swapped `borderColor` between `--border-subtle` and `--border-visible`, which has nothing to act on once the border is gone — hover now lifts the fill instead (clearing the inline value on leave so the class fill returns), the same treatment already used on the Calendar tab's cells and the AI Advisor's conversation rows. Single-file change, no page edits |
+| 2026-08-26 | **26 dead v1 compat aliases deleted; the token migration is actually finished** | A post-rollout sweep found that every pre-v2 alias DESIGN.md described as "will be phased out" had reached **zero references** — the redesign completed that migration incidentally, the last stragglers going during the Savings Plan pass. All 26 definitions removed from `globals.css` (52 lines, since each was declared in both the dark and light blocks): `--bg-page`, `--bg-card`, `--bg-alt`, `--bg-hover`, `--bg-secondary`, `--bg-glow`, `--border`, `--border-strong`, `--font-head`, `--text-faint`, `--text-hero`, `--accent-light/tint/blue/red/green/yellow`, `--accent-blue-bg`, `--accent-red-bg`, `--accent-green-bg`, `--accent-yellow-bg`, `--accent-mint/rose/indigo/amber`. Verified by extracting every `var(--x)` used across `app/` and `components/` and confirming all 63 still resolve. Fourteen alias-style names were checked and **kept** because they are genuinely in use (`--accent-2/3`, the three `*-border` accents, `--bg-border`, `--bg-border-strong`, the three `--gradient-*`, `--shadow-elevated`, `--surface-1/2`, `--transition-slow`) — the Legacy Aliases section now says so rather than implying they are all deprecated. Also corrected the AI Interface section, which still described four domain agents (Debt Coach / Investment Advisor / Tax Planner / Budget Master) long after the app consolidated to the single "Fin" assistant with `/ai-chat` redirecting to it |
