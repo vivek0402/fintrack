@@ -82,6 +82,9 @@ function formatFullDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
+const fieldSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' };
+
 export default function DocumentsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
@@ -241,9 +244,10 @@ export default function DocumentsPage() {
                             <button
                                 type="button"
                                 onClick={() => setTypeFilter('all')}
+                                className={typeFilter === 'all' ? undefined : 'glass-field'}
                                 style={{
-                                    padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border-subtle)',
-                                    background: typeFilter === 'all' ? 'var(--accent)' : 'var(--bg-surface-1)',
+                                    padding: '6px 14px', borderRadius: 999, border: 'none',
+                                    background: typeFilter === 'all' ? 'var(--accent)' : undefined,
                                     color: typeFilter === 'all' ? '#fff' : 'var(--text-secondary)',
                                     fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap',
                                 }}
@@ -255,9 +259,10 @@ export default function DocumentsPage() {
                                     key={t}
                                     type="button"
                                     onClick={() => setTypeFilter(t)}
+                                    className={typeFilter === t ? undefined : 'glass-field'}
                                     style={{
-                                        padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border-subtle)',
-                                        background: typeFilter === t ? 'var(--accent)' : 'var(--bg-surface-1)',
+                                        padding: '6px 14px', borderRadius: 999, border: 'none',
+                                        background: typeFilter === t ? 'var(--accent)' : undefined,
                                         color: typeFilter === t ? '#fff' : 'var(--text-secondary)',
                                         fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', whiteSpace: 'nowrap',
                                     }}
@@ -271,10 +276,11 @@ export default function DocumentsPage() {
                             <select
                                 value={fyFilter}
                                 onChange={e => setFyFilter(e.target.value)}
+                                className="glass-field"
                                 style={{
                                     alignSelf: 'flex-start',
-                                    padding: '8px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)',
-                                    background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600,
+                                    padding: '8px 14px', borderRadius: 'var(--radius-md)', border: 'none',
+                                    color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600,
                                     fontFamily: 'var(--font-body)', cursor: 'pointer',
                                 }}
                             >
@@ -308,13 +314,13 @@ export default function DocumentsPage() {
                             const meta = DOCUMENT_TYPE_META[doc.type] || DOCUMENT_TYPE_META.other;
                             const Icon = meta.icon;
                             return (
-                                <Card key={doc.id}>
+                                <Card key={doc.id} style={glassTileStyle}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                                         <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: `color-mix(in srgb, ${meta.color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Icon size={18} color={meta.color} />
                                         </div>
                                         <div style={{ display: 'flex', gap: 6 }}>
-                                            <button type="button" onClick={() => handleDownload(doc)} title="Download" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                            <button type="button" onClick={() => handleDownload(doc)} title="Download" className="glass-field" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, border: 'none', borderRadius: 8, cursor: 'pointer', color: 'var(--text-secondary)' }}>
                                                 <Download size={14} />
                                             </button>
                                             <button type="button" onClick={() => handleDelete(doc)} disabled={deletingId === doc.id} title="Delete" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)', borderRadius: 8, cursor: deletingId === doc.id ? 'not-allowed' : 'pointer', color: 'var(--color-exp)', opacity: deletingId === doc.id ? 0.5 : 1 }}>
@@ -332,7 +338,7 @@ export default function DocumentsPage() {
                                             {meta.label}
                                         </span>
                                         {doc.financial_year && (
-                                            <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 999, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                            <span className="glass-field" style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: 999, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                 FY {doc.financial_year}
                                             </span>
                                         )}
@@ -368,9 +374,10 @@ export default function DocumentsPage() {
                             onClick={() => fileInputRef.current?.click()}
                             onDragOver={e => e.preventDefault()}
                             onDrop={e => { e.preventDefault(); handleFileSelect(e.dataTransfer.files[0] || null); }}
+                            className="glass-field"
                             style={{
-                                border: '2px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '24px 16px',
-                                textAlign: 'center', cursor: 'pointer', background: 'var(--bg-surface-2)',
+                                border: '2px dashed var(--glass-border)', borderRadius: 'var(--radius-md)', padding: '24px 16px',
+                                textAlign: 'center', cursor: 'pointer',
                             }}
                         >
                             <Upload size={20} style={{ color: 'var(--text-muted)', marginBottom: 8 }} />
@@ -394,7 +401,7 @@ export default function DocumentsPage() {
                             value={uploadForm.name}
                             onChange={e => setUploadForm(f => ({ ...f, name: e.target.value }))}
                             placeholder="e.g. Form 16 - FY 2024-25"
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={fieldSt}
                         />
                     </div>
 
@@ -403,7 +410,7 @@ export default function DocumentsPage() {
                         <select
                             value={uploadForm.type}
                             onChange={e => setUploadForm(f => ({ ...f, type: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={fieldSt}
                         >
                             {DOCUMENT_TYPES.map(t => (
                                 <option key={t} value={t}>{DOCUMENT_TYPE_META[t].label}</option>
@@ -416,7 +423,7 @@ export default function DocumentsPage() {
                         <select
                             value={uploadForm.financial_year}
                             onChange={e => setUploadForm(f => ({ ...f, financial_year: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={fieldSt}
                         >
                             {getFYOptions(5).map(fy => <option key={fy} value={fy}>FY {fy}</option>)}
                             <option value="none">Not applicable</option>
@@ -429,7 +436,7 @@ export default function DocumentsPage() {
                             type="text"
                             value={uploadForm.description}
                             onChange={e => setUploadForm(f => ({ ...f, description: e.target.value }))}
-                            style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}
+                            style={fieldSt}
                         />
                     </div>
 
