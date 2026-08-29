@@ -499,13 +499,13 @@ function BudgetsPageInner() {
     const visiblePatterns = patterns.filter((_, i) => !dismissedPatterns.has(i));
     const activeCount = recurring.filter(r => r.is_active).length;
 
-    const recInputSt: React.CSSProperties = { padding: '10px 14px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
+    const recInputSt: React.CSSProperties = { padding: '10px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
     const recIconBt: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' };
 
     const TypeToggle = ({ value, onChange }: { value: string; onChange: (v: 'income' | 'expense') => void }) => (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
             {(['expense', 'income'] as const).map(t => (
-                <button key={t} type="button" onClick={() => onChange(t)} style={{ padding: '8px', borderRadius: '8px', border: `1px solid ${value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)') : 'var(--border-subtle)'}`, background: value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : 'var(--bg-surface-1)', color: value === t ? (t === 'income' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>
+                <button key={t} type="button" onClick={() => onChange(t)} className={value === t ? undefined : 'glass-field'} style={{ padding: '8px', borderRadius: '8px', border: value === t ? `1px solid ${t === 'income' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)'}` : 'none', background: value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : undefined, color: value === t ? (t === 'income' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>
                     {t}
                 </button>
             ))}
@@ -1275,7 +1275,7 @@ function BudgetsPageInner() {
                 {tab === 'recurring' && (
                     recurringLoading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {[1,2,3].map(i => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
+                            {[1,2,3].map(i => <div key={i} className="glass-surface" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, borderRadius: 'var(--radius-lg)' }}>
                                 <SkeletonCircle size={40} />
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <Skeleton width="50%" height={14} borderRadius={4} />
@@ -1287,7 +1287,7 @@ function BudgetsPageInner() {
                     ) : (
                         <>
                             {/* Header */}
-                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -1305,7 +1305,7 @@ function BudgetsPageInner() {
 
                             {/* AI Detect Patterns strip */}
                             {(patternsLoading || visiblePatterns.length > 0) && (
-                                <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-surface-1))', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                                <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                                     {patternsLoading ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                             <Brain size={16} color="var(--color-info)" />
@@ -1324,7 +1324,7 @@ function BudgetsPageInner() {
                                                 {visiblePatterns.map((p, i) => {
                                                     const realIdx = patterns.indexOf(p);
                                                     return (
-                                                        <div key={realIdx} style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <div key={realIdx} className="glass-field" style={{ borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                                     <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.merchant || p.description}</span>
@@ -1342,7 +1342,7 @@ function BudgetsPageInner() {
                                                                     style={{ padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>
                                                                     {addingPattern === realIdx ? 'Adding…' : '+ Add'}
                                                                 </button>
-                                                                <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} aria-label="Dismiss suggestion" style={{ ...recIconBt, border: '1px solid var(--border-subtle)' }}><X size={13} /></button>
+                                                                <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} aria-label="Dismiss suggestion" style={{ ...recIconBt, border: '1px solid var(--glass-border)' }}><X size={13} /></button>
                                                             </div>
                                                         </div>
                                                     );
@@ -1355,7 +1355,7 @@ function BudgetsPageInner() {
 
                             {/* Add form */}
                             {showRecForm && (
-                                <div style={{ background: 'var(--bg-surface-1)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
+                                <div className="glass-surface" style={{ border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
                                     <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>New Recurring Transaction</h3>
                                     <form onSubmit={handleRecSubmit}>
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
@@ -1405,7 +1405,7 @@ function BudgetsPageInner() {
                                         const isIncome = r.type === 'income';
                                         return (
                                             <div key={r.id}>
-                                                <div style={{ background: 'var(--bg-surface-1)', border: `1px solid ${r.is_active ? 'var(--border-subtle)' : 'var(--bg-surface-2)'}`, borderRadius: recEditingId === r.id ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)', padding: '14px 18px', opacity: r.is_active ? 1 : 0.55, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                                <div className="glass-surface" style={{ borderRadius: recEditingId === r.id ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)', padding: '14px 18px', opacity: r.is_active ? 1 : 0.55, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                                                         <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                             {isIncome ? <TrendingUp size={16} color="var(--color-inc)" /> : <TrendingDown size={16} color="var(--color-exp)" />}
@@ -1414,7 +1414,7 @@ function BudgetsPageInner() {
                                                             <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{r.description}</p>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
                                                                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{freqLabel(r)}</span>
-                                                                {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={`${r.category_color || 'var(--bg-surface-2)'}20`}>{r.category_name}</Badge>}
+                                                                {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={r.category_color ? `${r.category_color}20` : 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}>{r.category_name}</Badge>}
                                                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Next: {formatNextDate(r.next_due_date)}</span>
                                                             </div>
                                                         </div>
@@ -1438,7 +1438,7 @@ function BudgetsPageInner() {
                                                     </div>
                                                 </div>
                                                 {recEditingId === r.id && (
-                                                    <div style={{ background: 'var(--bg-surface-1)', border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', padding: '20px' }}>
+                                                    <div className="glass-surface" style={{ border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', padding: '20px' }}>
                                                         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Edit Recurring Transaction</h3>
                                                         <form onSubmit={handleRecEditSubmit}>
                                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
