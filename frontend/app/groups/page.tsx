@@ -30,7 +30,6 @@ const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','�
 const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
 const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
 const iconBt: React.CSSProperties  = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' };
-const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 
 export default function GroupsPage() {
     const { user } = useAuthStore();
@@ -260,13 +259,13 @@ export default function GroupsPage() {
 
                 {/* You owe / Owed to you GCards */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <GCard style={glassTileStyle}>
+                    <GCard>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>You Owe</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: youOwe > 0 ? 'var(--color-exp)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {youOwe > 0 ? fmt(youOwe) : '—'}
                         </p>
                     </GCard>
-                    <GCard style={glassTileStyle}>
+                    <GCard>
                         <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Owed to You</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: owedToYou > 0 ? 'var(--color-inc)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
                             {owedToYou > 0 ? fmt(owedToYou) : '—'}

@@ -26,13 +26,6 @@ const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'va
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
 const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-// GCard takes a style override, not a className — this is the .glass-surface
-// recipe inlined so its caller below can opt in without touching the component.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 function CircularProgress({ pct, color, size = 56 }: { pct: number; color: string; size?: number }) {
     const stroke = 5;
@@ -255,7 +248,7 @@ export default function GoalsPage() {
 
                 {/* ── OVERALL PROGRESS ── */}
                 {goals.length > 0 && (
-                    <GCard style={glassTileStyle}>
+                    <GCard>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Progress</p>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 800, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>

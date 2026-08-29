@@ -18,13 +18,6 @@ const NetWorthAreaChart = dynamic(() => import('@/components/net-worth/NetWorthA
 const VelocityBarChart = dynamic(() => import('@/components/net-worth/VelocityBarChart').then(m => m.VelocityBarChart), { ssr: false, loading: chartSkeleton(140) });
 const AllocationPieChart = dynamic(() => import('@/components/net-worth/AllocationPieChart').then(m => m.AllocationPieChart), { ssr: false, loading: chartSkeleton(180) });
 
-// Card takes a style override, not a className — this is the .glass-surface
-// recipe inlined so its many callers below can opt in without touching the component.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
@@ -191,22 +184,22 @@ function NetWorthPageInner() {
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Assets</p>
                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(current.total_assets)}</p>
                             </Card>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Liabilities</p>
                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>-{fmt(current.total_liabilities)}</p>
                             </Card>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Net Worth</p>
                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(current.net_worth)}</p>
                             </Card>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Assets</h3>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
                                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Bank balances</span>
@@ -217,7 +210,7 @@ function NetWorthPageInner() {
                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(current.total_investments)}</span>
                                 </div>
                             </Card>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Liabilities</h3>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
                                     <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Credit cards outstanding</span>
@@ -230,7 +223,7 @@ function NetWorthPageInner() {
                             </Card>
                         </div>
 
-                        <Card style={glassTileStyle}>
+                        <Card>
                             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>History</h3>
                             {chartData.length < 2 ? (
                                 <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 24px' }}>
@@ -252,14 +245,14 @@ function NetWorthPageInner() {
                 {/* ══ VELOCITY ══ */}
                 {tab === 'velocity' && (
                     !velocity || velocity.trend === 'insufficient_data' ? (
-                        <Card style={glassTileStyle}>
+                        <Card>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>
                                 {velocity?.message || 'Track your finances for at least 2 months to see wealth velocity.'}
                             </p>
                         </Card>
                     ) : (
                         <>
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
                                     <div>
                                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '32px', fontWeight: 800, color: velocity.avg_monthly_growth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', margin: '0 0 4px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
@@ -284,7 +277,7 @@ function NetWorthPageInner() {
                                 </div>
                             </Card>
 
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Net Worth History</h3>
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)' }}>
@@ -325,13 +318,13 @@ function NetWorthPageInner() {
                 {/* ══ ALLOCATION ══ */}
                 {tab === 'allocation' && (
                     !allocation || allocation.total_assets === 0 ? (
-                        <Card style={glassTileStyle}>
+                        <Card>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>
                                 Add accounts or investments to see your asset allocation.
                             </p>
                         </Card>
                     ) : (
-                        <Card style={glassTileStyle}>
+                        <Card>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
                                 <div style={{ width: 180, height: 180, flexShrink: 0 }}>
                                     <AllocationPieChart allocations={allocations} colors={CHART_COLORS} />

@@ -108,13 +108,6 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 // MILESTONES — shared constants
 // ─────────────────────────────────────────────────────────────────────────
 
-// StatTile/Card/GCard take style overrides, not a className — this is the .glass-surface
-// recipe inlined so their callers below can opt in without touching the shared components.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 const labelSt: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'block', marginBottom: '6px' };
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
@@ -895,14 +888,14 @@ function SavingsPlanPageInner() {
 
                             {/* ── SUMMARY ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                                <StatTile label="Total Milestones" value={String(totalCount)} icon={<Flag size={14} />} style={glassTileStyle} />
-                                <StatTile label="On Track" value={String(onTrackCount)} accentColor="var(--color-inc)" icon={<CheckCircle2 size={14} />} style={glassTileStyle} />
-                                <StatTile label="Achieved" value={String(achievedCount)} accentColor="var(--color-inc)" style={glassTileStyle} />
+                                <StatTile label="Total Milestones" value={String(totalCount)} icon={<Flag size={14} />} />
+                                <StatTile label="On Track" value={String(onTrackCount)} accentColor="var(--color-inc)" icon={<CheckCircle2 size={14} />} />
+                                <StatTile label="Achieved" value={String(achievedCount)} accentColor="var(--color-inc)" />
                             </div>
 
                             {/* ── MILESTONE TREE ── */}
                             {milestones.length === 0 ? (
-                                <Card style={glassTileStyle}>
+                                <Card>
                                     <EmptyState
                                         icon={Flag}
                                         title="No milestones yet"
@@ -1061,7 +1054,7 @@ function MilestoneNode({
 
     return (
         <div>
-            <Card onClick={() => toggleExpand(milestone.id)} style={{ ...glassTileStyle, display: 'flex', flexDirection: 'column', gap: '10px', padding: 'var(--space-4)' }}>
+            <Card onClick={() => toggleExpand(milestone.id)} style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>

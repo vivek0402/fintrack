@@ -33,13 +33,6 @@ const relativeTime = (iso?: string | null) => {
 const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
-// Card/StatTile take a style override, not a className — this is the .glass-surface
-// recipe inlined so their many callers below can opt in without touching the components.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -293,17 +286,16 @@ export default function InvestmentsPage() {
                         [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
                     ) : (
                         <>
-                            <StatTile label="Total Invested" value={fmt(summary.total_invested)} icon={<Wallet size={16} />} style={glassTileStyle} />
-                            <StatTile label="Current Value" value={fmt(summary.total_current_value)} icon={<Briefcase size={16} />} style={glassTileStyle} />
+                            <StatTile label="Total Invested" value={fmt(summary.total_invested)} icon={<Wallet size={16} />} />
+                            <StatTile label="Current Value" value={fmt(summary.total_current_value)} icon={<Briefcase size={16} />} />
                             <StatTile
                                 label="Unrealized Gain"
                                 value={fmtSigned(summary.total_unrealized_gain)}
                                 subLabel={`${summary.total_unrealized_gain_pct >= 0 ? '+' : ''}${summary.total_unrealized_gain_pct}%`}
                                 icon={<TrendingUp size={16} />}
                                 accentColor={summary.total_unrealized_gain >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'}
-                                style={glassTileStyle}
                             />
-                            <StatTile label="Holdings" value={String(investments.length)} icon={<Layers size={16} />} style={glassTileStyle} />
+                            <StatTile label="Holdings" value={String(investments.length)} icon={<Layers size={16} />} />
                         </>
                     )}
                 </div>
@@ -356,7 +348,7 @@ export default function InvestmentsPage() {
                                             {fmt(groupTotal)}
                                         </span>
                                     </div>
-                                    <Card padding={0} style={glassTileStyle}>
+                                    <Card padding={0}>
                                         {group.holdings.map((inv, idx) => {
                                             const isGain = inv.unrealized_gain >= 0;
                                             return (

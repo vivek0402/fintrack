@@ -101,7 +101,6 @@ const outlineBtn: React.CSSProperties = {
     transition: 'all var(--transition-fast)',
 };
 const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' };
-const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -450,7 +449,7 @@ export default function AccountsPage() {
                         {dataLoading ? [1, 2, 3, 4].map(i => (
                             <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
                         )) : wallets.map(w => (
-                            <GCard key={w.id} padding="var(--space-4)" style={glassTileStyle}>
+                            <GCard key={w.id} padding="var(--space-4)">
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                                     <span style={{ fontSize: '24px', lineHeight: 1 }}>{w.emoji}</span>
                                     <div style={{ display: 'flex', gap: '2px' }}>

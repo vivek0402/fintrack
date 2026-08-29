@@ -82,7 +82,6 @@ function formatFullDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 const fieldSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' };
 
 export default function DocumentsPage() {
@@ -314,7 +313,7 @@ export default function DocumentsPage() {
                             const meta = DOCUMENT_TYPE_META[doc.type] || DOCUMENT_TYPE_META.other;
                             const Icon = meta.icon;
                             return (
-                                <Card key={doc.id} style={glassTileStyle}>
+                                <Card key={doc.id}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                                         <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: `color-mix(in srgb, ${meta.color} 14%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <Icon size={18} color={meta.color} />

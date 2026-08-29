@@ -43,7 +43,6 @@ const TABS = [
 const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 // For GCard/tiles nested inside an already-glass parent (modals): the lighter
 // .glass-field wash, since glass-on-glass reads muddy.
 const glassFieldStyle: React.CSSProperties = { background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)' };
@@ -998,8 +997,8 @@ function BudgetsPageInner() {
 
                         {/* ── BUDGET SUMMARY (hero numbers) ── */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" style={glassTileStyle} />
-                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} style={glassTileStyle} />
+                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" />
+                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} />
                         </div>
 
                         {budgets.length > 0 && (

@@ -31,13 +31,6 @@ const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', ma
 const noteSt: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
 const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
-// Card/StatTile take a style override, not a className — this is the .glass-surface
-// recipe inlined so their many callers below can opt in without touching the components.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 const TABS = [
     { key: 'overview', label: 'Overview' },
@@ -491,7 +484,7 @@ function DebtIntelligencePageInner() {
                         <>
                             {/* ── DEBT-TO-INCOME ── */}
                             {dti && (
-                                <Card style={glassTileStyle}>
+                                <Card>
                                     <p style={sectionTitleSt}><Gauge size={16} /> Debt-to-Income Ratio</p>
                                     <p style={sectionSubSt}>Based on your average monthly income over the last 3 months</p>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
@@ -526,7 +519,7 @@ function DebtIntelligencePageInner() {
 
                             {/* ── CREDIT UTILIZATION ── */}
                             {utilization && (
-                                <Card style={glassTileStyle}>
+                                <Card>
                                     <p style={sectionTitleSt}><CreditCard size={16} /> Credit Utilization</p>
                                     <p style={sectionSubSt}>Keeping utilization under 30% helps your credit profile</p>
                                     {utilization.per_card.length === 0 ? (
@@ -574,7 +567,7 @@ function DebtIntelligencePageInner() {
                             )}
 
                             {/* ── PAYOFF OPTIMIZER ── */}
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <p style={sectionTitleSt}><TrendingDown size={16} /> Payoff Optimizer</p>
                                 <p style={sectionSubSt}>Compare avalanche (highest interest first) vs snowball (smallest balance first) strategies</p>
 
@@ -661,7 +654,7 @@ function DebtIntelligencePageInner() {
                             </Card>
 
                             {/* ── PREPAYMENT IMPACT CALCULATOR ── */}
-                            <Card style={glassTileStyle}>
+                            <Card>
                                 <p style={sectionTitleSt}><Calculator size={16} /> Prepayment Impact Calculator</p>
                                 <p style={sectionSubSt}>See how a one-time lump-sum prepayment affects your loan tenure and interest</p>
 
@@ -736,10 +729,10 @@ function DebtIntelligencePageInner() {
                                 [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
                             ) : (
                                 <>
-                                    <StatTile label="Total Outstanding" value={fmt(totalOutstanding)} icon={<Wallet size={16} />} style={glassTileStyle} />
-                                    <StatTile label="Monthly EMI Burden" value={fmt(monthlyEMIBurden)} icon={<Landmark size={16} />} style={glassTileStyle} />
-                                    <StatTile label="Avg. Interest Rate" value={`${avgInterestRate.toFixed(2)}%`} icon={<Percent size={16} />} style={glassTileStyle} />
-                                    <StatTile label="Active Loans" value={String(activeLoans.length)} icon={<Layers size={16} />} style={glassTileStyle} />
+                                    <StatTile label="Total Outstanding" value={fmt(totalOutstanding)} icon={<Wallet size={16} />} />
+                                    <StatTile label="Monthly EMI Burden" value={fmt(monthlyEMIBurden)} icon={<Landmark size={16} />} />
+                                    <StatTile label="Avg. Interest Rate" value={`${avgInterestRate.toFixed(2)}%`} icon={<Percent size={16} />} />
+                                    <StatTile label="Active Loans" value={String(activeLoans.length)} icon={<Layers size={16} />} />
                                 </>
                             )}
                         </div>
@@ -775,7 +768,7 @@ function DebtIntelligencePageInner() {
                                     const loanPrepayments = prepayments[loan.id] || [];
 
                                     return (
-                                        <Card key={loan.id} padding={0} style={glassTileStyle}>
+                                        <Card key={loan.id} padding={0}>
                                             {/* Collapsed header */}
                                             <div onClick={() => toggleExpand(loan.id)}
                                                 role="button" tabIndex={0} aria-expanded={isExpanded}

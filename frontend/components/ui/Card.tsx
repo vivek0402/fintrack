@@ -15,14 +15,16 @@ export function Card({ children, padding = '18px 20px', elevated = false, onClic
 
     const interactiveHovered = hovered && !!onClick;
 
+    // Glass by default (2026-08-26) -- every route is on the glass language now,
+    // so the fill/border/shadow come from `.glass-surface` rather than being set
+    // here. Only the states that differ from that baseline are set inline;
+    // `undefined` is skipped by React, letting the class win.
     const baseStyle: React.CSSProperties = {
         background: interactiveHovered
-            ? 'var(--bg-surface-3)'
-            : elevated ? 'var(--bg-surface-2)' : 'var(--bg-surface-1)',
+            ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)'
+            : elevated ? 'var(--glass-sheet-surface)' : undefined,
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border-subtle)',
         padding,
-        boxShadow: 'var(--shadow-card)',
         cursor: onClick ? 'pointer' : undefined,
         transition: onClick
             ? 'transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast)'
@@ -33,6 +35,7 @@ export function Card({ children, padding = '18px 20px', elevated = false, onClic
 
     return (
         <div
+            className="glass-surface"
             style={baseStyle}
             onClick={onClick}
             onMouseEnter={() => setHovered(true)}

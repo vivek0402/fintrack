@@ -21,13 +21,6 @@ const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'va
 const errSt: React.CSSProperties = { fontSize: 12, color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' };
 const iconBtn: React.CSSProperties = { width: 38, height: 38, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
 const outlineBtn: React.CSSProperties = { padding: '8px 14px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 };
-// GCard takes a style override, not a className — this is the .glass-surface
-// recipe inlined so its many callers below can opt in without touching the component.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 const RISK_OPTIONS = [
     { value: 'safety', label: 'Safety First' },
@@ -369,7 +362,7 @@ export default function PlanningPage() {
                     </div>
                 </div>
 
-                <GCard padding="28px 24px" style={glassTileStyle}>
+                <GCard padding="28px 24px">
                     {/* Step 0: Monthly income */}
                     {step === 0 && (
                         <div>
@@ -687,10 +680,10 @@ function DriftRow({ label, oldAmount, newAmount, percentDifference, isIncome }: 
 
 function StartTab({ checklist }: { checklist?: { title: string; description: string }[] }) {
     if (!checklist || checklist.length === 0) {
-        return <GCard style={glassTileStyle}><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Your setup checklist will appear here once your plan finishes generating.</p></GCard>;
+        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Your setup checklist will appear here once your plan finishes generating.</p></GCard>;
     }
     return (
-        <GCard style={glassTileStyle}>
+        <GCard>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {checklist.map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: 12 }}>
@@ -733,7 +726,7 @@ function WaterfallRow({ label, amount, running, note }: { label: string; amount:
 function MonthlyTab({ plan, expenses, projection }: { plan: any; expenses: any[]; projection: any[] }) {
     const month1 = projection?.[0];
     if (!month1) {
-        return <GCard style={glassTileStyle}><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
+        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
     }
 
     const hasGoal = plan.goal_amount !== null;
@@ -775,7 +768,7 @@ function MonthlyTab({ plan, expenses, projection }: { plan: any; expenses: any[]
     const balanced = Math.abs(running) <= TOLERANCE && !month1.deficit;
 
     return (
-        <GCard style={glassTileStyle}>
+        <GCard>
             <WaterfallRow label="Monthly Income" amount={month1.income} running={month1.income} />
             {rows.map((r, i) => <WaterfallRow key={i} {...r} />)}
 
@@ -829,10 +822,10 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {rationale && (
-                <GCard style={glassTileStyle}><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{rationale}</p></GCard>
+                <GCard><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{rationale}</p></GCard>
             )}
 
-            <GCard style={glassTileStyle}>
+            <GCard>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Emergency Fund</p>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(plan.emergency_fund_current_balance)} / {fmt(efTarget)}</p>
@@ -845,7 +838,7 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
                 {efFund && <FundCard fund={efFund} />}
             </GCard>
 
-            <GCard style={glassTileStyle}>
+            <GCard>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
                     <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>SIP / Investments</p>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--color-inc)', margin: 0, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(month1.sipContribution)}/mo</p>
@@ -856,7 +849,7 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
             </GCard>
 
             {hasGoal && goalFund && (
-                <GCard style={glassTileStyle}>
+                <GCard>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
                         <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Goal: {plan.goal_name}</p>
                         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(plan.goal_amount)} target</p>
@@ -876,7 +869,7 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
 
 function FiveYearTab({ plan, summary, summaryText }: { plan: any; summary: any[]; summaryText?: string }) {
     if (!summary || summary.length === 0) {
-        return <GCard style={glassTileStyle}><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
+        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
     }
 
     const hasGoal = plan.goal_amount !== null;
@@ -886,9 +879,9 @@ function FiveYearTab({ plan, summary, summaryText }: { plan: any; summary: any[]
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {summaryText && (
-                <GCard style={glassTileStyle}><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{summaryText}</p></GCard>
+                <GCard><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{summaryText}</p></GCard>
             )}
-            <GCard style={glassTileStyle}>
+            <GCard>
                 <div style={{ overflowX: 'auto' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${columns.length - 1}, 1fr)`, gap: 4, minWidth: 560 }}>
                         {columns.map(c => (
@@ -920,7 +913,7 @@ function LoanTab({ plan, emi, fiveYearSummary }: { plan: any; emi: number; fiveY
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <GCard style={glassTileStyle}>
+            <GCard>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
                         <p style={statSt}>Monthly EMI</p>
@@ -946,7 +939,7 @@ function LoanTab({ plan, emi, fiveYearSummary }: { plan: any; emi: number; fiveY
                 )}
             </GCard>
 
-            <GCard style={glassTileStyle}>
+            <GCard>
                 <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Outstanding Balance</p>
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {fiveYearSummary.map((row: any) => (

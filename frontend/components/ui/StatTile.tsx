@@ -17,10 +17,8 @@ interface StatTileProps {
 export function StatTile({ label, value, subLabel, trend, icon, accentColor, loading = false, style }: StatTileProps) {
     if (loading) {
         return (
-            <div style={{
-                background: 'var(--bg-surface-1)',
+            <div className="glass-surface" style={{
                 borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border-subtle)',
                 padding: 'var(--space-4)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -39,10 +37,8 @@ export function StatTile({ label, value, subLabel, trend, icon, accentColor, loa
     const trendPositive = trend !== undefined && trend >= 0;
 
     return (
-        <div style={{
-            background: 'var(--bg-surface-1)',
+        <div className="glass-surface" style={{
             borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-subtle)',
             padding: 'var(--space-4)',
             display: 'flex',
             flexDirection: 'column',

@@ -96,14 +96,6 @@ function SectionHead({ title }: { title: string }) {
     return <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>{title}</h2>;
 }
 
-// GCard/StatTile take a style override, not a className — this is the .glass-surface
-// recipe inlined so callers across every tab on this page can opt in without touching
-// the components themselves.
-const glassTileStyle: React.CSSProperties = {
-    background: 'var(--glass-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    boxShadow: 'var(--glass-edge)',
-};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // OVERVIEW TAB (formerly /analytics)
@@ -478,7 +470,7 @@ function AnalyticsOverviewTab() {
                                 { label: periodStats.vsLabel, value: periodStats.vsLast !== null ? `${periodStats.vsLast > 0 ? '+' : ''}${periodStats.vsLast}%` : '—', sub: 'expenses', color: periodStats.vsLast !== null && periodStats.vsLast > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
                                 { label: 'Savings Rate', value: `${periodStats.savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
                             ].map(kpi => (
-                                <GCard key={kpi.label} style={glassTileStyle}>
+                                <GCard key={kpi.label}>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
                                     <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
@@ -782,7 +774,7 @@ function AnalyticsOverviewTab() {
                             { label: 'Total Income', value: fmt(summary?.total_income ?? 0), sub: FULL_MONTHS[currentMonth], color: 'var(--color-inc)' },
                             { label: 'vs Last Month', value: incVsLastMonth !== null ? `${incVsLastMonth > 0 ? '+' : ''}${incVsLastMonth}%` : '—', sub: 'income', color: incVsLastMonth !== null && incVsLastMonth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' },
                         ].map(kpi => (
-                            <GCard key={kpi.label} style={glassTileStyle}>
+                            <GCard key={kpi.label}>
                                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
                                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
                                 <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
@@ -893,7 +885,7 @@ function AnalyticsOverviewTab() {
                                 </div>
 
                                 {allocationPlan.month_comparison && (
-                                    <GCard style={{ ...glassTileStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                                    <GCard style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
                                         <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--color-inc)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--color-exp)' : 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                                             {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
                                         </span>
@@ -1457,7 +1449,7 @@ function ReportsTab({ onBack }: { onBack: () => void }) {
                                         { label: 'Savings Rate', value: `${data.summary.savings_rate}%`, color: 'var(--accent)' },
                                         { label: 'Transactions', value: data.summary.transaction_count, color: 'var(--color-warn)' },
                                     ].map(c => (
-                                        <GCard key={c.label} style={glassTileStyle}>
+                                        <GCard key={c.label}>
                                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{c.label}</p>
                                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: c.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{c.value}</p>
                                         </GCard>
@@ -2181,7 +2173,7 @@ function PersonalityTab({ onBack }: { onBack: () => void }) {
                     </div>
 
                     {/* Tips */}
-                    <GCard style={{ ...glassTileStyle, background: 'color-mix(in srgb, var(--accent) 6%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 18%, var(--glass-border))' }}>
+                    <GCard style={{ background: 'color-mix(in srgb, var(--accent) 6%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 18%, var(--glass-border))' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
                             <Lightbulb size={16} color="var(--accent)" />
                             <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>What to focus on</span>
