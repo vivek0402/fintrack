@@ -47,7 +47,7 @@ export function Input({ label, error, hint, icon, prefix, suffix, variant = 'def
                         width: '100%',
                         height: '40px',
                         padding: `0 ${suffix ? '38px' : '14px'} 0 ${leading ? '38px' : '14px'}`,
-                        background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                        background: 'var(--glass-fill-1)',
                         color: 'var(--text-primary)',
                         border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : 'var(--glass-border)'}`,
                         borderRadius: 'var(--radius-md)',

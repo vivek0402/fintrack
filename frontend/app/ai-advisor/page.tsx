@@ -233,7 +233,7 @@ export default function AiAdvisorPage() {
                                             background: active ? 'var(--accent-subtle)' : 'transparent',
                                             width: '100%',
                                         }}
-                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                                         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', minWidth: 0, flex: 1 }}>
                                             <span style={{
@@ -422,7 +422,7 @@ function ChatInput({ input, setInput, sending, canSend, onSend }: {
                 placeholder="Type your message…"
                 rows={1}
                 style={{
-                    flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)',
+                    flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)',
                     border: '1px solid var(--glass-border)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
                     outline: 'none', resize: 'none', lineHeight: 1.5, maxHeight: '120px', overflowY: 'auto',
                     transition: 'border-color var(--transition-fast)',

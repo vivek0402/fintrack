@@ -21,7 +21,7 @@ import { fmt } from '@/lib/utils';
 import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
 
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
@@ -542,7 +542,7 @@ export default function GoalsPage() {
                             <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 8px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{lifeEventResult.plan?.summary}</p>
                             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(lifeEventResult.plan?.monthly_required || 0)}/month needed</span>
-                                <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{lifeEventResult.plan?.difficulty}</Badge>
+                                <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{lifeEventResult.plan?.difficulty}</Badge>
                             </div>
                         </div>
                         {lifeEventResult.plan?.milestones?.length > 0 && (

@@ -396,7 +396,7 @@ function TransactionsPageInner() {
                             icon={SearchX}
                             title="No matches"
                             subtitle="No transactions match your current search and filters."
-                            action={<button type="button" onClick={() => clearAllRef.current()} style={{ padding: '10px 20px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear filters</button>}
+                            action={<button type="button" onClick={() => clearAllRef.current()} style={{ padding: '10px 20px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear filters</button>}
                         />
                     ) : (
                         <TransactionList
@@ -438,7 +438,7 @@ function TransactionsPageInner() {
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
                             transform: 'translateX(-50%)', marginBottom: '8px',
-                            backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)',
+                            backgroundColor: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
                             borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
                             color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
                         }}>
@@ -487,7 +487,7 @@ function TransactionsPageInner() {
             {quickAddOpen && createPortal(
                 <div onClick={e => { if (e.target === e.currentTarget) setQuickAddOpen(false); }}
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow-modal)' }}>
+                    <div style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow-modal)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -510,7 +510,7 @@ function TransactionsPageInner() {
                             placeholder={QUICK_ADD_PLACEHOLDERS[placeholderIdx]}
                             rows={3}
                             autoFocus
-                            style={{ width: '100%', padding: '14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
+                            style={{ width: '100%', padding: '14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
                             onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                             onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
                         />
@@ -523,7 +523,7 @@ function TransactionsPageInner() {
                         )}
                         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
                             <button type="button" onClick={() => setQuickAddOpen(false)}
-                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                 Cancel
                             </button>
                             <button type="button" onClick={handleQuickAdd} disabled={!quickAddText.trim() || quickAddLoading}

@@ -50,7 +50,7 @@ export function InstallPWA() {
             }}
             onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)';
+                el.style.background = 'var(--glass-fill-2)';
                 el.style.color = 'var(--text-primary)';
             }}
             onMouseLeave={e => {

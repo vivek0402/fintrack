@@ -151,6 +151,15 @@ h1, h2, h3, h4, h5, h6 {
      on their own regardless of what's scrolled behind them. */
   --glass-sheet-surface: rgba(18, 18, 18, 0.72);
 
+  /* Glass fill scale -- mirrors --bg-surface-1/2/3, but translucent, for
+     elements sitting *on* glass. 1 = at rest (fields, inputs, tiles),
+     2 = raised (chips, avatars) or hover of 1, 3 = selected/active.
+     Added 2026-08-26 after the rollout inlined color-mix 159x and drifted
+     across eight opacity values; see DESIGN.md line "No color-mix() inline". */
+  --glass-fill-1: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --glass-fill-2: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  --glass-fill-3: color-mix(in srgb, var(--text-primary) 13%, transparent);
+
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
   --cat-4: #7c3aed; --cat-5: #0891b2; --cat-6: #db2777; --cat-7: #65a30d;
@@ -217,6 +226,15 @@ h1, h2, h3, h4, h5, h6 {
     0 8px 24px -14px rgba(20, 22, 45, 0.28);
   --glass-nav-surface: rgba(255, 255, 255, 0.9);
   --glass-sheet-surface: rgba(255, 255, 255, 0.82);
+
+  /* Glass fill scale -- mirrors --bg-surface-1/2/3, but translucent, for
+     elements sitting *on* glass. 1 = at rest (fields, inputs, tiles),
+     2 = raised (chips, avatars) or hover of 1, 3 = selected/active.
+     Added 2026-08-26 after the rollout inlined color-mix 159x and drifted
+     across eight opacity values; see DESIGN.md line "No color-mix() inline". */
+  --glass-fill-1: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  --glass-fill-2: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  --glass-fill-3: color-mix(in srgb, var(--text-primary) 13%, transparent);
 
   /* ── Category palette (Analytics) ── */
   --cat-0: #2563eb; --cat-1: #16a34a; --cat-2: #d97706; --cat-3: #dc2626;
@@ -291,7 +309,7 @@ aside, aside nav {
    twice reads muddy, so this is just a subtle tint + border, promoted from a
    per-page pattern first used in the add-transaction form and onboarding. */
 .glass-field {
-  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+  background: var(--glass-fill-1);
   border: 1px solid var(--glass-border);
 }
 

@@ -142,7 +142,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                             type="button"
                             onClick={onClose}
                             style={{
-                                background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)',
+                                background: 'var(--glass-fill-2)',
                                 border: 'none',
                                 cursor: 'pointer',
                                 color: 'var(--text-muted)',

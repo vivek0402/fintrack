@@ -105,7 +105,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     }}
                     onMouseEnter={e => {
                         if (!isActive) {
-                            (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)';
+                            (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)';
                             (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
                         }
                     }}
@@ -193,7 +193,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                                 justifyContent: 'center',
                                 transition: 'background var(--transition-fast)',
                             }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                         >
                             <HelpCircle size={18} />

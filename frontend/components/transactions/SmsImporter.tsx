@@ -23,7 +23,7 @@ interface SmsImporterProps {
 }
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8,
+    width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8,
     padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
 const labelSt: React.CSSProperties = {

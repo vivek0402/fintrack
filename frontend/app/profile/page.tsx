@@ -22,13 +22,13 @@ const CURRENCIES = [
     { code: 'SGD', label: 'Singapore Dollar' },
 ];
 
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 
 function SettingsRow({ icon, label, sub, onClick, destructive }: { icon: React.ReactNode; label: string; sub?: string; onClick?: () => void; destructive?: boolean }) {
     return (
         <button type="button" onClick={onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: onClick ? 'pointer' : 'default', textAlign: 'left' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: destructive ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: destructive ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <span style={{ color: destructive ? 'var(--color-exp)' : 'var(--accent)' }}>{icon}</span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -226,7 +226,7 @@ export default function ProfilePage() {
 
                     {/* Mode toggle */}
                     <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Mode</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
                         {([
                             { key: 'light' as const, label: '☀️ Light' },
                             { key: 'dark'  as const, label: '🌙 Dark'  },
@@ -238,7 +238,7 @@ export default function ProfilePage() {
                                 style={{
                                     padding: '9px 8px',
                                     borderRadius: 'var(--radius-sm)',
-                                    background: theme === m.key ? 'color-mix(in srgb, var(--text-primary) 12%, transparent)' : 'transparent',
+                                    background: theme === m.key ? 'var(--glass-fill-3)' : 'transparent',
                                     boxShadow: theme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
                                     border: 'none', cursor: 'pointer',
                                     fontSize: '13px', color: 'var(--text-primary)',
@@ -281,7 +281,7 @@ export default function ProfilePage() {
                     <div style={{ ...divider, margin: '16px 0 0' }} />
                     <button type="button" onClick={() => setPasswordFormOpen(o => !o)}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <Lock size={15} color="var(--accent)" />
                         </div>
                         <p style={{ flex: 1, fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>Change password</p>
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                     <SettingsRow icon={<Trash2 size={16} />} label="Clear AI Cache" sub="Force-refresh AI analysis results" onClick={clearingCache ? undefined : handleClearCache} />
                     <div style={divider} />
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <Zap size={16} color="var(--accent)" />
                         </div>
                         <div style={{ flex: 1 }}>

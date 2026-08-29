@@ -84,10 +84,10 @@ export function RedesignAnnouncement() {
                         <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
                             Mode
                         </p>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)' }}>
                             {([{ key: 'light' as const, label: '☀️ Light' }, { key: 'dark' as const, label: '🌙 Dark' }]).map(m => (
                                 <button key={m.key} type="button" onClick={() => setLocalTheme(m.key)}
-                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: localTheme === m.key ? 'color-mix(in srgb, var(--text-primary) 12%, transparent)' : 'transparent', boxShadow: localTheme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: localTheme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
+                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: localTheme === m.key ? 'var(--glass-fill-3)' : 'transparent', boxShadow: localTheme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: localTheme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
                                     {m.label}
                                 </button>
                             ))}

@@ -42,7 +42,7 @@ export function Tabs({ tabs, active, onChange }: TabsProps) {
                         // instead -- same treatment as the Calendar cells and the
                         // AI Advisor's conversation rows.
                         onMouseEnter={e => {
-                            if (!isActive) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 10%, transparent)';
+                            if (!isActive) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)';
                         }}
                         onMouseLeave={e => {
                             if (!isActive) (e.currentTarget as HTMLElement).style.background = '';

@@ -46,7 +46,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
             <div
                 onClick={e => e.stopPropagation()}
                 style={{
-                    background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                    background: 'var(--glass-fill-1)',
                     borderRadius: '20px 20px 0 0',
                     maxHeight: '80vh',
                     display: 'flex',
@@ -124,7 +124,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                                 width: '40px',
                                 height: '40px',
                                 borderRadius: '10px',
-                                background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                background: 'var(--glass-fill-1)',
                                 fontSize: '20px',
                                 display: 'flex',
                                 alignItems: 'center',

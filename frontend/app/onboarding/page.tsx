@@ -34,7 +34,7 @@ type ImportMethod = 'sms' | 'pdf' | 'cams' | null;
 // Subtle wash for option tiles/rows living inside the wizard's own glass
 // card -- full nested .glass-surface would double up the blur; this reuses
 // the same lighter treatment the add-transaction form's fields use.
-const GLASS_FIELD_BG = 'color-mix(in srgb, var(--text-primary) 5%, transparent)';
+const GLASS_FIELD_BG = 'var(--glass-fill-1)';
 const GLASS_FIELD_BORDER = '1px solid var(--glass-border)';
 
 export default function OnboardingPage() {

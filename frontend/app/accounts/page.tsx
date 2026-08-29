@@ -85,7 +85,7 @@ function SectionHead({ title, total, totalColor, onAdd }: { title: string; total
 // ── Shared modal style helpers ────────────────────────────────────────────────
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)',
+    width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
     borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14,
     outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
 };
@@ -463,7 +463,7 @@ export default function AccountsPage() {
                                         onChange={e => setWalletBalanceInput(e.target.value)}
                                         onBlur={() => saveWalletBalance(w)}
                                         onKeyDown={e => { if (e.key === 'Enter') saveWalletBalance(w); if (e.key === 'Escape') setEditingWalletBalanceId(null); }}
-                                        style={{ width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
                                     />
                                 ) : (
                                     <p onClick={() => startWalletBalanceEdit(w)} title="Tap to edit"
@@ -494,7 +494,7 @@ export default function AccountsPage() {
                     <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingBank ? 'Edit Account' : 'Add Bank Account'}</span>
-                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div><label style={labelSt}>Account Name *</label><input style={inputSt} value={bankForm.name} onChange={e => setBankForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Savings" /></div>
@@ -520,7 +520,7 @@ export default function AccountsPage() {
                     <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingCard ? 'Edit Card' : 'Add Credit Card'}</span>
-                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -570,7 +570,7 @@ export default function AccountsPage() {
                     <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Pay {payingCard.bank_name} {payingCard.card_name}</span>
-                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
@@ -620,7 +620,7 @@ export default function AccountsPage() {
                     <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
                             <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingWallet ? 'Edit Wallet' : 'Add Wallet'}</span>
-                            <button type="button" style={{ background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
+                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
                         </div>
                         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>

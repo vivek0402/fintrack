@@ -111,7 +111,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 
 const labelSt: React.CSSProperties = { fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'block', marginBottom: '6px' };
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: '14px', boxSizing: 'border-box' as const };
 
 interface Feasibility {
     days_remaining: number;
@@ -137,7 +137,7 @@ interface Milestone {
 }
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'color-mix(in srgb, var(--text-primary) 8%, transparent)' },
+    not_started: { label: 'Not Started', color: 'var(--text-muted)', bg: 'var(--glass-fill-2)' },
     in_progress: { label: 'In Progress', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
     achieved: { label: 'Achieved', color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 10%, transparent)' },
     missed: { label: 'Missed', color: 'var(--color-exp)', bg: 'color-mix(in srgb, var(--color-exp) 10%, transparent)' },
@@ -597,7 +597,7 @@ function SavingsPlanPageInner() {
                                                                 value={monthly || ''}
                                                                 placeholder="0"
                                                                 onChange={e => updateSavePlan(goal.id, parseFloat(e.target.value) || 0)}
-                                                                style={{ width: 76, background: 'color-mix(in srgb, var(--text-primary) 6%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+                                                                style={{ width: 76, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
                                                             />
                                                         </div>
                                                     </div>
@@ -824,7 +824,7 @@ function SavingsPlanPageInner() {
                                             const isToday  = cd.day === todayDay;
                                             const hasActual = !cd.isFuture && (cd.actual || 0) > 0;
                                             return (
-                                                <div key={cd.day} style={{ minHeight: 64, padding: '6px 8px', borderRadius: 8, background: hasActual ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : 'transparent', border: isToday ? '1px solid var(--accent)' : '1px solid transparent', opacity: cd.isFuture ? 0.75 : 1 }}>
+                                                <div key={cd.day} style={{ minHeight: 64, padding: '6px 8px', borderRadius: 8, background: hasActual ? 'var(--glass-fill-1)' : 'transparent', border: isToday ? '1px solid var(--accent)' : '1px solid transparent', opacity: cd.isFuture ? 0.75 : 1 }}>
                                                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: isToday ? 700 : 400, marginBottom: 4, fontFamily: 'var(--font-body)' }}>{cd.day}</div>
                                                     {hasActual && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: 'var(--color-exp)', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmt(cd.actual!)}</div>}
                                                     {cd.isFuture && cd.projected! > 0 && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>~{fmt(cd.projected!)}</div>}

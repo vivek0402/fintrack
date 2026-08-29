@@ -103,7 +103,7 @@ function DayDetail({
                             return (
                                 <div key={tx.id} onClick={() => onEdit(tx)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: 'var(--radius-md)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 6%, transparent)'}
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                     <div style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0, background: isInc ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         {tx.category_icon
@@ -446,7 +446,7 @@ export function CalendarTab() {
                     style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}
                 >
                     {/* Day-of-week header */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'color-mix(in srgb, var(--text-primary) 4%, transparent)', borderBottom: '1px solid var(--glass-border)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--glass-fill-1)', borderBottom: '1px solid var(--glass-border)' }}>
                         {DAY_LABELS.map(d => (
                             <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>
                                 {d}
@@ -472,7 +472,7 @@ export function CalendarTab() {
                                             minHeight: isMobile ? '60px' : '90px',
                                             borderRight:  !isLastInRow ? '1px solid var(--glass-border)' : 'none',
                                             borderBottom: '1px solid var(--glass-border)',
-                                            background: 'color-mix(in srgb, var(--text-primary) 3%, transparent)',
+                                            background: 'var(--glass-fill-1)',
                                             opacity: 0.5,
                                         }} />
                                     );
@@ -505,7 +505,7 @@ export function CalendarTab() {
                                             position:     'relative',
                                             boxSizing:    'border-box',
                                         }}
-                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                        onMouseEnter={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                                         onMouseLeave={e => { if (!isSel) (e.currentTarget as HTMLElement).style.background = cellBg; }}
                                     >
                                         {/* Day number + indicator dots */}

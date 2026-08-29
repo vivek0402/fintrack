@@ -65,7 +65,7 @@ export function GlobalSearch() {
     ];
 
     const rowHover = (e: React.MouseEvent<HTMLElement>, enter: boolean) => {
-        (e.currentTarget as HTMLElement).style.background = enter ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)' : 'transparent';
+        (e.currentTarget as HTMLElement).style.background = enter ? 'var(--glass-fill-2)' : 'transparent';
     };
 
     return (

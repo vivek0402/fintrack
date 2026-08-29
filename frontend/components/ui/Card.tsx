@@ -21,7 +21,7 @@ export function Card({ children, padding = '18px 20px', elevated = false, onClic
     // `undefined` is skipped by React, letting the class win.
     const baseStyle: React.CSSProperties = {
         background: interactiveHovered
-            ? 'color-mix(in srgb, var(--text-primary) 8%, transparent)'
+            ? 'var(--glass-fill-2)'
             : elevated ? 'var(--glass-sheet-surface)' : undefined,
         borderRadius: 'var(--radius-lg)',
         padding,

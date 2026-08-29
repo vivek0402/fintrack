@@ -57,7 +57,7 @@ export function Button({
         },
         secondary: {
             padding: PADDINGS[size],
-            background: hovered && !disabled ? 'color-mix(in srgb, var(--text-primary) 10%, transparent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+            background: hovered && !disabled ? 'var(--glass-fill-2)' : 'var(--glass-fill-1)',
             color: 'var(--text-primary)',
             border: '1px solid var(--glass-border)',
         },
@@ -76,7 +76,7 @@ export function Button({
         icon: {
             width: HEIGHTS[size],
             padding: '0',
-            background: hovered && !disabled ? 'color-mix(in srgb, var(--text-primary) 10%, transparent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+            background: hovered && !disabled ? 'var(--glass-fill-2)' : 'var(--glass-fill-1)',
             color: 'var(--text-secondary)',
             border: '1px solid var(--glass-border)',
             borderRadius: 'var(--radius-sm)',

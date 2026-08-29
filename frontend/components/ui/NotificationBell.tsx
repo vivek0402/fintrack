@@ -99,7 +99,7 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                     color: open ? 'var(--accent)' : 'var(--text-muted)',
                     transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                 onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
                 {unread > 0
@@ -171,7 +171,7 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                                         border: 'none', borderBottom: '1px solid var(--glass-border)',
                                         cursor: 'pointer', transition: 'background 0.15s',
                                     }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = n.readAt ? 'transparent' : 'color-mix(in srgb, var(--accent) 5%, transparent)'; }}
                                 >
                                     <div style={{

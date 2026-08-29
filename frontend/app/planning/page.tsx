@@ -16,7 +16,7 @@ import { toast } from '@/store/toastStore';
 
 // ── Shared inline style tokens (matches the pattern used on goals/page.tsx etc.) ──
 // Same wash as .glass-field, inlined since these fields live inside already-glass cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 12, color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' };
 const iconBtn: React.CSSProperties = { width: 38, height: 38, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
@@ -387,18 +387,18 @@ export default function PlanningPage() {
                                 {form.expenses.map((exp, i) => (
                                     <div key={i} className="glass-field" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px', borderRadius: 'var(--radius-md)' }}>
                                         <div style={{ display: 'flex', gap: 8 }}>
-                                            <input placeholder="e.g. Rent" value={exp.name} onChange={e => updateExpense(i, 'name', e.target.value)} style={{ ...inputSt, background: 'color-mix(in srgb, var(--text-primary) 6%, transparent)' }} />
+                                            <input placeholder="e.g. Rent" value={exp.name} onChange={e => updateExpense(i, 'name', e.target.value)} style={{ ...inputSt, background: 'var(--glass-fill-1)' }} />
                                             <div style={{ position: 'relative', width: 140, flexShrink: 0 }}>
                                                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>₹</span>
                                                 <input type="number" min="0" placeholder="0" value={exp.amount} onChange={e => updateExpense(i, 'amount', e.target.value)}
-                                                    style={{ ...inputSt, background: 'color-mix(in srgb, var(--text-primary) 6%, transparent)', paddingLeft: 26, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }} />
+                                                    style={{ ...inputSt, background: 'var(--glass-fill-1)', paddingLeft: 26, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }} />
                                             </div>
                                             <button type="button" onClick={() => removeExpenseRow(i)} disabled={form.expenses.length === 1} style={{ ...iconBtn, opacity: form.expenses.length === 1 ? 0.4 : 1 }}>
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
                                         <select value={exp.category_id} onChange={e => updateExpense(i, 'category_id', e.target.value)}
-                                            style={{ ...inputSt, background: 'color-mix(in srgb, var(--text-primary) 6%, transparent)', fontSize: 12, padding: '6px 10px', color: exp.category_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                                            style={{ ...inputSt, background: 'var(--glass-fill-1)', fontSize: 12, padding: '6px 10px', color: exp.category_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                                             <option value="">No category — can't compare to actual spending</option>
                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>

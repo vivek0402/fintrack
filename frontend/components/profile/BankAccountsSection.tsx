@@ -226,7 +226,7 @@ export function BankAccountsSection() {
             {loading && (
                 <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
                     {[1, 2].map(i => (
-                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--border-subtle)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        <div key={i} style={{ flex: 1, height: '160px', borderRadius: '12px', backgroundColor: 'var(--glass-fill-1)', border: '1px solid var(--border-subtle)', animation: 'pulse 1.5s ease-in-out infinite' }} />
                     ))}
                 </div>
             )}
@@ -270,7 +270,7 @@ export function BankAccountsSection() {
                             <div
                                 key={account.id}
                                 style={{
-                                    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                    backgroundColor: 'var(--glass-fill-1)',
                                     border: '1px solid var(--glass-border)',
                                     borderLeft: `3px solid ${account.color}`,
                                     borderRadius: '12px',
@@ -489,7 +489,7 @@ export function BankAccountsSection() {
                                                 height: '40px',
                                                 borderRadius: '8px',
                                                 border: form.icon === ic ? '2px solid var(--accent)' : '1px solid var(--border-subtle)',
-                                                backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                                backgroundColor: 'var(--glass-fill-1)',
                                                 fontSize: '18px',
                                                 cursor: 'pointer',
                                                 display: 'flex',
@@ -607,7 +607,7 @@ export function BankAccountsSection() {
                                             width: '36px',
                                             height: '20px',
                                             borderRadius: '10px',
-                                            backgroundColor: form.is_default ? 'var(--accent)' : 'color-mix(in srgb, var(--text-primary) 14%, transparent)',
+                                            backgroundColor: form.is_default ? 'var(--accent)' : 'var(--glass-fill-3)',
                                             border: 'none',
                                             cursor: 'pointer',
                                             position: 'relative',
@@ -686,7 +686,7 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
     width: '100%',
-    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+    backgroundColor: 'var(--glass-fill-1)',
     border: '1px solid var(--glass-border)',
     borderRadius: '8px',
     padding: '10px 12px',
@@ -716,7 +716,7 @@ const cancelBtnStyle: React.CSSProperties = {
     padding: '10px',
     borderRadius: '8px',
     border: '1px solid var(--glass-border)',
-    backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+    backgroundColor: 'var(--glass-fill-1)',
     color: 'var(--text-secondary)',
     fontSize: '14px',
     cursor: 'pointer',

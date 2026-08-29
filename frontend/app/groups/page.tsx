@@ -27,7 +27,7 @@ interface Settlement { from: string; to: string; amount: number }
 
 const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','🛒','💊','📚','🌿'];
 
-const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
 const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
 const iconBt: React.CSSProperties  = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' };
 
@@ -358,7 +358,7 @@ export default function GroupsPage() {
                                             <div style={{ borderTop: '1px solid var(--glass-border)', padding: '8px 16px 12px' }}>
                                                 {sp.shares.map(sh => (
                                                     <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--text-primary) 8%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
+                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--glass-fill-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
                                                             {sh.member[0]?.toUpperCase() || '?'}
                                                         </div>
                                                         <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{sh.member}</span>
@@ -446,10 +446,10 @@ export default function GroupsPage() {
                                 {allMemberNames.map(n => (
                                     <div key={n} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                                         <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{n}</span>
-                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
+                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
                                     </div>
                                 ))}
-                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--glass-border)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'var(--glass-fill-1)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--glass-border)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Sum of shares</span>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: customTallyOk ? 'var(--color-inc)' : customTotal > 0 ? 'var(--color-exp)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(customTotal)}{splitTotalNum > 0 && ` / ${fmt(splitTotalNum)}`}</span>
@@ -481,8 +481,8 @@ export default function GroupsPage() {
                         <div style={{ overflowY: 'auto', flex: 1 }}>
                             {txResults.map(tx => (
                                 <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)} className="glass-field" style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 10%, transparent)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 5%, transparent)'}>
+                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
+                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-1)'}>
                                     <div>
                                         <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
@@ -509,7 +509,7 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
     const addMember    = () => setFormMembers([...formMembers, { name: '' }]);
     const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
     const updateMember = (i: number, field: keyof Member, val: string) => { const updated = [...formMembers]; updated[i] = { ...updated[i], [field]: val }; setFormMembers(updated); };
-    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
+    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
     const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
     if (!mounted) return null;
     return createPortal(
@@ -533,8 +533,8 @@ function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, f
                     <label style={labelSt}>Members</label>
                     {formMembers.map((m, i) => (
                         <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
-                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
                             {formMembers.length > 1 && (<button type="button" onClick={() => removeMember(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><X size={14} /></button>)}
                         </div>
                     ))}

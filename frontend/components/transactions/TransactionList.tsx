@@ -235,7 +235,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                     background: isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
                                     cursor: selectMode ? 'pointer' : 'default',
                                 }}
-                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
                                 onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent'; }}
                             >
                                 {selectMode && (
@@ -290,7 +290,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                                                         {deletingId === tx.id ? '...' : 'Delete'}
                                                     </button>
                                                     <button onClick={() => setConfirmId(null)}
-                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-fill-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                         Cancel
                                                     </button>
                                                 </div>

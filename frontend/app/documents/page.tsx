@@ -82,7 +82,7 @@ function formatFullDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-const fieldSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' };
+const fieldSt: React.CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' };
 
 export default function DocumentsPage() {
     const router = useRouter();

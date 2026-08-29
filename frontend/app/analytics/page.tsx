@@ -28,7 +28,7 @@ import {
     FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
 const vizSkeleton = (h: number) => {
-    const VizSkeleton = () => <div style={{ height: h, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: 8 }} />;
+    const VizSkeleton = () => <div style={{ height: h, background: 'var(--glass-fill-1)', borderRadius: 8 }} />;
     VizSkeleton.displayName = 'VizSkeleton';
     return VizSkeleton;
 };
@@ -616,7 +616,7 @@ function AnalyticsOverviewTab() {
                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color || cc.exp, flexShrink: 0 }} />
                                                 <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(amt)}</span>
-                                                <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{pct}%</Badge>
+                                                <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{pct}%</Badge>
                                             </div>
                                         );
                                     })}
@@ -686,7 +686,7 @@ function AnalyticsOverviewTab() {
                                                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{pm.percent}%</Badge>
+                                                    <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{pm.percent}%</Badge>
                                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', minWidth: '80px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(pm.total)}</span>
                                                 </div>
                                             </div>
@@ -1495,7 +1495,7 @@ function ReportsTab({ onBack }: { onBack: () => void }) {
                                             const isIncome = tx.type === 'income';
                                             return (
                                                 <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--glass-border)', gap: '12px', transition: 'background var(--transition-fast)' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 6%, transparent)'}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
                                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                                                         <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1504,7 +1504,7 @@ function ReportsTab({ onBack }: { onBack: () => void }) {
                                                         <div style={{ minWidth: 0 }}>
                                                             <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                                                {tx.category_name && <span style={{ fontSize: '11px', color: tx.category_color || 'var(--text-muted)', background: tx.category_color ? `${tx.category_color}20` : 'color-mix(in srgb, var(--text-primary) 8%, transparent)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
+                                                                {tx.category_name && <span style={{ fontSize: '11px', color: tx.category_color || 'var(--text-muted)', background: tx.category_color ? `${tx.category_color}20` : 'var(--glass-fill-2)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
                                                                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{formatDate(tx.date)}</span>
                                                             </div>
                                                         </div>

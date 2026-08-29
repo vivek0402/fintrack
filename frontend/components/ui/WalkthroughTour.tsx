@@ -260,7 +260,7 @@ export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
                                     type="button"
                                     onClick={handleBack}
                                     style={{
-                                        background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                        background: 'var(--glass-fill-1)',
                                         color: 'var(--text-secondary)',
                                         borderRadius: '8px',
                                         padding: '10px 18px',

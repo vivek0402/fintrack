@@ -217,7 +217,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     // ── Style helpers ────────────────────────────────────────────────────────
     const pillS = (active: boolean): React.CSSProperties => ({
         padding: '5px 14px', borderRadius: '999px', border: 'none', cursor: 'pointer',
-        background: active ? 'var(--accent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+        background: active ? 'var(--accent)' : 'var(--glass-fill-1)',
         color: active ? 'white' : 'var(--text-secondary)',
         fontSize: '13px', fontWeight: active ? 600 : 400,
         fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', flexShrink: 0,
@@ -230,7 +230,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     };
 
     const inputS: React.CSSProperties = {
-        padding: '7px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)',
+        padding: '7px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
         borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', fontSize: '14px',
         fontFamily: 'var(--font-body)', outline: 'none',
     };
@@ -247,7 +247,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     <span>₹{Math.round(sliderMax).toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{ position: 'relative', height: '28px', marginBottom: '12px' }}>
-                    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: '2px', transform: 'translateY(-50%)' }} />
+                    <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '4px', background: 'var(--glass-fill-1)', borderRadius: '2px', transform: 'translateY(-50%)' }} />
                     <div style={{ position: 'absolute', top: '50%', height: '4px', background: 'var(--accent)', borderRadius: '2px', transform: 'translateY(-50%)', left: `${pctOf(sliderMin)}%`, right: `${100 - pctOf(sliderMax)}%` }} />
                     <input type="range" className="fintrack-range-thumb" min={amountBounds.min} max={amountBounds.max}
                         value={sliderMin}
@@ -305,7 +305,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                                     <button key={cat} type="button"
                                         onClick={() => setPanel(p => ({ ...p, categories: active ? p.categories.filter(c => c !== cat) : [...p.categories, cat] }))}
                                         style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)')}
+                                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-fill-2)')}
                                         onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                                         <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `2px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
                                             {active && <Check size={9} color="white" />}
@@ -391,7 +391,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                             return (
                                 <button key={tag} type="button"
                                     onClick={() => setPanel(p => ({ ...p, tags: active ? p.tags.filter(t => t !== tag) : [...p.tags, tag] }))}
-                                    style={{ padding: '3px 10px', borderRadius: '999px', border: `1px solid ${active ? '#8b5cf6' : 'var(--border-subtle)'}`, background: active ? 'rgba(139,92,246,0.12)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: active ? '#8b5cf6' : 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                    style={{ padding: '3px 10px', borderRadius: '999px', border: `1px solid ${active ? '#8b5cf6' : 'var(--border-subtle)'}`, background: active ? 'rgba(139,92,246,0.12)' : 'var(--glass-fill-1)', color: active ? '#8b5cf6' : 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', transition: 'all 0.15s' }}>
                                     #{tag}
                                 </button>
                             );
@@ -429,7 +429,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             width: '48px', height: '48px', flexShrink: 0,
-                            background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)',
+                            background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
                             borderRadius: 'var(--radius-md)', cursor: 'pointer',
                             color: inputValue.trim() ? 'var(--accent)' : 'var(--text-muted)',
                             transition: 'all var(--transition-fast)',
@@ -443,7 +443,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                             position: 'relative', flex: 1,
                             display: 'flex', alignItems: 'center', gap: '4px',
                             padding: '6px 12px 6px 6px',
-                            background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--accent)',
+                            background: 'var(--glass-fill-1)', border: '1px solid var(--accent)',
                             borderRadius: 'var(--radius-md)', minHeight: '48px',
                         }}
                     >
@@ -480,7 +480,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         position: 'relative', flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         width: '48px', height: '48px',
-                        background: panelOpen ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                        background: panelOpen ? 'var(--accent-subtle)' : 'var(--glass-fill-1)',
                         border: `1px solid ${panelOpen ? 'var(--accent-border)' : 'var(--border-subtle)'}`,
                         color: panelOpen ? 'var(--accent)' : 'var(--text-muted)',
                         borderRadius: 'var(--radius-md)', cursor: 'pointer',
@@ -517,7 +517,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         <button key={i} type="button"
                             onClick={() => { setInputValue(h); setHistoryOpen(false); }}
                             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '9px 12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)')}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-fill-2)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                             <Clock size={12} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                             {h}
@@ -560,7 +560,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         </span>
                     ))}
                     {summaryChips.map((chip, i) => (
-                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                             {chip.label}
                             <button type="button" onClick={chip.onRemove}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--text-muted)', lineHeight: 0 }}>
@@ -588,7 +588,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
             {savedViews.length > 0 && (
                 <div ref={dotMenuRef} style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '2px', alignItems: 'center' }}>
                     {savedViews.map(view => (
-                        <div key={view.id} style={{ display: 'inline-flex', alignItems: 'center', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '999px', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0, overflow: 'visible', position: 'relative' }}>
+                        <div key={view.id} style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '999px', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0, overflow: 'visible', position: 'relative' }}>
                             {renameId === view.id ? (
                                 <input autoFocus value={renameValue}
                                     onChange={e => setRenameValue(e.target.value)}
@@ -612,14 +612,14 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                                         <button type="button"
                                             onClick={() => { setRenameId(view.id); setRenameValue(view.name); setDotMenuId(null); }}
                                             style={{ display: 'block', width: '100%', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
-                                            onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)')}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-fill-2)')}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                                             Rename
                                         </button>
                                         <button type="button"
                                             onClick={() => { deleteView(view.id); setDotMenuId(null); }}
                                             style={{ display: 'block', width: '100%', padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', fontSize: '13px', fontFamily: 'var(--font-body)', textAlign: 'left' }}
-                                            onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)')}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--glass-fill-2)')}
                                             onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
                                             Delete
                                         </button>
@@ -636,7 +636,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                 <div onClick={() => setSaveModalOpen(false)}
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
                     <div onClick={e => e.stopPropagation()}
-                        style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%', maxWidth: '360px', boxShadow: 'var(--shadow-modal)', animation: 'springIn 280ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                        style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%', maxWidth: '360px', boxShadow: 'var(--shadow-modal)', animation: 'springIn 280ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Save filter view</h3>
                             <button type="button" onClick={() => setSaveModalOpen(false)}
@@ -648,16 +648,16 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                             value={saveViewName}
                             onChange={e => setSaveViewName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveView(); }}
-                            style={{ width: '100%', padding: '10px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', marginBottom: '16px', transition: 'border-color var(--transition-fast)' }}
+                            style={{ width: '100%', padding: '10px 12px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', marginBottom: '16px', transition: 'border-color var(--transition-fast)' }}
                             onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                             onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                             <button type="button" onClick={() => setSaveModalOpen(false)}
-                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
+                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
                                 Cancel
                             </button>
                             <button type="button" onClick={saveView} disabled={!saveViewName.trim()}
-                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: saveViewName.trim() ? 'var(--accent)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: saveViewName.trim() ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: saveViewName.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
+                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: saveViewName.trim() ? 'var(--accent)' : 'var(--glass-fill-1)', color: saveViewName.trim() ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)', cursor: saveViewName.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
                                 Save
                             </button>
                         </div>

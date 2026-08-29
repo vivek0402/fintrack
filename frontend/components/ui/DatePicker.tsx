@@ -74,7 +74,7 @@ export function DatePicker({ value, onChange, label, required, openUpward = fals
             )}
             <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
                 {/* Trigger */}
-                <div onClick={() => setCalOpen(o => !o)} style={{ backgroundColor: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: `1px solid ${calOpen ? 'var(--accent)' : 'var(--glass-border)'}`, borderRadius: '10px', padding: '10px 14px', color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%', transition: 'border-color 0.15s' }}>
+                <div onClick={() => setCalOpen(o => !o)} style={{ backgroundColor: 'var(--glass-fill-1)', border: `1px solid ${calOpen ? 'var(--accent)' : 'var(--glass-border)'}`, borderRadius: '10px', padding: '10px 14px', color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%', transition: 'border-color 0.15s' }}>
                     <span>
                         {selectedDate
                             ? `${selectedDate.getDate()} ${SHORT_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`
@@ -120,7 +120,7 @@ export function DatePicker({ value, onChange, label, required, openUpward = fals
                                 return (
                                     <div key={i} onClick={() => !isDisabled && handleDayClick(cell.day, cell.month)}
                                         style={{ width: '34px', height: '34px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: isDisabled ? 'not-allowed' : 'pointer', margin: '0 auto', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : isDisabled ? 'var(--text-muted)' : 'var(--text-secondary)', opacity: (isOtherMonth && !isSelected) || isDisabled ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s', fontFamily: 'var(--font-body)' }}
-                                        onMouseEnter={e => { if (!isSelected && !isDisabled) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                        onMouseEnter={e => { if (!isSelected && !isDisabled) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--glass-fill-2)'; }}
                                         onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}>
                                         {cell.day}
                                     </div>

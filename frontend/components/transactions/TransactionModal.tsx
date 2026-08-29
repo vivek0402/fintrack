@@ -43,8 +43,8 @@ function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; o
     return (
         <div
             onClick={onSelect}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : 'transparent', transition: 'background 0.1s' }}
-            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'var(--glass-fill-1)' : 'transparent', transition: 'background 0.1s' }}
+            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
             onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
         >
             <CategoryIcon name={cat.icon} size={14} color={cat.color} />
@@ -487,7 +487,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // in both themes without a second token) plus the shared glass border,
     // matching the approved mockup's fields rather than the opaque surfaces
     // the rest of the app's routine forms use.
-    const inputBase: React.CSSProperties  = { background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
+    const inputBase: React.CSSProperties  = { background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
     // Per-type tint for the active segment and the transfer swap/CTA --
     // violet has no semantic token in the app yet, so this reuses the same
     // hardcoded #8b5cf6 AdvancedSearchBar already uses for tag pills.
@@ -507,7 +507,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         const active = form.date === q.value;
                         return (
                             <button key={q.value} type="button" onClick={() => pickDate(q.value)}
-                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
                                 {q.label}
                             </button>
                         );
@@ -517,10 +517,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <button type="button" aria-label="Previous month" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
+                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
                         <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
                         <button type="button" aria-label="Next month" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
+                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
                         {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
@@ -536,7 +536,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             return (
                                 <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
                                     style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
-                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+                                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--glass-fill-2)'; }}
                                     onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
                                 >{cell.day}</div>
                             );
@@ -602,7 +602,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <button type="button" onClick={() => { dupBypassRef.current = true; setDupWarning(null); (document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit?.(); }}
                             style={{ padding: '5px 12px', background: 'var(--color-warn)', border: 'none', borderRadius: 6, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Save anyway</button>
                         <button type="button" onClick={() => setDupWarning(null)}
-                            style={{ padding: '5px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
+                            style={{ padding: '5px 12px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
                     </div>
                 </div>
             )}
@@ -620,7 +620,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             {approvingCat ? '…' : 'Add it'}
                         </button>
                         <button type="button" onClick={() => setShowNewCategoryPrompt(false)}
-                            style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            style={{ background: 'var(--glass-fill-1)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                             Skip
                         </button>
                     </div>
@@ -632,7 +632,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {/* ── Type toggle — translucent segmented control, per-type tint on the active segment ── */}
                 <div>
                     <label style={labelStyle}>Type</label>
-                    <div style={{ display: 'flex', gap: '4px', padding: '3px', background: 'color-mix(in srgb, var(--text-primary) 5.5%, transparent)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}>
+                    <div style={{ display: 'flex', gap: '4px', padding: '3px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}>
                         {(['expense', 'income', 'transfer'] as const).map(t => {
                             const active = form.type === t;
                             const tint = typeTint[t];
@@ -766,7 +766,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 style={{ flex: 1, padding: '7px 12px', ...inputBase, fontSize: '0.8rem' }} />
                             <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--glass-border)', borderRadius: '6px', cursor: 'pointer', background: 'none' }} />
                             <button type="button" onClick={handleAddCategory} disabled={addCatLoading || !newCatName.trim()} style={{ padding: '7px 12px', background: 'var(--accent)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '0.8rem', cursor: addCatLoading || !newCatName.trim() ? 'not-allowed' : 'pointer', opacity: addCatLoading || !newCatName.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>{addCatLoading ? '…' : 'Add'}</button>
-                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
+                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
                         </div>
                     )
                 )}
@@ -802,7 +802,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
                                     <button key={m} type="button" onClick={() => setForm({ ...form, payment_method: m })}
-                                        style={{ padding: '6px 11px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s', border: `1px solid ${form.payment_method === m ? 'var(--accent-border)' : 'var(--glass-border)'}`, background: form.payment_method === m ? 'var(--accent-subtle)' : 'color-mix(in srgb, var(--text-primary) 5.5%, transparent)', color: form.payment_method === m ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                        style={{ padding: '6px 11px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s', border: `1px solid ${form.payment_method === m ? 'var(--accent-border)' : 'var(--glass-border)'}`, background: form.payment_method === m ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: form.payment_method === m ? 'var(--accent)' : 'var(--text-muted)' }}>
                                         {m}
                                     </button>
                                 ))}
@@ -826,7 +826,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
                     {/* ── Investment details (shown when Investments category is selected) ── */}
                     {isInvestmentCategory && !isEditing && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
                             <label style={labelStyle}>Fund / Asset details (optional)</label>
                             <p style={{ fontSize: '0.75rem', color: 'var(--color-warn)', margin: '-4px 0 0', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>
                                 Without these details, this transaction won't be tracked as an investment asset — it'll only be excluded from your spending totals.
@@ -852,7 +852,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                             ) : mfResults.map(r => (
                                                 <div key={r.schemeCode} onClick={() => handleMfSelect(r)}
                                                     style={{ padding: '9px 14px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}
+                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
                                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                                                     {r.schemeName}
                                                 </div>

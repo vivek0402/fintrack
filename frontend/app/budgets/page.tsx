@@ -40,12 +40,12 @@ const TABS = [
 
 // Shared by all four tabs — Recurring/Splits/One-Time inherit the glass-field
 // recipe from here rather than each redeclaring it.
-const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 // For GCard/tiles nested inside an already-glass parent (modals): the lighter
 // .glass-field wash, since glass-on-glass reads muddy.
-const glassFieldStyle: React.CSSProperties = { background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)' };
+const glassFieldStyle: React.CSSProperties = { background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)' };
 
 // ── One-Time Expenses: local types & constants ──────────────────────────────
 
@@ -501,7 +501,7 @@ function BudgetsPageInner() {
     const visiblePatterns = patterns.filter((_, i) => !dismissedPatterns.has(i));
     const activeCount = recurring.filter(r => r.is_active).length;
 
-    const recInputSt: React.CSSProperties = { padding: '10px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
+    const recInputSt: React.CSSProperties = { padding: '10px 14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
     const recIconBt: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' };
 
     const TypeToggle = ({ value, onChange }: { value: string; onChange: (v: 'income' | 'expense') => void }) => (
@@ -616,7 +616,7 @@ function BudgetsPageInner() {
 
     const allSettled = (split: any) => split.participants.every((p: any) => p.settled);
 
-    const splitInputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 10, fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
+    const splitInputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 10, fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
 
     // ════════════════════════════════════════════════════════════════════════
     // ── ONE-TIME EXPENSES TAB STATE ──
@@ -905,7 +905,7 @@ function BudgetsPageInner() {
     };
 
     const otInputStyle: React.CSSProperties = {
-        width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+        width: '100%', background: 'var(--glass-fill-1)',
         border: '1px solid var(--glass-border)', borderRadius: '8px',
         padding: '10px 12px', color: 'var(--text-primary)',
         fontSize: '14px', outline: 'none', boxSizing: 'border-box',
@@ -1232,7 +1232,7 @@ function BudgetsPageInner() {
                                                         <div style={{ position: 'relative', flexShrink: 0 }}>
                                                             <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 13 }}>₹</span>
                                                             <input type="number" min="1" value={editAmount} onChange={e => setEditAmount(e.target.value)} autoFocus
-                                                                style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+                                                                style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
                                                         </div>
                                                         <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save</Button>
                                                         <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>Cancel</button>
@@ -1425,7 +1425,7 @@ function BudgetsPageInner() {
                                                             <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{r.description}</p>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
                                                                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{freqLabel(r)}</span>
-                                                                {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={r.category_color ? `${r.category_color}20` : 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}>{r.category_name}</Badge>}
+                                                                {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={r.category_color ? `${r.category_color}20` : 'var(--glass-fill-2)'}>{r.category_name}</Badge>}
                                                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Next: {formatNextDate(r.next_due_date)}</span>
                                                             </div>
                                                         </div>
@@ -1527,7 +1527,7 @@ function BudgetsPageInner() {
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
                                         value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                        style={{ flex: 1, padding: '9px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 9, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color var(--transition-fast)' }}
+                                        style={{ flex: 1, padding: '9px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 9, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color var(--transition-fast)' }}
                                         onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                                         onBlur={e => (e.target.style.borderColor = 'var(--glass-border)')}
                                     />
@@ -1585,7 +1585,7 @@ function BudgetsPageInner() {
                                                 <div style={{ borderTop: '1px solid var(--glass-border)', padding: '8px 16px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                     {split.participants.map((p: any, i: number) => (
                                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: p.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--text-primary) 8%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: p.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
+                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: p.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--glass-fill-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: p.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
                                                                 {p.name?.[0]?.toUpperCase() || '?'}
                                                             </div>
                                                             <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.name}</span>
@@ -1614,7 +1614,7 @@ function BudgetsPageInner() {
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
                                             value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                            style={{ flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                                            style={{ flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)', outline: 'none' }} />
                                         <button type="button" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}
                                             style={{ padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 8, color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: nlLoading || !nlInput.trim() ? 'not-allowed' : 'pointer', opacity: nlLoading || !nlInput.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                             {nlLoading ? '…' : 'Parse'}
@@ -1644,7 +1644,7 @@ function BudgetsPageInner() {
                                         </div>
                                         {splitForm.participants.map((p, i) => (
                                             <div key={i} style={{ display: 'flex', gap: '8px' }}>
-                                                <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                                                <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
                                                 {splitForm.participants.length > 1 && (
                                                     <button type="button" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
                                                 )}
@@ -1745,7 +1745,7 @@ function BudgetsPageInner() {
                                 };
                                 const fieldInput: React.CSSProperties = {
                                     width: '100%', height: 36, borderRadius: 8,
-                                    border: '1px solid var(--glass-border)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)',
+                                    border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)',
                                     color: 'var(--text-primary)', fontSize: 13, padding: '0 10px',
                                     outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
                                 };

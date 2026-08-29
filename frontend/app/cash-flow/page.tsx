@@ -180,7 +180,7 @@ export default function CashFlowPage() {
                                             <span style={{
                                                 display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
                                                 color: m.status === 'surplus' ? 'var(--color-inc)' : m.status === 'at_risk' ? 'var(--color-exp)' : m.status === 'tight' ? 'var(--color-warn)' : 'var(--text-secondary)',
-                                                background: m.status === 'healthy' ? 'color-mix(in srgb, var(--text-primary) 5%, transparent)' : STATUS_ROW_BG[m.status],
+                                                background: m.status === 'healthy' ? 'var(--glass-fill-1)' : STATUS_ROW_BG[m.status],
                                             }}>
                                                 {STATUS_LABELS[m.status] || m.status}
                                             </span>

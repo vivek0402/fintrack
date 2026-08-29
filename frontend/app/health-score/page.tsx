@@ -45,7 +45,7 @@ function ScoreArc({ score, color, size = 140 }: { score: number; color: string; 
 function DeltaChip({ delta }: { delta: number | null }) {
   if (delta === null) return null;
   if (delta === 0) return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '3px 10px', borderRadius: '20px', background: 'var(--glass-fill-1)', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
       <Minus size={11} /> No change
     </span>
   );
@@ -154,7 +154,7 @@ export default function HealthScorePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button type="button" onClick={() => router.push('/dashboard')}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', padding: '4px', borderRadius: '8px' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; }}>
             <ArrowLeft size={20} />
           </button>
@@ -204,7 +204,7 @@ export default function HealthScorePage() {
                     if (!active || !payload?.length) return null;
                     const val = payload[0].value as number;
                     return (
-                      <div style={{ background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-primary)' }}>
+                      <div style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-primary)' }}>
                         <p style={{ margin: '0 0 2px', color: 'var(--text-muted)' }}>{label}</p>
                         <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700, color: scoreColor }}>{val}/100</p>
                       </div>

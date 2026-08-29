@@ -30,7 +30,7 @@ const relativeTime = (iso?: string | null) => {
 };
 
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
 
@@ -342,7 +342,7 @@ export default function InvestmentsPage() {
                                             <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
                                                 {group.label}
                                             </span>
-                                            <Badge color="var(--text-muted)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">{group.holdings.length}</Badge>
+                                            <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{group.holdings.length}</Badge>
                                         </div>
                                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                                             {fmt(groupTotal)}
@@ -368,7 +368,7 @@ export default function InvestmentsPage() {
                                                                 {inv.name}
                                                             </p>
                                                             {inv.price_source === 'mfapi' && (
-                                                                <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--text-primary) 8%, transparent)">Live</Badge>
+                                                                <Badge color="var(--color-inc)" bg="var(--glass-fill-2)">Live</Badge>
                                                             )}
                                                         </div>
                                                         {inv.ticker_or_folio && (

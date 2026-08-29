@@ -122,7 +122,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                                 type="button"
                                 onClick={handleClose}
                                 style={{
-                                    background: 'color-mix(in srgb, var(--text-primary) 8%, transparent)',
+                                    background: 'var(--glass-fill-2)',
                                     border: 'none',
                                     cursor: 'pointer',
                                     color: 'var(--text-muted)',

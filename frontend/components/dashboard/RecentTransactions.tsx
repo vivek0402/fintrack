@@ -38,7 +38,7 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                     borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     transition: 'background var(--transition-fast)',
                                 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
