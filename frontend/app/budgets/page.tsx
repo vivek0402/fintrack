@@ -44,6 +44,9 @@ const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in 
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
 const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
+// For GCard/tiles nested inside an already-glass parent (modals): the lighter
+// .glass-field wash, since glass-on-glass reads muddy.
+const glassFieldStyle: React.CSSProperties = { background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)' };
 
 // ── One-Time Expenses: local types & constants ──────────────────────────────
 
@@ -614,7 +617,7 @@ function BudgetsPageInner() {
 
     const allSettled = (split: any) => split.participants.every((p: any) => p.settled);
 
-    const splitInputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 10, fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
+    const splitInputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 10, fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
 
     // ════════════════════════════════════════════════════════════════════════
     // ── ONE-TIME EXPENSES TAB STATE ──
@@ -1494,7 +1497,7 @@ function BudgetsPageInner() {
                     ) : (
                         <>
                             {/* ── HEADER ── */}
-                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
                                         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -1508,7 +1511,7 @@ function BudgetsPageInner() {
                             </div>
 
                             {/* ── AI PARSE STRIP ── */}
-                            <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, var(--bg-surface-1))', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                            <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                                     <Sparkles size={14} color="var(--color-info)" />
                                     <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-info)', fontFamily: 'var(--font-display)' }}>AI Parse Split</span>
@@ -1516,9 +1519,9 @@ function BudgetsPageInner() {
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
                                         value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                        style={{ flex: 1, padding: '9px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 9, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color var(--transition-fast)' }}
+                                        style={{ flex: 1, padding: '9px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 9, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color var(--transition-fast)' }}
                                         onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                                        onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
+                                        onBlur={e => (e.target.style.borderColor = 'var(--glass-border)')}
                                     />
                                     <button type="button" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}
                                         style={{ padding: '9px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 9, color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: nlLoading || !nlInput.trim() ? 'not-allowed' : 'pointer', opacity: nlLoading || !nlInput.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
@@ -1540,7 +1543,7 @@ function BudgetsPageInner() {
                                     {splits.filter(split => !pendingDeleteSplit.has(split.id)).map(split => {
                                         const settled = allSettled(split);
                                         return (
-                                            <div key={split.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${settled ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                                            <div key={split.id} className="glass-surface" style={{ border: `1px solid ${settled ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'var(--glass-border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                                                 {/* Header */}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '14px 16px 10px', gap: '10px' }}>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -1557,12 +1560,12 @@ function BudgetsPageInner() {
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                                        <button type="button" onClick={() => openEditSplit(split)} aria-label={`Edit ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}
+                                                        <button type="button" onClick={() => openEditSplit(split)} aria-label={`Edit ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Pencil size={13} />
                                                         </button>
-                                                        <button type="button" onClick={() => handleSplitDelete(split.id)} disabled={splitDeletingId === split.id} aria-label={`Delete ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', opacity: splitDeletingId === split.id ? 0.5 : 1 }}
+                                                        <button type="button" onClick={() => handleSplitDelete(split.id)} disabled={splitDeletingId === split.id} aria-label={`Delete ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', opacity: splitDeletingId === split.id ? 0.5 : 1 }}
                                                             onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
                                                             onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
                                                             <Trash2 size={13} />
@@ -1571,16 +1574,16 @@ function BudgetsPageInner() {
                                                 </div>
 
                                                 {/* Participants */}
-                                                <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '8px 16px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ borderTop: '1px solid var(--glass-border)', padding: '8px 16px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                     {split.participants.map((p: any, i: number) => (
                                                         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: p.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--bg-surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: p.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
+                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: p.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--text-primary) 8%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: p.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
                                                                 {p.name?.[0]?.toUpperCase() || '?'}
                                                             </div>
                                                             <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.name}</span>
                                                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(p.share))}</span>
                                                             <button type="button" onClick={() => handleSettle(split.id, i)}
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: 6, border: `1px solid ${p.settled ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : 'var(--border-subtle)'}`, background: p.settled ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : 'transparent', color: p.settled ? 'var(--color-inc)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: 6, border: `1px solid ${p.settled ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : 'var(--glass-border)'}`, background: p.settled ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : 'transparent', color: p.settled ? 'var(--color-inc)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                                                 {p.settled ? <><Check size={11} /> Settled</> : 'Mark settled'}
                                                             </button>
                                                         </div>
@@ -1595,7 +1598,7 @@ function BudgetsPageInner() {
                             {/* ── NEW/EDIT SPLIT MODAL ── */}
                             <Modal isOpen={showSplitModal} onClose={closeSplitModal} title={editingSplit ? 'Edit Split' : 'New Split'} maxWidth="500px">
                                 {/* AI Parse */}
-                                <GCard style={{ marginBottom: '16px' }}>
+                                <GCard style={{ ...glassFieldStyle, marginBottom: '16px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                                         <Sparkles size={13} color="var(--color-info)" />
                                         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-info)', fontFamily: 'var(--font-display)' }}>AI Parse</span>
@@ -1603,7 +1606,7 @@ function BudgetsPageInner() {
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
                                             value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                            style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                                            style={{ flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)', outline: 'none' }} />
                                         <button type="button" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}
                                             style={{ padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 8, color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: nlLoading || !nlInput.trim() ? 'not-allowed' : 'pointer', opacity: nlLoading || !nlInput.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
                                             {nlLoading ? '…' : 'Parse'}
@@ -1633,15 +1636,15 @@ function BudgetsPageInner() {
                                         </div>
                                         {splitForm.participants.map((p, i) => (
                                             <div key={i} style={{ display: 'flex', gap: '8px' }}>
-                                                <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'var(--bg-surface-2)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                                                <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
                                                 {splitForm.participants.length > 1 && (
-                                                    <button type="button" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
+                                                    <button type="button" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
                                                 )}
                                             </div>
                                         ))}
                                     </div>
                                     {splitForm.total_amount && (
-                                        <GCard>
+                                        <GCard style={glassFieldStyle}>
                                             <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                                                 Split {splitCount} ways → <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(yourShare)} each</strong>
                                             </p>
