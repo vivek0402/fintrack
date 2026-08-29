@@ -56,7 +56,6 @@ export default function LoginPage() {
                     value={form.email}
                     onChange={e => setForm({ ...form, email: e.target.value })}
                     autoComplete="off"
-                    variant="glass"
                     required
                 />
 
@@ -66,7 +65,6 @@ export default function LoginPage() {
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Your password"
                         icon={<Lock size={15} />}
-                        variant="glass"
                         suffix={
                             <button type="button" onClick={() => setShowPassword(v => !v)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>

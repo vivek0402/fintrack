@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     <form onSubmit={handleRequestOTP} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />} variant="glass"
+                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />}
                             value={email} onChange={e => setEmail(e.target.value)} autoComplete="off" required />
 
                         {error && (
@@ -127,12 +127,12 @@ export default function ForgotPasswordPage() {
                     </div>
 
                     <form onSubmit={handleReset} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <Input label="6-digit code" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} variant="glass"
+                        <Input label="6-digit code" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
                             placeholder="000000" icon={<ShieldCheck size={15} />}
                             value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             autoComplete="one-time-code" required />
 
-                        <Input label="New Password" type="password" placeholder="Min. 6 characters" icon={<Lock size={15} />} variant="glass"
+                        <Input label="New Password" type="password" placeholder="Min. 6 characters" icon={<Lock size={15} />}
                             value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" required />
 
                         {error && (

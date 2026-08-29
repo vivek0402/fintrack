@@ -9,13 +9,9 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
     icon?: React.ReactNode;
     prefix?: React.ReactNode;
     suffix?: React.ReactNode;
-    // 'glass' swaps the resting (unfocused, no error) fill/border to the
-    // .glass-field look, for pages whose card is already glass -- focus and
-    // error states stay exactly as-is either way.
-    variant?: 'default' | 'glass';
 }
 
-export function Input({ label, error, hint, icon, prefix, suffix, variant = 'default', style, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus, onBlur, ...props }: InputProps) {
     const [focused, setFocused] = useState(false);
 
     const leading = icon ?? prefix;
