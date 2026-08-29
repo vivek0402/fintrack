@@ -87,13 +87,13 @@ export function NetWorthWidget() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '14px 0 12px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                <span className="glass-field" style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                     Banks {fmt(current.total_bank_balance)}
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                <span className="glass-field" style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                     Investments {fmt(current.total_investments)}
                 </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                <span className="glass-field" style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
                     Debt -{fmt(current.total_liabilities)}
                 </span>
             </div>

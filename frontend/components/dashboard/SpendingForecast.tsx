@@ -22,7 +22,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
     const statusGradient = is_on_track ? 'var(--gradient-green)' : 'var(--gradient-red)';
 
     return (
-        <div style={{ background: 'var(--bg-surface-2)', border: `1px solid ${statusBorder}`, borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: 'var(--shadow-card)' }}>
+        <div className="glass-surface" style={{ border: `1px solid ${statusBorder}`, borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: 'var(--shadow-card)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: statusBg, border: `1px solid ${statusBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -66,7 +66,7 @@ export function SpendingForecast({ forecast, currency = 'INR' }: Props) {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px', padding: '10px 14px', background: 'var(--bg-surface-1)', borderRadius: '10px', flexWrap: 'wrap' }}>
+            <div className="glass-field" style={{ display: 'flex', gap: '16px', padding: '10px 14px', borderRadius: '10px', flexWrap: 'wrap' }}>
                 {[
                     { label: 'Your daily spend', value: formatCurrency(daily_rate, currency) + '/day', warn: daily_rate > ideal_daily_budget },
                     { label: 'Ideal daily budget', value: formatCurrency(ideal_daily_budget, currency) + '/day', positive: true },

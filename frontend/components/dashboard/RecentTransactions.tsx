@@ -10,7 +10,7 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
     const recent = transactions.slice(0, 5);
 
     return (
-        <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: '16px', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
+        <div className="glass-surface" style={{ borderRadius: '16px', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
                     Recent Transactions
@@ -38,7 +38,7 @@ export function RecentTransactions({ transactions, currency = 'INR' }: Props) {
                                     borderLeft: `3px solid ${getCategoryColor(tx.category_name)}`,
                                     transition: 'background var(--transition-fast)',
                                 }}
-                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'}
                                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
