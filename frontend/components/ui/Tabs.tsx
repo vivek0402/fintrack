@@ -23,20 +23,29 @@ export function Tabs({ tabs, active, onChange }: TabsProps) {
                         key={tab.key}
                         type="button"
                         onClick={() => onChange(tab.key)}
+                        // Glass by default (2026-08-26): inactive pills take the
+                        // `.glass-field` wash, matching every hand-rolled pill row
+                        // built during the rollout -- several of which sit directly
+                        // beneath this component on the same page.
+                        className={isActive ? undefined : 'glass-field'}
                         style={{
-                            padding: '6px 14px', borderRadius: 999, border: '1px solid var(--border-subtle)',
-                            background: isActive ? 'var(--accent)' : 'var(--bg-surface-1)',
+                            padding: '6px 14px', borderRadius: 999, border: 'none',
+                            background: isActive ? 'var(--accent)' : undefined,
                             color: isActive ? '#fff' : 'var(--text-secondary)',
                             fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-body)',
                             cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                             transform: isActive ? 'scale(1.04)' : 'scale(1)',
-                            transition: 'background 180ms ease, color 180ms ease, transform 180ms cubic-bezier(0.34,1.56,0.64,1), border-color 180ms ease',
+                            transition: 'background 180ms ease, color 180ms ease, transform 180ms cubic-bezier(0.34,1.56,0.64,1)',
                         }}
+                        // With the border gone there is nothing for the old
+                        // border-colour hover to act on, so hover lifts the fill
+                        // instead -- same treatment as the Calendar cells and the
+                        // AI Advisor's conversation rows.
                         onMouseEnter={e => {
-                            if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-visible)';
+                            if (!isActive) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 10%, transparent)';
                         }}
                         onMouseLeave={e => {
-                            if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
+                            if (!isActive) (e.currentTarget as HTMLElement).style.background = '';
                         }}
                     >
                         {tab.label}
