@@ -34,8 +34,8 @@ export function SuggestionsBanner({ items, adjusting, onAdjust, onDismiss }: Pro
         const isOver    = item.type === 'over';
         const border    = isOver ? 'var(--color-warn)' : 'var(--accent)';
         const bg        = isOver
-          ? 'color-mix(in srgb, var(--color-warn) 6%, var(--bg-surface-1))'
-          : 'color-mix(in srgb, var(--accent) 6%, var(--bg-surface-1))';
+          ? 'color-mix(in srgb, var(--color-warn) 6%, transparent)'
+          : 'color-mix(in srgb, var(--accent) 6%, transparent)';
         const emoji     = isOver ? '📊' : '💡';
         const msg       = isOver
           ? `You've averaged ${fmt(item.avgSpend)}/mo on ${item.categoryName} but budget is ${fmt(item.currentBudget)}. Adjust to ${fmt(item.suggestedAmount)}?`
@@ -52,7 +52,7 @@ export function SuggestionsBanner({ items, adjusting, onAdjust, onDismiss }: Pro
                   {adjusting === item.id ? 'Saving…' : 'Adjust'}
                 </button>
                 <button type="button" onClick={() => onDismiss(item.id)}
-                  style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                  style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                   Dismiss
                 </button>
               </div>

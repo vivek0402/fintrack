@@ -38,9 +38,12 @@ const TABS = [
     { key: 'one-time',  label: 'One-Time' },
 ];
 
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+// Shared by all four tabs — Recurring/Splits/One-Time inherit the glass-field
+// recipe from here rather than each redeclaring it.
+const inputSt: React.CSSProperties = { width: '100%', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const glassTileStyle: React.CSSProperties = { background: 'var(--glass-surface)', border: '1px solid var(--glass-border)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)' };
 
 // ── One-Time Expenses: local types & constants ──────────────────────────────
 
@@ -356,7 +359,7 @@ function BudgetsPageInner() {
     const chipStyle = (active: boolean): React.CSSProperties => ({
         fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: 'none',
         cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: active ? 600 : 400,
-        background: active ? 'var(--accent)' : 'var(--bg-surface-2)',
+        background: active ? 'var(--accent)' : undefined,
         color: active ? 'white' : 'var(--text-secondary)',
         transition: 'all var(--transition-fast)',
     });
@@ -941,7 +944,7 @@ function BudgetsPageInner() {
                 {tab === 'budgets' && (
                     <>
                         {/* ── HEADER ── */}
-                        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-xl)', padding: '20px' }}>
+                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
@@ -950,7 +953,8 @@ function BudgetsPageInner() {
                                 </div>
                                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                                     <button type="button" onClick={() => setZeroBasedMode(v => !v)}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-subtle)' : 'var(--bg-surface-2)', border: `1px solid ${zeroBasedMode ? 'var(--accent-border)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                        className={zeroBasedMode ? undefined : 'glass-field'}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-subtle)' : undefined, border: zeroBasedMode ? '1px solid var(--accent-border)' : 'none', borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                         <BarChart2 size={12} /> {isMobile ? '0-base' : 'Zero-based'}
                                     </button>
                                     <button type="button" onClick={openAdd}
@@ -962,7 +966,7 @@ function BudgetsPageInner() {
 
                             {/* ── BUDGET HEALTH CHIPS ── */}
                             {!budgetsLoading && budgets.length > 0 && (
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--glass-border)' }}>
                                     {([
                                         { id: 'all',        label: 'All',           count: budgets.length },
                                         { id: 'on-track',   label: '✅ On track',   count: onTrackCount },
@@ -971,6 +975,7 @@ function BudgetsPageInner() {
                                     ] as const).filter(chip => chip.id === 'all' || chip.count > 0).map(chip => (
                                         <button key={chip.id} type="button"
                                             onClick={() => setHealthFilter(healthFilter === chip.id ? 'all' : chip.id)}
+                                            className={healthFilter === chip.id ? undefined : 'glass-field'}
                                             style={chipStyle(healthFilter === chip.id)}>
                                             {chip.label} · {chip.count}
                                         </button>
@@ -981,12 +986,12 @@ function BudgetsPageInner() {
 
                         {/* ── BUDGET SUMMARY (hero numbers) ── */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" />
-                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} />
+                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" style={glassTileStyle} />
+                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} style={glassTileStyle} />
                         </div>
 
                         {budgets.length > 0 && (
-                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                                     <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
                                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
@@ -1005,7 +1010,7 @@ function BudgetsPageInner() {
 
                         {/* ── ZERO-BASED MODE BANNER ── */}
                         {zeroBasedMode && monthlyIncome > 0 && (
-                            <div style={{ background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
+                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
                                 <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Zero-based Budget</p>
                                 <p style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
                                     <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmt(monthlyIncome)}</span> income allocated: {' '}
@@ -1070,8 +1075,8 @@ function BudgetsPageInner() {
                                 </h2>
                                 <div style={{ display: 'flex', gap: '6px' }}>
                                     {!budgetsLoading && copyableCount > 0 && (
-                                        <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: copying ? 'var(--bg-surface-2)' : 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: copying ? 0.6 : 1 }}>
+                                        <button type="button" onClick={handleCopyFromLastMonth} disabled={copying} className="glass-field"
+                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: copying ? 0.6 : 1 }}>
                                             <CopyPlus size={12} /> {copying ? 'Copying…' : `Copy last month (${copyableCount})`}
                                         </button>
                                     )}
@@ -1094,8 +1099,8 @@ function BudgetsPageInner() {
                                     action={
                                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
                                             {prevMonthBudgets.length > 0 && (
-                                                <button type="button" onClick={handleCopyFromLastMonth} disabled={copying}
-                                                    style={{ padding: '10px 20px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
+                                                <button type="button" onClick={handleCopyFromLastMonth} disabled={copying} className="glass-field"
+                                                    style={{ padding: '10px 20px', border: 'none', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
                                                     <CopyPlus size={14} /> {copying ? 'Copying…' : `Copy from last month (${prevMonthBudgets.length})`}
                                                 </button>
                                             )}
@@ -1106,7 +1111,7 @@ function BudgetsPageInner() {
                                     }
                                 />
                             ) : filteredBudgets.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '32px 24px', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-lg)' }}>
+                                <div className="glass-surface" style={{ textAlign: 'center', padding: '32px 24px', borderRadius: 'var(--radius-lg)' }}>
                                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No budgets match this filter</p>
                                 </div>
                             ) : (
@@ -1134,7 +1139,7 @@ function BudgetsPageInner() {
                                             : null;
 
                                         return (
-                                            <div key={budget.id} style={{ background: 'var(--bg-surface-1)', border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--border-subtle)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
+                                            <div key={budget.id} className="glass-surface" style={{ border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--glass-border)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
                                                         <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: emojiBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>
@@ -1176,7 +1181,7 @@ function BudgetsPageInner() {
                                                         <button type="button" onClick={() => toggleRollover(budget.category_id)}
                                                             title={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
                                                             aria-label={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
-                                                            style={{ ...iconBtn, color: rollover ? 'var(--accent)' : 'var(--text-muted)', borderColor: rollover ? 'var(--accent-border)' : 'var(--border-subtle)', background: rollover ? 'var(--accent-subtle)' : 'transparent' }}>
+                                                            style={{ ...iconBtn, color: rollover ? 'var(--accent)' : 'var(--text-muted)', borderColor: rollover ? 'var(--accent-border)' : 'var(--glass-border)', background: rollover ? 'var(--accent-subtle)' : 'transparent' }}>
                                                             <Repeat size={13} />
                                                         </button>
 
@@ -1186,8 +1191,8 @@ function BudgetsPageInner() {
                                                                     style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                                     {deletingId === budget.id ? '…' : 'Delete'}
                                                                 </button>
-                                                                <button type="button" onClick={() => setConfirmDeleteId(null)}
-                                                                    style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                                                <button type="button" onClick={() => setConfirmDeleteId(null)} className="glass-field"
+                                                                    style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                                                                     Cancel
                                                                 </button>
                                                             </div>
@@ -1216,7 +1221,7 @@ function BudgetsPageInner() {
                                                         <div style={{ position: 'relative', flexShrink: 0 }}>
                                                             <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 13 }}>₹</span>
                                                             <input type="number" min="1" value={editAmount} onChange={e => setEditAmount(e.target.value)} autoFocus
-                                                                style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'var(--bg-surface-2)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
+                                                                style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
                                                         </div>
                                                         <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save</Button>
                                                         <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>Cancel</button>
@@ -1234,7 +1239,7 @@ function BudgetsPageInner() {
                         <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); }} title={`Set Budget — ${MONTH_NAMES[currentMonth]}`} maxWidth="440px"
                             footer={
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                    <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} style={{ padding: 10, background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                                    <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} className="glass-field" style={{ padding: 10, border: 'none', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
                                     <button type="submit" form="add-budget-form" disabled={formLoading || !formCategory || !formAmount} style={{ padding: 10, background: formLoading || !formCategory || !formAmount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
                                         {formLoading ? 'Saving…' : 'Set Budget'}
                                     </button>
