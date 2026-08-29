@@ -99,7 +99,7 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                     color: open ? 'var(--accent)' : 'var(--text-muted)',
                     transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; }}
+                onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                 onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
                 {unread > 0
@@ -127,8 +127,8 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                     top: 'calc(100% + 8px)',
                     ...(panelAlign === 'right' ? { right: 0 } : { left: 0 }),
                     width: 320,
-                    background: 'var(--bg-surface-1)',
-                    border: '1px solid var(--border-subtle)',
+                    background: 'var(--glass-sheet-surface)',
+                    border: '1px solid var(--glass-border)',
                     borderRadius: 'var(--radius-lg)',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
                     zIndex: 300,
@@ -138,7 +138,7 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                     {/* Header */}
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 16px', borderBottom: '1px solid var(--border-subtle)',
+                        padding: '12px 16px', borderBottom: '1px solid var(--glass-border)',
                     }}>
                         <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
                             Notifications
@@ -168,15 +168,15 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
                                         display: 'flex', alignItems: 'flex-start', gap: 12,
                                         padding: '12px 16px',
                                         background: n.readAt ? 'transparent' : 'color-mix(in srgb, var(--accent) 5%, transparent)',
-                                        border: 'none', borderBottom: '1px solid var(--border-subtle)',
+                                        border: 'none', borderBottom: '1px solid var(--glass-border)',
                                         cursor: 'pointer', transition: 'background 0.15s',
                                     }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = n.readAt ? 'transparent' : 'color-mix(in srgb, var(--accent) 5%, transparent)'; }}
                                 >
                                     <div style={{
                                         width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                                        background: `color-mix(in srgb, ${color} 12%, var(--bg-surface-2))`,
+                                        background: `color-mix(in srgb, ${color} 12%, transparent)`,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     }}>
                                         <Icon size={15} color={color} />

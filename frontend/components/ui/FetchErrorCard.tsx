@@ -14,7 +14,7 @@ export function FetchErrorCard({ onRetry }: { onRetry: () => void }) {
                 Check your connection and try again.
             </p>
             <button type="button" onClick={onRetry}
-                style={{ marginTop: '4px', padding: '8px 16px', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                style={{ marginTop: '4px', padding: '8px 16px', background: 'color-mix(in srgb, var(--text-primary) 5%, transparent)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                 Retry
             </button>
         </div>

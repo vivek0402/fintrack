@@ -42,7 +42,7 @@ export function InstallPWA() {
                 padding: '8px var(--space-3)', width: '100%',
                 borderRadius: 'var(--radius-md)',
                 background: 'transparent',
-                border: '1px solid var(--border-subtle)',
+                border: '1px solid var(--glass-border)',
                 color: 'var(--text-secondary)',
                 fontSize: 'var(--text-body)', fontFamily: 'var(--font-body)',
                 cursor: 'pointer', transition: 'all var(--transition-fast)',
@@ -50,7 +50,7 @@ export function InstallPWA() {
             }}
             onMouseEnter={e => {
                 const el = e.currentTarget as HTMLElement;
-                el.style.background = 'var(--bg-surface-2)';
+                el.style.background = 'color-mix(in srgb, var(--text-primary) 8%, transparent)';
                 el.style.color = 'var(--text-primary)';
             }}
             onMouseLeave={e => {
