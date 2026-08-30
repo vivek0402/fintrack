@@ -9,7 +9,9 @@ import {
     Check, Calendar, Target, Repeat,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { budgetsAPI, categoriesAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
+import { budgetsAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
+import { CategoryField, type CategoryOption } from '@/components/categories/CategoryPickerDialog';
+import { useCategories } from '@/hooks/useCategories';
 import { GCard } from '@/components/ui/GCard';
 import { StatTile } from '@/components/ui/StatTile';
 import { Badge } from '@/components/ui/Badge';
@@ -57,6 +59,13 @@ const OT_CATEGORY_EMOJI: Record<string, string> = {
     Education: '📚', Home: '🏠', Vehicle: '🚗', Gift: '🎁',
     Investment: '📈', Other: '🧾',
 };
+
+// The one-time-expense sites store a category *name*, not an id, and the parent
+// form never reads DB categories at all -- so the hardcoded list is projected
+// into the shape CategoryField expects, emoji included.
+const OT_FALLBACK_CATEGORIES: CategoryOption[] = OT_CATEGORIES.map(name => ({
+    id: name, name, icon: OT_CATEGORY_EMOJI[name],
+}));
 
 const OT_CATEGORY_COLORS: Record<string, string> = {
     Travel: '#6366f1', Event: '#f59e0b', Electronics: '#8b5cf6', Medical: '#ef4444',
@@ -142,7 +151,7 @@ function BudgetsPageInner() {
     const currentYear  = new Date().getFullYear();
 
     const [budgets, setBudgets]       = useState<any[]>([]);
-    const [categories, setCategories] = useState<any[]>([]);
+    const { categories } = useCategories();
     const [budgetsLoading, setBudgetsLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -186,7 +195,6 @@ function BudgetsPageInner() {
     useEffect(() => {
         if (!user) return;
         fetchBudgets();
-        categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(err => { console.error(err); toast.error('Failed to load categories'); });
 
         const pm  = currentMonth === 1 ? 12 : currentMonth - 1;
         const py  = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -370,7 +378,6 @@ function BudgetsPageInner() {
     // ── RECURRING TAB STATE ──
     // ════════════════════════════════════════════════════════════════════════
     const [recurring, setRecurring]         = useState<any[]>([]);
-    const [recCategories, setRecCategories] = useState<any[]>([]);
     const [recurringLoading, setRecurringLoading] = useState(true);
     const [processingRecurring, setProcessingRecurring] = useState(false);
     const [showRecForm, setShowRecForm]     = useState(false);
@@ -391,7 +398,7 @@ function BudgetsPageInner() {
 
     const fetchRecurringData = async () => {
         setRecurringLoading(true);
-        try { const [recRes, catRes] = await Promise.all([recurringAPI.getAll(), categoriesAPI.getAll()]); setRecurring(recRes.data.recurring); setRecCategories(catRes.data.categories); }
+        try { const recRes = await recurringAPI.getAll(); setRecurring(recRes.data.recurring); }
         catch (err) { console.error(err); toast.error('Failed to load recurring transactions'); }
         finally { setRecurringLoading(false); }
     };
@@ -624,7 +631,6 @@ function BudgetsPageInner() {
     const [otExpenses, setOtExpenses]           = useState<OtExpense[]>([]);
     const [otAccounts, setOtAccounts]           = useState<OtAccount[]>([]);
     const [otCards, setOtCards]                 = useState<any[]>([]);
-    const [otTxCategories, setOtTxCategories]   = useState<any[]>([]);
     const [otLoading, setOtLoading]             = useState(true);
     const [otFetched, setOtFetched]             = useState(false);
     const [otExpandedId, setOtExpandedId]       = useState<string | null>(null);
@@ -662,10 +668,6 @@ function BudgetsPageInner() {
             console.error(err);
             otShowToast('Failed to load one-time expenses');
         }
-        try {
-            const catRes = await categoriesAPI.getAll();
-            setOtTxCategories(catRes.data.categories || []);
-        } catch (_) { /* silent — falls back to hardcoded list */ }
     }, [otGetHeaders]);
 
     useEffect(() => {
@@ -1260,12 +1262,13 @@ function BudgetsPageInner() {
                             <form id="add-budget-form" onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 <div>
                                     <label style={labelSt}>Category</label>
-                                    <select value={formCategory} onChange={e => setFormCategory(e.target.value)} style={{ ...inputSt, cursor: 'pointer', color: formCategory ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                        <option value="">Select a category</option>
-                                        {categories.filter(c => !budgets.find(b => b.category_id === c.id)).map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
+                                    <CategoryField
+                                        value={formCategory}
+                                        onChange={v => setFormCategory(v)}
+                                        categories={categories}
+                                        placeholder="Select a category"
+                                        exclude={c => !!budgets.find(b => b.category_id === c.id)}
+                                    />
                                 </div>
                                 <div>
                                     <label style={labelSt}>Monthly Limit *</label>
@@ -1387,10 +1390,12 @@ function BudgetsPageInner() {
                                             {recForm.frequency === 'monthly' && <Input label="Day of Month" type="number" placeholder="1" min="1" max="31" value={recForm.day_of_month} onChange={e => setRecForm({ ...recForm, day_of_month: e.target.value })} />}
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                 <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</label>
-                                                <select value={recForm.category_id} onChange={e => setRecForm({ ...recForm, category_id: e.target.value })} style={{ ...recInputSt, color: recForm.category_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                                    <option value="">Select category</option>
-                                                    {recCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                </select>
+                                                <CategoryField
+                                                    value={recForm.category_id}
+                                                    onChange={v => setRecForm({ ...recForm, category_id: v })}
+                                                    categories={categories}
+                                                    placeholder="Select category"
+                                                />
                                             </div>
                                         </div>
                                         {recFormError && <p style={{ fontSize: '12px', color: 'var(--color-exp)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>{recFormError}</p>}
@@ -1470,10 +1475,12 @@ function BudgetsPageInner() {
                                                                 {recEditForm.frequency === 'monthly' && <Input label="Day of Month" type="number" placeholder="1" min="1" max="31" value={recEditForm.day_of_month} onChange={e => setRecEditForm({ ...recEditForm, day_of_month: e.target.value })} />}
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</label>
-                                                                    <select value={recEditForm.category_id} onChange={e => setRecEditForm({ ...recEditForm, category_id: e.target.value })} style={{ ...recInputSt, color: recEditForm.category_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                                                        <option value="">Select category</option>
-                                                                        {recCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                                    </select>
+                                                                    <CategoryField
+                                                                        value={recEditForm.category_id}
+                                                                        onChange={v => setRecEditForm({ ...recEditForm, category_id: v })}
+                                                                        categories={categories}
+                                                                        placeholder="Select category"
+                                                                    />
                                                                 </div>
                                                             </div>
                                                             {recEditError && <p style={{ fontSize: '12px', color: 'var(--color-exp)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>{recEditError}</p>}
@@ -1945,16 +1952,12 @@ function BudgetsPageInner() {
                                                                 </div>
                                                                 <div>
                                                                     <label style={fieldLabel}>Category</label>
-                                                                    <select
-                                                                        style={fieldInput}
+                                                                    <CategoryField
+                                                                        valueKey="name"
                                                                         value={otItemForm.category}
-                                                                        onChange={e => setOtItemForm(f => ({ ...f, category: e.target.value }))}
-                                                                    >
-                                                                        {otTxCategories.length > 0
-                                                                            ? otTxCategories.map((c: any) => <option key={c.id} value={c.name}>{c.name}</option>)
-                                                                            : OT_CATEGORIES.map(c => <option key={c} value={c}>{OT_CATEGORY_EMOJI[c]} {c}</option>)
-                                                                        }
-                                                                    </select>
+                                                                        onChange={v => setOtItemForm(f => ({ ...f, category: v }))}
+                                                                        categories={categories.length > 0 ? categories : OT_FALLBACK_CATEGORIES}
+                                                                    />
                                                                 </div>
                                                             </div>
 
@@ -2071,9 +2074,12 @@ function BudgetsPageInner() {
 
                                         <div>
                                             <label style={otLabelStyle}>Category</label>
-                                            <select style={otInputStyle} value={otExpForm.category} onChange={e => setOtExpForm(f => ({ ...f, category: e.target.value }))}>
-                                                {OT_CATEGORIES.map(c => <option key={c} value={c}>{OT_CATEGORY_EMOJI[c]} {c}</option>)}
-                                            </select>
+                                            <CategoryField
+                                                valueKey="name"
+                                                value={otExpForm.category}
+                                                onChange={v => setOtExpForm(f => ({ ...f, category: v }))}
+                                                categories={OT_FALLBACK_CATEGORIES}
+                                            />
                                         </div>
 
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>

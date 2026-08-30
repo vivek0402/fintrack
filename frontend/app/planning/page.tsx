@@ -4,7 +4,9 @@ import { useEffect, useState, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { planningAPI, categoriesAPI } from '@/lib/api';
+import { planningAPI } from '@/lib/api';
+import { CategoryField } from '@/components/categories/CategoryPickerDialog';
+import { useCategories } from '@/hooks/useCategories';
 import { fmt } from '@/lib/utils';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
@@ -111,7 +113,7 @@ export default function PlanningPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('monthly');
     const [narrative, setNarrative] = useState<any>(null);
-    const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+    const { categories } = useCategories();
 
     const [step, setStep] = useState(0);
     const [form, setForm] = useState<WizardForm>(EMPTY_FORM);
@@ -124,7 +126,6 @@ export default function PlanningPage() {
 
     useEffect(() => {
         if (!user) return;
-        categoriesAPI.getAll().then(res => setCategories(res.data.categories)).catch(() => {});
     }, [user]);
 
     const fetchPlan = async () => {
@@ -397,11 +398,14 @@ export default function PlanningPage() {
                                                 <Trash2 size={14} />
                                             </button>
                                         </div>
-                                        <select value={exp.category_id} onChange={e => updateExpense(i, 'category_id', e.target.value)}
-                                            style={{ ...inputSt, background: 'var(--glass-fill-1)', fontSize: 12, padding: '6px 10px', color: exp.category_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                            <option value="">No category — can't compare to actual spending</option>
-                                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                        </select>
+                                        <CategoryField
+                                            value={exp.category_id}
+                                            onChange={v => updateExpense(i, 'category_id', v)}
+                                            categories={categories}
+                                            allowNone
+                                            noneLabel="No category — can't compare to actual spending"
+                                            placeholder="No category — can't compare to actual spending"
+                                        />
                                     </div>
                                 ))}
                             </div>

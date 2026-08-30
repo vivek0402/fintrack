@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Tag, Trash2, Download, Scissors, X } from 'lucide-react';
-import { transactionsAPI, categoriesAPI } from '@/lib/api';
+import { transactionsAPI } from '@/lib/api';
+import { CategoryField, CategoryPickerDialog } from '@/components/categories/CategoryPickerDialog';
+import { useCategories } from '@/hooks/useCategories';
 import { toast } from '@/store/toastStore';
 import { exportToCSV, formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -35,8 +37,7 @@ export function BulkOpsPanel({
     const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
     const [splitOpen, setSplitOpen]         = useState(false);
 
-    const [categories, setCategories]   = useState<any[]>([]);
-    const [catsLoading, setCatsLoading] = useState(false);
+    const { categories } = useCategories();
     const [progress, setProgress]       = useState<{ done: number; total: number } | null>(null);
 
     const [tagInput, setTagInput]   = useState('');
@@ -48,19 +49,8 @@ export function BulkOpsPanel({
     ]);
     const [splitLoading, setSplitLoading] = useState(false);
 
-    const loadCategories = async () => {
-        if (categories.length > 0) return;
-        setCatsLoading(true);
-        try {
-            const res = await categoriesAPI.getAll();
-            setCategories(res.data.categories || []);
-        } catch { /* silent */ }
-        finally { setCatsLoading(false); }
-    };
-
-    const openCategorize = () => { void loadCategories(); setBulkCatOpen(true); };
+    const openCategorize = () => setBulkCatOpen(true);
     const openSplit = () => {
-        void loadCategories();
         setSplitLines([
             { amount: '', category_id: '', description: splitTx?.description || '' },
             { amount: '', category_id: '', description: '' },
@@ -257,27 +247,14 @@ export function BulkOpsPanel({
             </div>
 
             {/* ── Bulk Categorize ── */}
-            {bulkCatOpen && (
-                <div onClick={() => setBulkCatOpen(false)} style={overlayStyle}>
-                    <div onClick={e => e.stopPropagation()} style={sheetStyle}>
-                        <ModalHeader title={`Categorize ${count} transaction${count !== 1 ? 's' : ''}`} onClose={() => setBulkCatOpen(false)} />
-                        <div style={{ overflowY: 'auto', maxHeight: '340px', margin: '0 -24px', padding: '0 8px' }}>
-                            {catsLoading ? (
-                                <p style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>Loading…</p>
-                            ) : categories.map(cat => (
-                                <div key={cat.id} onClick={() => void handleBulkCategorize(String(cat.id))}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 16px', cursor: 'pointer', borderRadius: '10px', transition: 'background 0.1s' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
-                                >
-                                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || 'var(--text-muted)', display: 'block', flexShrink: 0 }} />
-                                    <span style={{ fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CategoryPickerDialog
+                isOpen={bulkCatOpen}
+                onClose={() => setBulkCatOpen(false)}
+                title={`Categorize ${count} transaction${count !== 1 ? 's' : ''}`}
+                value=""
+                onChange={id => void handleBulkCategorize(id)}
+                categories={categories}
+            />
 
             {/* ── Bulk Tag ── */}
             {bulkTagOpen && (
@@ -351,14 +328,15 @@ export function BulkOpsPanel({
                                         onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, description: e.target.value } : l))}
                                         style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
                                     />
-                                    <select
-                                        value={line.category_id}
-                                        onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, category_id: e.target.value } : l))}
-                                        style={{ width: '110px', flexShrink: 0, padding: '8px 8px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '12px', color: line.category_id ? 'var(--text-primary)' : 'var(--text-muted)', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
-                                    >
-                                        <option value="">Category</option>
-                                        {categories.map(cat => <option key={cat.id} value={String(cat.id)}>{cat.name}</option>)}
-                                    </select>
+                                    <div style={{ width: '110px', flexShrink: 0 }}>
+                                        <CategoryField
+                                            size="sm"
+                                            placeholder="Category"
+                                            value={line.category_id}
+                                            onChange={v => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, category_id: v } : l))}
+                                            categories={categories}
+                                        />
+                                    </div>
                                     {splitLines.length > 2 && (
                                         <button onClick={() => setSplitLines(prev => prev.filter((_, j) => j !== i))}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', flexShrink: 0 }}>

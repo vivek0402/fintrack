@@ -11,9 +11,12 @@ interface BottomSheetProps {
     title?: string;
     footer?: React.ReactNode;
     maxHeight?: string;
+    // See the matching prop on Modal -- lets a sheet whose own first child is
+    // the header render its rows full-bleed.
+    bodyPadding?: string;
 }
 
-export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh' }: BottomSheetProps) {
+export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0' }: BottomSheetProps) {
     const [mounted, setMounted] = useState(false);
     const [closing, setClosing] = useState(false);
     const [dragY, setDragY] = useState(0);
@@ -138,7 +141,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                 </div>
 
                 {/* Scrollable body */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 0' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: bodyPadding, minHeight: 0 }}>
                     {children}
                 </div>
 

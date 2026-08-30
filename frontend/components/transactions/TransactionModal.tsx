@@ -1,60 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import {
-    FileText, ChevronDown,
-    Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
-    Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
-    Repeat, Gift, CircleDot, Laptop, Package,
-} from 'lucide-react';
+import { FileText, ChevronDown } from 'lucide-react';
 import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { CategoryField, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
+import { useCategories } from '@/hooks/useCategories';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
 import { randomCategoryColor } from '@/lib/categoryColors';
-
-// ─── Category icon helpers ────────────────────────────────────────────────────
-
-const ICON_MAP: Record<string, React.ElementType> = {
-    'utensils': Utensils, 'car': Car, 'shopping-bag': ShoppingBag,
-    'film': Film, 'heart-pulse': HeartPulse, 'book-open': BookOpen,
-    'zap': Zap, 'home': Home, 'briefcase': Briefcase, 'trending-up': TrendingUp,
-    'sparkles': Sparkles, 'users': Users, 'plane': Plane, 'repeat': Repeat,
-    'gift': Gift, 'circle-dot': CircleDot, 'laptop': Laptop, 'package': Package,
-};
-
-const CategoryIcon = ({ name, size = 14, color = 'currentColor' }: { name: string; size?: number; color?: string }) => {
-    if (!name) return <span style={{ fontSize: size }}>📦</span>;
-    const Icon = ICON_MAP[name];
-    if (Icon) return <Icon size={size} color={color} />;
-    return <span style={{ fontSize: size, lineHeight: 1 }}>{name}</span>;
-};
-
-// ─── Category dropdown option ────────────────────────────────────────────────
-
-// Deleting a category is a data-destroying action — it uncategorises every
-// transaction using it. It used to sit as a ✕ on every row of this dropdown,
-// one mis-tap away from a routine field selection, guarded only by
-// window.confirm. It belongs in category management, not in the add form.
-function CatOption({ cat, selected, onSelect }: { cat: any; selected: boolean; onSelect: () => void }) {
-    return (
-        <div
-            onClick={onSelect}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 14px', cursor: 'pointer', background: selected ? 'var(--glass-fill-1)' : 'transparent', transition: 'background 0.1s' }}
-            onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
-            onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-        >
-            <CategoryIcon name={cat.icon} size={14} color={cat.color} />
-            <span style={{ flex: 1, fontSize: '0.875rem', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
-            {Number(cat.usage_count) > 0 && (
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{cat.usage_count}×</span>
-            )}
-        </div>
-    );
-}
 
 // ─── Calendar grid helper ────────────────────────────────────────────────────
 
@@ -105,7 +62,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         },
     });
     const [tagInput, setTagInput] = useState('');
-    const [categories, setCategories] = useState<any[]>([]);
+    const { categories, refresh: refreshCategories, addLocal: addLocalCategory } = useCategories();
     const [accounts, setAccounts]     = useState<any[]>([]);
     const [cards, setCards]           = useState<any[]>([]);
     const [goals, setGoals]           = useState<any[]>([]);
@@ -116,14 +73,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [mfDropdownOpen, setMfDropdownOpen] = useState(false);
     const [mfLoading, setMfLoading]       = useState(false);
     const mfSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const [catDropdownOpen, setCatDropdownOpen]   = useState(false);
-    const catDropdownRef = useRef<HTMLDivElement>(null);
-
-    const [showAddCat, setShowAddCat]         = useState(false);
-    const [newCatName, setNewCatName]         = useState('');
-    const [newCatColor, setNewCatColor]       = useState('#6366f1');
-    const [addCatLoading, setAddCatLoading]   = useState(false);
 
     const [pendingNewCategory, setPendingNewCategory]         = useState('');
     const [showNewCategoryPrompt, setShowNewCategoryPrompt]   = useState(false);
@@ -142,11 +91,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     useEffect(() => {
         if (!isOpen) return;
-        categoriesAPI.getAll().then(res => setCategories(res.data.categories || [])).catch(() => setCategories([]));
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
         accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
     }, [isOpen]);
 
@@ -159,13 +103,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         if (!isOpen) return;
         goalsAPI.getAll().then(res => setGoals(res.data.goals || [])).catch(() => setGoals([]));
     }, [isOpen]);
-
-    useEffect(() => {
-        if (!catDropdownOpen) return;
-        const handler = (e: MouseEvent) => { if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) setCatDropdownOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [catDropdownOpen]);
 
     // Populate form
      
@@ -183,8 +120,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             setTagInput('');
         }
         setError('');
-        setCatDropdownOpen(false);
-        setShowAddCat(false);
         setShowNewCategoryPrompt(false);
         setPendingNewCategory('');
         setDupWarning(null);
@@ -237,19 +172,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         return scored.slice(0, 2);
     }, [form.description, form.category_id, categories]);
 
-    const findCategory = (cats: any[], aiCat: string) => {
-        if (!aiCat || !cats.length) return null;
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-        const ai = norm(aiCat);
-        let m = cats.find(c => norm(c.name) === ai);
-        if (m) return m;
-        m = cats.find(c => { const db = norm(c.name); return db.includes(ai) || ai.includes(db); });
-        if (m) return m;
-        const aiWords = new Set(ai.split(' ').filter(w => w.length > 2));
-        m = cats.find(c => norm(c.name).split(' ').some((w: string) => w.length > 2 && aiWords.has(w)));
-        return m || null;
-    };
-
     useEffect(() => {
         if (!prefill?.category || !categories.length) return;
         const matched = findCategory(categories, prefill.category);
@@ -275,7 +197,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             const color = randomCategoryColor();
             const res = await categoriesAPI.create({ name: pendingNewCategory, color, icon: '📦' });
             const newCat = res.data.category;
-            setCategories(prev => [...prev, { ...newCat, usage_count: 0, last_used: null }]);
+            addLocalCategory(newCat);
             setForm(prev => ({ ...prev, category_id: String(newCat.id) }));
             setShowNewCategoryPrompt(false);
             setPendingNewCategory('');
@@ -378,18 +300,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setTagInput('');
     };
 
-    const handleAddCategory = async () => {
-        if (!newCatName.trim()) return;
-        setAddCatLoading(true);
-        try {
-            const res = await categoriesAPI.create({ name: newCatName.trim(), color: newCatColor, icon: '📦' });
-            const fresh = await categoriesAPI.getAll();
-            setCategories(fresh.data.categories || []);
-            setForm(prev => ({ ...prev, category_id: String(res.data.category.id) }));
-            setNewCatName(''); setNewCatColor('#6366f1'); setShowAddCat(false);
-        } catch { } finally { setAddCatLoading(false); }
-    };
-
     const handleMfNameChange = (value: string) => {
         setForm(prev => ({ ...prev, investment: { ...prev.investment, name: value, scheme_code: '' } }));
         if (mfSearchTimer.current) clearTimeout(mfSearchTimer.current);
@@ -422,20 +332,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const isTransfer = form.type === 'transfer';
     // A transfer is neither a gain nor a loss — colouring it red read as a loss.
     const amountColor = isTransfer ? 'var(--accent)' : isIncome ? 'var(--color-inc)' : 'var(--color-exp)';
+    // Ordering, grouping and search all live in CategoryPickerDialog now.
     const safeCats = categories || [];
-    const sortedCategories = useMemo(() => {
-        if (!safeCats.length) return [];
-        return [...safeCats].sort((a, b) => {
-            const countDiff = (Number(b.usage_count) || 0) - (Number(a.usage_count) || 0);
-            if (countDiff !== 0) return countDiff;
-            if (a.last_used && b.last_used) return new Date(b.last_used).getTime() - new Date(a.last_used).getTime();
-            if (a.last_used) return -1; if (b.last_used) return 1;
-            return a.name.localeCompare(b.name);
-        });
-    }, [safeCats]);
-    const frequentCats  = sortedCategories.filter(c => Number(c.usage_count) > 0);
-    const neverUsedCats = sortedCategories.filter(c => !Number(c.usage_count));
-    const selectedCat   = safeCats.find(c => String(c.id) === form.category_id);
+    const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
     const isInvestmentCategory = !isTransfer && !!selectedCat?.is_investment_category;
 
     // Investment fields live inside "More details" like everything else non-
@@ -721,54 +620,21 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {!isTransfer && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={labelStyle}>Category</label>
-                            <div ref={catDropdownRef} style={{ position: 'relative' }}>
-                                <button type="button" onClick={() => setCatDropdownOpen(v => !v)}
-                                    style={{ width: '100%', padding: '10px 12px', ...inputBase, border: `1px solid ${catDropdownOpen ? 'var(--accent)' : 'var(--glass-border)'}`, color: selectedCat ? 'var(--text-primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'border-color 0.15s', boxSizing: 'border-box' as const }}>
-                                    {selectedCat ? (
-                                        <><CategoryIcon name={selectedCat.icon} size={14} color={selectedCat.color} /><span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedCat.name}</span></>
-                                    ) : (
-                                        <span style={{ flex: 1, textAlign: 'left' }}>Choose</span>
-                                    )}
-                                    <ChevronDown size={13} style={{ transform: catDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
-                                </button>
-                                {catDropdownOpen && (
-                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--glass-sheet-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)', border: '1px solid var(--glass-border)', borderRadius: '10px', zIndex: 60, maxHeight: '220px', overflowY: 'auto' }}>
-                                        {sortedCategories.length === 0 ? (
-                                            <div style={{ padding: '12px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading…</div>
-                                        ) : (
-                                            <>
-                                                {frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Frequently Used</div>}
-                                                {frequentCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />))}
-                                                {neverUsedCats.length > 0 && frequentCats.length > 0 && <div style={{ fontSize: 10, color: 'var(--text-muted)', padding: '6px 12px 2px', borderTop: '1px solid var(--border-subtle)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 4, fontFamily: 'var(--font-body)' }}>All Categories</div>}
-                                                {neverUsedCats.map(cat => (<CatOption key={cat.id} cat={cat} selected={form.category_id === String(cat.id)} onSelect={() => { setForm(prev => ({ ...prev, category_id: String(cat.id) })); setCatDropdownOpen(false); }} />))}
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <label style={labelStyle} htmlFor="tx-category">Category</label>
+                            <CategoryField
+                                id="tx-category"
+                                value={form.category_id}
+                                onChange={v => setForm(prev => ({ ...prev, category_id: v }))}
+                                categories={safeCats}
+                                allowCreate
+                                onCreated={() => { void refreshCategories(); }}
+                            />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <label style={labelStyle}>Date</label>
                             {dateTrigger}
                         </div>
                     </div>
-                )}
-
-                {!isTransfer && (
-                    !showAddCat ? (
-                        <button type="button" onClick={() => setShowAddCat(true)} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', marginTop: '-6px', fontFamily: 'var(--font-body)' }}>
-                            + Add category
-                        </button>
-                    ) : (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '-6px' }}>
-                            <input type="text" placeholder="Category name" value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(); } }} autoFocus
-                                style={{ flex: 1, padding: '7px 12px', ...inputBase, fontSize: '0.8rem' }} />
-                            <input type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ width: '32px', height: '32px', padding: '2px', border: '1px solid var(--glass-border)', borderRadius: '6px', cursor: 'pointer', background: 'none' }} />
-                            <button type="button" onClick={handleAddCategory} disabled={addCatLoading || !newCatName.trim()} style={{ padding: '7px 12px', background: 'var(--accent)', border: 'none', borderRadius: '8px', color: 'white', fontSize: '0.8rem', cursor: addCatLoading || !newCatName.trim() ? 'not-allowed' : 'pointer', opacity: addCatLoading || !newCatName.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>{addCatLoading ? '…' : 'Add'}</button>
-                            <button type="button" onClick={() => { setShowAddCat(false); setNewCatName(''); }} style={{ padding: '7px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', color: 'var(--text-secondary)', fontSize: '0.8rem', cursor: 'pointer' }}>×</button>
-                        </div>
-                    )
                 )}
 
                 {/* ── Date — transfer's own, standalone (no category to pair it with) ── */}

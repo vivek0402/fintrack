@@ -81,6 +81,46 @@ describe('add transaction', () => {
         await waitFor(() => expect(onSuccess).toHaveBeenCalled());
     });
 
+    it('picks a category through the dialog and sends its id', async () => {
+        // The category field is a dialog now, not an inline dropdown: open it,
+        // search, then select. What matters is that category_id still reaches
+        // the API unchanged. Queried through the DOM rather than by role, per
+        // the jsdom/color-mix note above.
+        const { onSuccess } = open();
+        await fillBasics('250', 'Coffee');
+
+        const trigger = document.querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!;
+        expect(trigger).toHaveTextContent('Choose');
+        fireEvent.click(trigger);
+
+        const search = await waitFor(() =>
+            document.querySelector<HTMLInputElement>('input[aria-label="Search categories"]')!
+        );
+        fireEvent.change(search, { target: { value: 'foo' } });
+
+        // Two rows: the match, plus the inline "Create" offer allowCreate adds
+        // when nothing matches exactly.
+        const option = await waitFor(() => {
+            const els = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'));
+            expect(els).toHaveLength(2);
+            const hit = els.find(e => e.textContent?.includes('Food'));
+            expect(hit).toBeTruthy();
+            return hit!;
+        });
+        fireEvent.click(option);
+
+        // Dialog closes, and the trigger carries the selection.
+        await waitFor(() => expect(document.querySelector('[role="listbox"]')).toBeNull());
+        expect(document.querySelector('[aria-haspopup="listbox"]')).toHaveTextContent('Food');
+
+        submit();
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledOnce());
+        expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ category_id: 'c1' })
+        );
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    });
+
     it('defaults to expense and can switch to income', async () => {
         open();
         await fillBasics('900', 'Refund');

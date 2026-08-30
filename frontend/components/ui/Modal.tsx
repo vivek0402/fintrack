@@ -13,6 +13,11 @@ interface ModalProps {
     children: React.ReactNode;
     footer?: React.ReactNode;
     maxWidth?: string;
+    // For dialogs whose own first child is the header -- the category picker
+    // puts its search field in that slot -- so the body can go full-bleed and
+    // the dialog can still be labelled without rendering a title bar.
+    bodyPadding?: string;
+    ariaLabel?: string;
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -23,7 +28,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // close resetting it while the outer one is still open.
 let openModalCount = 0;
 
-export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px' }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -74,7 +79,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
 
     if (isMobile) {
         return (
-            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer}>
+            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding}>
                 {children}
             </BottomSheet>
         );
@@ -104,7 +109,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 onClick={e => e.stopPropagation()}
                 role="dialog"
                 aria-modal="true"
-                aria-label={title}
+                aria-label={title ?? ariaLabel}
                 tabIndex={-1}
                 className="glass-surface glass-sheet"
                 style={{
@@ -157,7 +162,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 )}
 
                 {/* Scrollable body */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: bodyPadding, minHeight: 0 }}>
                     {children}
                 </div>
 
