@@ -435,7 +435,7 @@ function PickerBody({
 
 export function CategoryPickerDialog({ isOpen, onClose, title = 'Category', ...rest }: CategoryPickerDialogProps) {
     return (
-        <Modal isOpen={isOpen} onClose={onClose} ariaLabel={title} bodyPadding="0" maxWidth="440px" opaque forceDialog>
+        <Modal isOpen={isOpen} onClose={onClose} ariaLabel={title} bodyPadding="0" maxWidth="440px" opaque forceDialog zIndexBase={10010}>
             <PickerBody onClose={onClose} title={title} {...rest} />
         </Modal>
     );

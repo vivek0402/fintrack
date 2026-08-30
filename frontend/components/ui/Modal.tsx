@@ -24,6 +24,10 @@ interface ModalProps {
     // Stay a centred dialog on small screens instead of swapping to a bottom
     // sheet -- for pickers that are a popup on every size.
     forceDialog?: boolean;
+    // Scrim sits here, the dialog one above. Raise it for a modal opened on top
+    // of another one: Modal and BottomSheet share a base, so at equal z-index
+    // the stack order falls to DOM order, which is not something to rely on.
+    zIndexBase?: number;
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -34,7 +38,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // close resetting it while the outer one is still open.
 let openModalCount = 0;
 
-export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog, zIndexBase = 9999 }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -63,13 +67,23 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
     }, [isOpen, onClose]);
 
     // Move focus into the dialog on open, and back to the trigger element on close.
+    // `mounted` is in the deps because the first render bails out before the
+    // portal exists: without it this ran once against a null ref and focus
+    // never entered the dialog at all -- masked until now by children that
+    // happened to carry autoFocus.
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen || !mounted) return;
         previouslyFocusedRef.current = document.activeElement as HTMLElement;
-        const focusable = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+        // On a phone, focusing the first focusable pops the on-screen keyboard
+        // the instant the dialog opens whenever that element is a text input --
+        // covering the very content the user opened it to read. Focus the
+        // dialog itself there; the trap and Escape still work from it.
+        const focusable = isMobile
+            ? null
+            : dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
         (focusable ?? dialogRef.current)?.focus();
         return () => { previouslyFocusedRef.current?.focus?.(); };
-    }, [isOpen]);
+    }, [isOpen, isMobile, mounted]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -104,7 +118,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 backdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
                 WebkitBackdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
                 padding: '16px',
-                zIndex: 9999,
+                zIndex: zIndexBase,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -128,7 +142,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                     flexDirection: 'column',
                     borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
-                    zIndex: 10000,
+                    zIndex: zIndexBase + 1,
                     animation: 'scaleIn 150ms ease both',
                 }}
             >

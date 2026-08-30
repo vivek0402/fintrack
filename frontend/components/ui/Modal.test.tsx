@@ -63,6 +63,16 @@ describe('Modal', () => {
         expect(document.body.style.overflow).not.toBe('hidden');
     });
 
+    it('actually moves focus into the dialog on open', () => {
+        // The focus effect used to key on isOpen alone, so it ran on the first
+        // render -- before `mounted` flips and the portal exists -- against a
+        // null ref, and focus never entered. Children carrying autoFocus hid it.
+        render(<Modal isOpen onClose={vi.fn()} title="T"><button>Inner</button></Modal>);
+        const dialog = screen.getByRole('dialog');
+        expect(document.activeElement).not.toBe(document.body);
+        expect(dialog.contains(document.activeElement)).toBe(true);
+    });
+
     it('renders the footer when given one', () => {
         render(
             <Modal isOpen onClose={vi.fn()} title="T" footer={<button>Set Budget</button>}>
