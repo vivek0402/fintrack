@@ -335,7 +335,9 @@ function PickerBody({
             }}>
                 <Search size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                 <input
-                    autoFocus
+                    // Desktop only: on a phone this pops the on-screen keyboard
+                    // over the list before you can tap anything.
+                    autoFocus={!isMobile}
                     type="text"
                     value={query}
                     onChange={e => { setQuery(e.target.value); setCursor(0); }}
@@ -433,7 +435,7 @@ function PickerBody({
 
 export function CategoryPickerDialog({ isOpen, onClose, title = 'Category', ...rest }: CategoryPickerDialogProps) {
     return (
-        <Modal isOpen={isOpen} onClose={onClose} ariaLabel={title} bodyPadding="0" maxWidth="440px">
+        <Modal isOpen={isOpen} onClose={onClose} ariaLabel={title} bodyPadding="0" maxWidth="440px" opaque forceDialog>
             <PickerBody onClose={onClose} title={title} {...rest} />
         </Modal>
     );

@@ -304,6 +304,16 @@ aside, aside nav {
   background: var(--glass-sheet-surface);
 }
 
+/* Modifier for a dialog stacked on top of another sheet. Glass over glass has
+   nothing solid left to sample, so the translucency stops reading as depth and
+   starts reading as bleed-through -- you see the page through two layers. Those
+   go solid. DESIGN.md's rule that legibility outranks the effect. */
+.glass-solid {
+  background: var(--bg-surface-1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Standalone (not paired with .glass-surface) -- for option tiles/rows/
    inputs living *inside* an already-glass card. No backdrop-filter: blurring
    twice reads muddy, so this is just a subtle tint + border, promoted from a

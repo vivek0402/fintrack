@@ -210,6 +210,16 @@ describe('CategoryPickerDialog', () => {
         expect(screen.queryAllByRole('option')).toHaveLength(CATS.length);
     });
 
+    it('paints solid, not glass -- it stacks on top of another sheet', () => {
+        open();
+        expect(screen.getByRole('dialog')).toHaveClass('glass-solid');
+    });
+
+    it('focuses search on desktop so you can type straight away', () => {
+        open();
+        expect(document.activeElement).toBe(searchBox());
+    });
+
     it('shows a loading note rather than an empty list before categories arrive', () => {
         open({ categories: [] });
         expect(screen.getByText('Loading…')).toBeInTheDocument();

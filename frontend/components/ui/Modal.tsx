@@ -18,6 +18,12 @@ interface ModalProps {
     // the dialog can still be labelled without rendering a title bar.
     bodyPadding?: string;
     ariaLabel?: string;
+    // Solid surface + a heavier scrim, for a dialog opened on top of another
+    // sheet where translucency reads as bleed-through rather than depth.
+    opaque?: boolean;
+    // Stay a centred dialog on small screens instead of swapping to a bottom
+    // sheet -- for pickers that are a popup on every size.
+    forceDialog?: boolean;
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -28,7 +34,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // close resetting it while the outer one is still open.
 let openModalCount = 0;
 
-export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -77,7 +83,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
 
     if (!isOpen || !mounted) return null;
 
-    if (isMobile) {
+    if (isMobile && !forceDialog) {
         return (
             <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding}>
                 {children}
@@ -94,9 +100,10 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 left: 0,
                 width: '100vw',
                 height: '100vh',
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                backdropFilter: 'blur(2px)',
-                WebkitBackdropFilter: 'blur(2px)',
+                backgroundColor: opaque ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.7)',
+                backdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
+                WebkitBackdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
+                padding: '16px',
                 zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
@@ -111,7 +118,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 aria-modal="true"
                 aria-label={title ?? ariaLabel}
                 tabIndex={-1}
-                className="glass-surface glass-sheet"
+                className={`glass-surface glass-sheet${opaque ? ' glass-solid' : ''}`}
                 style={{
                     position: 'relative',
                     width: '90%',
