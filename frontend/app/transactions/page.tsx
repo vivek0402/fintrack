@@ -465,7 +465,7 @@ function TransactionsPageInner() {
             )}
 
             {/* ── TRANSACTION MODAL ── */}
-            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} pastTransactions={transactions} />
+            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
 
             {/* ── BULK OPS PANEL ── */}
             {selectMode && selectedIds.size > 0 && (

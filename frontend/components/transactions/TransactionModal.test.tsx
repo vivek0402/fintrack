@@ -134,28 +134,6 @@ describe('add transaction', () => {
     });
 });
 
-describe('duplicate guard', () => {
-    const recent = [{ id: 'old', type: 'expense', amount: '250', date: '2026-08-26' }];
-
-    it('holds back a near-identical recent transaction instead of writing it', async () => {
-        open({ pastTransactions: recent, defaultDate: '2026-08-26' });
-        await fillBasics('250', 'Coffee');
-        submit();
-
-        // Same type, same amount, within 48h -> warn rather than create.
-        await waitFor(() => expect(screen.getByText(/similar/i)).toBeInTheDocument());
-        expect(transactionsAPI.create).not.toHaveBeenCalled();
-    });
-
-    it('lets a clearly different amount straight through', async () => {
-        open({ pastTransactions: recent, defaultDate: '2026-08-26' });
-        await fillBasics('4000', 'Rent');
-        submit();
-
-        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledOnce());
-    });
-});
-
 describe('transfer', () => {
     it('writes two rows -- an expense out and an income in -- both tagged transfer', async () => {
         // A transfer is not one row with a type; it is a matched pair, and the

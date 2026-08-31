@@ -37,12 +37,11 @@ interface Props {
     transaction?: any;
     prefill?: any;
     defaultDate?: string;
-    pastTransactions?: any[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate, pastTransactions }: Props) {
+export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
     const [form, setForm] = useState({
@@ -77,8 +76,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [pendingNewCategory, setPendingNewCategory]         = useState('');
     const [showNewCategoryPrompt, setShowNewCategoryPrompt]   = useState(false);
     const [approvingCat, setApprovingCat]                     = useState(false);
-    const [dupWarning, setDupWarning] = useState<any>(null);
-    const dupBypassRef = useRef<boolean>(false);
 
     const [calOpen, setCalOpen]   = useState(false);
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -122,8 +119,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setError('');
         setShowNewCategoryPrompt(false);
         setPendingNewCategory('');
-        setDupWarning(null);
-        dupBypassRef.current = false;
         setMfResults([]);
         setMfDropdownOpen(false);
         // Editing an existing transaction defaults open -- its payment method,
@@ -211,19 +206,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(''); setLoading(true);
-        if (!isEditing && !dupBypassRef.current && (pastTransactions?.length ?? 0) > 0) {
-            const amount = parseFloat(form.amount);
-            const txDate = new Date((form.date || '').split('T')[0] + 'T00:00:00');
-            const dup = (pastTransactions || []).find((t: any) => {
-                if (t.type !== form.type) return false;
-                const tAmt = parseFloat(t.amount);
-                if (Math.abs(tAmt - amount) / Math.max(amount, 0.01) > 0.01) return false;
-                const tDate = new Date((t.date || '').split('T')[0] + 'T00:00:00');
-                return Math.abs(txDate.getTime() - tDate.getTime()) <= 48 * 3600 * 1000;
-            });
-            if (dup) { setDupWarning(dup); setLoading(false); return; }
-        }
-        dupBypassRef.current = false;
         if (isTransfer) {
             if (!form.account_id || !form.to_account_id) { setError('Select both From and To accounts.'); setLoading(false); return; }
             if (form.account_id === form.to_account_id) { setError('From and To accounts must differ.'); setLoading(false); return; }
@@ -490,22 +472,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 </button>
             }
         >
-            {/* Duplicate transaction warning */}
-            {dupWarning && (
-                <div style={{ background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 25%, transparent)', borderRadius: 10, padding: '12px 14px', marginBottom: 4 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>⚠️ Possible duplicate</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px', fontFamily: 'var(--font-body)' }}>
-                        Similar: <strong>{dupWarning.description}</strong>, ₹{Math.round(parseFloat(dupWarning.amount)).toLocaleString('en-IN')} on {new Date((dupWarning.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}.
-                    </p>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button type="button" onClick={() => { dupBypassRef.current = true; setDupWarning(null); (document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit?.(); }}
-                            style={{ padding: '5px 12px', background: 'var(--color-warn)', border: 'none', borderRadius: 6, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Save anyway</button>
-                        <button type="button" onClick={() => setDupWarning(null)}
-                            style={{ padding: '5px 12px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 6, color: 'var(--text-secondary)', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Go back</button>
-                    </div>
-                </div>
-            )}
-
             {/* AI new-category prompt */}
             {showNewCategoryPrompt && (
                 <div style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
