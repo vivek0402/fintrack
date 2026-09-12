@@ -138,6 +138,11 @@ const apiLimiter = rateLimit({
     max: 200,
     standardHeaders: true,
     legacyHeaders: false,
+    // /transactions/suggest has its own dedicated, more generous per-user
+    // limiter (suggestLimiter) since it's a typing-rate lookup, not a form
+    // submission -- without this skip it would still also burn through this
+    // shared IP budget and 429 every other /api call for that IP.
+    skip: (req) => req.path === '/transactions/suggest',
     message: { error: 'Too many requests. Please try again later.' },
 });
 
