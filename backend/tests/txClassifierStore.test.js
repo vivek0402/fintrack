@@ -1,4 +1,4 @@
-const { loadModel, saveModel, bootstrapModel, suggest } = require('../src/utils/txClassifierStore');
+const { loadModel, saveModel, bootstrapModel, suggest, learnTransaction, unlearnTransaction, relearnTransaction } = require('../src/utils/txClassifierStore');
 const { createModel, learn } = require('../src/utils/txClassifier');
 
 function mockPool() {
@@ -42,12 +42,23 @@ describe('bootstrapModel', () => {
     test('trains on history and saves', async () => {
         const pool = mockPool();
         pool.query
-            .mockResolvedValueOnce({ rows: HISTORY })   // history select
-            .mockResolvedValueOnce({ rows: [] });       // save
+            .mockResolvedValueOnce({ rows: HISTORY })                 // history select
+            .mockResolvedValueOnce({ rows: [{ user_id: 'u1' }] });    // insert wins
         const { model, trainedCount } = await bootstrapModel(pool, 'u1');
         expect(trainedCount).toBe(25);
         expect(model.category.total).toBe(25);
-        expect(pool.query.mock.calls[1][0]).toMatch(/INSERT INTO tx_classifier_models/);
+        expect(pool.query.mock.calls[1][0]).toMatch(/ON CONFLICT \(user_id\) DO NOTHING/);
+    });
+
+    test('yields to a model another writer inserted first', async () => {
+        const pool = mockPool();
+        const winner = createModel();
+        pool.query
+            .mockResolvedValueOnce({ rows: HISTORY })                          // history
+            .mockResolvedValueOnce({ rows: [] })                               // insert lost
+            .mockResolvedValueOnce({ rows: [{ model: winner, trained_count: 26 }] }); // reload
+        const out = await bootstrapModel(pool, 'u1');
+        expect(out).toEqual({ model: winner, trainedCount: 26 });
     });
 });
 
@@ -76,9 +87,9 @@ describe('suggest', () => {
     test('bootstraps when no model row exists', async () => {
         const pool = mockPool();
         pool.query
-            .mockResolvedValueOnce({ rows: [] })          // loadModel
-            .mockResolvedValueOnce({ rows: HISTORY })     // history
-            .mockResolvedValueOnce({ rows: [] });         // save
+            .mockResolvedValueOnce({ rows: [] })                       // loadModel
+            .mockResolvedValueOnce({ rows: HISTORY })                  // history
+            .mockResolvedValueOnce({ rows: [{ user_id: 'u1' }] });     // insert wins
         const out = await suggest(pool, 'u1', { description: 'uber', type: 'expense' });
         expect(out.ready).toBe(true);
         expect(out.category[0].id).toBe('travel');
@@ -93,8 +104,6 @@ describe('suggest', () => {
         expect(out.payment_method).toEqual([]);
     });
 });
-
-const { learnTransaction, unlearnTransaction, relearnTransaction } = require('../src/utils/txClassifierStore');
 
 function mockClient(queue) {
     const client = { query: jest.fn(), release: jest.fn() };
@@ -130,10 +139,10 @@ describe('learnTransaction', () => {
     test('does not double-count when it had to bootstrap (history already contains the row)', async () => {
         const client = mockClient([
             { rows: [] }, { rows: [] },
-            { rows: [] },                    // loadModel -> none
-            { rows: [TX] },                  // bootstrap history select
-            { rows: [] },                    // bootstrap save
-            { rows: [] },                    // COMMIT
+            { rows: [] },                        // loadModel -> none
+            { rows: [TX] },                      // bootstrap history select
+            { rows: [{ user_id: 'u1' }] },       // bootstrap insert wins
+            { rows: [] },                        // COMMIT
         ]);
         const pool = { connect: jest.fn().mockResolvedValue(client) };
 
@@ -142,6 +151,12 @@ describe('learnTransaction', () => {
         const saves = client.query.mock.calls.filter(c => /INSERT INTO tx_classifier_models/.test(c[0]));
         expect(saves).toHaveLength(1);
         expect(saves[0][1][2]).toBe(1);
+    });
+
+    test('skips the lock entirely for a row with nothing to learn', async () => {
+        const pool = { connect: jest.fn() };
+        await learnTransaction(pool, 'u1', { ...TX, category_id: null, type: 'income' });
+        expect(pool.connect).not.toHaveBeenCalled();
     });
 
     test('rolls back and rethrows on error', async () => {

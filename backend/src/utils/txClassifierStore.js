@@ -1,4 +1,4 @@
-const { createModel, learn, featurize, predict, MIN_SAMPLES } = require('./txClassifier');
+const { createModel, learn, featurize, predict, MIN_SAMPLES, labelsFor } = require('./txClassifier');
 
 const BOOTSTRAP_LIMIT = 5000;
 
@@ -30,8 +30,17 @@ async function bootstrapModel(db, userId) {
     );
     const model = createModel();
     for (const tx of rows) learn(model, tx);
-    await saveModel(db, userId, model, rows.length);
-    return { model, trainedCount: rows.length };
+    // DO NOTHING rather than upsert: a concurrent locked learn may already
+    // have written a fresher model, and a stale bootstrap must not replace it.
+    const { rows: inserted } = await db.query(
+        `INSERT INTO tx_classifier_models (user_id, model, trained_count, updated_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (user_id) DO NOTHING
+         RETURNING user_id`,
+        [userId, JSON.stringify(model), rows.length]
+    );
+    if (inserted.length) return { model, trainedCount: rows.length };
+    return loadModel(db, userId);
 }
 
 async function getOrBootstrapModel(db, userId) {
@@ -41,13 +50,14 @@ async function getOrBootstrapModel(db, userId) {
 const round2 = n => Math.round(n * 100) / 100;
 
 async function suggest(pool, userId, input) {
-    const { model, trainedCount } = await getOrBootstrapModel(pool, userId);
-    const ready = trainedCount >= MIN_SAMPLES;
-    if (!ready) return { ready: false, trained: trainedCount, category: [], payment_method: [] };
+    const { model } = await getOrBootstrapModel(pool, userId);
+    const trained = model.category.total || 0;
+    const ready = trained >= MIN_SAMPLES;
+    if (!ready) return { ready: false, trained, category: [], payment_method: [] };
     const features = featurize(input);
     return {
         ready: true,
-        trained: trainedCount,
+        trained,
         category: predict(model.category, features).slice(0, 3)
             .map(p => ({ id: p.label, prob: round2(p.prob) })),
         payment_method: input.type === 'expense'
@@ -78,6 +88,8 @@ async function withModelLock(pool, userId, fn) {
 }
 
 function learnTransaction(pool, userId, tx) {
+    const { category, payment } = labelsFor(tx);
+    if (!category && !payment) return Promise.resolve();
     return withModelLock(pool, userId, async ({ model, trainedCount }, client) => {
         learn(model, tx, 1);
         await saveModel(client, userId, model, trainedCount + 1);
@@ -85,6 +97,8 @@ function learnTransaction(pool, userId, tx) {
 }
 
 function unlearnTransaction(pool, userId, tx) {
+    const { category, payment } = labelsFor(tx);
+    if (!category && !payment) return Promise.resolve();
     return withModelLock(pool, userId, async ({ model, trainedCount }, client) => {
         learn(model, tx, -1);
         await saveModel(client, userId, model, Math.max(0, trainedCount - 1));
