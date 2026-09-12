@@ -111,6 +111,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // overriding it for the rest of this entry.
     const paymentTouched = useRef(false);
     const [paymentAutoSet, setPaymentAutoSet] = useState(false);
+    // Kept in sync every render so an in-flight suggest() response can check
+    // whether it's still current -- reading form.description here would just
+    // be the same stale closure the response callback already has.
+    const latestDescriptionRef = useRef(form.description);
+    latestDescriptionRef.current = form.description;
 
     useEffect(() => {
         if (!isOpen) return;
@@ -205,7 +210,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 .then(res => {
                     // A slower earlier request can resolve after a faster later
                     // one; only apply the response if it's still what's typed.
-                    if (requestedFor !== form.description.trim()) return;
+                    if (requestedFor !== latestDescriptionRef.current.trim()) return;
                     setMlSuggest({
                         ready: !!res.data.ready,
                         category: res.data.category || [],

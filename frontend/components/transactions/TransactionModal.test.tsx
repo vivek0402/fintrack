@@ -230,4 +230,34 @@ describe('classifier suggestions', () => {
             expect.objectContaining({ payment_method: 'UPI' })
         ));
     });
+
+    it('ignores a stale suggest response that resolves after a newer one', async () => {
+        let resolveFirst: (v: any) => void;
+        (transactionsAPI.suggest as any)
+            .mockImplementationOnce(() => new Promise(r => { resolveFirst = r; }))
+            .mockResolvedValueOnce({ data: { ready: true, trained: 40, category: [], payment_method: [{ method: 'Cash', prob: 0.9 }] } });
+
+        open();
+        await fillBasics('120', 'Coffee');
+        await waitFor(() => expect(transactionsAPI.suggest).toHaveBeenCalledTimes(1));
+
+        // Change the description enough to trigger a second debounced call
+        // while the first request is still pending.
+        const desc = document.querySelector<HTMLInputElement>('input[type="text"]')!;
+        fireEvent.change(desc, { target: { value: 'Chai' } });
+        await waitFor(() => expect(transactionsAPI.suggest).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(document.body.textContent).toContain('usual'));
+
+        // Now the slower first request resolves, for the old "Coffee" description.
+        resolveFirst!({ data: { ready: true, trained: 40, category: [], payment_method: [{ method: 'UPI', prob: 0.95 }] } });
+
+        // Give the resolved (stale) promise a tick; the auto-filled Cash from
+        // the newer response must not be clobbered back to UPI.
+        await new Promise(r => setTimeout(r, 0));
+        submit();
+
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ payment_method: 'Cash' })
+        ));
+    });
 });
