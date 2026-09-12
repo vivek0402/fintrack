@@ -1,5 +1,6 @@
-// Per-user multinomial Naive Bayes over transaction features. Pure functions
-// only -- persistence lives in txClassifierStore.js.
+// Per-user multinomial Naive Bayes over transaction features. No I/O here --
+// persistence lives in txClassifierStore.js. train/untrain/learn mutate the
+// target in place.
 const ALPHA = 0.5;
 const MIN_SAMPLES = 20;
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
@@ -35,7 +36,7 @@ function featurize({ description, amount, date, type, hour }) {
     if (date) { const dow = weekday(date); if (dow !== null) features.push(`dow:${dow}`); }
     if (Number.isInteger(hour)) features.push(`hr:${Math.floor(hour / 4)}`);
     if (type) features.push(`type:${type}`);
-    return features;
+    return [...new Set(features)];
 }
 
 function createTarget() {
@@ -47,20 +48,23 @@ function createModel() {
 }
 
 function bump(obj, key, delta) {
-    const next = (obj[key] || 0) + delta;
-    if (next <= 0) delete obj[key];
+    const prev = obj[key] || 0;
+    const next = Math.max(0, prev + delta);
+    if (next === 0) delete obj[key];
     else obj[key] = next;
+    return next - prev;
 }
 
 function train(target, features, label, sign = 1) {
     if (!label) return;
-    bump(target.classCounts, label, sign);
-    target.total = Math.max(0, target.total + sign);
+    const applied = bump(target.classCounts, label, sign);
+    if (applied === 0) return;
+    target.total += applied;
     for (const f of features) {
         const row = target.featureCounts[f] || (target.featureCounts[f] = {});
-        bump(row, label, sign);
+        const fApplied = bump(row, label, sign);
         if (Object.keys(row).length === 0) delete target.featureCounts[f];
-        bump(target.featureTotals, label, sign);
+        if (fApplied !== 0) bump(target.featureTotals, label, fApplied);
     }
 }
 
@@ -84,7 +88,7 @@ function predict(target, features) {
     const sum = exps.reduce((a, b) => a + b, 0);
     return labels
         .map((label, i) => ({ label, prob: exps[i] / sum }))
-        .sort((a, b) => b.prob - a.prob);
+        .sort((a, b) => b.prob - a.prob || a.label.localeCompare(b.label));
 }
 
 function labelsFor(tx) {

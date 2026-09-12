@@ -46,6 +46,10 @@ describe('featurize', () => {
         expect(featurize({ date: local })).toEqual(featurize({ date: '2026-09-14' }));
         expect(featurize({ date: local })).toEqual(['dow:1']);
     });
+
+    test('featurize dedupes repeated tokens', () => {
+        expect(featurize({ description: 'coffee coffee' })).toEqual(['w:coffee', 'w:coffee_coffee']);
+    });
 });
 
 describe('train / predict', () => {
@@ -85,6 +89,38 @@ describe('train / predict', () => {
         const t = createTarget();
         untrain(t, ['w:a'], 'x');
         expect(t).toEqual(createTarget());
+    });
+
+    test('untraining a row that was never learned leaves the target untouched', () => {
+        const t = createTarget();
+        train(t, ['w:a'], 'x');
+        const snapshot = JSON.parse(JSON.stringify(t));
+        untrain(t, ['w:zzz'], 'never');
+        expect(t).toEqual(snapshot);
+    });
+
+    test('untraining a feature never seen under a label does not touch featureTotals', () => {
+        const t = createTarget();
+        train(t, ['w:a'], 'x');
+        train(t, ['w:b'], 'x');
+        untrain(t, ['w:zzz'], 'x');
+        expect(t.featureTotals).toEqual({ x: 2 });
+        expect(t.classCounts).toEqual({ x: 1 });
+        expect(t.total).toBe(1);
+    });
+
+    test('single-class target predicts that class with prob 1', () => {
+        const t = createTarget();
+        train(t, ['w:a'], 'only');
+        expect(predict(t, ['w:a'])).toEqual([{ label: 'only', prob: 1 }]);
+    });
+
+    test('training with an empty feature list still counts the class', () => {
+        const t = createTarget();
+        train(t, [], 'x');
+        expect(t.classCounts).toEqual({ x: 1 });
+        expect(t.total).toBe(1);
+        expect(predict(t, ['w:whatever'])[0]).toEqual({ label: 'x', prob: 1 });
     });
 });
 
