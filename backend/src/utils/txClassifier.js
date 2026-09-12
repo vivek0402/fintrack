@@ -9,10 +9,7 @@ function tokenize(description) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
         .split(' ')
-        .map(w => {
-            const stripped = w.replace(/\d+$/, '');
-            return stripped.length >= 3 ? stripped : w;
-        })
+        .map(w => w.replace(/\d+$/, ''))
         .filter(w => w.length >= 2 && !/^\d+$/.test(w));
     const bigrams = [];
     for (let i = 0; i < words.length - 1; i++) bigrams.push(`${words[i]}_${words[i + 1]}`);
