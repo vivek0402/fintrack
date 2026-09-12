@@ -6,6 +6,7 @@ const { isPositiveNumber, isNonNegativeNumber, isValidDateString, isValidTransac
 const { weightedAverageBuy } = require('../utils/investmentMath');
 const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goals');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { suggest, learnInBackground, unlearnInBackground, relearnInBackground } = require('../utils/txClassifierStore');
 const router = express.Router();
 
 router.use(auth);
@@ -45,6 +46,26 @@ router.get('/search', async (req, res) => {
         res.json({ transactions: result.rows });
     } catch (err) {
         console.error('[Transactions] search failed:', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+router.get('/suggest', async (req, res) => {
+    try {
+        const description = typeof req.query.description === 'string' ? req.query.description.trim() : '';
+        if (description.length < 2)
+            return res.json({ ready: false, trained: 0, category: [], payment_method: [] });
+        const parsedHour = parseInt(req.query.hour, 10);
+        const input = {
+            description,
+            amount: req.query.amount,
+            date: req.query.date,
+            type: req.query.type === 'income' ? 'income' : 'expense',
+            hour: Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 ? parsedHour : undefined,
+        };
+        res.json(await suggest(pool, req.user.id, input));
+    } catch (err) {
+        console.error('[Transactions] suggest failed:', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -307,6 +328,8 @@ router.post('/', async (req, res) => {
             ...(goalResult ? { goal: goalResult } : {}),
         });
 
+        learnInBackground(pool, req.user.id, tx);
+
         // Fire-and-forget: check if transaction count today is unusually high
         setImmediate(async () => {
             try {
@@ -479,7 +502,7 @@ router.put('/:id', async (req, res) => {
         }
 
         const existing = await pool.query(
-            'SELECT id, goal_id, amount FROM transactions WHERE id = $1 AND user_id = $2',
+            'SELECT * FROM transactions WHERE id = $1 AND user_id = $2',
             [req.params.id, req.user.id]
         );
         if (existing.rows.length === 0)
@@ -542,6 +565,8 @@ router.put('/:id', async (req, res) => {
             await client.query('COMMIT');
             res.json({ transaction: result.rows[0] });
 
+            relearnInBackground(pool, req.user.id, before, result.rows[0]);
+
             if (oldGoalResult) fireGoalMilestoneChecks(req.user.id, oldGoalResult, -parseFloat(before.amount));
             if (newGoalResult) fireGoalMilestoneChecks(req.user.id, newGoalResult, newAmount);
         } catch (err) {
@@ -565,7 +590,7 @@ router.delete('/:id', async (req, res) => {
         try {
             await client.query('BEGIN');
             const result = await client.query(
-                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING id, source, transfer_group_id, goal_id, amount',
+                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING *',
                 [req.params.id, req.user.id]
             );
             if (result.rows.length === 0) {
@@ -592,6 +617,7 @@ router.delete('/:id', async (req, res) => {
             }
             await client.query('COMMIT');
             res.json({ message: 'Deleted.' });
+            unlearnInBackground(pool, req.user.id, result.rows[0]);
             if (deletedGoalResult) fireGoalMilestoneChecks(req.user.id, deletedGoalResult, -parseFloat(result.rows[0].amount));
         } catch (err) {
             await client.query('ROLLBACK');

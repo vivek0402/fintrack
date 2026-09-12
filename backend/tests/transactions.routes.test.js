@@ -13,10 +13,17 @@ jest.mock('../src/middleware/auth', () => (req, res, next) => {
     req.user = { id: 'user-123', email: 'test@example.com' };
     next();
 });
+jest.mock('../src/utils/txClassifierStore', () => ({
+    suggest: jest.fn(),
+    learnInBackground: jest.fn(),
+    unlearnInBackground: jest.fn(),
+    relearnInBackground: jest.fn(),
+}));
 
 const express = require('express');
 const request = require('supertest');
 const pool = require('../src/db/pool');
+const classifierStore = require('../src/utils/txClassifierStore');
 const transactionsRouter = require('../src/routes/transactions');
 
 function buildApp() {
@@ -253,5 +260,87 @@ describe('DELETE /api/transactions/:id — transfer_group_id pairing', () => {
 
         expect(res.status).toBe(200);
         expect(client.query.mock.calls.some(([sql]) => sql.startsWith('DELETE FROM transactions WHERE transfer_group_id'))).toBe(false);
+    });
+});
+
+describe('GET /api/transactions/suggest', () => {
+    afterEach(() => { classifierStore.suggest.mockReset(); });
+
+    test('returns an empty, not-ready payload for a too-short description without touching the model', async () => {
+        const res = await request(buildApp()).get('/api/transactions/suggest?description=a');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ ready: false, trained: 0, category: [], payment_method: [] });
+        expect(classifierStore.suggest).not.toHaveBeenCalled();
+    });
+
+    test('passes parsed inputs to suggest() and returns its result', async () => {
+        classifierStore.suggest.mockResolvedValueOnce({ ready: true, trained: 40, category: [{ id: 'c1', prob: 0.8 }], payment_method: [{ method: 'UPI', prob: 0.9 }] });
+        const res = await request(buildApp())
+            .get('/api/transactions/suggest?description=Swiggy&amount=450&date=2026-09-12&type=expense&hour=21');
+        expect(res.status).toBe(200);
+        expect(res.body.category[0].id).toBe('c1');
+        expect(classifierStore.suggest).toHaveBeenCalledWith(expect.anything(), 'user-123',
+            { description: 'Swiggy', amount: '450', date: '2026-09-12', type: 'expense', hour: 21 });
+    });
+
+    test('defaults type to expense and drops a non-integer hour', async () => {
+        classifierStore.suggest.mockResolvedValueOnce({ ready: false, trained: 3, category: [], payment_method: [] });
+        await request(buildApp()).get('/api/transactions/suggest?description=Swiggy&hour=abc');
+        const input = classifierStore.suggest.mock.calls[0][2];
+        expect(input.type).toBe('expense');
+        expect(input.hour).toBeUndefined();
+    });
+
+    test('returns 500 when suggest throws', async () => {
+        classifierStore.suggest.mockRejectedValueOnce(new Error('db down'));
+        const res = await request(buildApp()).get('/api/transactions/suggest?description=Swiggy');
+        expect(res.status).toBe(500);
+    });
+});
+
+describe('classifier learning hooks', () => {
+    afterEach(() => {
+        pool.query.mockReset();
+        pool.connect.mockReset();
+        classifierStore.learnInBackground.mockReset();
+        classifierStore.relearnInBackground.mockReset();
+        classifierStore.unlearnInBackground.mockReset();
+    });
+
+    test('POST learns the created row', async () => {
+        const tx = { id: 't1', user_id: 'user-123', type: 'expense', amount: '50.00', description: 'Lunch', date: '2026-06-01', account_id: null };
+        pool.query.mockResolvedValueOnce({ rows: [tx] }).mockResolvedValueOnce({ rows: [] });
+        await request(buildApp()).post('/api/transactions').send({ type: 'expense', amount: 50, description: 'Lunch', date: '2026-06-01' });
+        expect(classifierStore.learnInBackground).toHaveBeenCalledWith(expect.anything(), 'user-123', expect.objectContaining({ id: 't1' }));
+    });
+
+    test('PUT relearns from the full before row to the updated row', async () => {
+        const before = { id: 't1', user_id: 'user-123', type: 'expense', amount: '50.00', description: 'Lunch', date: '2026-06-01', goal_id: null, category_id: null, payment_method: 'UPI' };
+        const after = { ...before, category_id: 'c9' };
+        pool.query.mockResolvedValueOnce({ rows: [before] }); // existing lookup
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] })        // BEGIN
+            .mockResolvedValueOnce({ rows: [after] })   // UPDATE
+            .mockResolvedValueOnce({ rows: [] });       // COMMIT
+        pool.connect.mockResolvedValueOnce(client);
+        const res = await request(buildApp()).put('/api/transactions/t1').send({ category_id: 'c9' });
+        expect(res.status).toBe(200);
+        expect(classifierStore.relearnInBackground).toHaveBeenCalledWith(expect.anything(), 'user-123',
+            expect.objectContaining({ id: 't1', description: 'Lunch', payment_method: 'UPI' }),
+            expect.objectContaining({ id: 't1', category_id: 'c9' }));
+        expect(pool.query.mock.calls[0][0]).toMatch(/SELECT \* FROM transactions/);
+    });
+
+    test('DELETE unlearns the deleted row', async () => {
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] })                                                        // BEGIN
+            .mockResolvedValueOnce({ rows: [{ id: 't1', source: 'manual', transfer_group_id: null, goal_id: null, amount: '50', description: 'Lunch', type: 'expense', date: '2026-06-01' }] })
+            .mockResolvedValueOnce({ rows: [] })                                                        // deletions insert
+            .mockResolvedValueOnce({ rows: [] });                                                       // COMMIT
+        pool.connect.mockResolvedValueOnce(client);
+        await request(buildApp()).delete('/api/transactions/t1');
+        expect(classifierStore.unlearnInBackground).toHaveBeenCalledWith(expect.anything(), 'user-123', expect.objectContaining({ id: 't1', description: 'Lunch' }));
     });
 });
