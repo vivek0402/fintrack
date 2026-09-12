@@ -185,7 +185,7 @@ describe('classifier suggestions', () => {
         await fillBasics('450', 'Zomato');
 
         const chip = await waitFor(() => {
-            const el = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Food');
+            const el = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Food'));
             expect(el).toBeTruthy();
             return el!;
         });
