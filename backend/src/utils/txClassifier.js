@@ -10,7 +10,7 @@ function tokenize(description) {
         .replace(/[^a-z0-9]+/g, ' ')
         .split(' ')
         .map(w => w.replace(/\d+$/, ''))
-        .filter(w => w.length >= 2 && !/^\d+$/.test(w));
+        .filter(w => w.length >= 2);
     const bigrams = [];
     for (let i = 0; i < words.length - 1; i++) bigrams.push(`${words[i]}_${words[i + 1]}`);
     return [...words, ...bigrams];
@@ -23,19 +23,16 @@ function istHour(ts) {
     return new Date(d.getTime() + IST_OFFSET_MS).getUTCHours();
 }
 
-function dateString(date) {
-    if (date instanceof Date) return date.toISOString().slice(0, 10);
-    return String(date).slice(0, 10);
+function weekday(date) {
+    const d = date instanceof Date ? date : new Date(`${String(date).slice(0, 10)}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d.getDay();
 }
 
 function featurize({ description, amount, date, type, hour }) {
     const features = tokenize(description).map(t => `w:${t}`);
-    const amt = parseFloat(amount);
+    const amt = Number(amount);
     if (Number.isFinite(amt) && amt > 0) features.push(`amt:${Math.floor(Math.log2(amt))}`);
-    if (date) {
-        const d = new Date(`${dateString(date)}T00:00:00`);
-        if (!Number.isNaN(d.getTime())) features.push(`dow:${d.getDay()}`);
-    }
+    if (date) { const dow = weekday(date); if (dow !== null) features.push(`dow:${dow}`); }
     if (Number.isInteger(hour)) features.push(`hr:${Math.floor(hour / 4)}`);
     if (type) features.push(`type:${type}`);
     return features;

@@ -1,4 +1,4 @@
-const { tokenize, featurize, istHour } = require('../src/utils/txClassifier');
+const { tokenize, featurize, istHour, createModel, createTarget, train, untrain, predict, labelsFor, learn } = require('../src/utils/txClassifier');
 
 describe('tokenize', () => {
     test('lowercases, splits on punctuation, drops 1-char and numeric tokens, adds bigrams', () => {
@@ -40,9 +40,13 @@ describe('featurize', () => {
         const f = featurize({ description: 'Rent', amount: 'abc', date: new Date('2026-09-14T00:00:00Z'), type: 'expense' });
         expect(f).toEqual(['w:rent', 'dow:1', 'type:expense']);
     });
-});
 
-const { createModel, createTarget, train, untrain, predict, labelsFor, learn } = require('../src/utils/txClassifier');
+    test('reads a local-midnight Date the same as its YYYY-MM-DD string', () => {
+        const local = new Date(2026, 8, 14); // pg returns DATE columns this way
+        expect(featurize({ date: local })).toEqual(featurize({ date: '2026-09-14' }));
+        expect(featurize({ date: local })).toEqual(['dow:1']);
+    });
+});
 
 describe('train / predict', () => {
     test('predicts the class whose features it has seen', () => {
