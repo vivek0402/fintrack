@@ -385,7 +385,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // Rendered alongside the main sheet rather than inside the form, so it
     // portals to the body and can never be clipped by the form's own scroll.
     const dateSheet = (
-        <Modal isOpen={calOpen} onClose={() => setCalOpen(false)} title="Date" maxWidth="360px">
+        <Modal isOpen={calOpen} onClose={() => setCalOpen(false)} title="Date" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                     {quickDates.map(q => {
@@ -437,7 +437,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // the trigger sits, nothing like the rest of the form. A small themed
     // list keeps it consistent with Category's own picker.
     const paymentSheet = (
-        <Modal isOpen={paymentSheetOpen} onClose={() => setPaymentSheetOpen(false)} title="Payment method" maxWidth="360px">
+        <Modal isOpen={paymentSheetOpen} onClose={() => setPaymentSheetOpen(false)} title="Payment method" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => {
                     const active = form.payment_method === m;
