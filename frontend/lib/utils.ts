@@ -256,7 +256,7 @@ CATEGORY_KEYWORD_ICONS['Rent'] = CATEGORY_KEYWORD_ICONS['Rent & Housing'];
 CATEGORY_KEYWORD_ICONS['Transport'] = CATEGORY_KEYWORD_ICONS['Transportation'];
 CATEGORY_KEYWORD_ICONS['Health'] = CATEGORY_KEYWORD_ICONS['Healthcare'];
 
-function escapeRegExp(s: string): string {
+export function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 

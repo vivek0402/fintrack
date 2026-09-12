@@ -10,6 +10,7 @@ import {
 import { Modal } from '@/components/ui/Modal';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { randomCategoryColor } from '@/lib/categoryColors';
+import { guessCategoryIcon } from '@/lib/categoryIcons';
 import { categoriesAPI } from '@/lib/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -215,7 +216,7 @@ function PickerBody({
         if (!name || saving) return;
         setSaving(true);
         try {
-            const res = await categoriesAPI.create({ name, color: newColor, icon: '📦' });
+            const res = await categoriesAPI.create({ name, color: newColor, icon: guessCategoryIcon(name) });
             const created: CategoryOption = { usage_count: 0, last_used: null, ...res.data.category };
             onCreated?.(created);
             onChange(keyOf(created), created);
