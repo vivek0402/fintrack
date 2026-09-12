@@ -193,6 +193,27 @@ const aiLimiter = rateLimit({
     message: { error: 'AI request limit reached. Please wait before making more AI requests.' },
 });
 
+// Suggestion endpoint limiter — this is a typing-rate lookup (the modal
+// debounces at 350ms), not a form submission, so it needs a much higher
+// budget than apiLimiter and must be keyed per-user, not per-IP, so one
+// user's typing can't eat another user's or the whole app's shared budget.
+const suggestLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        const auth = req.headers['authorization'];
+        if (auth && auth.startsWith('Bearer ')) {
+            try {
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                return `suggest:user:${decoded.id}`;
+            } catch { /* fall through to IP */ }
+        }
+        return ipKeyGenerator(req);
+    },
+});
+
 app.use('/api', apiLimiter);
 
 // ─── Root + Health check ──────────────────────────────────────────────────────
@@ -238,6 +259,7 @@ app.post('/api/auth/refresh',        refreshLimiter,   (req, res, next) => authR
 app.use('/api/auth', authRouter);
 
 app.use('/api/categories',   require('./routes/categories'));
+app.use('/api/transactions/suggest', suggestLimiter);
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/budgets',      require('./routes/budgets'));
 app.use('/api/analytics',    require('./routes/analytics'));

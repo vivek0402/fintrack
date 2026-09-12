@@ -58,8 +58,8 @@ router.get('/suggest', async (req, res) => {
         const parsedHour = parseInt(req.query.hour, 10);
         const input = {
             description,
-            amount: req.query.amount,
-            date: req.query.date,
+            amount: typeof req.query.amount === 'string' ? req.query.amount : undefined,
+            date: typeof req.query.date === 'string' ? req.query.date : undefined,
             type: req.query.type === 'income' ? 'income' : 'expense',
             hour: Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 ? parsedHour : undefined,
         };
