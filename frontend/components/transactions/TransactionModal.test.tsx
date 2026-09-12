@@ -222,6 +222,8 @@ describe('classifier suggestions', () => {
         open();
         await fillBasics('120', 'Chai');
         await waitFor(() => expect(transactionsAPI.suggest).toHaveBeenCalled());
+        // Give the resolved promise's .then a tick to run before asserting nothing changed.
+        await waitFor(() => expect(document.body.textContent).not.toContain('usual'));
         submit();
 
         await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(

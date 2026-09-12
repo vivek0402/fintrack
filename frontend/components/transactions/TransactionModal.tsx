@@ -194,6 +194,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         const description = form.description.trim();
         if (description.length < 3) { setMlSuggest(EMPTY_SUGGEST); return; }
         const timer = setTimeout(() => {
+            const requestedFor = description;
             transactionsAPI.suggest({
                 description,
                 amount: form.amount || undefined,
@@ -201,11 +202,16 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 type: form.type,
                 hour: new Date().getHours(),
             })
-                .then(res => setMlSuggest({
-                    ready: !!res.data.ready,
-                    category: res.data.category || [],
-                    payment_method: res.data.payment_method || [],
-                }))
+                .then(res => {
+                    // A slower earlier request can resolve after a faster later
+                    // one; only apply the response if it's still what's typed.
+                    if (requestedFor !== form.description.trim()) return;
+                    setMlSuggest({
+                        ready: !!res.data.ready,
+                        category: res.data.category || [],
+                        payment_method: res.data.payment_method || [],
+                    });
+                })
                 .catch(() => setMlSuggest(EMPTY_SUGGEST));
         }, 350);
         return () => clearTimeout(timer);
