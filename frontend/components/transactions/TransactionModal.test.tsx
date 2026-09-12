@@ -251,9 +251,19 @@ describe('classifier suggestions', () => {
         // Now the slower first request resolves, for the old "Coffee" description.
         resolveFirst!({ data: { ready: true, trained: 40, category: [], payment_method: [{ method: 'UPI', prob: 0.95 }] } });
 
-        // Give the resolved (stale) promise a tick; the auto-filled Cash from
-        // the newer response must not be clobbered back to UPI.
-        await new Promise(r => setTimeout(r, 0));
+        // Give every pending microtask AND React's effect scheduling a full
+        // real-time window to run. If the guard were broken, this is more
+        // than enough time for setMlSuggest -> the payment auto-fill effect
+        // -> setForm to have already flipped payment_method back to 'UPI'
+        // by now -- a single setTimeout(0) tick was not, which is exactly
+        // how the previous version of this test passed even against the bug.
+        await new Promise(r => setTimeout(r, 100));
+
+        // Hard assertion, not waitFor: we want to know the state RIGHT NOW,
+        // not eventually -- waitFor would keep polling past the moment a
+        // buggy cascade lands and could still report a stale pass.
+        expect(document.body.textContent).toContain('usual');
+
         submit();
 
         await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
