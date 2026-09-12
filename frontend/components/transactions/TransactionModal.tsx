@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { CategoryField, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
+import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
@@ -44,12 +45,13 @@ interface Props {
 export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
+    const isMobile = useIsMobile();
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense' | 'transfer',
         amount: '', description: '', notes: '',
         date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         category_id: '', tags: [] as string[],
-        payment_method: 'Cash',
+        payment_method: 'UPI',
         account_id: null as number | null,
         to_account_id: null as number | null,
         credit_card_id: null as number | null,
@@ -110,10 +112,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             const rawDate = (transaction.date || '').split('T')[0];
             setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'Cash', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
             setTagInput('');
         }
         setError('');
@@ -458,18 +460,34 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             onClose={onClose}
             title={isEditing ? 'Edit Transaction' : isTransfer ? 'Transfer Between Accounts' : 'Add Transaction'}
             footer={
-                <button type="submit" form="transaction-form" disabled={loading}
-                    style={{
-                        width: '100%', height: '48px', border: 'none', borderRadius: 'var(--radius-md)',
-                        background: isTransfer ? '#8b5cf6' : 'var(--accent)', color: 'white',
-                        fontSize: '14.5px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: 'var(--font-body)',
-                        boxShadow: isTransfer
-                            ? '0 12px 26px -10px rgba(139,92,246,0.7), inset 0 1px 0 rgba(255,255,255,0.25)'
-                            : '0 12px 26px -10px rgba(37,99,235,0.7), inset 0 1px 0 rgba(255,255,255,0.25)',
-                    }}>
-                    {loading ? 'Saving…' : ctaLabel}
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* ── More details — pinned here instead of the scrolling form body, so
+                        it's reachable in one tap regardless of how tall the fields above
+                        get. Deliberately not adaptive (no rearranging based on guessed
+                        habits): unpredictable beats one extra tap. ── */}
+                    {!isTransfer && (
+                        <button type="button" onClick={() => setShowMore(v => !v)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '2px', border: 'none', background: 'none', cursor: 'pointer', color: showMore ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <ChevronDown size={14} style={{ transform: showMore ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                                More details
+                            </span>
+                            {!showMore && <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>tags · notes · goal</span>}
+                        </button>
+                    )}
+                    <button type="submit" form="transaction-form" disabled={loading}
+                        style={{
+                            width: '100%', height: '48px', border: 'none', borderRadius: 'var(--radius-md)',
+                            background: isTransfer ? '#8b5cf6' : 'var(--accent)', color: 'white',
+                            fontSize: '14.5px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: 'var(--font-body)',
+                            boxShadow: isTransfer
+                                ? '0 12px 26px -10px rgba(139,92,246,0.7), inset 0 1px 0 rgba(255,255,255,0.25)'
+                                : '0 12px 26px -10px rgba(37,99,235,0.7), inset 0 1px 0 rgba(255,255,255,0.25)',
+                        }}>
+                        {loading ? 'Saving…' : ctaLabel}
+                    </button>
+                </div>
             }
         >
             {/* AI new-category prompt */}
@@ -582,9 +600,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── Category + Date (two-col, always visible — the other two of the four core fields) ── */}
+                {/* ── Category + Date + Payment method — three of the core fields.
+                    Payment method used to collapse behind "More details"; promoted here
+                    so how you paid is visible without an extra tap. On desktop there's
+                    room for all three in one row; on mobile, Category+Date share a row
+                    and Payment method gets its own full-width row below. ── */}
                 {!isTransfer && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: (!isMobile && !isIncome) ? '1fr 1fr 1fr' : '1fr 1fr', gap: '10px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <label style={labelStyle} htmlFor="tx-category">Category</label>
                             <CategoryField
@@ -600,6 +622,33 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <label style={labelStyle}>Date</label>
                             {dateTrigger}
                         </div>
+                        {!isIncome && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: isMobile ? '1 / -1' : undefined }}>
+                                <label style={labelStyle}>Payment method</label>
+                                <select value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })}
+                                    style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                                    {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Which card? — promoted alongside Payment method (only when there's
+                    more than one) so picking Credit Card doesn't orphan this behind
+                    "More details" ── */}
+                {!isTransfer && !isIncome && form.payment_method === 'Credit Card' && cards.length > 1 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={labelStyle}>Which card?</label>
+                        <select value={form.credit_card_id ?? ''} onChange={e => setForm({ ...form, credit_card_id: e.target.value ? Number(e.target.value) : null })}
+                            style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
+                            <option value="">Select card</option>
+                            {cards.map((c: any) => (
+                                <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
+                            ))}
+                        </select>
                     </div>
                 )}
 
@@ -611,51 +660,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── More details — everything else collapses behind this. Deliberately
-                    not adaptive (no rearranging based on guessed habits): unpredictable
-                    beats one extra tap. ── */}
-                {!isTransfer && (
-                    <button type="button" onClick={() => setShowMore(v => !v)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: showMore ? '11px 2px 2px' : '2px', marginTop: showMore ? '2px' : 0, borderTop: showMore ? '1px solid var(--glass-border)' : 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', background: 'none', cursor: 'pointer', color: showMore ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <ChevronDown size={14} style={{ transform: showMore ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-                            More details
-                        </span>
-                        {!showMore && <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>payment · tags · notes · goal</span>}
-                    </button>
-                )}
-
                 {showMore && !isTransfer && (
                 <>
-                    {/* ── Payment Method (expense only) ── */}
-                    {!isIncome && (
-                        <div>
-                            <label style={labelStyle}>How did you pay?</label>
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
-                                    <button key={m} type="button" onClick={() => setForm({ ...form, payment_method: m })}
-                                        style={{ padding: '6px 11px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s', border: `1px solid ${form.payment_method === m ? 'var(--accent-border)' : 'var(--glass-border)'}`, background: form.payment_method === m ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: form.payment_method === m ? 'var(--accent)' : 'var(--text-muted)' }}>
-                                        {m}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Which card? (only when there's more than one) ── */}
-                    {!isIncome && form.payment_method === 'Credit Card' && cards.length > 1 && (
-                        <div>
-                            <label style={labelStyle}>Which card?</label>
-                            <select value={form.credit_card_id ?? ''} onChange={e => setForm({ ...form, credit_card_id: e.target.value ? Number(e.target.value) : null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">Select card</option>
-                                {cards.map((c: any) => (
-                                    <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
                     {/* ── Investment details (shown when Investments category is selected) ── */}
                     {isInvestmentCategory && !isEditing && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
