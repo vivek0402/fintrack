@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { FileText, ChevronDown, Check } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI } from '@/lib/api';
+import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI, analyticsAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -27,6 +27,10 @@ function buildCalDays(month: number, year: number) {
     for (let d = 1; d <= remaining; d++)   cells.push({ day: d, month: 'next' });
     return cells;
 }
+
+const PAYMENT_METHOD_ICONS: Record<string, string> = {
+    'Cash': '💵', 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '🏧', 'Net Banking': '🏦', 'Wallet': '👛',
+};
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -67,6 +71,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [accounts, setAccounts]     = useState<any[]>([]);
     const [cards, setCards]           = useState<any[]>([]);
     const [goals, setGoals]           = useState<any[]>([]);
+    const [paymentUsage, setPaymentUsage] = useState<Record<string, number>>({});
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
 
@@ -105,6 +110,18 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (!isOpen) return;
         goalsAPI.getAll().then(res => setGoals(res.data.goals || [])).catch(() => setGoals([]));
+    }, [isOpen]);
+
+    // Counts this month's usage per payment method -- same idea as
+    // categories' usage_count, just scoped to the current month since
+    // payment method has no per-user record to sum all-time.
+    useEffect(() => {
+        if (!isOpen) return;
+        analyticsAPI.paymentMethods().then(res => {
+            const map: Record<string, number> = {};
+            (res.data.breakdown || []).forEach((b: any) => { map[b.method] = b.count; });
+            setPaymentUsage(map);
+        }).catch(() => setPaymentUsage({}));
     }, [isOpen]);
 
     // Populate form
@@ -438,16 +455,25 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // on Android/Chrome that's an unstyled grey radio list dropped wherever
     // the trigger sits, nothing like the rest of the form. A small themed
     // list keeps it consistent with Category's own picker.
+    const sortedPaymentMethods = useMemo(() => {
+        return ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet']
+            .slice()
+            .sort((a, b) => (paymentUsage[b] || 0) - (paymentUsage[a] || 0));
+    }, [paymentUsage]);
+
     const paymentSheet = (
         <Modal isOpen={paymentSheetOpen} onClose={() => setPaymentSheetOpen(false)} title="Payment method" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => {
+                {sortedPaymentMethods.map(m => {
                     const active = form.payment_method === m;
+                    const count = paymentUsage[m] || 0;
                     return (
                         <button key={m} type="button" onClick={() => { setForm({ ...form, payment_method: m }); setPaymentSheetOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
-                            {m}
-                            {active && <Check size={16} />}
+                            style={{ display: 'flex', alignItems: 'center', gap: '9px', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[m]}</span>
+                            <span style={{ flex: 1, minWidth: 0 }}>{m}</span>
+                            {count > 0 && <span style={{ fontSize: '0.72rem', color: active ? 'var(--accent)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{count}×</span>}
+                            {active && <Check size={16} style={{ flexShrink: 0 }} />}
                         </button>
                     );
                 })}
@@ -695,8 +721,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 <label style={labelStyle}>Payment method</label>
                                 <div onClick={() => setPaymentSheetOpen(true)} role="button" tabIndex={0}
                                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentSheetOpen(true); } }}
-                                    style={{ ...inputBase, padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                                    <span>{form.payment_method}</span>
+                                    style={{ ...inputBase, padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
+                                    <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[form.payment_method]}</span>
+                                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.payment_method}</span>
                                     <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                                 </div>
                             </div>

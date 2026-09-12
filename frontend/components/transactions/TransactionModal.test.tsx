@@ -23,6 +23,7 @@ vi.mock('@/lib/api', () => ({
     creditCardsAPI: { getAll: vi.fn().mockResolvedValue({ data: { cards: [] } }) },
     goalsAPI:       { getAll: vi.fn().mockResolvedValue({ data: { goals: [] } }) },
     marketDataAPI:  { searchMutualFunds: vi.fn(), getLatestNav: vi.fn() },
+    analyticsAPI:   { paymentMethods: vi.fn().mockResolvedValue({ data: { breakdown: [] } }) },
 }));
 
 vi.mock('@/store/toastStore', () => ({
