@@ -270,6 +270,14 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 
+/* Firefox has no ::-webkit-scrollbar-* support -- without this it falls back
+   to the OS default (light on most themes), clashing with dark surfaces like
+   the transaction modal's scrolling body. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-visible) transparent;
+}
+
 aside::-webkit-scrollbar, aside nav::-webkit-scrollbar {
   display: none;
 }
