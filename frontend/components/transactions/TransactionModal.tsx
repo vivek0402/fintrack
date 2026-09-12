@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { FileText, ChevronDown } from 'lucide-react';
+import { FileText, ChevronDown, Check } from 'lucide-react';
 import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI } from '@/lib/api';
 import { addToQueue } from '@/lib/txQueue';
 import { Input } from '@/components/ui/Input';
@@ -82,6 +82,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [calOpen, setCalOpen]   = useState(false);
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
     const [calYear, setCalYear]   = useState(new Date().getFullYear());
+
+    const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
 
     // Four fields by default (amount, description, category, date) --
     // payment method, card, investment details, goal, tags and notes
@@ -430,6 +432,27 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </Modal>
     );
 
+    // A plain native <select> here hands the whole picker over to the OS --
+    // on Android/Chrome that's an unstyled grey radio list dropped wherever
+    // the trigger sits, nothing like the rest of the form. A small themed
+    // list keeps it consistent with Category's own picker.
+    const paymentSheet = (
+        <Modal isOpen={paymentSheetOpen} onClose={() => setPaymentSheetOpen(false)} title="Payment method" maxWidth="360px">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => {
+                    const active = form.payment_method === m;
+                    return (
+                        <button key={m} type="button" onClick={() => { setForm({ ...form, payment_method: m }); setPaymentSheetOpen(false); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            {m}
+                            {active && <Check size={16} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </Modal>
+    );
+
     // Shared between the Category+Date row (expense/income) and the
     // standalone Date field (transfer) -- the two are mutually exclusive per
     // render.
@@ -455,6 +478,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     return (
       <>
         {dateSheet}
+        {paymentSheet}
         <Modal
             isOpen={isOpen}
             onClose={onClose}
@@ -625,12 +649,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         {!isIncome && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: isMobile ? '1 / -1' : undefined }}>
                                 <label style={labelStyle}>Payment method</label>
-                                <select value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })}
-                                    style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                    {['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map(m => (
-                                        <option key={m} value={m}>{m}</option>
-                                    ))}
-                                </select>
+                                <div onClick={() => setPaymentSheetOpen(true)} role="button" tabIndex={0}
+                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentSheetOpen(true); } }}
+                                    style={{ ...inputBase, padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
+                                    <span>{form.payment_method}</span>
+                                    <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                </div>
                             </div>
                         )}
                     </div>
