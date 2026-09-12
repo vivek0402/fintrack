@@ -84,6 +84,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const [calYear, setCalYear]   = useState(new Date().getFullYear());
 
     const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
+    const [cardSheetOpen, setCardSheetOpen] = useState(false);
+    const [goalSheetOpen, setGoalSheetOpen] = useState(false);
 
     // Four fields by default (amount, description, category, date) --
     // payment method, card, investment details, goal, tags and notes
@@ -453,6 +455,46 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </Modal>
     );
 
+    const cardSheet = (
+        <Modal isOpen={cardSheetOpen} onClose={() => setCardSheetOpen(false)} title="Which card?" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {cards.map((c: any) => {
+                    const active = form.credit_card_id === c.id;
+                    const label = `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}`;
+                    return (
+                        <button key={c.id} type="button" onClick={() => { setForm({ ...form, credit_card_id: c.id }); setCardSheetOpen(false); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            {label}
+                            {active && <Check size={16} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </Modal>
+    );
+
+    const goalSheet = (
+        <Modal isOpen={goalSheetOpen} onClose={() => setGoalSheetOpen(false)} title="Add to a goal" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <button type="button" onClick={() => { setForm({ ...form, goal_id: null }); setGoalSheetOpen(false); }}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: !form.goal_id ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: !form.goal_id ? 'var(--accent-subtle)' : 'transparent', color: !form.goal_id ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                    — None —
+                    {!form.goal_id && <Check size={16} />}
+                </button>
+                {goals.map((g: any) => {
+                    const active = form.goal_id === String(g.id);
+                    return (
+                        <button key={g.id} type="button" onClick={() => { setForm({ ...form, goal_id: String(g.id) }); setGoalSheetOpen(false); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            {g.name}
+                            {active && <Check size={16} />}
+                        </button>
+                    );
+                })}
+            </div>
+        </Modal>
+    );
+
     // Shared between the Category+Date row (expense/income) and the
     // standalone Date field (transfer) -- the two are mutually exclusive per
     // render.
@@ -479,6 +521,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
       <>
         {dateSheet}
         {paymentSheet}
+        {cardSheet}
+        {goalSheet}
         <Modal
             isOpen={isOpen}
             onClose={onClose}
@@ -666,13 +710,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {!isTransfer && !isIncome && form.payment_method === 'Credit Card' && cards.length > 1 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <label style={labelStyle}>Which card?</label>
-                        <select value={form.credit_card_id ?? ''} onChange={e => setForm({ ...form, credit_card_id: e.target.value ? Number(e.target.value) : null })}
-                            style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                            <option value="">Select card</option>
-                            {cards.map((c: any) => (
-                                <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
-                            ))}
-                        </select>
+                        <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
+                            style={{ ...inputBase, padding: '10px 12px', color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
+                            <span>{(() => { const c = cards.find((c: any) => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
+                            <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                        </div>
                     </div>
                 )}
 
@@ -763,11 +806,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     {goals.length > 0 && (
                         <div>
                             <label style={labelStyle}>Add to a goal (optional)</label>
-                            <select value={form.goal_id ?? ''} onChange={e => setForm({ ...form, goal_id: e.target.value || null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">— None —</option>
-                                {goals.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                            </select>
+                            <div onClick={() => setGoalSheetOpen(true)} role="button" tabIndex={0}
+                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGoalSheetOpen(true); } }}
+                                style={{ ...inputBase, padding: '10px 12px', color: form.goal_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
+                                <span>{goals.find((g: any) => String(g.id) === form.goal_id)?.name ?? '— None —'}</span>
+                                <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            </div>
                         </div>
                     )}
 
