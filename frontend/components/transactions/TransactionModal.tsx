@@ -32,6 +32,15 @@ const PAYMENT_METHOD_ICONS: Record<string, string> = {
     'Cash': '💵', 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '🏧', 'Net Banking': '🏦', 'Wallet': '👛',
 };
 
+type MlSuggest = {
+    ready: boolean;
+    category: { id: string; prob: number }[];
+    payment_method: { method: string; prob: number }[];
+};
+const EMPTY_SUGGEST: MlSuggest = { ready: false, category: [], payment_method: [] };
+const CATEGORY_CHIP_MIN_PROB = 0.25;
+const PAYMENT_AUTO_MIN_PROB = 0.6;
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -97,6 +106,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // collapse behind "More details" instead of always showing 8-14 groups.
     const [showMore, setShowMore] = useState(false);
 
+    const [mlSuggest, setMlSuggest] = useState<MlSuggest>(EMPTY_SUGGEST);
+    // Once the user picks a payment method themselves, the model stops
+    // overriding it for the rest of this entry.
+    const paymentTouched = useRef(false);
+    const [paymentAutoSet, setPaymentAutoSet] = useState(false);
+
     useEffect(() => {
         if (!isOpen) return;
         accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
@@ -144,6 +159,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setPendingNewCategory('');
         setMfResults([]);
         setMfDropdownOpen(false);
+        setMlSuggest(EMPTY_SUGGEST);
+        paymentTouched.current = false;
+        setPaymentAutoSet(false);
         // Editing an existing transaction defaults open -- its payment method,
         // tags or notes may already be filled in, and collapsing them behind a
         // toggle the instant you open to edit would read as data going missing.
@@ -171,7 +189,45 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         }
     }, [form.payment_method, cards, isOpen]);
 
+    useEffect(() => {
+        if (!isOpen || form.type === 'transfer') { setMlSuggest(EMPTY_SUGGEST); return; }
+        const description = form.description.trim();
+        if (description.length < 3) { setMlSuggest(EMPTY_SUGGEST); return; }
+        const timer = setTimeout(() => {
+            transactionsAPI.suggest({
+                description,
+                amount: form.amount || undefined,
+                date: form.date,
+                type: form.type,
+                hour: new Date().getHours(),
+            })
+                .then(res => setMlSuggest({
+                    ready: !!res.data.ready,
+                    category: res.data.category || [],
+                    payment_method: res.data.payment_method || [],
+                }))
+                .catch(() => setMlSuggest(EMPTY_SUGGEST));
+        }, 350);
+        return () => clearTimeout(timer);
+    }, [isOpen, form.type, form.description, form.amount, form.date]);
+
+    useEffect(() => {
+        if (!isOpen || isEditing || paymentTouched.current || form.type !== 'expense') return;
+        const top = mlSuggest.ready ? mlSuggest.payment_method[0] : undefined;
+        if (!top || top.prob < PAYMENT_AUTO_MIN_PROB || top.method === form.payment_method) return;
+        setForm(prev => ({ ...prev, payment_method: top.method }));
+        setPaymentAutoSet(true);
+    }, [mlSuggest, isOpen, isEditing, form.type, form.payment_method]);
+
     const suggestedCats = useMemo(() => {
+        if (mlSuggest.ready) {
+            const fromModel = mlSuggest.category
+                .filter(s => s.prob >= CATEGORY_CHIP_MIN_PROB && s.id !== form.category_id)
+                .map(s => categories.find((c: any) => String(c.id) === s.id))
+                .filter(Boolean)
+                .slice(0, 2);
+            if (fromModel.length) return fromModel;
+        }
         const desc = form.description.trim().toLowerCase();
         if (desc.length < 3 || !categories.length) return [];
         const words = desc.split(/\s+/).filter((w: string) => w.length >= 3);
@@ -188,7 +244,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             .filter((c: any) => c.score > 0)
             .sort((a: any, b: any) => b.score - a.score || (Number(b.usage_count) || 0) - (Number(a.usage_count) || 0));
         return scored.slice(0, 2);
-    }, [form.description, form.category_id, categories]);
+    }, [form.description, form.category_id, categories, mlSuggest]);
 
     useEffect(() => {
         if (!prefill?.category || !categories.length) return;
@@ -468,7 +524,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     const active = form.payment_method === m;
                     const count = paymentUsage[m] || 0;
                     return (
-                        <button key={m} type="button" onClick={() => { setForm({ ...form, payment_method: m }); setPaymentSheetOpen(false); }}
+                        <button key={m} type="button" onClick={() => { paymentTouched.current = true; setPaymentAutoSet(false); setForm({ ...form, payment_method: m }); setPaymentSheetOpen(false); }}
                             style={{ display: 'flex', alignItems: 'center', gap: '9px', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
                             <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[m]}</span>
                             <span style={{ flex: 1, minWidth: 0 }}>{m}</span>
@@ -724,6 +780,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                     style={{ ...inputBase, padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
                                     <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[form.payment_method]}</span>
                                     <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.payment_method}</span>
+                                    {paymentAutoSet && <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>usual</span>}
                                     <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                                 </div>
                             </div>

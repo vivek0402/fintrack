@@ -12,6 +12,7 @@ vi.mock('@/lib/api', () => ({
     transactionsAPI: {
         create: vi.fn().mockResolvedValue({ data: {} }),
         update: vi.fn().mockResolvedValue({ data: {} }),
+        suggest: vi.fn().mockResolvedValue({ data: { ready: false, trained: 0, category: [], payment_method: [] } }),
     },
     categoriesAPI: {
         getAll: vi.fn().mockResolvedValue({ data: { categories: [{ id: 'c1', name: 'Food', color: '#f00', icon: '🍔' }] } }),
@@ -170,5 +171,61 @@ describe('transfer', () => {
         const toOptions = Array.from(to.querySelectorAll('option')).map(o => o.value);
         expect(toOptions).not.toContain('1');
         expect(toOptions).toContain('2');
+    });
+});
+
+describe('classifier suggestions', () => {
+    it('shows a model-suggested category chip even when the name does not match, and sends its id', async () => {
+        (transactionsAPI.suggest as any).mockResolvedValue({ data: {
+            ready: true, trained: 40,
+            category: [{ id: 'c1', prob: 0.82 }],
+            payment_method: [],
+        } });
+        const { onSuccess } = open();
+        await fillBasics('450', 'Zomato');
+
+        const chip = await waitFor(() => {
+            const el = Array.from(document.querySelectorAll('button')).find(b => b.textContent?.trim() === 'Food');
+            expect(el).toBeTruthy();
+            return el!;
+        });
+        fireEvent.click(chip);
+        submit();
+
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ category_id: 'c1' })
+        ));
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    });
+
+    it('auto-applies a confident payment method the user has not touched', async () => {
+        (transactionsAPI.suggest as any).mockResolvedValue({ data: {
+            ready: true, trained: 40, category: [],
+            payment_method: [{ method: 'Cash', prob: 0.9 }],
+        } });
+        open();
+        await fillBasics('120', 'Chai');
+
+        await waitFor(() => expect(document.body.textContent).toContain('usual'));
+        submit();
+
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ payment_method: 'Cash' })
+        ));
+    });
+
+    it('ignores a low-confidence payment suggestion', async () => {
+        (transactionsAPI.suggest as any).mockResolvedValue({ data: {
+            ready: true, trained: 40, category: [],
+            payment_method: [{ method: 'Cash', prob: 0.4 }],
+        } });
+        open();
+        await fillBasics('120', 'Chai');
+        await waitFor(() => expect(transactionsAPI.suggest).toHaveBeenCalled());
+        submit();
+
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ payment_method: 'UPI' })
+        ));
     });
 });
