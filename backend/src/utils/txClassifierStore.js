@@ -56,4 +56,63 @@ async function suggest(pool, userId, input) {
     };
 }
 
-module.exports = { BOOTSTRAP_LIMIT, loadModel, saveModel, bootstrapModel, getOrBootstrapModel, suggest };
+// Serialises read-modify-write per user so two saves landing together (e.g.
+// a fast double-submit) can't drop each other's counts. If no model row exists
+// yet, bootstrapping from history already reflects the row being learned or
+// unlearned, so fn is skipped in that case.
+async function withModelLock(pool, userId, fn) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`txclf:${userId}`]);
+        const stored = await loadModel(client, userId);
+        if (stored) await fn(stored, client);
+        else await bootstrapModel(client, userId);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+function learnTransaction(pool, userId, tx) {
+    return withModelLock(pool, userId, async ({ model, trainedCount }, client) => {
+        learn(model, tx, 1);
+        await saveModel(client, userId, model, trainedCount + 1);
+    });
+}
+
+function unlearnTransaction(pool, userId, tx) {
+    return withModelLock(pool, userId, async ({ model, trainedCount }, client) => {
+        learn(model, tx, -1);
+        await saveModel(client, userId, model, Math.max(0, trainedCount - 1));
+    });
+}
+
+function relearnTransaction(pool, userId, before, after) {
+    return withModelLock(pool, userId, async ({ model, trainedCount }, client) => {
+        learn(model, before, -1);
+        learn(model, after, 1);
+        await saveModel(client, userId, model, trainedCount);
+    });
+}
+
+// Routes call these after responding; the model is a convenience, never a
+// reason to fail or slow a write.
+function learnInBackground(pool, userId, tx) {
+    setImmediate(() => learnTransaction(pool, userId, tx).catch(err => console.error('[TxClassifier] learn failed:', err.message)));
+}
+function unlearnInBackground(pool, userId, tx) {
+    setImmediate(() => unlearnTransaction(pool, userId, tx).catch(err => console.error('[TxClassifier] unlearn failed:', err.message)));
+}
+function relearnInBackground(pool, userId, before, after) {
+    setImmediate(() => relearnTransaction(pool, userId, before, after).catch(err => console.error('[TxClassifier] relearn failed:', err.message)));
+}
+
+module.exports = {
+    BOOTSTRAP_LIMIT, loadModel, saveModel, bootstrapModel, getOrBootstrapModel, suggest,
+    learnTransaction, unlearnTransaction, relearnTransaction,
+    learnInBackground, unlearnInBackground, relearnInBackground,
+};

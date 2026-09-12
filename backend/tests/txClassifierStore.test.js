@@ -93,3 +93,95 @@ describe('suggest', () => {
         expect(out.payment_method).toEqual([]);
     });
 });
+
+const { learnTransaction, unlearnTransaction, relearnTransaction } = require('../src/utils/txClassifierStore');
+
+function mockClient(queue) {
+    const client = { query: jest.fn(), release: jest.fn() };
+    for (const r of queue) client.query.mockResolvedValueOnce(r);
+    return client;
+}
+
+const TX = { description: 'Swiggy', amount: '450', date: '2026-09-12', type: 'expense', category_id: 'food', payment_method: 'UPI', tags: [], created_at: '2026-09-12T12:00:00Z' };
+
+describe('learnTransaction', () => {
+    test('takes the per-user advisory lock, folds the tx in, saves, commits', async () => {
+        const model = createModel();
+        const client = mockClient([
+            { rows: [] },                                       // BEGIN
+            { rows: [] },                                       // advisory lock
+            { rows: [{ model, trained_count: 30 }] },           // loadModel
+            { rows: [] },                                       // saveModel
+            { rows: [] },                                       // COMMIT
+        ]);
+        const pool = { connect: jest.fn().mockResolvedValue(client) };
+
+        await learnTransaction(pool, 'u1', TX);
+
+        expect(client.query.mock.calls[1][0]).toMatch(/pg_advisory_xact_lock/);
+        expect(client.query.mock.calls[1][1]).toEqual(['txclf:u1']);
+        const saved = JSON.parse(client.query.mock.calls[3][1][1]);
+        expect(saved.category.total).toBe(1);
+        expect(client.query.mock.calls[3][1][2]).toBe(31);
+        expect(client.query.mock.calls[4][0]).toBe('COMMIT');
+        expect(client.release).toHaveBeenCalled();
+    });
+
+    test('does not double-count when it had to bootstrap (history already contains the row)', async () => {
+        const client = mockClient([
+            { rows: [] }, { rows: [] },
+            { rows: [] },                    // loadModel -> none
+            { rows: [TX] },                  // bootstrap history select
+            { rows: [] },                    // bootstrap save
+            { rows: [] },                    // COMMIT
+        ]);
+        const pool = { connect: jest.fn().mockResolvedValue(client) };
+
+        await learnTransaction(pool, 'u1', TX);
+
+        const saves = client.query.mock.calls.filter(c => /INSERT INTO tx_classifier_models/.test(c[0]));
+        expect(saves).toHaveLength(1);
+        expect(saves[0][1][2]).toBe(1);
+    });
+
+    test('rolls back and rethrows on error', async () => {
+        const client = mockClient([{ rows: [] }, { rows: [] }]);
+        client.query.mockRejectedValueOnce(new Error('boom'));
+        client.query.mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+        const pool = { connect: jest.fn().mockResolvedValue(client) };
+
+        await expect(learnTransaction(pool, 'u1', TX)).rejects.toThrow('boom');
+        expect(client.query.mock.calls.at(-1)[0]).toBe('ROLLBACK');
+        expect(client.release).toHaveBeenCalled();
+    });
+});
+
+describe('unlearnTransaction', () => {
+    test('subtracts the tx and decrements the count (floored at 0)', async () => {
+        const model = createModel();
+        learn(model, TX);
+        const client = mockClient([{ rows: [] }, { rows: [] }, { rows: [{ model, trained_count: 1 }] }, { rows: [] }, { rows: [] }]);
+        const pool = { connect: jest.fn().mockResolvedValue(client) };
+
+        await unlearnTransaction(pool, 'u1', TX);
+
+        const saved = JSON.parse(client.query.mock.calls[3][1][1]);
+        expect(saved).toEqual(createModel());
+        expect(client.query.mock.calls[3][1][2]).toBe(0);
+    });
+});
+
+describe('relearnTransaction', () => {
+    test('swaps the old row for the new one without changing the count', async () => {
+        const model = createModel();
+        learn(model, TX);
+        const client = mockClient([{ rows: [] }, { rows: [] }, { rows: [{ model, trained_count: 1 }] }, { rows: [] }, { rows: [] }]);
+        const pool = { connect: jest.fn().mockResolvedValue(client) };
+
+        await relearnTransaction(pool, 'u1', TX, { ...TX, category_id: 'travel' });
+
+        const saved = JSON.parse(client.query.mock.calls[3][1][1]);
+        expect(Object.keys(saved.category.classCounts)).toEqual(['travel']);
+        expect(client.query.mock.calls[3][1][2]).toBe(1);
+    });
+});
