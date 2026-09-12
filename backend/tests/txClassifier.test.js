@@ -41,3 +41,70 @@ describe('featurize', () => {
         expect(f).toEqual(['w:rent', 'dow:1', 'type:expense']);
     });
 });
+
+const { createModel, createTarget, train, untrain, predict, labelsFor, learn } = require('../src/utils/txClassifier');
+
+describe('train / predict', () => {
+    test('predicts the class whose features it has seen', () => {
+        const t = createTarget();
+        train(t, ['w:swiggy', 'amt:8'], 'food');
+        train(t, ['w:zomato', 'amt:8'], 'food');
+        train(t, ['w:uber', 'amt:7'], 'travel');
+        const out = predict(t, ['w:swiggy']);
+        expect(out[0].label).toBe('food');
+        expect(out[0].prob).toBeGreaterThan(0.6);
+        expect(out.map(o => o.label).sort()).toEqual(['food', 'travel']);
+        expect(out.reduce((s, o) => s + o.prob, 0)).toBeCloseTo(1, 6);
+    });
+
+    test('ignores features never seen and falls back to class priors', () => {
+        const t = createTarget();
+        train(t, ['w:a'], 'x');
+        train(t, ['w:a'], 'x');
+        train(t, ['w:b'], 'y');
+        const out = predict(t, ['w:unknown']);
+        expect(out[0].label).toBe('x');
+    });
+
+    test('returns [] on an empty target', () => {
+        expect(predict(createTarget(), ['w:a'])).toEqual([]);
+    });
+
+    test('untrain reverses train exactly and prunes empty entries', () => {
+        const t = createTarget();
+        train(t, ['w:a', 'amt:3'], 'x');
+        untrain(t, ['w:a', 'amt:3'], 'x');
+        expect(t).toEqual(createTarget());
+    });
+
+    test('untrain never drives counts negative', () => {
+        const t = createTarget();
+        untrain(t, ['w:a'], 'x');
+        expect(t).toEqual(createTarget());
+    });
+});
+
+describe('labelsFor', () => {
+    test('uses category_id and (expense-only) payment_method', () => {
+        expect(labelsFor({ category_id: 'c1', type: 'expense', payment_method: 'UPI' })).toEqual({ category: 'c1', payment: 'UPI' });
+        expect(labelsFor({ category_id: 'c1', type: 'income', payment_method: 'Cash' })).toEqual({ category: 'c1', payment: null });
+        expect(labelsFor({ category_id: null, type: 'expense', payment_method: 'UPI' })).toEqual({ category: null, payment: 'UPI' });
+    });
+    test('skips transfers and card payments entirely', () => {
+        expect(labelsFor({ category_id: 'c1', type: 'expense', payment_method: 'UPI', tags: ['transfer'] })).toEqual({ category: null, payment: null });
+        expect(labelsFor({ category_id: 'c1', type: 'expense', payment_method: 'UPI', tags: ['credit_card_payment'] })).toEqual({ category: null, payment: null });
+    });
+});
+
+describe('learn', () => {
+    test('trains both targets from a transaction row and sign -1 undoes it', () => {
+        const m = createModel();
+        const tx = { description: 'Swiggy', amount: '450.00', date: '2026-09-12', type: 'expense', category_id: 'c1', payment_method: 'UPI', created_at: '2026-09-12T15:30:00Z' };
+        learn(m, tx);
+        expect(m.category.total).toBe(1);
+        expect(m.payment.total).toBe(1);
+        expect(predict(m.category, featurize({ description: 'swiggy' }))[0].label).toBe('c1');
+        learn(m, tx, -1);
+        expect(m).toEqual(createModel());
+    });
+});

@@ -44,4 +44,76 @@ function featurize({ description, amount, date, type, hour }) {
     return features;
 }
 
-module.exports = { ALPHA, MIN_SAMPLES, tokenize, istHour, featurize };
+function createTarget() {
+    return { classCounts: {}, featureCounts: {}, featureTotals: {}, total: 0 };
+}
+
+function createModel() {
+    return { version: 1, category: createTarget(), payment: createTarget() };
+}
+
+function bump(obj, key, delta) {
+    const next = (obj[key] || 0) + delta;
+    if (next <= 0) delete obj[key];
+    else obj[key] = next;
+}
+
+function train(target, features, label, sign = 1) {
+    if (!label) return;
+    bump(target.classCounts, label, sign);
+    target.total = Math.max(0, target.total + sign);
+    for (const f of features) {
+        const row = target.featureCounts[f] || (target.featureCounts[f] = {});
+        bump(row, label, sign);
+        if (Object.keys(row).length === 0) delete target.featureCounts[f];
+        bump(target.featureTotals, label, sign);
+    }
+}
+
+function untrain(target, features, label) {
+    train(target, features, label, -1);
+}
+
+function predict(target, features) {
+    const labels = Object.keys(target.classCounts);
+    if (labels.length === 0) return [];
+    const vocab = Object.keys(target.featureCounts).length;
+    const known = features.filter(f => target.featureCounts[f]);
+    const logs = labels.map(label => {
+        let lp = Math.log((target.classCounts[label] + ALPHA) / (target.total + ALPHA * labels.length));
+        const denom = (target.featureTotals[label] || 0) + ALPHA * vocab;
+        for (const f of known) lp += Math.log(((target.featureCounts[f][label] || 0) + ALPHA) / denom);
+        return lp;
+    });
+    const max = Math.max(...logs);
+    const exps = logs.map(l => Math.exp(l - max));
+    const sum = exps.reduce((a, b) => a + b, 0);
+    return labels
+        .map((label, i) => ({ label, prob: exps[i] / sum }))
+        .sort((a, b) => b.prob - a.prob);
+}
+
+function labelsFor(tx) {
+    const tags = tx.tags || [];
+    if (tags.includes('transfer') || tags.includes('credit_card_payment')) return { category: null, payment: null };
+    return {
+        category: tx.category_id ? String(tx.category_id) : null,
+        payment: tx.type === 'expense' && tx.payment_method ? tx.payment_method : null,
+    };
+}
+
+function learn(model, tx, sign = 1) {
+    const features = featurize({
+        description: tx.description, amount: tx.amount, date: tx.date, type: tx.type,
+        hour: istHour(tx.created_at),
+    });
+    const { category, payment } = labelsFor(tx);
+    train(model.category, features, category, sign);
+    train(model.payment, features, payment, sign);
+}
+
+module.exports = {
+    ALPHA, MIN_SAMPLES,
+    tokenize, istHour, featurize,
+    createModel, createTarget, train, untrain, predict, labelsFor, learn,
+};
