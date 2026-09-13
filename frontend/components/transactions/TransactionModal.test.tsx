@@ -13,6 +13,7 @@ vi.mock('@/lib/api', () => ({
         create: vi.fn().mockResolvedValue({ data: {} }),
         update: vi.fn().mockResolvedValue({ data: {} }),
         suggest: vi.fn().mockResolvedValue({ data: { ready: false, trained: 0, category: [], payment_method: [] } }),
+        entryContext: vi.fn().mockResolvedValue({ data: { signals: [] } }),
     },
     categoriesAPI: {
         getAll: vi.fn().mockResolvedValue({ data: { categories: [{ id: 'c1', name: 'Food', color: '#f00', icon: '🍔' }] } }),
@@ -269,5 +270,28 @@ describe('classifier suggestions', () => {
         await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
             expect.objectContaining({ payment_method: 'Cash' })
         ));
+    });
+});
+
+describe('entry feedback', () => {
+    it('asks for context once amount is set and shows the top signal under the amount', async () => {
+        (transactionsAPI.entryContext as any).mockResolvedValue({ data: { signals: [
+            { kind: 'budget_pace', level: 'info', text: '₹6,200 of ₹8,000 Dining budget after this (78%).' },
+        ] } });
+        open();
+        await fillBasics('400', 'Dinner');
+
+        await waitFor(() => expect(screen.getByText('₹6,200 of ₹8,000 Dining budget after this (78%).')).toBeInTheDocument());
+        expect(transactionsAPI.entryContext).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'expense', amount: 400, description: 'Dinner', payment_method: 'UPI',
+        }));
+    });
+
+    it('does not ask for context without an amount', async () => {
+        open();
+        const desc = document.querySelector<HTMLInputElement>('input[type="text"]')!;
+        fireEvent.change(desc, { target: { value: 'Dinner' } });
+        await new Promise(r => setTimeout(r, 500));
+        expect(transactionsAPI.entryContext).not.toHaveBeenCalled();
     });
 });

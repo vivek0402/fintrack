@@ -7,6 +7,7 @@ import { addToQueue } from '@/lib/txQueue';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { CategoryField, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
+import { EntryFeedback, EntrySignal } from '@/components/transactions/EntryFeedback';
 import { useCategories } from '@/hooks/useCategories';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
@@ -117,6 +118,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const latestDescriptionRef = useRef(form.description);
     latestDescriptionRef.current = form.description;
 
+    const [entrySignals, setEntrySignals] = useState<EntrySignal[]>([]);
+
     useEffect(() => {
         if (!isOpen) return;
         accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
@@ -167,6 +170,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setMlSuggest(EMPTY_SUGGEST);
         paymentTouched.current = false;
         setPaymentAutoSet(false);
+        setEntrySignals([]);
         // Editing an existing transaction defaults open -- its payment method,
         // tags or notes may already be filled in, and collapsing them behind a
         // toggle the instant you open to edit would read as data going missing.
@@ -221,6 +225,50 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         }, 350);
         return () => clearTimeout(timer);
     }, [isOpen, form.type, form.description, form.amount, form.date]);
+
+    // Kept in sync every render, the same way latestDescriptionRef guards the
+    // classifier's suggest() call above -- an in-flight /context response
+    // needs a live snapshot to check itself against, not one captured in its
+    // own closure (which can never differ from what it's compared to).
+    const latestContextKeyRef = useRef('');
+
+    useEffect(() => {
+        if (!isOpen || form.type === 'transfer') { setEntrySignals([]); return; }
+        const amount = parseFloat(form.amount);
+        if (!Number.isFinite(amount) || amount <= 0) { setEntrySignals([]); return; }
+        const contextKey = JSON.stringify([
+            form.type, amount, form.description.trim(), form.date, form.category_id,
+            form.payment_method, form.credit_card_id, form.account_id, form.goal_id,
+        ]);
+        const timer = setTimeout(() => {
+            const requestedFor = contextKey;
+            transactionsAPI.entryContext({
+                type: form.type,
+                amount,
+                description: form.description.trim(),
+                date: form.date,
+                category_id: form.category_id || undefined,
+                payment_method: form.type === 'expense' ? form.payment_method : undefined,
+                credit_card_id: form.credit_card_id ?? undefined,
+                account_id: form.account_id ?? undefined,
+                goal_id: form.goal_id ?? undefined,
+                exclude_id: transaction?.id,
+                hour: new Date().getHours(),
+            })
+                .then(res => {
+                    if (requestedFor !== latestContextKeyRef.current) return;
+                    setEntrySignals(res.data.signals || []);
+                })
+                .catch(() => setEntrySignals([]));
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [isOpen, form.type, form.amount, form.description, form.date, form.category_id, form.payment_method,
+        form.credit_card_id, form.account_id, form.goal_id, transaction?.id]);
+
+    latestContextKeyRef.current = JSON.stringify([
+        form.type, parseFloat(form.amount), form.description.trim(), form.date, form.category_id,
+        form.payment_method, form.credit_card_id, form.account_id, form.goal_id,
+    ]);
 
     useEffect(() => {
         if (!isOpen || isEditing || paymentTouched.current || form.type !== 'expense') return;
@@ -707,6 +755,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         />
                     </div>
                 </div>
+
+                {!isTransfer && <EntryFeedback signals={entrySignals} />}
 
                 {/* ── Transfer accounts — sits with the amount, since for a transfer
                        these three fields are the whole transaction ── */}
