@@ -138,11 +138,12 @@ const apiLimiter = rateLimit({
     max: 200,
     standardHeaders: true,
     legacyHeaders: false,
-    // /transactions/suggest has its own dedicated, more generous per-user
-    // limiter (suggestLimiter) since it's a typing-rate lookup, not a form
-    // submission -- without this skip it would still also burn through this
-    // shared IP budget and 429 every other /api call for that IP.
-    skip: (req) => req.path === '/transactions/suggest',
+    // /transactions/suggest and /transactions/context each have their own
+    // dedicated, more generous per-user limiter (suggestLimiter/contextLimiter)
+    // since they're typing-rate lookups, not form submissions -- without this
+    // skip they would still also burn through this shared IP budget and 429
+    // every other /api call for that IP.
+    skip: (req) => req.path === '/transactions/suggest' || req.path === '/transactions/context',
     message: { error: 'Too many requests. Please try again later.' },
 });
 
@@ -219,6 +220,27 @@ const suggestLimiter = rateLimit({
     },
 });
 
+// Entry-feedback endpoint limiter -- same reasoning as suggestLimiter: this
+// is a typing-rate lookup fired on every relevant field change in the Add
+// Transaction modal, not a form submission, so it needs its own generous
+// per-user budget instead of sharing apiLimiter's IP-keyed one.
+const contextLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+        const auth = req.headers['authorization'];
+        if (auth && auth.startsWith('Bearer ')) {
+            try {
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                return `context:user:${decoded.id}`;
+            } catch { /* fall through to IP */ }
+        }
+        return ipKeyGenerator(req);
+    },
+});
+
 app.use('/api', apiLimiter);
 
 // ─── Root + Health check ──────────────────────────────────────────────────────
@@ -265,6 +287,7 @@ app.use('/api/auth', authRouter);
 
 app.use('/api/categories',   require('./routes/categories'));
 app.use('/api/transactions/suggest', suggestLimiter);
+app.use('/api/transactions/context', contextLimiter);
 app.use('/api/transactions', require('./routes/transactions'));
 app.use('/api/budgets',      require('./routes/budgets'));
 app.use('/api/analytics',    require('./routes/analytics'));
