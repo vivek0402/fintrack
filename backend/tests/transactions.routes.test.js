@@ -19,11 +19,15 @@ jest.mock('../src/utils/txClassifierStore', () => ({
     unlearnInBackground: jest.fn(),
     relearnInBackground: jest.fn(),
 }));
+jest.mock('../src/utils/txEntrySignals', () => ({
+    collectEntrySignals: jest.fn(),
+}));
 
 const express = require('express');
 const request = require('supertest');
 const pool = require('../src/db/pool');
 const classifierStore = require('../src/utils/txClassifierStore');
+const entrySignals = require('../src/utils/txEntrySignals');
 const transactionsRouter = require('../src/routes/transactions');
 
 function buildApp() {
@@ -342,5 +346,47 @@ describe('classifier learning hooks', () => {
         pool.connect.mockResolvedValueOnce(client);
         await request(buildApp()).delete('/api/transactions/t1');
         expect(classifierStore.unlearnInBackground).toHaveBeenCalledWith(expect.anything(), 'user-123', expect.objectContaining({ id: 't1', description: 'Lunch' }));
+    });
+});
+
+describe('GET /api/transactions/context', () => {
+    afterEach(() => { entrySignals.collectEntrySignals.mockReset(); });
+
+    test('returns no signals for a missing/zero amount without running detectors', async () => {
+        const res = await request(buildApp()).get('/api/transactions/context?amount=0&description=x');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ signals: [] });
+        expect(entrySignals.collectEntrySignals).not.toHaveBeenCalled();
+    });
+
+    test('parses and sanitises inputs before collecting', async () => {
+        entrySignals.collectEntrySignals.mockResolvedValueOnce([{ kind: 'duplicate', level: 'warn', text: 'dup' }]);
+        const res = await request(buildApp()).get('/api/transactions/context?' + new URLSearchParams({
+            type: 'expense', amount: '450', description: 'Swiggy', date: '2026-09-12',
+            category_id: '11111111-1111-1111-1111-111111111111', payment_method: 'Credit Card',
+            credit_card_id: '3', account_id: '1', goal_id: 'not-a-uuid', exclude_id: '', hour: '23',
+        }));
+        expect(res.status).toBe(200);
+        expect(res.body.signals).toEqual([{ kind: 'duplicate', level: 'warn', text: 'dup' }]);
+        expect(entrySignals.collectEntrySignals).toHaveBeenCalledWith(expect.anything(), 'user-123', {
+            type: 'expense', amount: 450, description: 'Swiggy', date: '2026-09-12',
+            category_id: '11111111-1111-1111-1111-111111111111', payment_method: 'Credit Card',
+            credit_card_id: 3, account_id: 1, goal_id: null, exclude_id: null, hour: 23,
+        });
+    });
+
+    test('defaults type/date and drops an invalid hour', async () => {
+        entrySignals.collectEntrySignals.mockResolvedValueOnce([]);
+        await request(buildApp()).get('/api/transactions/context?amount=10&hour=99&type=weird&date=bad');
+        const input = entrySignals.collectEntrySignals.mock.calls[0][2];
+        expect(input.type).toBe('expense');
+        expect(input.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(input.hour).toBeNull();
+    });
+
+    test('returns 500 when the collector throws', async () => {
+        entrySignals.collectEntrySignals.mockRejectedValueOnce(new Error('db down'));
+        const res = await request(buildApp()).get('/api/transactions/context?amount=10');
+        expect(res.status).toBe(500);
     });
 });

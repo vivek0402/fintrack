@@ -7,6 +7,7 @@ const { weightedAverageBuy } = require('../utils/investmentMath');
 const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goals');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const { suggest, learnInBackground, unlearnInBackground, relearnInBackground } = require('../utils/txClassifierStore');
+const { collectEntrySignals } = require('../utils/txEntrySignals');
 const router = express.Router();
 
 router.use(auth);
@@ -66,6 +67,37 @@ router.get('/suggest', async (req, res) => {
         res.json(await suggest(pool, req.user.id, input));
     } catch (err) {
         console.error('[Transactions] suggest failed:', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asUuid = v => (typeof v === 'string' && UUID_RE.test(v) ? v : null);
+const asInt = v => { const n = parseInt(v, 10); return Number.isInteger(n) && n > 0 ? n : null; };
+
+router.get('/context', async (req, res) => {
+    try {
+        const q = req.query;
+        const amount = parseFloat(q.amount);
+        if (!Number.isFinite(amount) || amount <= 0) return res.json({ signals: [] });
+        const parsedHour = parseInt(q.hour, 10);
+        const input = {
+            type: q.type === 'income' ? 'income' : 'expense',
+            amount,
+            description: typeof q.description === 'string' ? q.description.slice(0, 255) : '',
+            date: isValidDateString(q.date) ? q.date.slice(0, 10) : new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
+            category_id: asUuid(q.category_id),
+            payment_method: typeof q.payment_method === 'string' && q.payment_method ? q.payment_method : null,
+            credit_card_id: asInt(q.credit_card_id),
+            account_id: asInt(q.account_id),
+            goal_id: asUuid(q.goal_id),
+            exclude_id: asUuid(q.exclude_id),
+            hour: Number.isInteger(parsedHour) && parsedHour >= 0 && parsedHour <= 23 ? parsedHour : null,
+        };
+        const signals = await collectEntrySignals(pool, req.user.id, input);
+        res.json({ signals });
+    } catch (err) {
+        console.error('[Transactions] context failed:', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
