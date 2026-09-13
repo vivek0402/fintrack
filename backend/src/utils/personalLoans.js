@@ -12,6 +12,7 @@ const LOAN_WITH_BALANCE_QUERY = `
     LEFT JOIN (
         SELECT loan_id, SUM(amount) AS repaid_amount
         FROM personal_loan_repayments
+        WHERE user_id = $1
         GROUP BY loan_id
     ) r ON r.loan_id = pl.id
     WHERE pl.user_id = $1
@@ -26,7 +27,7 @@ const LOAN_WITH_BALANCE_SINGLE_QUERY = `
     LEFT JOIN (
         SELECT loan_id, SUM(amount) AS repaid_amount
         FROM personal_loan_repayments
-        WHERE loan_id = $2
+        WHERE loan_id = $2 AND user_id = $1
         GROUP BY loan_id
     ) r ON r.loan_id = pl.id
     WHERE pl.user_id = $1 AND pl.id = $2

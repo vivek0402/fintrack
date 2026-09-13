@@ -31,6 +31,12 @@ describe('fetchPersonalLoansWithBalance', () => {
         expect(rows[1].status).toBe('repaid');
         expect(pool.query.mock.calls[0][1]).toEqual(['u1']);
     });
+
+    test('scopes the repayments sum query by user_id too, not just the loan', async () => {
+        const pool = mockPool([{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '1000', outstanding_amount: '4000', written_off_at: null }]);
+        await fetchPersonalLoansWithBalance(pool, 'u1');
+        expect(pool.query.mock.calls[0][0]).toMatch(/personal_loan_repayments\s+WHERE user_id = \$1/);
+    });
 });
 
 describe('fetchPersonalLoanWithBalance', () => {
@@ -43,6 +49,12 @@ describe('fetchPersonalLoanWithBalance', () => {
         const loan = await fetchPersonalLoanWithBalance(pool, 'u1', 'l1');
         expect(loan.status).toBe('outstanding');
         expect(pool.query.mock.calls[0][1]).toEqual(['u1', 'l1']);
+    });
+
+    test('scopes the repayments sum subquery by both loan id and user_id', async () => {
+        const pool = mockPool([{ id: 'l1', direction: 'lent', principal_amount: '1000', repaid_amount: '0', outstanding_amount: '1000', written_off_at: null }]);
+        await fetchPersonalLoanWithBalance(pool, 'u1', 'l1');
+        expect(pool.query.mock.calls[0][0]).toMatch(/WHERE loan_id = \$2 AND user_id = \$1/);
     });
 });
 
