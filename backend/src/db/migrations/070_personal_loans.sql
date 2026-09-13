@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS personal_loans (
     written_off_at    TIMESTAMPTZ,
     transaction_id    UUID REFERENCES transactions(id) ON DELETE SET NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT personal_loans_interest_rate_valid CHECK (interest_rate IS NULL OR interest_rate > 0),
+    CONSTRAINT personal_loans_interest_rate_required CHECK (interest_type = 'none' OR interest_rate IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_personal_loans_user ON personal_loans(user_id);
@@ -21,6 +23,7 @@ CREATE INDEX IF NOT EXISTS idx_personal_loans_user ON personal_loans(user_id);
 CREATE TABLE IF NOT EXISTS personal_loan_repayments (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     loan_id        UUID NOT NULL REFERENCES personal_loans(id) ON DELETE CASCADE,
+    user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
     date           DATE NOT NULL,
     notes          TEXT,
@@ -28,4 +31,7 @@ CREATE TABLE IF NOT EXISTS personal_loan_repayments (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_personal_loan_repayments_loan ON personal_loan_repayments(loan_id);
+CREATE INDEX IF NOT EXISTS idx_personal_loan_repayments_loan
+  ON personal_loan_repayments(loan_id);
+CREATE INDEX IF NOT EXISTS idx_personal_loan_repayments_user_date
+  ON personal_loan_repayments(user_id, date DESC);

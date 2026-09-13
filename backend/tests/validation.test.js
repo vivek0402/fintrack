@@ -86,6 +86,8 @@ describe('allow-list validators', () => {
         ['isValidRiskProfile',        v.RISK_PROFILES,         'aggressive'],
         ['isValidMilestoneStatus',    v.MILESTONE_STATUSES,    'pending'],
         ['isValidDocumentType',       v.DOCUMENT_TYPES,        'passport'],
+        ['isValidPersonalLoanDirection',    v.PERSONAL_LOAN_DIRECTIONS,     'gifted'],
+        ['isValidPersonalLoanInterestType', v.PERSONAL_LOAN_INTEREST_TYPES, 'compound'],
     ];
 
     it.each(cases)('%s accepts every listed value', (fn, list) => {
@@ -109,30 +111,6 @@ describe('allow-list validators', () => {
         // branch and isNonSavingsExpense.
         expect(v.TRANSACTION_TYPES).toEqual(['income', 'expense']);
         expect(v.isValidTransactionType('transfer')).toBe(false);
-    });
-});
-
-describe('isValidPersonalLoanDirection', () => {
-    test('accepts lent and borrowed', () => {
-        expect(v.isValidPersonalLoanDirection('lent')).toBe(true);
-        expect(v.isValidPersonalLoanDirection('borrowed')).toBe(true);
-    });
-    test('rejects anything else', () => {
-        expect(v.isValidPersonalLoanDirection('gifted')).toBe(false);
-        expect(v.isValidPersonalLoanDirection('')).toBe(false);
-        expect(v.isValidPersonalLoanDirection(undefined)).toBe(false);
-    });
-});
-
-describe('isValidPersonalLoanInterestType', () => {
-    test('accepts none, flat and percent_per_month', () => {
-        expect(v.isValidPersonalLoanInterestType('none')).toBe(true);
-        expect(v.isValidPersonalLoanInterestType('flat')).toBe(true);
-        expect(v.isValidPersonalLoanInterestType('percent_per_month')).toBe(true);
-    });
-    test('rejects anything else', () => {
-        expect(v.isValidPersonalLoanInterestType('compound')).toBe(false);
-        expect(v.isValidPersonalLoanInterestType(undefined)).toBe(false);
     });
 });
 
