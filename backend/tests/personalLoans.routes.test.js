@@ -89,6 +89,7 @@ describe('POST /api/personal-loans', () => {
             .mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', counterparty_name: 'Priya', principal_amount: '5000', account_id: null, interest_type: 'flat', interest_rate: '2' }] }) // INSERT loan
             .mockResolvedValueOnce({ rows: [] }); // COMMIT
         pool.connect.mockResolvedValueOnce(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, interest_type: 'flat', interest_rate: '2' }] });
 
         const res = await request(buildApp()).post('/api/personal-loans').send({
             direction: 'lent', counterparty_name: 'Priya', principal_amount: 5000, date_given: '2026-09-13', interest_type: 'flat', interest_rate: 2,
@@ -103,6 +104,7 @@ describe('POST /api/personal-loans', () => {
             .mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', counterparty_name: 'Priya', principal_amount: '5000', account_id: null }] }) // INSERT loan
             .mockResolvedValueOnce({ rows: [] }); // COMMIT
         pool.connect.mockResolvedValueOnce(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null }] });
 
         const res = await request(buildApp()).post('/api/personal-loans').send({
             direction: 'lent', counterparty_name: 'Priya', principal_amount: 5000, date_given: '2026-09-13',
@@ -110,7 +112,7 @@ describe('POST /api/personal-loans', () => {
 
         expect(res.status).toBe(201);
         expect(res.body.loan.status).toBe('outstanding');
-        expect(res.body.loan.outstanding_amount).toBe(5000);
+        expect(res.body.loan.outstanding_amount).toBe('5000');
         expect(client.query).toHaveBeenCalledTimes(3);
     });
 
@@ -124,6 +126,7 @@ describe('POST /api/personal-loans', () => {
             .mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', counterparty_name: 'Priya', principal_amount: '5000', account_id: 1, transaction_id: 'tx1' }] }) // UPDATE loan.transaction_id
             .mockResolvedValueOnce({ rows: [] }); // COMMIT
         pool.connect.mockResolvedValueOnce(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, account_id: 1, transaction_id: 'tx1' }] });
 
         const res = await request(buildApp()).post('/api/personal-loans').send({
             direction: 'lent', counterparty_name: 'Priya', principal_amount: 5000, date_given: '2026-09-13', account_id: 1,
@@ -132,6 +135,23 @@ describe('POST /api/personal-loans', () => {
         expect(res.status).toBe(201);
         const txInsertCall = client.query.mock.calls.find(c => /INSERT INTO transactions/.test(c[0]));
         expect(txInsertCall[1]).toEqual(expect.arrayContaining(['expense', 5000, 'Lent to Priya', '2026-09-13', 1, 'l1']));
+    });
+
+    test('rolls back and releases the client if the transactional insert fails', async () => {
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] }) // BEGIN
+            .mockRejectedValueOnce(new Error('insert failed')) // INSERT loan fails
+            .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+        pool.connect.mockResolvedValueOnce(client);
+
+        const res = await request(buildApp()).post('/api/personal-loans').send({
+            direction: 'lent', counterparty_name: 'Priya', principal_amount: 5000, date_given: '2026-09-13',
+        });
+
+        expect(res.status).toBe(500);
+        expect(client.query).toHaveBeenLastCalledWith('ROLLBACK');
+        expect(client.release).toHaveBeenCalled();
     });
 
     test('rejects an account_id that does not belong to the user', async () => {

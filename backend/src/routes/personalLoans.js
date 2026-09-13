@@ -37,6 +37,8 @@ router.post('/', async (req, res) => {
         const { direction, counterparty_name, principal_amount, account_id, date_given, due_date, interest_type, interest_rate, notes } = req.body;
         if (!direction || !counterparty_name || !principal_amount || !date_given)
             return res.status(400).json({ error: 'Direction, counterparty name, amount and date are required.' });
+        if (typeof counterparty_name !== 'string' || !counterparty_name.trim())
+            return res.status(400).json({ error: 'Counterparty name must be a non-empty string.' });
         if (!isValidPersonalLoanDirection(direction))
             return res.status(400).json({ error: "Direction must be 'lent' or 'borrowed'." });
         if (!isPositiveNumber(principal_amount))
@@ -89,9 +91,8 @@ router.post('/', async (req, res) => {
             }
 
             await client.query('COMMIT');
-            res.status(201).json({
-                loan: { ...loan, repaid_amount: 0, outstanding_amount: parseFloat(loan.principal_amount), status: 'outstanding' },
-            });
+            const freshLoan = await fetchPersonalLoanWithBalance(pool, req.user.id, loan.id);
+            res.status(201).json({ loan: freshLoan });
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
