@@ -189,7 +189,80 @@ async function detectAccountProjection(pool, userId, { type, amount, payment_met
     return { kind: 'account_projection', level: 'info', text: `${rows[0].name} after this: ${inr(after)}${bills}.` };
 }
 
+async function detectGoalImpact(pool, userId, { amount, goal_id, exclude_id }) {
+    if (!goal_id) return null;
+    const { rows } = await pool.query(
+        'SELECT name, target_amount, saved_amount, deadline FROM savings_goals WHERE id = $1 AND user_id = $2',
+        [goal_id, userId]
+    );
+    if (!rows.length) return null;
+    const goal = rows[0];
+    let saved = parseFloat(goal.saved_amount || 0);
+    if (exclude_id) {
+        const { rows: prev } = await pool.query(
+            'SELECT amount FROM transactions WHERE id = $1 AND user_id = $2 AND goal_id = $3',
+            [exclude_id, userId, goal_id]
+        );
+        if (prev.length) saved -= parseFloat(prev[0].amount);
+    }
+    const target = parseFloat(goal.target_amount);
+    const after = saved + amount;
+    if (after >= target) return { kind: 'goal_impact', level: 'info', text: `${goal.name} reaches 100% with this.` };
+    const pct = Math.round((after / target) * 100);
+    let pace = '';
+    if (goal.deadline) {
+        const deadline = new Date(goal.deadline);
+        const monthsLeft = Math.max(1, Math.ceil((deadline.getTime() - Date.now()) / (30.44 * DAY_MS)));
+        const label = deadline.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+        pace = ` · ${inr((target - after) / monthsLeft)}/month to hit ${label}`;
+    }
+    return { kind: 'goal_impact', level: 'info', text: `${goal.name} → ${pct}% (${inr(target - after)} to go)${pace}.` };
+}
+
+async function detectLateNight(pool, userId, { type, category_id, hour, date }) {
+    if (type !== 'expense' || !category_id || !Number.isInteger(hour)) return null;
+    if (!(hour >= 22 || hour < 4)) return null;
+    const { rows } = await pool.query(
+        `SELECT c.name, COUNT(t.id)::int AS n
+         FROM categories c
+         LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1 AND t.type = 'expense'
+           AND t.date BETWEEN $3::date - 6 AND $3::date
+           AND (EXTRACT(HOUR FROM t.created_at + INTERVAL '5 hours 30 minutes') >= 22
+                OR EXTRACT(HOUR FROM t.created_at + INTERVAL '5 hours 30 minutes') < 4)
+         WHERE c.id = $2 AND c.user_id = $1
+         GROUP BY c.name`,
+        [userId, category_id, date]
+    );
+    if (!rows.length || rows[0].n < 2) return null;
+    return { kind: 'late_night', level: 'info', text: `${ordinal(rows[0].n + 1)} late-night ${rows[0].name} entry this week.` };
+}
+
+function detectSplitHint({ type, amount, description }) {
+    if (type !== 'expense' || amount < 1000) return null;
+    if (!/\b(with|split|shared|group|trip)\b/i.test(description || '')) return null;
+    return { kind: 'split_hint', level: 'info', text: 'Shared expense? Split it with a group.', action: 'split' };
+}
+
+const DETECTORS = [
+    detectDuplicate, detectAnomaly, detectCard, detectCategoryPace,
+    detectAccountProjection, detectGoalImpact, detectLateNight,
+    async (_pool, _userId, input) => detectSplitHint(input),
+];
+
+async function collectEntrySignals(pool, userId, input) {
+    const results = await Promise.all(DETECTORS.map(d =>
+        d(pool, userId, input).catch(err => {
+            console.error('[EntrySignals]', err.message);
+            return null;
+        })
+    ));
+    return results
+        .filter(Boolean)
+        .sort((a, b) => PRIORITY.indexOf(a.kind) - PRIORITY.indexOf(b.kind));
+}
+
 module.exports = {
     PRIORITY, inr, ordinal, istTimeLabel,
     detectDuplicate, detectAnomaly, detectCard, detectCategoryPace, detectAccountProjection,
+    detectGoalImpact, detectLateNight, detectSplitHint, collectEntrySignals,
 };

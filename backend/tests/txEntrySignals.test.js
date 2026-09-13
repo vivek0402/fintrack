@@ -172,3 +172,94 @@ describe('detectAccountProjection', () => {
         expect(p.query).not.toHaveBeenCalled();
     });
 });
+
+const { detectGoalImpact, detectLateNight, detectSplitHint, collectEntrySignals } = require('../src/utils/txEntrySignals');
+
+describe('detectGoalImpact', () => {
+    test('reports progress, remaining and monthly pace to the deadline', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-09-12T00:00:00Z'));
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Emergency Fund', target_amount: '100000', saved_amount: '55000', deadline: '2026-12-31' }] });
+        const s = await detectGoalImpact(p, 'u1', { amount: 6000, goal_id: 'g1' });
+        expect(s).toEqual({ kind: 'goal_impact', level: 'info', text: 'Emergency Fund → 61% (₹39,000 to go) · ₹9,750/month to hit Dec 2026.' });
+        jest.useRealTimers();
+    });
+    test('announces completion', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Trip', target_amount: '10000', saved_amount: '9500', deadline: null }] });
+        const s = await detectGoalImpact(p, 'u1', { amount: 600, goal_id: 'g1' });
+        expect(s.text).toBe('Trip reaches 100% with this.');
+    });
+    test('subtracts the transaction being edited from saved_amount', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'Trip', target_amount: '10000', saved_amount: '5000', deadline: null }] })
+            .mockResolvedValueOnce({ rows: [{ amount: '1000' }] });
+        const s = await detectGoalImpact(p, 'u1', { amount: 1500, goal_id: 'g1', exclude_id: 't1' });
+        expect(s.text).toBe('Trip → 55% (₹4,500 to go).');
+    });
+    test('null without a goal', async () => {
+        expect(await detectGoalImpact(pool(), 'u1', { amount: 1, goal_id: null })).toBeNull();
+    });
+});
+
+describe('detectLateNight', () => {
+    test('counts this week\'s late-night entries in the category', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Food', n: 3 }] });
+        const s = await detectLateNight(p, 'u1', { type: 'expense', category_id: 'c1', hour: 23, date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'late_night', level: 'info', text: '4th late-night Food entry this week.' });
+    });
+    test('quiet during the day or below two prior entries', async () => {
+        const p = pool();
+        expect(await detectLateNight(p, 'u1', { type: 'expense', category_id: 'c1', hour: 14, date: '2026-09-12' })).toBeNull();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Food', n: 1 }] });
+        expect(await detectLateNight(p, 'u1', { type: 'expense', category_id: 'c1', hour: 1, date: '2026-09-12' })).toBeNull();
+    });
+});
+
+describe('detectSplitHint', () => {
+    test('suggests splitting a large "with"-style expense', () => {
+        expect(detectSplitHint({ type: 'expense', amount: 3200, description: 'Dinner with Raj and Priya' }))
+            .toEqual({ kind: 'split_hint', level: 'info', text: 'Shared expense? Split it with a group.', action: 'split' });
+    });
+    test('null for small amounts, income, or no sharing words', () => {
+        expect(detectSplitHint({ type: 'expense', amount: 300, description: 'Dinner with Raj' })).toBeNull();
+        expect(detectSplitHint({ type: 'income', amount: 3000, description: 'Split refund' })).toBeNull();
+        expect(detectSplitHint({ type: 'expense', amount: 3000, description: 'Rent' })).toBeNull();
+    });
+});
+
+describe('collectEntrySignals', () => {
+    test('runs every detector, drops nulls and failures, sorts by priority', async () => {
+        const p = pool();
+        // Every query resolves empty except the goal lookup, which errors, and
+        // the split hint (sync) — so we expect only split_hint to survive.
+        p.query.mockImplementation(sql => {
+            if (/savings_goals/.test(sql)) return Promise.reject(new Error('boom'));
+            return Promise.resolve({ rows: [] });
+        });
+        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        const out = await collectEntrySignals(p, 'u1', {
+            type: 'expense', amount: 5000, description: 'Trip with friends', date: '2026-09-12',
+            category_id: null, payment_method: 'UPI', credit_card_id: null, account_id: null, goal_id: 'g1', exclude_id: null, hour: 12,
+        });
+        expect(out.map(s => s.kind)).toEqual(['split_hint']);
+        expect(errSpy).toHaveBeenCalled();
+        errSpy.mockRestore();
+    });
+
+    test('orders warnings before info by PRIORITY', async () => {
+        const p = pool();
+        p.query.mockImplementation(sql => {
+            if (/SELECT created_at FROM transactions/.test(sql)) return Promise.resolve({ rows: [{ created_at: '2026-09-12T07:44:00Z' }] });
+            if (/percentile_cont/.test(sql)) return Promise.resolve({ rows: [{ n: 0, median: null }] });
+            return Promise.resolve({ rows: [] });
+        });
+        const out = await collectEntrySignals(p, 'u1', {
+            type: 'expense', amount: 5000, description: 'Trip with friends', date: '2026-09-12',
+            category_id: null, payment_method: 'UPI', credit_card_id: null, account_id: null, goal_id: null, exclude_id: null, hour: 12,
+        });
+        expect(out.map(s => s.kind)).toEqual(['duplicate', 'split_hint']);
+    });
+});
