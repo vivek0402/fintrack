@@ -42,6 +42,28 @@ const EMPTY_SUGGEST: MlSuggest = { ready: false, category: [], payment_method: [
 const CATEGORY_CHIP_MIN_PROB = 0.25;
 const PAYMENT_AUTO_MIN_PROB = 0.6;
 
+// Identity key for an entry-context request -- shared by the debounce effect
+// (to tag its own in-flight request) and the render-body ref-sync (to know
+// what "current" means when that request's response comes back), so the two
+// can never drift out of sync the way two hand-written JSON.stringify calls
+// could.
+function computeContextKey(form: {
+    type: 'income' | 'expense' | 'transfer';
+    amount: string;
+    description: string;
+    date: string;
+    category_id: string;
+    payment_method: string;
+    credit_card_id: number | null;
+    account_id: number | null;
+    goal_id: string | null;
+}) {
+    return JSON.stringify([
+        form.type, parseFloat(form.amount), form.description.trim(), form.date, form.category_id,
+        form.payment_method, form.credit_card_id, form.account_id, form.goal_id,
+    ]);
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -236,10 +258,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         if (!isOpen || form.type === 'transfer') { setEntrySignals([]); return; }
         const amount = parseFloat(form.amount);
         if (!Number.isFinite(amount) || amount <= 0) { setEntrySignals([]); return; }
-        const contextKey = JSON.stringify([
-            form.type, amount, form.description.trim(), form.date, form.category_id,
-            form.payment_method, form.credit_card_id, form.account_id, form.goal_id,
-        ]);
+        const contextKey = computeContextKey(form);
         const timer = setTimeout(() => {
             const requestedFor = contextKey;
             transactionsAPI.entryContext({
@@ -265,10 +284,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     }, [isOpen, form.type, form.amount, form.description, form.date, form.category_id, form.payment_method,
         form.credit_card_id, form.account_id, form.goal_id, transaction?.id]);
 
-    latestContextKeyRef.current = JSON.stringify([
-        form.type, parseFloat(form.amount), form.description.trim(), form.date, form.category_id,
-        form.payment_method, form.credit_card_id, form.account_id, form.goal_id,
-    ]);
+    latestContextKeyRef.current = computeContextKey(form);
 
     useEffect(() => {
         if (!isOpen || isEditing || paymentTouched.current || form.type !== 'expense') return;

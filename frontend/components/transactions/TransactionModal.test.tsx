@@ -294,4 +294,35 @@ describe('entry feedback', () => {
         await new Promise(r => setTimeout(r, 500));
         expect(transactionsAPI.entryContext).not.toHaveBeenCalled();
     });
+
+    it('ignores a stale context response that resolves after a newer one', async () => {
+        let resolveFirst: (v: any) => void;
+        (transactionsAPI.entryContext as any)
+            .mockImplementationOnce(() => new Promise(r => { resolveFirst = r; }))
+            .mockResolvedValueOnce({ data: { signals: [{ kind: 'budget_pace', level: 'info', text: 'Fresh signal' }] } });
+
+        open();
+        await fillBasics('400', 'Dinner');
+        await waitFor(() => expect(transactionsAPI.entryContext).toHaveBeenCalledTimes(1));
+
+        // Change a field enough to trigger a second debounced call while the
+        // first request is still pending.
+        const desc = document.querySelector<HTMLInputElement>('input[type="text"]')!;
+        fireEvent.change(desc, { target: { value: 'Lunch' } });
+        await waitFor(() => expect(transactionsAPI.entryContext).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(screen.getByText('Fresh signal')).toBeInTheDocument());
+
+        // Now the slower first request resolves, for the old "Dinner" key.
+        resolveFirst!({ data: { signals: [{ kind: 'duplicate', level: 'warn', text: 'Stale signal' }] } });
+
+        // Give every pending microtask and React's effect scheduling a full
+        // real-time window to run -- if the guard were broken, this is more
+        // than enough time for the stale response to have overwritten the
+        // fresh one by now.
+        await new Promise(r => setTimeout(r, 100));
+
+        // Hard assertion, not waitFor: we want the state RIGHT NOW.
+        expect(screen.getByText('Fresh signal')).toBeInTheDocument();
+        expect(screen.queryByText('Stale signal')).toBeNull();
+    });
 });
