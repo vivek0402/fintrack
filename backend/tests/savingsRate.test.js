@@ -37,6 +37,10 @@ describe('isNonSavingsExpense', () => {
     it('ignores unrelated tags', () => {
         expect(isNonSavingsExpense(expense({ tags: ['holiday', 'shared'] }))).toBe(true);
     });
+
+    it('excludes personal-loan-linked transactions', () => {
+        expect(isNonSavingsExpense(expense({ personal_loan_id: 'pl-1' }))).toBe(false);
+    });
 });
 
 describe('isRealIncome', () => {
@@ -49,6 +53,10 @@ describe('isRealIncome', () => {
         expect(isRealIncome(income({ tags: ['transfer'] }))).toBe(false);
         expect(isRealIncome(income({ tags: ['credit_card_payment'] }))).toBe(false);
         expect(isRealIncome(income({ tags: ['bonus'] }))).toBe(true);
+    });
+
+    it('excludes personal-loan-linked transactions (e.g. money borrowed, or a repayment received)', () => {
+        expect(isRealIncome(income({ personal_loan_id: 'pl-1' }))).toBe(false);
     });
 });
 
@@ -82,6 +90,10 @@ describe('nonSpendingExclusionSQL', () => {
 
     it('defaults to the transactions table when no alias is passed', () => {
         expect(nonSpendingExclusionSQL()).toMatch(/transactions\.type/);
+    });
+
+    it('excludes personal-loan-linked rows regardless of type', () => {
+        expect(nonSpendingExclusionSQL()).toMatch(/personal_loan_id IS NULL/);
     });
 });
 

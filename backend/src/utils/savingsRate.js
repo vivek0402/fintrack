@@ -8,6 +8,7 @@ function nonSpendingExclusionSQL(alias = 'transactions') {
         EXISTS (SELECT 1 FROM categories cat WHERE cat.id = ${alias}.category_id AND cat.is_investment_category = true)
         OR ${alias}.goal_id IS NOT NULL
     ))
+    AND ${alias}.personal_loan_id IS NULL
     AND NOT (COALESCE(${alias}.tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`;
 }
 
@@ -19,6 +20,7 @@ function isNonSavingsExpense(tx) {
     if (tx.type !== 'expense') return false;
     if (tx.is_investment_category) return false;
     if (tx.goal_id) return false;
+    if (tx.personal_loan_id) return false;
     const tags = tx.tags || [];
     if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
     return true;
@@ -27,6 +29,7 @@ function isNonSavingsExpense(tx) {
 // Symmetric income-side check: real income, not an internal transfer.
 function isRealIncome(tx) {
     if (tx.type !== 'income') return false;
+    if (tx.personal_loan_id) return false;
     const tags = tx.tags || [];
     if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
     return true;

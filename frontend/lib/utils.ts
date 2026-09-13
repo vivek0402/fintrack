@@ -7,17 +7,19 @@ export function fmt(n: number, currency = 'INR'): string {
 // keep both definitions in sync. An expense only counts as "real spending" (and
 // income only counts as "real income") when it's not investing, not a goal
 // contribution, and not an internal transfer.
-export function isNonSavingsExpense(tx: { type: string; is_investment_category?: boolean; goal_id?: string | null; tags?: string[] | null }): boolean {
+export function isNonSavingsExpense(tx: { type: string; is_investment_category?: boolean; goal_id?: string | null; personal_loan_id?: string | null; tags?: string[] | null }): boolean {
     if (tx.type !== 'expense') return false;
     if (tx.is_investment_category) return false;
     if (tx.goal_id) return false;
+    if (tx.personal_loan_id) return false;
     const tags = tx.tags || [];
     if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
     return true;
 }
 
-export function isRealIncome(tx: { type: string; tags?: string[] | null }): boolean {
+export function isRealIncome(tx: { type: string; personal_loan_id?: string | null; tags?: string[] | null }): boolean {
     if (tx.type !== 'income') return false;
+    if (tx.personal_loan_id) return false;
     const tags = tx.tags || [];
     if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
     return true;
@@ -29,9 +31,10 @@ export function isRealIncome(tx: { type: string; tags?: string[] | null }): bool
 // are deliberately kept. Goal contributions and internal transfers still get
 // excluded, since those can land under any ordinary category and would
 // silently inflate that category's real-spending trend otherwise.
-export function isCategorizableExpense(tx: { type: string; goal_id?: string | null; tags?: string[] | null }): boolean {
+export function isCategorizableExpense(tx: { type: string; goal_id?: string | null; personal_loan_id?: string | null; tags?: string[] | null }): boolean {
     if (tx.type !== 'expense') return false;
     if (tx.goal_id) return false;
+    if (tx.personal_loan_id) return false;
     const tags = tx.tags || [];
     if (tags.includes('transfer') || tags.includes('credit_card_payment')) return false;
     return true;

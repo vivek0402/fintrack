@@ -37,6 +37,10 @@ describe('isNonSavingsExpense', () => {
     it('ignores unrelated tags', () => {
         expect(isNonSavingsExpense(expense({ tags: ['holiday', 'shared'] }))).toBe(true);
     });
+
+    it('excludes personal-loan-linked transactions', () => {
+        expect(isNonSavingsExpense(expense({ personal_loan_id: 'pl-1' }))).toBe(false);
+    });
 });
 
 describe('isRealIncome', () => {
@@ -49,6 +53,10 @@ describe('isRealIncome', () => {
         expect(isRealIncome(income({ tags: ['transfer'] }))).toBe(false);
         expect(isRealIncome(income({ tags: ['credit_card_payment'] }))).toBe(false);
         expect(isRealIncome(income({ tags: ['bonus'] }))).toBe(true);
+    });
+
+    it('excludes personal-loan-linked transactions (e.g. money borrowed, or a repayment received)', () => {
+        expect(isRealIncome(income({ personal_loan_id: 'pl-1' }))).toBe(false);
     });
 });
 
@@ -66,6 +74,10 @@ describe('isCategorizableExpense', () => {
         expect(isCategorizableExpense(expense({ goal_id: 'g-1' }))).toBe(false);
         expect(isCategorizableExpense(expense({ tags: ['transfer'] }))).toBe(false);
         expect(isCategorizableExpense(income())).toBe(false);
+    });
+
+    it('excludes personal-loan-linked transactions the same way it excludes goal contributions', () => {
+        expect(isCategorizableExpense(expense({ personal_loan_id: 'pl-1' }))).toBe(false);
     });
 });
 
