@@ -112,6 +112,30 @@ describe('allow-list validators', () => {
     });
 });
 
+describe('isValidPersonalLoanDirection', () => {
+    test('accepts lent and borrowed', () => {
+        expect(v.isValidPersonalLoanDirection('lent')).toBe(true);
+        expect(v.isValidPersonalLoanDirection('borrowed')).toBe(true);
+    });
+    test('rejects anything else', () => {
+        expect(v.isValidPersonalLoanDirection('gifted')).toBe(false);
+        expect(v.isValidPersonalLoanDirection('')).toBe(false);
+        expect(v.isValidPersonalLoanDirection(undefined)).toBe(false);
+    });
+});
+
+describe('isValidPersonalLoanInterestType', () => {
+    test('accepts none, flat and percent_per_month', () => {
+        expect(v.isValidPersonalLoanInterestType('none')).toBe(true);
+        expect(v.isValidPersonalLoanInterestType('flat')).toBe(true);
+        expect(v.isValidPersonalLoanInterestType('percent_per_month')).toBe(true);
+    });
+    test('rejects anything else', () => {
+        expect(v.isValidPersonalLoanInterestType('compound')).toBe(false);
+        expect(v.isValidPersonalLoanInterestType(undefined)).toBe(false);
+    });
+});
+
 describe('isValidFinancialYear', () => {
     it('accepts the YYYY-YY form the Documents page emits', () => {
         expect(v.isValidFinancialYear('2025-26')).toBe(true);

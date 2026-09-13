@@ -2,6 +2,8 @@ const TRANSACTION_TYPES = ['income', 'expense'];
 const RECURRING_FREQUENCIES = ['daily', 'weekly', 'monthly'];
 const INVESTMENT_TYPES = ['mutual_fund', 'stock', 'fd', 'ppf', 'nps', 'gold', 'crypto', 'other'];
 const LOAN_TYPES = ['home_loan', 'car_loan', 'personal_loan', 'education_loan', 'gold_loan', 'business_loan', 'other'];
+const PERSONAL_LOAN_DIRECTIONS = ['lent', 'borrowed'];
+const PERSONAL_LOAN_INTEREST_TYPES = ['none', 'flat', 'percent_per_month'];
 const RISK_PROFILES = ['safety', 'balanced', 'growth'];
 const MILESTONE_STATUSES = ['not_started', 'in_progress', 'achieved', 'missed'];
 const DOCUMENT_TYPES = [
@@ -30,6 +32,10 @@ const isValidRecurringFrequency = (value) => RECURRING_FREQUENCIES.includes(valu
 const isValidInvestmentType = (value) => INVESTMENT_TYPES.includes(value);
 
 const isValidLoanType = (value) => LOAN_TYPES.includes(value);
+
+const isValidPersonalLoanDirection = (value) => PERSONAL_LOAN_DIRECTIONS.includes(value);
+
+const isValidPersonalLoanInterestType = (value) => PERSONAL_LOAN_INTEREST_TYPES.includes(value);
 
 const isValidRiskProfile = (value) => RISK_PROFILES.includes(value);
 
@@ -61,5 +67,9 @@ module.exports = {
     isValidInvestmentType,
     isValidFinancialYear,
     isValidLoanType,
+    PERSONAL_LOAN_DIRECTIONS,
+    PERSONAL_LOAN_INTEREST_TYPES,
+    isValidPersonalLoanDirection,
+    isValidPersonalLoanInterestType,
 };
 
