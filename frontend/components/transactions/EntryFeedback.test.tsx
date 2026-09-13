@@ -30,4 +30,14 @@ describe('EntryFeedback', () => {
         render(<EntryFeedback signals={[{ kind: 'split_hint', level: 'info', text: 'Shared?', action: 'split' }]} />);
         expect(screen.getByRole('link', { name: /open groups/i })).toHaveAttribute('href', '/groups');
     });
+
+    it('keeps the split-hint link scoped to the info line, not the adjacent warning', () => {
+        render(<EntryFeedback signals={[
+            { kind: 'duplicate', level: 'warn', text: 'Dup!' },
+            { kind: 'split_hint', level: 'info', text: 'Shared?', action: 'split' },
+        ]} />);
+        const dupLine = screen.getByText('Dup!').parentElement!;
+        expect(dupLine.querySelector('a')).toBeNull();
+        expect(screen.getByRole('link', { name: /open groups/i })).toBeInTheDocument();
+    });
 });
