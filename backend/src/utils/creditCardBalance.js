@@ -37,6 +37,7 @@ const CARD_WITH_BALANCE_SINGLE_QUERY = `
         ON t.credit_card_id = c.id
         AND t.user_id = c.user_id
         AND t.date >= COALESCE(c.balance_as_of, '1970-01-01')
+        AND ($3::uuid IS NULL OR t.id <> $3)
     WHERE c.user_id = $1 AND c.id = $2
     GROUP BY c.id
 `;
@@ -46,8 +47,13 @@ async function fetchCreditCardsWithBalance(pool, userId) {
     return rows;
 }
 
-async function fetchCreditCardWithBalance(pool, userId, cardId) {
-    const { rows } = await pool.query(CARD_WITH_BALANCE_SINGLE_QUERY, [userId, cardId]);
+// excludeId lets a caller pricing an in-flight edit (e.g. detectCard) leave
+// the transaction being edited out of the balance -- otherwise its old
+// amount (already baked into the stored/aggregated balance) and its
+// newly-typed amount would both count. Defaults to null, a no-op, for the
+// read-only callers below that have no such transaction in flight.
+async function fetchCreditCardWithBalance(pool, userId, cardId, excludeId = null) {
+    const { rows } = await pool.query(CARD_WITH_BALANCE_SINGLE_QUERY, [userId, cardId, excludeId]);
     return rows[0] || null;
 }
 

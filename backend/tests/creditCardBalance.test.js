@@ -1,6 +1,7 @@
 const {
     fetchCreditCardsWithCycleBreakdown,
     fetchTotalCreditCardOutstanding,
+    fetchCreditCardWithBalance,
 } = require('../src/utils/creditCardBalance');
 
 // The billing-cycle breakdown behind the Accounts page's "Statement: ₹X · due
@@ -126,5 +127,19 @@ describe('fetchTotalCreditCardOutstanding', () => {
     it('is zero for a user with no cards', async () => {
         const pool = fakePool({ rows: [] });
         await expect(fetchTotalCreditCardOutstanding(pool, 'u1')).resolves.toBe(0);
+    });
+});
+
+describe('fetchCreditCardWithBalance', () => {
+    test('excludes a given transaction id when provided', async () => {
+        const pool = { query: jest.fn().mockResolvedValue({ rows: [{ id: 3 }] }) };
+        await fetchCreditCardWithBalance(pool, 'u1', 3, 't1');
+        expect(pool.query.mock.calls[0][1]).toEqual(['u1', 3, 't1']);
+    });
+
+    test('defaults exclude to null when not passed', async () => {
+        const pool = { query: jest.fn().mockResolvedValue({ rows: [{ id: 3 }] }) };
+        await fetchCreditCardWithBalance(pool, 'u1', 3);
+        expect(pool.query.mock.calls[0][1]).toEqual(['u1', 3, null]);
     });
 });

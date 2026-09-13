@@ -100,6 +100,12 @@ describe('detectCard', () => {
         expect(await detectCard(p, 'u1', { type: 'expense', amount: 100, payment_method: 'Credit Card', credit_card_id: null, date: '2026-09-12' })).toBeNull();
         expect(p.query).not.toHaveBeenCalled();
     });
+    test('passes exclude_id through so editing the transaction being priced does not double-count it', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [card] });
+        await detectCard(p, 'u1', { type: 'expense', amount: 1600, payment_method: 'Credit Card', credit_card_id: 3, date: '2026-09-12', exclude_id: 't1' });
+        expect(p.query.mock.calls[0][1]).toEqual(['u1', 3, 't1']);
+    });
 });
 
 describe('detectCategoryPace', () => {

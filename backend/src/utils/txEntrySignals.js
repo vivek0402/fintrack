@@ -95,9 +95,9 @@ function ymd(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-async function detectCard(pool, userId, { type, amount, payment_method, credit_card_id, date }) {
+async function detectCard(pool, userId, { type, amount, payment_method, credit_card_id, date, exclude_id }) {
     if (type !== 'expense' || payment_method !== 'Credit Card' || !credit_card_id) return null;
-    const card = await fetchCreditCardWithBalance(pool, userId, credit_card_id);
+    const card = await fetchCreditCardWithBalance(pool, userId, credit_card_id, exclude_id || null);
     if (!card) return null;
     const limit = parseFloat(card.credit_limit || 0);
     if (limit <= 0) return null;
