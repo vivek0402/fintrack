@@ -95,6 +95,8 @@ export const transactionsAPI = {
         api.get('/api/transactions/search', { params: { q } }),
     suggest: (params: { description: string; amount?: string; date?: string; type?: string; hour?: number }) =>
         api.get('/api/transactions/suggest', { params }),
+    entryContext: (params: Record<string, string | number | null | undefined>) =>
+        api.get('/api/transactions/context', { params }),
     create: (data: object) => api.post('/api/transactions', data),
     update: (id: string, data: object) => api.put(`/api/transactions/${id}`, data),
     delete: (id: string) => api.delete(`/api/transactions/${id}`),
