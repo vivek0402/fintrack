@@ -216,6 +216,12 @@ describe('detectLateNight', () => {
         p.query.mockResolvedValueOnce({ rows: [{ name: 'Food', n: 1 }] });
         expect(await detectLateNight(p, 'u1', { type: 'expense', category_id: 'c1', hour: 1, date: '2026-09-12' })).toBeNull();
     });
+    test('excludes the transaction being edited from its own count', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Food', n: 3 }] });
+        await detectLateNight(p, 'u1', { type: 'expense', category_id: 'c1', hour: 23, date: '2026-09-12', exclude_id: 't1' });
+        expect(p.query.mock.calls[0][1]).toEqual(['u1', 'c1', '2026-09-12', 't1']);
+    });
 });
 
 describe('detectSplitHint', () => {

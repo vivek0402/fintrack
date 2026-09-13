@@ -1,7 +1,6 @@
 // Deterministic "as you type" signals for the Add Transaction modal. Each
 // detector takes (pool, userId, input) and resolves to a signal or null;
-// collectEntrySignals (added in a later task) runs them all and orders by
-// PRIORITY.
+// collectEntrySignals runs them all and orders by PRIORITY.
 const { nonSpendingExclusionSQL } = require('./savingsRate');
 const { fetchCreditCardWithBalance } = require('./creditCardBalance');
 
@@ -210,6 +209,9 @@ async function detectGoalImpact(pool, userId, { amount, goal_id, exclude_id }) {
     if (after >= target) return { kind: 'goal_impact', level: 'info', text: `${goal.name} reaches 100% with this.` };
     const pct = Math.round((after / target) * 100);
     let pace = '';
+    // Pace to the deadline runs from the real current date, not input.date --
+    // unlike the other detectors' `date` anchor, a backdated entry shouldn't
+    // change how much you need to save per month starting today.
     if (goal.deadline) {
         const deadline = new Date(goal.deadline);
         const monthsLeft = Math.max(1, Math.ceil((deadline.getTime() - Date.now()) / (30.44 * DAY_MS)));
@@ -219,7 +221,7 @@ async function detectGoalImpact(pool, userId, { amount, goal_id, exclude_id }) {
     return { kind: 'goal_impact', level: 'info', text: `${goal.name} → ${pct}% (${inr(target - after)} to go)${pace}.` };
 }
 
-async function detectLateNight(pool, userId, { type, category_id, hour, date }) {
+async function detectLateNight(pool, userId, { type, category_id, hour, date, exclude_id }) {
     if (type !== 'expense' || !category_id || !Number.isInteger(hour)) return null;
     if (!(hour >= 22 || hour < 4)) return null;
     const { rows } = await pool.query(
@@ -227,11 +229,12 @@ async function detectLateNight(pool, userId, { type, category_id, hour, date }) 
          FROM categories c
          LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1 AND t.type = 'expense'
            AND t.date BETWEEN $3::date - 6 AND $3::date
+           AND ($4::uuid IS NULL OR t.id <> $4)
            AND (EXTRACT(HOUR FROM t.created_at + INTERVAL '5 hours 30 minutes') >= 22
                 OR EXTRACT(HOUR FROM t.created_at + INTERVAL '5 hours 30 minutes') < 4)
          WHERE c.id = $2 AND c.user_id = $1
          GROUP BY c.name`,
-        [userId, category_id, date]
+        [userId, category_id, date, exclude_id || null]
     );
     if (!rows.length || rows[0].n < 2) return null;
     return { kind: 'late_night', level: 'info', text: `${ordinal(rows[0].n + 1)} late-night ${rows[0].name} entry this week.` };
