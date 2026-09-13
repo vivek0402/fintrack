@@ -71,3 +71,98 @@ describe('detectAnomaly', () => {
         expect(p.query.mock.calls[1][0]).toMatch(/WHERE c\.id = \$2 AND c\.user_id = \$1/);
     });
 });
+
+const { detectCard, detectCategoryPace, detectAccountProjection } = require('../src/utils/txEntrySignals');
+
+describe('detectCard', () => {
+    const card = { bank_name: 'HDFC', card_name: 'Regalia', credit_limit: '100000', current_outstanding_balance: '80000', billing_date: 18 };
+    test('shows headroom and days to statement close', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [card] });
+        const s = await detectCard(p, 'u1', { type: 'expense', amount: 1600, payment_method: 'Credit Card', credit_card_id: 3, date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'card_headroom', level: 'info', text: '₹18,400 left on HDFC Regalia after this · statement closes in 6 days.' });
+    });
+    test('warns when the charge exceeds the limit', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [card] });
+        const s = await detectCard(p, 'u1', { type: 'expense', amount: 25000, payment_method: 'Credit Card', credit_card_id: 3, date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'card_over_limit', level: 'warn', text: 'This takes HDFC Regalia ₹5,000 over its ₹1,00,000 limit.' });
+    });
+    test('rolls the close date into next month when billing_date already passed', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ ...card, billing_date: 5 }] });
+        const s = await detectCard(p, 'u1', { type: 'expense', amount: 100, payment_method: 'Credit Card', credit_card_id: 3, date: '2026-09-12' });
+        expect(s.text).toMatch(/statement closes in 23 days/);
+    });
+    test('skips when not a card payment or no card chosen', async () => {
+        const p = pool();
+        expect(await detectCard(p, 'u1', { type: 'expense', amount: 100, payment_method: 'UPI', credit_card_id: 3, date: '2026-09-12' })).toBeNull();
+        expect(await detectCard(p, 'u1', { type: 'expense', amount: 100, payment_method: 'Credit Card', credit_card_id: null, date: '2026-09-12' })).toBeNull();
+        expect(p.query).not.toHaveBeenCalled();
+    });
+});
+
+describe('detectCategoryPace', () => {
+    test('reports budget pace when under budget', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Dining', budget: '8000', spent: '5800' }] });
+        const s = await detectCategoryPace(p, 'u1', { type: 'expense', amount: 400, category_id: 'c1', date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'budget_pace', level: 'info', text: '₹6,200 of ₹8,000 Dining budget after this (78%).' });
+        expect(p.query.mock.calls[0][1]).toEqual(['u1', 9, 2026, '2026-09', null, 'c1']);
+    });
+    test('warns when this entry pushes the category over budget', async () => {
+        const p = pool();
+        p.query.mockResolvedValueOnce({ rows: [{ name: 'Dining', budget: '8000', spent: '7800' }] });
+        const s = await detectCategoryPace(p, 'u1', { type: 'expense', amount: 400, category_id: 'c1', date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'budget_over', level: 'warn', text: 'Puts Dining ₹200 over its ₹8,000 budget this month.' });
+    });
+    test('compares with the same day last month when there is no budget', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'Dining', budget: null, spent: '5800' }] })
+            .mockResolvedValueOnce({ rows: [{ total: '4100' }] });
+        const s = await detectCategoryPace(p, 'u1', { type: 'expense', amount: 400, category_id: 'c1', date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'month_pace', level: 'info', text: 'Dining: ₹6,200 by the 12th vs ₹4,100 at this point last month.' });
+        expect(p.query.mock.calls[1][1]).toEqual(['u1', 'c1', '2026-08-01', '2026-08-12']);
+    });
+    test('clamps the comparison day to the shorter previous month', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'Dining', budget: null, spent: '100' }] })
+            .mockResolvedValueOnce({ rows: [{ total: '900' }] });
+        await detectCategoryPace(p, 'u1', { type: 'expense', amount: 1, category_id: 'c1', date: '2026-03-31' });
+        expect(p.query.mock.calls[1][1]).toEqual(['u1', 'c1', '2026-02-01', '2026-02-28']);
+    });
+    test('stays quiet when last month is too small to compare', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'Dining', budget: null, spent: '100' }] })
+            .mockResolvedValueOnce({ rows: [{ total: '120' }] });
+        expect(await detectCategoryPace(p, 'u1', { type: 'expense', amount: 1, category_id: 'c1', date: '2026-09-12' })).toBeNull();
+    });
+});
+
+describe('detectAccountProjection', () => {
+    test('projects the balance and upcoming bills', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'HDFC', current_balance: '42500' }] })
+            .mockResolvedValueOnce({ rows: [{ n: 3, total: '12300' }] });
+        const s = await detectAccountProjection(p, 'u1', { type: 'expense', amount: 400, payment_method: 'UPI', account_id: 1, date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'account_projection', level: 'info', text: 'HDFC after this: ₹42,100 · 3 bills (₹12,300) due in the next 30 days.' });
+    });
+    test('warns when the account would go negative', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ name: 'HDFC', current_balance: '300' }] })
+            .mockResolvedValueOnce({ rows: [{ n: 0, total: '0' }] });
+        const s = await detectAccountProjection(p, 'u1', { type: 'expense', amount: 400, payment_method: 'UPI', account_id: 1, date: '2026-09-12' });
+        expect(s).toEqual({ kind: 'account_negative', level: 'warn', text: 'HDFC would go to -₹100 after this.' });
+    });
+    test('skips card payments and income', async () => {
+        const p = pool();
+        expect(await detectAccountProjection(p, 'u1', { type: 'expense', amount: 1, payment_method: 'Credit Card', account_id: 1, date: '2026-09-12' })).toBeNull();
+        expect(await detectAccountProjection(p, 'u1', { type: 'income', amount: 1, payment_method: 'UPI', account_id: 1, date: '2026-09-12' })).toBeNull();
+        expect(p.query).not.toHaveBeenCalled();
+    });
+});

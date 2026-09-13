@@ -87,4 +87,109 @@ async function detectAnomaly(pool, userId, { type, amount, description, category
     return { kind: 'anomaly', level: 'warn', text: `About ${Math.round(amount / median)}× your typical ${rows[0].name} entry (${inr(median)}).` };
 }
 
-module.exports = { PRIORITY, inr, ordinal, istTimeLabel, detectDuplicate, detectAnomaly };
+function localDate(dateStr) {
+    return new Date(`${String(dateStr).slice(0, 10)}T00:00:00`);
+}
+
+function ymd(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function detectCard(pool, userId, { type, amount, payment_method, credit_card_id, date }) {
+    if (type !== 'expense' || payment_method !== 'Credit Card' || !credit_card_id) return null;
+    const card = await fetchCreditCardWithBalance(pool, userId, credit_card_id);
+    if (!card) return null;
+    const limit = parseFloat(card.credit_limit || 0);
+    if (limit <= 0) return null;
+    const outstanding = parseFloat(card.current_outstanding_balance || 0);
+    const headroom = limit - outstanding - amount;
+    const label = `${card.bank_name} ${card.card_name}`;
+    if (headroom < 0) {
+        return { kind: 'card_over_limit', level: 'warn', text: `This takes ${label} ${inr(-headroom)} over its ${inr(limit)} limit.` };
+    }
+    let cycle = '';
+    if (card.billing_date) {
+        const today = localDate(date);
+        let close = new Date(today.getFullYear(), today.getMonth(), card.billing_date);
+        if (close < today) close = new Date(today.getFullYear(), today.getMonth() + 1, card.billing_date);
+        const days = Math.round((close - today) / DAY_MS);
+        cycle = ` · statement closes ${days === 0 ? 'today' : `in ${days} day${days === 1 ? '' : 's'}`}`;
+    }
+    return { kind: 'card_headroom', level: 'info', text: `${inr(headroom)} left on ${label} after this${cycle}.` };
+}
+
+async function detectCategoryPace(pool, userId, { type, amount, category_id, date, exclude_id }) {
+    if (type !== 'expense' || !category_id) return null;
+    const month = String(date).slice(0, 7);
+    const [year, monthNum] = month.split('-').map(Number);
+    const { rows } = await pool.query(
+        `SELECT c.name, b.amount AS budget,
+                (SELECT COALESCE(SUM(t.amount), 0) FROM transactions t
+                  WHERE t.user_id = $1 AND t.category_id = c.id AND t.type = 'expense'
+                    AND to_char(t.date, 'YYYY-MM') = $4
+                    AND ($5::uuid IS NULL OR t.id <> $5)
+                    AND ${nonSpendingExclusionSQL('t')}) AS spent
+         FROM categories c
+         LEFT JOIN budgets b ON b.category_id = c.id AND b.user_id = $1 AND b.month = $2 AND b.year = $3
+         WHERE c.id = $6 AND c.user_id = $1`,
+        [userId, monthNum, year, month, exclude_id || null, category_id]
+    );
+    if (!rows.length) return null;
+    const cat = rows[0];
+    const after = parseFloat(cat.spent || 0) + amount;
+    if (cat.budget) {
+        const budget = parseFloat(cat.budget);
+        if (after > budget) {
+            return { kind: 'budget_over', level: 'warn', text: `Puts ${cat.name} ${inr(after - budget)} over its ${inr(budget)} budget this month.` };
+        }
+        return { kind: 'budget_pace', level: 'info', text: `${inr(after)} of ${inr(budget)} ${cat.name} budget after this (${Math.round((after / budget) * 100)}%).` };
+    }
+    const d = localDate(date);
+    const day = d.getDate();
+    const lastMonthStart = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const lastMonthLen = new Date(d.getFullYear(), d.getMonth(), 0).getDate();
+    const lastMonthSameDay = new Date(d.getFullYear(), d.getMonth() - 1, Math.min(day, lastMonthLen));
+    const { rows: lastRows } = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
+         WHERE user_id = $1 AND category_id = $2 AND type = 'expense' AND date BETWEEN $3 AND $4
+           AND ${nonSpendingExclusionSQL('transactions')}`,
+        [userId, category_id, ymd(lastMonthStart), ymd(lastMonthSameDay)]
+    );
+    const lastTotal = parseFloat(lastRows[0]?.total || 0);
+    if (lastTotal < 500) return null;
+    return { kind: 'month_pace', level: 'info', text: `${cat.name}: ${inr(after)} by the ${ordinal(day)} vs ${inr(lastTotal)} at this point last month.` };
+}
+
+async function detectAccountProjection(pool, userId, { type, amount, payment_method, account_id, date, exclude_id }) {
+    if (type !== 'expense' || !account_id || payment_method === 'Credit Card') return null;
+    const { rows } = await pool.query(
+        `SELECT a.name,
+                COALESCE(a.starting_balance, 0)
+                  + COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0)
+                  - COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0) AS current_balance
+         FROM bank_accounts a
+         LEFT JOIN transactions t ON t.account_id = a.id AND t.user_id = a.user_id
+           AND t.date >= COALESCE(a.balance_as_of, '1970-01-01')
+           AND ($3::uuid IS NULL OR t.id <> $3)
+         WHERE a.user_id = $1 AND a.id = $2
+         GROUP BY a.id`,
+        [userId, account_id, exclude_id || null]
+    );
+    if (!rows.length) return null;
+    const after = parseFloat(rows[0].current_balance || 0) - amount;
+    const { rows: dueRows } = await pool.query(
+        `SELECT COUNT(*)::int AS n, COALESCE(SUM(amount), 0) AS total FROM recurring_transactions
+         WHERE user_id = $1 AND is_active = TRUE AND type = 'expense'
+           AND next_due_date BETWEEN $2::date AND $2::date + 30`,
+        [userId, date]
+    );
+    const n = dueRows[0]?.n || 0;
+    const bills = n > 0 ? ` · ${n} bill${n === 1 ? '' : 's'} (${inr(parseFloat(dueRows[0].total))}) due in the next 30 days` : '';
+    if (after < 0) return { kind: 'account_negative', level: 'warn', text: `${rows[0].name} would go to ${inr(after)} after this${bills}.` };
+    return { kind: 'account_projection', level: 'info', text: `${rows[0].name} after this: ${inr(after)}${bills}.` };
+}
+
+module.exports = {
+    PRIORITY, inr, ordinal, istTimeLabel,
+    detectDuplicate, detectAnomaly, detectCard, detectCategoryPace, detectAccountProjection,
+};
