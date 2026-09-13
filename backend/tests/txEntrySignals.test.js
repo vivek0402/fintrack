@@ -61,4 +61,13 @@ describe('detectAnomaly', () => {
         expect(await detectAnomaly(p, 'u1', { type: 'income', amount: 99999, description: 'Bonus' })).toBeNull();
         expect(p.query).not.toHaveBeenCalled();
     });
+
+    test('never returns another user\'s category, even if somehow matched', async () => {
+        const p = pool();
+        p.query
+            .mockResolvedValueOnce({ rows: [{ n: 1, median: '300' }] })
+            .mockResolvedValueOnce({ rows: [] }); // category query correctly scoped by user_id returns nothing
+        expect(await detectAnomaly(p, 'u1', { type: 'expense', amount: 2000, description: 'New place', category_id: 'c1' })).toBeNull();
+        expect(p.query.mock.calls[1][0]).toMatch(/WHERE c\.id = \$2 AND c\.user_id = \$1/);
+    });
 });

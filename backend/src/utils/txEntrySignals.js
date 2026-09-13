@@ -77,7 +77,7 @@ async function detectAnomaly(pool, userId, { type, amount, description, category
          FROM categories c
          LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = $1 AND t.type = 'expense'
            AND ($3::uuid IS NULL OR t.id <> $3)
-         WHERE c.id = $2
+         WHERE c.id = $2 AND c.user_id = $1
          GROUP BY c.name`,
         [userId, category_id, exclude_id || null]
     );
