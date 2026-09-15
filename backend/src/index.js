@@ -294,6 +294,7 @@ app.use('/api/analytics',    require('./routes/analytics'));
 app.use('/api/profile',      require('./routes/profile'));
 app.use('/api/recurring',    require('./routes/recurring'));
 app.use('/api/goals',        require('./routes/goals'));
+app.use('/api/personal-loans', require('./routes/personalLoans'));
 const aiRoutes = require('./routes/ai');
 app.use('/api/ai',           aiLimiter, aiRoutes);
 app.use('/api/splits',       require('./routes/splits'));
@@ -671,6 +672,44 @@ cron.schedule('0 9 * * *', async () => {
         }
     } catch (err) {
         console.error('[Cron:GoalDeadline] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: personal loan due date approaching — daily 9am ───────────────────
+cron.schedule('0 9 * * *', async () => {
+    try {
+        const { rows: loans } = await pool.query(
+            `SELECT pl.*, COALESCE(r.repaid_amount, 0) AS repaid_amount,
+                    pl.principal_amount - COALESCE(r.repaid_amount, 0) AS outstanding_amount
+             FROM personal_loans pl
+             JOIN user_fcm_tokens ft ON ft.user_id = pl.user_id
+             LEFT JOIN (
+                 SELECT loan_id, SUM(amount) AS repaid_amount
+                 FROM personal_loan_repayments GROUP BY loan_id
+             ) r ON r.loan_id = pl.id
+             WHERE pl.due_date IS NOT NULL
+               AND pl.written_off_at IS NULL
+               AND pl.due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '3 days'`
+        );
+
+        for (const loan of loans) {
+            try {
+                const outstanding = parseFloat(loan.outstanding_amount);
+                if (outstanding <= 0) continue;
+                const daysLeft = Math.ceil((new Date(loan.due_date) - new Date()) / 86400000);
+                const alertKey = `personal_loan_due:${loan.id}:${loan.due_date}`;
+                const verb = loan.direction === 'lent' ? 'owes you' : 'you owe';
+                await notifyOnce(loan.user_id, alertKey, {
+                    title: 'Personal Loan Due Soon',
+                    body: `${loan.counterparty_name} ${verb} ₹${outstanding.toLocaleString('en-IN')}, due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.`,
+                    data: { type: 'personal_loan_due', loan_id: String(loan.id) },
+                });
+            } catch (err) {
+                console.error(`[Cron:PersonalLoanDue] loan ${loan.id}:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:PersonalLoanDue] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 

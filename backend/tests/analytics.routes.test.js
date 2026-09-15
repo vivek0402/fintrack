@@ -159,6 +159,30 @@ describe('GET /wealth-velocity', () => {
     });
 });
 
+describe('GET /api/analytics/networth', () => {
+    test('includes personal loan receivable/payable in assets and liabilities', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ total: '100000' }] })  // bank balance
+            .mockResolvedValueOnce({ rows: [{ total: '50000' }] })   // investments
+            .mockResolvedValueOnce({ rows: [{ id: 1, current_outstanding_balance: '20000' }] }) // credit outstanding (fetchTotalCreditCardOutstanding)
+            .mockResolvedValueOnce({ rows: [{ total: '30000' }] })   // loans outstanding
+            .mockResolvedValueOnce({ rows: [                         // fetchPersonalLoanTotals -> fetchPersonalLoansWithBalance
+                { id: 'l1', direction: 'lent', outstanding_amount: '4000', repaid_amount: '0', written_off_at: null },
+                { id: 'l2', direction: 'borrowed', outstanding_amount: '1000', repaid_amount: '0', written_off_at: null },
+            ] })
+            .mockResolvedValueOnce({ rows: [] }) // net_worth_snapshots upsert
+            .mockResolvedValueOnce({ rows: [] }); // history select
+
+        const res = await request(app).get('/api/analytics/networth');
+
+        expect(res.status).toBe(200);
+        expect(res.body.current.total_personal_loans_receivable).toBe(4000);
+        expect(res.body.current.total_personal_loans_payable).toBe(1000);
+        expect(res.body.current.total_assets).toBe(100000 + 50000 + 4000);
+        expect(res.body.current.total_liabilities).toBe(20000 + 30000 + 1000);
+    });
+});
+
 describe('route surface', () => {
     it('scopes every listed endpoint to the authenticated user', async () => {
         // A missing user_id predicate on any of these would expose another

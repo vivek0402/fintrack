@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { fetchPersonalLoanTotals } = require('../utils/personalLoans');
 const router = express.Router();
 
 router.use(auth);
@@ -218,7 +219,7 @@ router.get('/payment-methods', async (req, res) => {
 
 router.get('/networth', async (req, res) => {
     try {
-        const [bankRes, investRes, total_credit_outstanding, loanRes] = await Promise.all([
+        const [bankRes, investRes, total_credit_outstanding, loanRes, personalLoanTotals] = await Promise.all([
             pool.query(
                 `SELECT COALESCE(SUM(
                     COALESCE(a.starting_balance, 0)
@@ -237,14 +238,17 @@ router.get('/networth', async (req, res) => {
                 `SELECT COALESCE(SUM(outstanding_balance), 0) AS total FROM loans WHERE user_id = $1 AND is_active = true`,
                 [req.user.id]
             ),
+            fetchPersonalLoanTotals(pool, req.user.id),
         ]);
 
         const total_bank_balance = parseFloat(bankRes.rows[0].total);
         const total_investments = parseFloat(investRes.rows[0].total);
         const total_loans_outstanding = parseFloat(loanRes.rows[0].total);
+        const total_personal_loans_receivable = personalLoanTotals.receivable;
+        const total_personal_loans_payable = personalLoanTotals.payable;
 
-        const total_assets = total_bank_balance + total_investments;
-        const total_liabilities = total_credit_outstanding + total_loans_outstanding;
+        const total_assets = total_bank_balance + total_investments + total_personal_loans_receivable;
+        const total_liabilities = total_credit_outstanding + total_loans_outstanding + total_personal_loans_payable;
         const net_worth = total_assets - total_liabilities;
 
         await pool.query(
@@ -276,9 +280,11 @@ router.get('/networth', async (req, res) => {
             current: {
                 total_bank_balance,
                 total_investments,
+                total_personal_loans_receivable,
                 total_assets,
                 total_credit_outstanding,
                 total_loans_outstanding,
+                total_personal_loans_payable,
                 total_liabilities,
                 net_worth,
             },
