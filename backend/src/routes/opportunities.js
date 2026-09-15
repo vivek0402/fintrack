@@ -56,8 +56,7 @@ async function getFinancialPlan(userId) {
 
 // ─── Detectors ──────────────────────────────────────────────────────────────
 
-async function detectIdleCash(userId, plan) {
-    const [bankBalance, avgExpenses] = await Promise.all([getBankBalance(userId), getAvgMonthlyExpenses(userId)]);
+async function detectIdleCash(userId, plan, bankBalance, avgExpenses) {
     if (avgExpenses <= 0) return null;
 
     const targetMonths = plan.emergency_fund_target_months;
@@ -190,11 +189,8 @@ async function detectSpendingSpike(userId) {
     };
 }
 
-async function detectAllocationGap(userId) {
-    const [bankBalance, invRes] = await Promise.all([
-        getBankBalance(userId),
-        pool.query(`SELECT type, COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1 GROUP BY type`, [userId]),
-    ]);
+async function detectAllocationGap(userId, bankBalance) {
+    const invRes = await pool.query(`SELECT type, COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1 GROUP BY type`, [userId]);
 
     const invTotals = {};
     for (const row of invRes.rows) invTotals[row.type] = parseFloat(row.total);
@@ -238,8 +234,7 @@ async function detectAllocationGap(userId) {
     };
 }
 
-async function detectEmergencyFundLow(userId, plan) {
-    const [bankBalance, avgExpenses] = await Promise.all([getBankBalance(userId), getAvgMonthlyExpenses(userId)]);
+async function detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses) {
     const targetMonths = plan.emergency_fund_target_months;
     if (avgExpenses <= 0 || bankBalance >= avgExpenses * targetMonths) return null;
 
@@ -343,20 +338,38 @@ async function detectSalaryIntelligenceInsight(userId) {
 }
 
 async function detectOpportunities(userId) {
-    const plan = await getFinancialPlan(userId);
+    const [plan, bankBalance, avgExpenses] = await Promise.all([
+        getFinancialPlan(userId),
+        getBankBalance(userId),
+        getAvgMonthlyExpenses(userId),
+    ]);
     const results = await Promise.all([
-        detectIdleCash(userId, plan),
+        detectIdleCash(userId, plan, bankBalance, avgExpenses),
         detectCreditCardInterest(userId),
         detectHighInterestLoan(userId),
         detectSpendingSpike(userId),
-        detectAllocationGap(userId),
-        detectEmergencyFundLow(userId, plan),
+        detectAllocationGap(userId, bankBalance),
+        detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses),
         detectForecastWarning(userId),
         detectPersonalityInsight(userId),
         detectBehavioralPattern(userId),
         detectSalaryIntelligenceInsight(userId),
     ]);
     return results.filter(r => r !== null);
+}
+
+// Fires all upserts concurrently instead of sequentially -- each opportunity
+// targets a distinct (user_id, type) partial-unique key, so there's no
+// write-write conflict between them and no ordering requirement.
+async function saveOpportunities(userId, detected) {
+    await Promise.all(detected.map(opp => pool.query(
+        `INSERT INTO opportunities (user_id, type, title, description, amount_saved, priority, action_label, action_route, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         ON CONFLICT (user_id, type) WHERE status = 'active'
+         DO UPDATE SET title=$3, description=$4, amount_saved=$5, priority=$6,
+             action_label=$7, action_route=$8, expires_at=$9, detected_at=NOW()`,
+        [userId, opp.type, opp.title, opp.description, opp.amount_saved, opp.priority, opp.action_label, opp.action_route, opp.expires_at]
+    )));
 }
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
@@ -369,16 +382,9 @@ router.post('/detect', async (req, res) => {
         // removes the N+1 and the race where two concurrent /detect calls could both
         // pass the existence check and create duplicate active rows of the same type.
         // Backed by the partial unique index idx_opportunities_user_type_active.
-        for (const opp of detected) {
-            await pool.query(
-                `INSERT INTO opportunities (user_id, type, title, description, amount_saved, priority, action_label, action_route, expires_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                 ON CONFLICT (user_id, type) WHERE status = 'active'
-                 DO UPDATE SET title=$3, description=$4, amount_saved=$5, priority=$6,
-                     action_label=$7, action_route=$8, expires_at=$9, detected_at=NOW()`,
-                [req.user.id, opp.type, opp.title, opp.description, opp.amount_saved, opp.priority, opp.action_label, opp.action_route, opp.expires_at]
-            );
-        }
+        // Run concurrently via saveOpportunities: each upsert targets a distinct
+        // (user_id, type) key, so there's no ordering requirement between them.
+        await saveOpportunities(req.user.id, detected);
 
         const activeRes = await pool.query(
             `SELECT * FROM opportunities WHERE user_id = $1 AND status = 'active' ORDER BY priority ASC, detected_at DESC`,
@@ -455,3 +461,6 @@ module.exports.detectEmergencyFundLow = detectEmergencyFundLow;
 module.exports.detectCreditCardInterest = detectCreditCardInterest;
 module.exports.detectSpendingSpike = detectSpendingSpike;
 module.exports.detectForecastWarning = detectForecastWarning;
+module.exports.detectAllocationGap = detectAllocationGap;
+module.exports.detectOpportunities = detectOpportunities;
+module.exports.saveOpportunities = saveOpportunities;
