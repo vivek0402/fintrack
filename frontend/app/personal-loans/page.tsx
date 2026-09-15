@@ -35,7 +35,10 @@ function isOverdue(loan: Loan) {
     return new Date(loan.due_date) < new Date(new Date().toDateString());
 }
 
-function LoanRow({ loan, onRepay, onWriteOff, onDelete }: { loan: Loan; onRepay: (l: Loan) => void; onWriteOff: (l: Loan) => void; onDelete: (l: Loan) => void }) {
+function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletingId, onConfirmDelete, onCancelDelete }: {
+    loan: Loan; onRepay: (l: Loan) => void; onWriteOff: (l: Loan) => void; onDelete: (l: Loan) => void;
+    confirmDeleteId: string | null; deletingId: string | null; onConfirmDelete: (id: string) => void; onCancelDelete: () => void;
+}) {
     const principal = num(loan.principal_amount);
     const repaid = num(loan.repaid_amount);
     const outstanding = num(loan.outstanding_amount);
@@ -67,9 +70,21 @@ function LoanRow({ loan, onRepay, onWriteOff, onDelete }: { loan: Loan; onRepay:
                 </div>
             )}
             {settled && (
-                <button onClick={() => onDelete(loan)} aria-label="Delete" style={{ alignSelf: 'flex-end', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                    <Trash2 size={14} />
-                </button>
+                confirmDeleteId === loan.id ? (
+                    <div style={{ display: 'flex', gap: '4px', alignSelf: 'flex-end' }}>
+                        <button type="button" onClick={() => onDelete(loan)} disabled={deletingId === loan.id}
+                            style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            {deletingId === loan.id ? '…' : 'Delete'}
+                        </button>
+                        <button type="button" onClick={() => onCancelDelete()} style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                            Cancel
+                        </button>
+                    </div>
+                ) : (
+                    <button type="button" onClick={() => onConfirmDelete(loan.id)} aria-label="Delete" style={{ alignSelf: 'flex-end', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                        <Trash2 size={14} />
+                    </button>
+                )
             )}
         </GCard>
     );
@@ -78,14 +93,18 @@ function LoanRow({ loan, onRepay, onWriteOff, onDelete }: { loan: Loan; onRepay:
 export default function PersonalLoansPage() {
     const [loans, setLoans] = useState<Loan[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
     const [repayLoan, setRepayLoan] = useState<Loan | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
 
     const refresh = useCallback(() => {
-        setLoading(true);
+        setLoading(true); setLoadError(false);
         personalLoansAPI.getAll()
             .then(res => setLoans(res.data.loans || []))
-            .catch(() => toast.error('Could not load personal loans'))
+            .catch(() => { toast.error('Could not load personal loans'); setLoadError(true); })
             .finally(() => setLoading(false));
     }, []);
 
@@ -99,16 +118,38 @@ export default function PersonalLoansPage() {
         } catch { toast.error('Could not write off this loan'); }
     };
 
-    const handleDelete = async (loan: Loan) => {
-        try {
-            await personalLoansAPI.delete(loan.id);
-            toast.success('Deleted');
-            refresh();
-        } catch { toast.error('Could not delete'); }
+    const handleDelete = (loan: Loan) => {
+        const id = loan.id;
+        // Optimistically hide the row, then give the user an undo window before
+        // actually deleting -- same pattern as goals/page.tsx and TransactionList.
+        setPendingDelete(prev => new Set([...prev, id]));
+        setConfirmDeleteId(null);
+
+        let cancelled = false;
+        toast.undo('Loan deleted', () => {
+            cancelled = true;
+            setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            setDeletingId(id);
+            try {
+                await personalLoansAPI.delete(id);
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+                refresh();
+            } catch {
+                toast.error('Failed to delete loan');
+                setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
+            } finally {
+                setDeletingId(null);
+            }
+        }, 4000);
     };
 
-    const active = loans.filter(l => l.status === 'outstanding' || l.status === 'partially_repaid');
-    const settled = loans.filter(l => l.status === 'repaid' || l.status === 'written_off');
+    const visibleLoans = loans.filter(l => !pendingDelete.has(l.id));
+    const active = visibleLoans.filter(l => l.status === 'outstanding' || l.status === 'partially_repaid');
+    const settled = visibleLoans.filter(l => l.status === 'repaid' || l.status === 'written_off');
     const owedToYou = active.filter(l => l.direction === 'lent');
     const youOwe = active.filter(l => l.direction === 'borrowed');
 
@@ -125,6 +166,8 @@ export default function PersonalLoansPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <Skeleton height={80} /><Skeleton height={80} />
                 </div>
+            ) : loadError ? (
+                <EmptyState icon={Handshake} title="Couldn't load your personal loans" subtitle="Check your connection and try again." />
             ) : loans.length === 0 ? (
                 <EmptyState icon={Handshake} title="No personal loans yet" subtitle="Track money you've lent to or borrowed from friends and family." />
             ) : (
@@ -133,7 +176,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Owed to you</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {owedToYou.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} />)}
+                                {owedToYou.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
                             </div>
                         </section>
                     )}
@@ -141,7 +184,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>You owe</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {youOwe.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} />)}
+                                {youOwe.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
                             </div>
                         </section>
                     )}
@@ -149,7 +192,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Settled</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {settled.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} />)}
+                                {settled.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
                             </div>
                         </section>
                     )}
