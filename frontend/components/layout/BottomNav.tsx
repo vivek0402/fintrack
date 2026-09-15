@@ -9,7 +9,7 @@ import {
     Waves,
     PiggyBank, Compass,
     CreditCard, FolderOpen, Users, HelpCircle,
-    FileText, Award, Brain, Plus,
+    FileText, Award, Brain, Plus, Handshake,
 } from 'lucide-react';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 
@@ -62,6 +62,7 @@ const moreGroups = [
             { href: '/accounts',   icon: CreditCard, label: 'Accounts' },
             { href: '/documents',  icon: FolderOpen, label: 'Documents' },
             { href: '/groups',     icon: Users,      label: 'Groups' },
+            { href: '/personal-loans', icon: Handshake, label: 'Personal Loans' },
             { href: '/profile',    icon: Settings,   label: 'Profile' },
         ],
     },

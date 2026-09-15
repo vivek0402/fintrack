@@ -7,7 +7,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
     Waves, PiggyBank, Compass,
-    CreditCard, FolderOpen, Users,
+    CreditCard, FolderOpen, Users, Handshake,
     MoreHorizontal, ChevronUp, HelpCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -57,6 +57,7 @@ const moreGroups = [
             { href: '/ai-advisor', icon: Bot,        label: 'AI Chat' },
             { href: '/documents',  icon: FolderOpen, label: 'Documents' },
             { href: '/groups',     icon: Users,      label: 'Groups' },
+            { href: '/personal-loans', icon: Handshake, label: 'Personal Loans' },
         ],
     },
 ];
