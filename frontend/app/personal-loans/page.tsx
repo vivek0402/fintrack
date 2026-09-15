@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PersonalLoanModal } from '@/components/personal-loans/PersonalLoanModal';
 import { RepaymentModal } from '@/components/personal-loans/RepaymentModal';
+import { LoanDetailModal } from '@/components/personal-loans/LoanDetailModal';
 import { toast } from '@/store/toastStore';
 
 type Loan = {
@@ -35,9 +36,10 @@ function isOverdue(loan: Loan) {
     return new Date(loan.due_date) < new Date(new Date().toDateString());
 }
 
-function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletingId, onConfirmDelete, onCancelDelete }: {
+function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletingId, onConfirmDelete, onCancelDelete, onOpenDetail }: {
     loan: Loan; onRepay: (l: Loan) => void; onWriteOff: (l: Loan) => void; onDelete: (l: Loan) => void;
     confirmDeleteId: string | null; deletingId: string | null; onConfirmDelete: (id: string) => void; onCancelDelete: () => void;
+    onOpenDetail: (id: string) => void;
 }) {
     const principal = num(loan.principal_amount);
     const repaid = num(loan.repaid_amount);
@@ -47,7 +49,7 @@ function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletin
     return (
         <GCard style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
+                <div onClick={() => onOpenDetail(loan.id)} style={{ cursor: 'pointer' }}>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{loan.counterparty_name}</div>
                     <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <Badge>{STATUS_LABEL[loan.status]}</Badge>
@@ -99,6 +101,7 @@ export default function PersonalLoansPage() {
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
+    const [detailLoanId, setDetailLoanId] = useState<string | null>(null);
 
     const refresh = useCallback(() => {
         setLoading(true); setLoadError(false);
@@ -176,7 +179,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Owed to you</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {owedToYou.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
+                                {owedToYou.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
                             </div>
                         </section>
                     )}
@@ -184,7 +187,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>You owe</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {youOwe.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
+                                {youOwe.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
                             </div>
                         </section>
                     )}
@@ -192,7 +195,7 @@ export default function PersonalLoansPage() {
                         <section>
                             <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Settled</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {settled.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} />)}
+                                {settled.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
                             </div>
                         </section>
                     )}
@@ -201,6 +204,7 @@ export default function PersonalLoansPage() {
 
             <PersonalLoanModal isOpen={showAdd} onClose={() => setShowAdd(false)} onSuccess={refresh} />
             <RepaymentModal isOpen={!!repayLoan} onClose={() => setRepayLoan(null)} onSuccess={refresh} loan={repayLoan} />
+            <LoanDetailModal isOpen={!!detailLoanId} onClose={() => setDetailLoanId(null)} loanId={detailLoanId} onRepay={setRepayLoan} />
         </div>
     );
 }
