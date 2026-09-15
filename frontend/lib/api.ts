@@ -213,7 +213,7 @@ export const personalLoansAPI = {
         account_id?: number; date_given: string; due_date?: string;
         interest_type?: 'none' | 'flat' | 'percent_per_month'; interest_rate?: number; notes?: string;
     }) => api.post('/api/personal-loans', data),
-    update: (id: string, data: { counterparty_name?: string; due_date?: string | null; interest_type?: string; interest_rate?: number; notes?: string }) =>
+    update: (id: string, data: { counterparty_name?: string; due_date?: string | null; interest_type?: 'none' | 'flat' | 'percent_per_month'; interest_rate?: number; notes?: string }) =>
         api.patch(`/api/personal-loans/${id}`, data),
     addRepayment: (id: string, data: { amount: number; date: string; notes?: string; account_id?: number }) =>
         api.post(`/api/personal-loans/${id}/repayments`, data),
