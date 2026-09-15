@@ -176,6 +176,7 @@ describe('GET /api/analytics/networth', () => {
             .mockResolvedValueOnce({ rows: [{ total: '2000' }] }) // investments
             .mockResolvedValueOnce({ rows: [{ id: 1, current_outstanding_balance: '500' }] }) // credit cards (via fetchTotalCreditCardOutstanding)
             .mockResolvedValueOnce({ rows: [{ total: '0' }] })    // loans
+            .mockResolvedValueOnce({ rows: [] }) // fetchPersonalLoanTotals -> fetchPersonalLoansWithBalance (no personal loans for this user)
             .mockResolvedValueOnce({ rows: [] }) // upsert
             .mockResolvedValueOnce({ rows: [{ snapshot_date: '2026-06-14', net_worth: '6500', total_assets: '7000', total_liabilities: '500' }] }); // history
 
