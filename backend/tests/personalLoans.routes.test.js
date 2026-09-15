@@ -184,6 +184,28 @@ describe('PATCH /api/personal-loans/:id', () => {
         expect(res.status).toBe(400);
         expect(pool.query).not.toHaveBeenCalled();
     });
+
+    test('rejects setting a non-none interest_type without ever providing a positive interest_rate', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ interest_type: 'none', interest_rate: null }] }); // current row fetch
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ interest_type: 'flat' });
+        expect(res.status).toBe(400);
+    });
+
+    test('clears interest_rate when interest_type is set back to none', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ interest_type: 'flat', interest_rate: '2' }] }); // current row fetch
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1' }] }); // UPDATE
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, interest_type: 'none', interest_rate: null }] }); // fetchPersonalLoanWithBalance
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ interest_type: 'none' });
+        expect(res.status).toBe(200);
+        expect(res.body.loan.interest_type).toBe('none');
+        expect(res.body.loan.interest_rate).toBeNull();
+    });
+
+    test('404s during the interest-rate pre-check when the loan does not belong to the user', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // current row fetch finds nothing
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ interest_type: 'flat', interest_rate: 2 });
+        expect(res.status).toBe(404);
+    });
 });
 
 describe('POST /api/personal-loans/:id/repayments', () => {

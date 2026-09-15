@@ -117,12 +117,32 @@ router.patch('/:id', async (req, res) => {
         if (interest_type !== undefined && !isValidPersonalLoanInterestType(interest_type))
             return res.status(400).json({ error: "Interest type must be 'none', 'flat' or 'percent_per_month'." });
 
+        // interest_type and interest_rate are coupled by a DB CHECK constraint
+        // (a positive rate is required unless the type is 'none'). Whenever
+        // either is being touched, fetch the current row and validate the
+        // *resulting* combination here -- otherwise a bad request either
+        // surfaces as a raw constraint violation, or (going back to 'none')
+        // silently leaves a stale rate on a loan that claims to have none.
+        if (interest_type !== undefined || interest_rate !== undefined) {
+            const { rows: currentRows } = await pool.query(
+                'SELECT interest_type, interest_rate FROM personal_loans WHERE id = $1 AND user_id = $2',
+                [req.params.id, req.user.id]
+            );
+            if (!currentRows.length) return res.status(404).json({ error: 'Loan not found.' });
+            const effectiveType = interest_type !== undefined ? interest_type : currentRows[0].interest_type;
+            const effectiveRate = effectiveType === 'none'
+                ? null
+                : (interest_rate !== undefined ? interest_rate : currentRows[0].interest_rate);
+            if (effectiveType !== 'none' && !isPositiveNumber(effectiveRate))
+                return res.status(400).json({ error: 'Interest rate is required and must be a positive number when an interest type other than none is selected.' });
+        }
+
         const result = await pool.query(
             `UPDATE personal_loans SET
                 counterparty_name = COALESCE($1, counterparty_name),
                 due_date = CASE WHEN $6::boolean THEN NULL ELSE COALESCE($2, due_date) END,
                 interest_type = COALESCE($3, interest_type),
-                interest_rate = COALESCE($4, interest_rate),
+                interest_rate = CASE WHEN $3::text = 'none' THEN NULL ELSE COALESCE($4, interest_rate) END,
                 notes = COALESCE($5, notes),
                 updated_at = NOW()
              WHERE id = $7 AND user_id = $8 RETURNING id`,
