@@ -49,7 +49,10 @@ function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletin
     return (
         <GCard style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div onClick={() => onOpenDetail(loan.id)} style={{ cursor: 'pointer' }}>
+                <div onClick={() => onOpenDetail(loan.id)}
+                    role="button" tabIndex={0}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(loan.id); } }}
+                    style={{ cursor: 'pointer' }}>
                     <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{loan.counterparty_name}</div>
                     <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <Badge>{STATUS_LABEL[loan.status]}</Badge>
