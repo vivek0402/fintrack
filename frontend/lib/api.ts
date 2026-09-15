@@ -205,6 +205,22 @@ export const goalsAPI = {
     delete: (id: string) => api.delete(`/api/goals/${id}`),
 };
 
+export const personalLoansAPI = {
+    getAll: () => api.get('/api/personal-loans'),
+    get: (id: string) => api.get(`/api/personal-loans/${id}`),
+    create: (data: {
+        direction: 'lent' | 'borrowed'; counterparty_name: string; principal_amount: number;
+        account_id?: number; date_given: string; due_date?: string;
+        interest_type?: 'none' | 'flat' | 'percent_per_month'; interest_rate?: number; notes?: string;
+    }) => api.post('/api/personal-loans', data),
+    update: (id: string, data: { counterparty_name?: string; due_date?: string | null; interest_type?: string; interest_rate?: number; notes?: string }) =>
+        api.patch(`/api/personal-loans/${id}`, data),
+    addRepayment: (id: string, data: { amount: number; date: string; notes?: string; account_id?: number }) =>
+        api.post(`/api/personal-loans/${id}/repayments`, data),
+    writeOff: (id: string) => api.patch(`/api/personal-loans/${id}/write-off`),
+    delete: (id: string) => api.delete(`/api/personal-loans/${id}`),
+};
+
 export const aiAPI = {
     afford: (query: string) => api.post('/api/ai/afford', { query }),
     chat: (message: string, history: { role: string; content: string }[]) =>
