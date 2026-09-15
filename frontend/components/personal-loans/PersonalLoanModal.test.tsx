@@ -57,4 +57,12 @@ describe('PersonalLoanModal', () => {
             expect.objectContaining({ interest_type: 'flat', interest_rate: 2 })
         ));
     });
+
+    it('requires an interest rate when a non-none interest type is picked', async () => {
+        render(<PersonalLoanModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
+        fill('Priya', '5000', '2026-09-13');
+        fireEvent.change(screen.getByLabelText(/interest/i), { target: { value: 'flat' } });
+        fireEvent.click(screen.getByRole('button', { name: /add loan/i }));
+        expect(personalLoansAPI.create).not.toHaveBeenCalled();
+    });
 });

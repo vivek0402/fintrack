@@ -49,12 +49,17 @@ export function PersonalLoanModal({ isOpen, onClose, onSuccess }: Props) {
         if (isOpen) return;
         setDirection('lent'); setCounterpartyName(''); setAmount('');
         setDateGiven(todayIST()); setDueDate(''); setInterestType('none'); setInterestRate(''); setNotes('');
+        setAccountId(null);
         setError('');
     }, [isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!counterpartyName.trim() || !amount || !dateGiven) return;
+        if (interestType !== 'none' && (!interestRate || parseFloat(interestRate) <= 0)) {
+            setError('Enter an interest rate, or set interest to None.');
+            return;
+        }
         setLoading(true); setError('');
         try {
             await personalLoansAPI.create({
@@ -141,7 +146,7 @@ export function PersonalLoanModal({ isOpen, onClose, onSuccess }: Props) {
                     {interestType !== 'none' && (
                         <div>
                             <label htmlFor="pl-interest-rate" style={labelStyle}>Interest rate</label>
-                            <input id="pl-interest-rate" type="number" min="0" step="any" style={inputBase} value={interestRate} onChange={e => setInterestRate(e.target.value)} />
+                            <input id="pl-interest-rate" type="number" min="0" step="any" required style={inputBase} value={interestRate} onChange={e => setInterestRate(e.target.value)} />
                         </div>
                     )}
                 </div>
@@ -151,7 +156,11 @@ export function PersonalLoanModal({ isOpen, onClose, onSuccess }: Props) {
                     <textarea id="pl-notes" rows={2} style={{ ...inputBase, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
 
-                {error && <div style={{ fontSize: '0.8rem', color: 'var(--color-exp)' }}>{error}</div>}
+                {error && (
+                    <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: '10px', fontSize: '0.8rem', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>
+                        {error}
+                    </div>
+                )}
             </form>
         </Modal>
     );
