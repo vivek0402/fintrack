@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { personalLoansAPI } from '@/lib/api';
+import { personalLoansAPI, accountsAPI } from '@/lib/api';
 import { toast } from '@/store/toastStore';
 
 interface LoanLike {
     id: string;
     counterparty_name: string;
     direction: 'lent' | 'borrowed';
-    outstanding_amount: number;
+    outstanding_amount: number | string;
 }
 
 interface Props {
@@ -31,15 +31,33 @@ export function RepaymentModal({ isOpen, onClose, onSuccess, loan }: Props) {
     const [amount, setAmount] = useState('');
     const [date, setDate] = useState(todayIST());
     const [notes, setNotes] = useState('');
+    const [accountId, setAccountId] = useState<number | null>(null);
+    const [accounts, setAccounts] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // outstanding_amount comes back from the API as a Postgres NUMERIC string,
+    // not a JS number -- normalize once here so every comparison below is
+    // against a real number, not a string that would silently coerce wrong.
+    const outstandingAmount = loan ? parseFloat(String(loan.outstanding_amount)) : 0;
+
+    useEffect(() => {
+        if (!isOpen) return;
+        accountsAPI.getAll().then(res => {
+            const list = res.data.accounts || [];
+            setAccounts(list);
+            const def = list.find((a: any) => a.is_default) ?? list[0];
+            if (def) setAccountId(def.id);
+        }).catch(() => setAccounts([]));
+    }, [isOpen]);
+
     useEffect(() => {
         if (isOpen && loan) {
-            setAmount(String(loan.outstanding_amount));
+            setAmount(String(outstandingAmount));
             setDate(todayIST());
             setNotes(''); setError('');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, loan]);
 
     if (!loan) return null;
@@ -49,13 +67,13 @@ export function RepaymentModal({ isOpen, onClose, onSuccess, loan }: Props) {
         setError('');
         const value = parseFloat(amount);
         if (!value || value <= 0) return;
-        if (value > loan.outstanding_amount + 0.01) {
-            setError(`Amount can't exceed the ₹${loan.outstanding_amount.toLocaleString('en-IN')} outstanding.`);
+        if (value > outstandingAmount + 0.01) {
+            setError(`Amount can't exceed the ₹${outstandingAmount.toLocaleString('en-IN')} outstanding.`);
             return;
         }
         setLoading(true);
         try {
-            await personalLoansAPI.addRepayment(loan.id, { amount: value, date, notes: notes || undefined });
+            await personalLoansAPI.addRepayment(loan.id, { amount: value, date, notes: notes || undefined, account_id: accountId ?? undefined });
             toast.success('Repayment recorded');
             onSuccess(); onClose();
         } catch (err: any) {
@@ -84,6 +102,15 @@ export function RepaymentModal({ isOpen, onClose, onSuccess, loan }: Props) {
                     <label htmlFor="repay-date" style={labelStyle}>Date</label>
                     <input id="repay-date" type="date" style={inputBase} value={date} onChange={e => setDate(e.target.value)} required />
                 </div>
+                {accounts.length > 0 && (
+                    <div>
+                        <label htmlFor="repay-account" style={labelStyle}>Account (optional — affects its balance)</label>
+                        <select id="repay-account" value={accountId ?? ''} onChange={e => setAccountId(e.target.value ? Number(e.target.value) : null)} style={{ ...inputBase, cursor: 'pointer' }}>
+                            <option value="">Don&apos;t track against an account</option>
+                            {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        </select>
+                    </div>
+                )}
                 <div>
                     <label htmlFor="repay-notes" style={labelStyle}>Notes (optional)</label>
                     <textarea id="repay-notes" rows={2} style={{ ...inputBase, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />

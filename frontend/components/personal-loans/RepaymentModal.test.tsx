@@ -5,6 +5,7 @@ import { personalLoansAPI } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({
     personalLoansAPI: { addRepayment: vi.fn().mockResolvedValue({ data: { loan: {}, repayment: {} } }) },
+    accountsAPI: { getAll: vi.fn().mockResolvedValue({ data: { accounts: [{ id: 1, name: 'HDFC', is_default: true }] } }) },
 }));
 
 const loan = { id: 'l1', counterparty_name: 'Priya', direction: 'lent' as const, outstanding_amount: 4000 };
@@ -36,5 +37,24 @@ describe('RepaymentModal', () => {
         fireEvent.click(screen.getByRole('button', { name: /record repayment/i }));
         expect(personalLoansAPI.addRepayment).not.toHaveBeenCalled();
         expect(screen.getByText(/exceed/i)).toBeInTheDocument();
+    });
+
+    it('handles outstanding_amount arriving as a numeric string from the API', async () => {
+        const stringLoan = { ...loan, outstanding_amount: '4000.00' };
+        render(<RepaymentModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} loan={stringLoan} />);
+        fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '9000' } });
+        fireEvent.click(screen.getByRole('button', { name: /record repayment/i }));
+        expect(personalLoansAPI.addRepayment).not.toHaveBeenCalled();
+        expect(screen.getByText(/exceed/i)).toBeInTheDocument();
+    });
+
+    it('includes the selected account in the submitted payload', async () => {
+        render(<RepaymentModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} loan={loan} />);
+        await waitFor(() => expect(screen.getByText('HDFC')).toBeInTheDocument());
+        fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '1000' } });
+        fireEvent.click(screen.getByRole('button', { name: /record repayment/i }));
+        await waitFor(() => expect(personalLoansAPI.addRepayment).toHaveBeenCalledWith('l1',
+            expect.objectContaining({ account_id: 1 })
+        ));
     });
 });
