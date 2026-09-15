@@ -24,7 +24,9 @@ describe('LoanDetailModal', () => {
         await waitFor(() => expect(screen.getByText('Priya')).toBeInTheDocument());
         expect(personalLoansAPI.get).toHaveBeenCalledWith('l1');
         expect(screen.getByText('₹4,000')).toBeInTheDocument();
-        expect(screen.getByText('₹1,000')).toBeInTheDocument();
+        // ₹1,000 legitimately appears twice: the "Repaid" summary figure and
+        // the one repayment row that makes up that total.
+        expect(screen.getAllByText('₹1,000')).toHaveLength(2);
     });
 
     it('shows an empty state when there are no repayments yet', async () => {
