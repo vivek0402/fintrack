@@ -163,3 +163,128 @@ describe('POST /api/personal-loans', () => {
         expect(pool.connect).not.toHaveBeenCalled();
     });
 });
+
+describe('PATCH /api/personal-loans/:id', () => {
+    test('updates non-financial fields only', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1' }] }); // UPDATE
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, notes: 'Paid half back in cash' }] }); // fetchPersonalLoanWithBalance
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ notes: 'Paid half back in cash' });
+        expect(res.status).toBe(200);
+        expect(res.body.loan.notes).toBe('Paid half back in cash');
+    });
+
+    test('404s when the loan does not belong to the user', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ notes: 'x' });
+        expect(res.status).toBe(404);
+    });
+
+    test('rejects an invalid interest_type', async () => {
+        const res = await request(buildApp()).patch('/api/personal-loans/l1').send({ interest_type: 'compound' });
+        expect(res.status).toBe(400);
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+});
+
+describe('POST /api/personal-loans/:id/repayments', () => {
+    test('rejects a repayment larger than the outstanding balance', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, counterparty_name: 'Priya' }] });
+        const res = await request(buildApp()).post('/api/personal-loans/l1/repayments').send({ amount: 6000, date: '2026-09-14' });
+        expect(res.status).toBe(400);
+    });
+
+    test('rejects a repayment on a written-off loan', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: '2026-01-01', counterparty_name: 'Priya' }] });
+        const res = await request(buildApp()).post('/api/personal-loans/l1/repayments').send({ amount: 100, date: '2026-09-14' });
+        expect(res.status).toBe(400);
+    });
+
+    test('records a repayment without an account (no linked transaction), passing user_id to the repayment insert', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, counterparty_name: 'Priya' }] });
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] }) // BEGIN
+            .mockResolvedValueOnce({ rows: [{ id: 'r1', loan_id: 'l1', user_id: 'user-123', amount: '1000', date: '2026-09-14' }] }) // INSERT repayment
+            .mockResolvedValueOnce({ rows: [] }); // COMMIT
+        pool.connect.mockResolvedValueOnce(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '1000', outstanding_amount: '4000', written_off_at: null }] }); // fetchPersonalLoanWithBalance after commit
+
+        const res = await request(buildApp()).post('/api/personal-loans/l1/repayments').send({ amount: 1000, date: '2026-09-14' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.loan.status).toBe('partially_repaid');
+        expect(client.query).toHaveBeenCalledTimes(3);
+        const repaymentInsertCall = client.query.mock.calls.find(c => /INSERT INTO personal_loan_repayments/.test(c[0]));
+        expect(repaymentInsertCall[0]).toMatch(/user_id/);
+        expect(repaymentInsertCall[1]).toEqual(expect.arrayContaining(['user-123', 'l1', 1000, '2026-09-14']));
+    });
+
+    test('records a repayment with an account, inserting a linked income transaction for a lent loan', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: null, counterparty_name: 'Priya' }] }) // fetchPersonalLoanWithBalance
+            .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // account ownership check
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] }) // BEGIN
+            .mockResolvedValueOnce({ rows: [{ id: 'tx1' }] }) // INSERT transaction
+            .mockResolvedValueOnce({ rows: [{ id: 'r1' }] }) // INSERT repayment
+            .mockResolvedValueOnce({ rows: [] }); // COMMIT
+        pool.connect.mockResolvedValueOnce(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '1000', outstanding_amount: '4000', written_off_at: null }] });
+
+        const res = await request(buildApp()).post('/api/personal-loans/l1/repayments').send({ amount: 1000, date: '2026-09-14', account_id: 1 });
+
+        expect(res.status).toBe(201);
+        const txInsertCall = client.query.mock.calls.find(c => /INSERT INTO transactions/.test(c[0]));
+        expect(txInsertCall[1]).toEqual(expect.arrayContaining(['income', 1000, 'Repayment from Priya', '2026-09-14', 1, 'l1']));
+    });
+});
+
+describe('PATCH /api/personal-loans/:id/write-off', () => {
+    test('marks the loan written off', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1' }] }); // UPDATE
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'l1', direction: 'lent', principal_amount: '5000', repaid_amount: '0', outstanding_amount: '5000', written_off_at: '2026-09-14T00:00:00Z' }] });
+        const res = await request(buildApp()).patch('/api/personal-loans/l1/write-off');
+        expect(res.status).toBe(200);
+        expect(res.body.loan.status).toBe('written_off');
+    });
+
+    test('404s when already written off or not found', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+        const res = await request(buildApp()).patch('/api/personal-loans/l1/write-off');
+        expect(res.status).toBe(404);
+    });
+});
+
+describe('DELETE /api/personal-loans/:id', () => {
+    test('deletes the loan and its linked transactions', async () => {
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] }) // BEGIN
+            .mockResolvedValueOnce({ rows: [{ transaction_id: 'tx-repay-1' }] }) // repayments' transaction_ids
+            .mockResolvedValueOnce({ rows: [{ transaction_id: 'tx-loan-1' }] }) // loan row (ownership + its own transaction_id)
+            .mockResolvedValueOnce({ rows: [] }) // DELETE transactions
+            .mockResolvedValueOnce({ rows: [] }) // DELETE personal_loans
+            .mockResolvedValueOnce({ rows: [] }); // COMMIT
+        pool.connect.mockResolvedValueOnce(client);
+
+        const res = await request(buildApp()).delete('/api/personal-loans/l1');
+
+        expect(res.status).toBe(200);
+        const txDeleteCall = client.query.mock.calls.find(c => /DELETE FROM transactions/.test(c[0]));
+        expect(txDeleteCall[1][0]).toEqual(expect.arrayContaining(['tx-loan-1', 'tx-repay-1']));
+    });
+
+    test('404s when the loan does not belong to the user', async () => {
+        const client = { query: jest.fn(), release: jest.fn() };
+        client.query
+            .mockResolvedValueOnce({ rows: [] }) // BEGIN
+            .mockResolvedValueOnce({ rows: [] }) // repayments (none)
+            .mockResolvedValueOnce({ rows: [] }) // loan row -- not found
+            .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+        pool.connect.mockResolvedValueOnce(client);
+
+        const res = await request(buildApp()).delete('/api/personal-loans/l1');
+        expect(res.status).toBe(404);
+    });
+});
