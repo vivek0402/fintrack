@@ -537,6 +537,19 @@ button:active:not(:disabled) {
   to { opacity: 1; transform: translateX(0) scale(1); }
 }
 
+/* Idle loop for EmptyState's icon -- gentle continuous float + scale pulse, runs after popIn settles */
+@keyframes emptyFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.04); }
+}
+
+/* Decorative sparkle accent next to EmptyState's icon -- mostly invisible, brief pulse mid-cycle */
+@keyframes emptySparkle {
+  0%, 45%, 100% { opacity: 0; transform: scale(0.6); }
+  55% { opacity: 1; transform: scale(1); }
+  65% { opacity: 0; transform: scale(0.6); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes slideInUp { from { opacity: 0; } to { opacity: 1; } }
   @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
@@ -551,6 +564,8 @@ button:active:not(:disabled) {
   @keyframes slideInRight { from { opacity: 0; } to { opacity: 1; } }
   @keyframes sheetUp { from { opacity: 0; } to { opacity: 1; } }
   @keyframes sheetDown { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes emptyFloat { 0%, 100% { transform: translateY(0) scale(1); } }
+  @keyframes emptySparkle { 0%, 100% { opacity: 0; } }
 }
 
 /* Hide native number spinner arrows */
