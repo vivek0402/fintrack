@@ -402,15 +402,18 @@ router.get('/', async (req, res) => {
     try {
         // Lazy-detect exactly once ever per user: a brand-new signup (or anyone the
         // daily cron's "active in last 2 days" filter never catches) would otherwise
-        // see an empty opportunities section indefinitely. This checks for ANY
-        // opportunity row of ANY status -- a user who has previously had every
-        // opportunity dismissed or acted-on must NOT be re-detected just because
-        // their active count is currently zero.
-        const existsRes = await pool.query(
-            `SELECT 1 FROM opportunities WHERE user_id = $1 LIMIT 1`,
+        // see an empty opportunities section indefinitely. Gated on a dedicated
+        // `users.opportunities_scanned_at` marker rather than an existence check on
+        // the opportunities table -- detectOpportunities legitimately returns []
+        // for users with too little financial data yet (a brand-new signup with no
+        // accounts/cards/loans/investments/transactions), so an existence check
+        // would re-trigger detection on every single load for exactly that
+        // population, defeating the point of lazy-detect.
+        const scannedRes = await pool.query(
+            `SELECT opportunities_scanned_at FROM users WHERE id = $1`,
             [req.user.id]
         );
-        if (existsRes.rows.length === 0) {
+        if (scannedRes.rows[0] && scannedRes.rows[0].opportunities_scanned_at === null) {
             // Own try/catch: this is a passive read path (GET /) that previously could
             // never fail this way -- an empty result just meant `[]`/`0`, never an error.
             // A detection/save failure here must not 500 the user's dashboard load; log
@@ -421,13 +424,24 @@ router.get('/', async (req, res) => {
                 // Accepted tradeoff: a partial saveOpportunities failure (one of its
                 // parallel upserts rejects while siblings already committed) can leave
                 // some opportunity types permanently undetected for this user outside the
-                // daily cron, since the exists-check above only requires ANY row to skip
-                // re-detection next time. saveOpportunities is intentionally
-                // non-transactional (Task 1) so cron/POST /detect callers get
-                // cross-upsert concurrency; making this one call site atomic would need a
-                // different code path than the shared helper those callers also use.
+                // daily cron, since marking opportunities_scanned_at below only requires
+                // saveOpportunities to resolve, not every upsert within it to have
+                // succeeded. saveOpportunities is intentionally non-transactional (Task 1)
+                // so cron/POST /detect callers get cross-upsert concurrency; making this
+                // one call site atomic would need a different code path than the shared
+                // helper those callers also use.
                 await saveOpportunities(req.user.id, detected);
+                // Mark scanned on success regardless of how many opportunities were
+                // actually found (including zero) -- this is what prevents the re-scan-
+                // every-load bug for users who legitimately have no opportunities yet.
+                await pool.query(
+                    `UPDATE users SET opportunities_scanned_at = NOW() WHERE id = $1`,
+                    [req.user.id]
+                );
             } catch (err) {
+                // Do NOT mark the user as scanned here -- a transient failure (e.g. a
+                // dropped DB connection mid-detect) must not permanently skip detection
+                // for this user; leaving the marker NULL means the next GET / retries.
                 console.error('[Opportunities] lazy-detect failed', err.message);
             }
         }

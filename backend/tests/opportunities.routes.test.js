@@ -173,9 +173,14 @@ describe('saveOpportunities — parallel upsert', () => {
 });
 
 describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', () => {
+    // The gate is now `users.opportunities_scanned_at IS NULL`, not an existence
+    // check on the opportunities table -- detectOpportunities legitimately returns
+    // [] for users with too little financial data yet, and an existence check would
+    // re-trigger detection on every load for exactly that population.
     function mockQueriesForFreshDetectionRun(freshActiveRows) {
         pool.query.mockImplementation((sql) => {
-            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [] }); // no rows of any status ever
+            if (sql.includes('opportunities_scanned_at') && sql.includes('SELECT')) return Promise.resolve({ rows: [{ opportunities_scanned_at: null }] });
+            if (sql.includes('UPDATE users') && sql.includes('opportunities_scanned_at')) return Promise.resolve({ rows: [] });
             if (sql.includes('FROM financial_plans')) return Promise.resolve({ rows: [] });
             if (sql.includes('FROM bank_accounts')) return Promise.resolve({ rows: [{ total: '500000' }] });
             if (sql.includes("type = 'expense'") && sql.includes('3 months')) return Promise.resolve({ rows: [{ avg: '10000' }] });
@@ -193,7 +198,42 @@ describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', 
         });
     }
 
-    test('runs detection inline and reflects the freshly-saved data when the user has zero opportunity rows of any status', async () => {
+    // Same shape as mockQueriesForFreshDetectionRun, but every detector-feeding query
+    // comes back empty/zero -- detectOpportunities legitimately returns [] here.
+    function mockQueriesForZeroOpportunitiesFound() {
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('opportunities_scanned_at') && sql.includes('SELECT')) return Promise.resolve({ rows: [{ opportunities_scanned_at: null }] });
+            if (sql.includes('UPDATE users') && sql.includes('opportunities_scanned_at')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM financial_plans')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM bank_accounts')) return Promise.resolve({ rows: [{ total: '0' }] });
+            if (sql.includes("type = 'expense'") && sql.includes('3 months')) return Promise.resolve({ rows: [{ avg: '0' }] });
+            if (sql.includes('FROM credit_cards')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM loans')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM transactions t LEFT JOIN categories')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM investments')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM users WHERE id')) return Promise.resolve({ rows: [{ ai_cache: {} }] });
+            if (sql.includes('FROM budgets')) return Promise.resolve({ rows: [{ total: '0' }] });
+            if (sql.includes('INSERT INTO opportunities')) return Promise.resolve({ rows: [] });
+            if (sql.includes('SELECT * FROM opportunities') && sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            return Promise.resolve({ rows: [] });
+        });
+    }
+
+    // Represents a user who was already scanned (regardless of whether anything
+    // was found) -- opportunities_scanned_at is set, so lazy-detect must not fire.
+    function mockQueriesForAlreadyScannedUser({ dismissed = '0', actedOn = '0' } = {}) {
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('opportunities_scanned_at') && sql.includes('SELECT')) return Promise.resolve({ rows: [{ opportunities_scanned_at: '2026-09-01T00:00:00.000Z' }] });
+            if (sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: dismissed }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: actedOn }] });
+            return Promise.resolve({ rows: [] });
+        });
+    }
+
+    test('runs detection inline and reflects the freshly-saved data when the user has never been scanned', async () => {
         const freshActiveRows = [{ id: 'opp-1', type: 'idle_cash', title: 'Fresh idle cash opportunity' }];
         mockQueriesForFreshDetectionRun(freshActiveRows);
 
@@ -209,20 +249,53 @@ describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', 
         expect(bankBalanceCalls.length).toBeGreaterThan(0);
         expect(insertCalls.length).toBeGreaterThan(0);
 
+        // The user is marked scanned on success.
+        const scannedUpdateCalls = pool.query.mock.calls.filter(c => c[0].includes('UPDATE users') && c[0].includes('opportunities_scanned_at'));
+        expect(scannedUpdateCalls.length).toBe(1);
+
         // Detection (and its save) happened BEFORE the final summary read, so that a
         // freshly-detected/saved opportunity is what the response reflects.
-        const existsCheckIndex = pool.query.mock.calls.findIndex(c => c[0].includes('SELECT 1 FROM opportunities'));
+        const scannedCheckIndex = pool.query.mock.calls.findIndex(c => c[0].includes('opportunities_scanned_at') && c[0].includes('SELECT'));
         const insertIndex = pool.query.mock.calls.findIndex(c => c[0].includes('INSERT INTO opportunities'));
         const activeReadIndex = pool.query.mock.calls.findIndex(c => c[0].includes('SELECT * FROM opportunities') && c[0].includes("status = 'active'"));
-        expect(existsCheckIndex).toBeGreaterThanOrEqual(0);
-        expect(existsCheckIndex).toBeLessThan(insertIndex);
+        expect(scannedCheckIndex).toBeGreaterThanOrEqual(0);
+        expect(scannedCheckIndex).toBeLessThan(insertIndex);
         expect(insertIndex).toBeLessThan(activeReadIndex);
     });
 
-    test('returns 200 with an empty/zero summary when lazy-detect throws, instead of 500ing the dashboard load', async () => {
+    test('marks the user as scanned even when detectOpportunities finds zero opportunities, so the next call does not re-run detection', async () => {
+        // First call: brand-new user, nothing trips any detector -- detectOpportunities
+        // returns []. saveOpportunities([]) still "succeeds" (does nothing), and the
+        // route must still mark the user as scanned so this isn't repeated forever.
+        mockQueriesForZeroOpportunitiesFound();
+
+        const firstRes = await request(buildApp()).get('/api/opportunities');
+        expect(firstRes.status).toBe(200);
+        expect(firstRes.body.summary).toEqual({ active_count: 0, dismissed_count: 0, acted_on_count: 0 });
+
+        const scannedUpdateCalls = pool.query.mock.calls.filter(c => c[0].includes('UPDATE users') && c[0].includes('opportunities_scanned_at'));
+        expect(scannedUpdateCalls.length).toBe(1);
+        const firstCallBankBalanceCalls = pool.query.mock.calls.filter(c => c[0].includes('FROM bank_accounts'));
+        expect(firstCallBankBalanceCalls.length).toBeGreaterThan(0); // detection did run once
+
+        // Second call, same user: simulate the now-scanned state and confirm detection
+        // does NOT run again even though there are still zero opportunity rows.
+        pool.query.mockReset();
+        mockQueriesForAlreadyScannedUser();
+
+        const secondRes = await request(buildApp()).get('/api/opportunities');
+        expect(secondRes.status).toBe(200);
+
+        const secondCallBankBalanceCalls = pool.query.mock.calls.filter(c => c[0].includes('FROM bank_accounts'));
+        const secondCallInsertCalls = pool.query.mock.calls.filter(c => c[0].includes('INSERT INTO opportunities'));
+        expect(secondCallBankBalanceCalls).toHaveLength(0);
+        expect(secondCallInsertCalls).toHaveLength(0);
+    });
+
+    test('returns 200 with an empty/zero summary when lazy-detect throws, instead of 500ing the dashboard load, and does NOT mark the user as scanned (retries next time)', async () => {
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
         pool.query.mockImplementation((sql) => {
-            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [] }); // no rows ever -> triggers lazy-detect
+            if (sql.includes('opportunities_scanned_at') && sql.includes('SELECT')) return Promise.resolve({ rows: [{ opportunities_scanned_at: null }] }); // never scanned -> triggers lazy-detect
             if (sql.includes('FROM financial_plans')) return Promise.reject(new Error('db exploded'));
             if (sql.includes('SELECT * FROM opportunities') && sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
             if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '0' }] });
@@ -239,17 +312,15 @@ describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', 
         });
         expect(consoleErrorSpy).toHaveBeenCalled();
 
+        // Failure must NOT mark the user as scanned -- next request should retry.
+        const scannedUpdateCalls = pool.query.mock.calls.filter(c => c[0].includes('UPDATE users') && c[0].includes('opportunities_scanned_at'));
+        expect(scannedUpdateCalls).toHaveLength(0);
+
         consoleErrorSpy.mockRestore();
     });
 
-    test('does not run detection when the user already has an opportunity row of any status', async () => {
-        pool.query.mockImplementation((sql) => {
-            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [{ '?column?': 1 }] }); // has a row (any status)
-            if (sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
-            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '3' }] });
-            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '2' }] });
-            return Promise.resolve({ rows: [] });
-        });
+    test('does not run detection when the user has already been scanned', async () => {
+        mockQueriesForAlreadyScannedUser({ dismissed: '3', actedOn: '2' });
 
         const res = await request(buildApp()).get('/api/opportunities');
 
