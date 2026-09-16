@@ -352,7 +352,7 @@ cron.schedule('*/9 * * * *', async () => {
 cron.schedule('0 0 * * *', async () => {
     console.log('[Cron] Processing recurring transactions...');
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = aiRoutes.dateStr(new Date());
         const due = await pool.query(
             `SELECT * FROM recurring_transactions WHERE is_active = true AND next_due_date <= $1`,
             [today]
