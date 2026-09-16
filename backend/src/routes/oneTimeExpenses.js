@@ -15,7 +15,7 @@ router.get('/', authMiddleware, async (req, res) => {
         COALESCE(SUM(i.amount), 0)::float AS total_amount,
         COUNT(i.id)::int                  AS item_count
       FROM one_time_expenses o
-      LEFT JOIN bank_accounts ba          ON ba.id = o.bank_account_id
+      LEFT JOIN bank_accounts ba          ON ba.id = o.bank_account_id AND ba.user_id = o.user_id
       LEFT JOIN one_time_expense_items i  ON i.expense_id = o.id
       WHERE o.user_id = $1
       GROUP BY o.id, ba.name
@@ -51,6 +51,16 @@ router.post('/', authMiddleware, async (req, res) => {
   const { bank_account_id, title, category, notes, icon, color, start_date, end_date } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
   try {
+    if (bank_account_id) {
+      const accountCheck = await pool.query(
+        'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+        [bank_account_id, req.user.id]
+      );
+      if (!accountCheck.rows.length) {
+        return res.status(400).json({ error: 'Invalid bank_account_id' });
+      }
+    }
+
     const result = await pool.query(`
       INSERT INTO one_time_expenses
         (user_id, bank_account_id, title, amount, category, date, notes, icon, color, start_date, end_date, computed_amount)
@@ -102,6 +112,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
     const newBankId = bank_account_id !== undefined
       ? (Number.isFinite(parsedBankId) ? parsedBankId : null)
       : old.bank_account_id;
+
+    if (newBankId) {
+      const accountCheck = await client.query(
+        'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+        [newBankId, req.user.id]
+      );
+      if (!accountCheck.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Invalid bank_account_id' });
+      }
+    }
 
     // Rebalance only when bank account actually changes
     if (old.bank_account_id !== newBankId) {
