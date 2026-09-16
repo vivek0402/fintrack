@@ -15,6 +15,13 @@ const BUCKET = 'fintrack-documents';
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
+    // This checks the client-reported Content-Type only — it does not sniff
+    // file content/magic bytes, so it's trivially spoofable and NOT a hard
+    // security boundary. It's just a UX/defense-in-depth gate against
+    // accidental wrong-file-type uploads. Acceptable here because the only
+    // consumer of this buffer is Supabase blob storage (uploaded as-is and
+    // later served back via a signed URL) -- it is never executed or
+    // interpreted server-side.
     fileFilter: (req, file, cb) => {
         const allowed = [
             'application/pdf',

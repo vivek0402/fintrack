@@ -27,6 +27,16 @@ afterEach(() => {
 });
 
 describe('POST /api/auth/register', () => {
+    test('a 7-character password is rejected with 400 without touching the database', async () => {
+        const res = await request(app)
+            .post('/api/auth/register')
+            .send({ full_name: 'Jane', email: 'jane@example.com', password: 'short12' }); // 7 chars
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Password must be at least 8 characters.');
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+
     test('duplicate, already-verified email returns 409', async () => {
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'u1', is_verified: true }] });
 

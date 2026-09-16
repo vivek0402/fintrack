@@ -14,6 +14,13 @@ const { isNonSavingsExpense, isRealIncome, nonSpendingExclusionSQL } = require('
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 },
+    // This checks the client-reported Content-Type only — it does not sniff
+    // file content/magic bytes, so it's trivially spoofable and NOT a hard
+    // security boundary. It's just a UX/defense-in-depth gate against
+    // accidental wrong-file-type uploads. Acceptable here because the only
+    // consumer of this buffer is Gemini vision (getVisionModel), which fails
+    // gracefully (returns a parse error to the user) on unexpected input --
+    // nothing here executes or interprets the file server-side.
     fileFilter: (req, file, cb) => {
         const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
         if (allowed.includes(file.mimetype)) cb(null, true);
