@@ -63,9 +63,15 @@ export function usePullToRefresh(onRefresh: () => Promise<void> | void, enabled 
         let startY = 0;
         let pointerId: number | null = null;
 
+        // <= rather than === 0: iOS Safari/Chrome rubber-band overscroll and
+        // dynamic-toolbar-hide behavior can leave scrollTop/scrollY at a
+        // small non-zero (or transiently negative, then clamped) value right
+        // at the top, which would make a strict === check false-negative on
+        // exactly the browsers this gesture targets.
+        const AT_TOP_EPSILON = 1;
         const isAtTop = () =>
-            el.scrollTop === 0 &&
-            (typeof window === 'undefined' || window.scrollY === 0);
+            el.scrollTop <= AT_TOP_EPSILON &&
+            (typeof window === 'undefined' || window.scrollY <= AT_TOP_EPSILON);
 
         const onPointerDown = (e: PointerEvent) => {
             if (refreshingRef.current) return; // ignore new drags mid-refresh

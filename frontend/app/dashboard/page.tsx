@@ -221,10 +221,21 @@ export default function DashboardPage() {
     // there's no reliable "fetch actually finished" signal to await here.
     // Bumping refreshKey re-runs the effect; resolving after a short fixed
     // delay is the documented, acceptable simplification for this page.
+    //
+    // A pull-to-refresh is a user explicitly asking for fresh data, so it
+    // must bypass the effect's own 10-minute localStorage cache -- otherwise
+    // (the common case, since a dashboard being viewed was almost always
+    // loaded within the last 10 minutes) refreshKey just re-runs the effect
+    // straight into its cache-hit branch, which returns the same stale data
+    // without any network request. This key format must stay in sync with
+    // the CACHE_KEY built inside the effect below.
     const handleDashboardRefresh = useCallback(() => {
+        if (user) {
+            try { localStorage.removeItem(`dashboard-cache-${user.id}-${month}-${year}`); } catch { /* ignore */ }
+        }
         setRefreshKey(k => k + 1);
         return new Promise<void>(resolve => setTimeout(resolve, 600));
-    }, []);
+    }, [user, month, year]);
     const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(handleDashboardRefresh, isMobile);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
