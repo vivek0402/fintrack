@@ -371,13 +371,11 @@ export default function DashboardPage() {
         accountsAPI.getAll().then(res => setAccounts(res.data.accounts ?? res.data ?? [])).catch(() => {});
         investmentAPI.getAll().then(res => setInvestments(res.data.investments ?? [])).catch(() => {});
         analyticsAPI.getInvestmentRatio().then(res => setInvestmentRatio(res.data)).catch(() => {});
-        analyticsAPI.getWealthVelocity().catch(() => {});
-        analyticsAPI.getAssetAllocation().catch(() => {});
         debtAPI.getCreditUtilization().then(res => setCreditUtilization(res.data)).catch(() => {});
         debtAPI.getDti().then(res => setDti(res.data)).catch(() => {});
         loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
         aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
-        opportunityAPI.detect().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
+        opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user, month, year]);
 
