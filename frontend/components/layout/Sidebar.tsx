@@ -129,11 +129,12 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
         : '?';
 
     return (
-        // `.glass-nav` rather than the lighter `.glass-surface`: page content
-        // scrolls right beside this, the same legibility problem the mobile nav
-        // pill hit on 2026-08-25, resolved there by going dense. Border is set
-        // to a right edge only, so it overrides the class's all-round border.
-        <aside className="glass-surface glass-nav" style={{
+        // `.glass-nav-desktop` sits between the mobile pill's dense fill and a
+        // plain `.glass-surface` card — landed on via a mockup comparison
+        // (2026-09-16) after the fully-dense fill read as flat, not glass, in
+        // practice. Border is set to a right edge only, so it overrides the
+        // class's all-round border.
+        <aside className="glass-surface glass-nav glass-nav-desktop" style={{
             width: '240px',
             flexShrink: 0,
             height: '100vh',

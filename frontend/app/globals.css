@@ -144,8 +144,15 @@ h1, h2, h3, h4, h5, h6 {
   /* Went lighter than .glass-surface at first, then back to dense --
      the nav sits over busy, colorful scrolling content (unlike a modal's
      dimmed scrim), so it needs real contrast to stay legible. Still a hair
-     short of --bg-base so the blur keeps some presence. */
+     short of --bg-base so the blur keeps some presence. Now mobile-only --
+     see --glass-sidebar-surface below for the desktop rail. */
   --glass-nav-surface: rgba(10, 10, 10, 0.88);
+  /* Desktop sidebar landed on a lighter middle ground than the mobile pill
+     after a mockup comparison (2026-09-16): visibly glass without repeating
+     the illegible-over-busy-content failure the fully translucent option
+     hit twice before. Split from --glass-nav-surface so mobile keeps its
+     own, separately-tuned density. */
+  --glass-sidebar-surface: rgba(10, 10, 10, 0.55);
   /* Modal/BottomSheet need denser fill than a passive card -- they carry
      a form, not a glance-and-move-on stat, so they need to stay legible
      on their own regardless of what's scrolled behind them. */
@@ -225,6 +232,7 @@ h1, h2, h3, h4, h5, h6 {
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 8px 24px -14px rgba(20, 22, 45, 0.28);
   --glass-nav-surface: rgba(255, 255, 255, 0.9);
+  --glass-sidebar-surface: rgba(255, 255, 255, 0.65);
   --glass-sheet-surface: rgba(255, 255, 255, 0.82);
 
   /* Glass fill scale -- mirrors --bg-surface-1/2/3, but translucent, for
@@ -304,6 +312,16 @@ aside, aside nav {
    source order. */
 .glass-nav {
   background: var(--glass-nav-surface);
+}
+
+/* Desktop-only override for the sidebar: lighter than the mobile pill's
+   .glass-nav fill (picked via mockup comparison, 2026-09-16) since the
+   sidebar is a fixed rail rather than a dock the eye passes over quickly.
+   Pair as className="glass-surface glass-nav glass-nav-desktop"; wins over
+   .glass-nav by source order, same convention as that rule winning over
+   .glass-surface. */
+.glass-nav-desktop {
+  background: var(--glass-sidebar-surface);
 }
 
 /* Modifier for Modal/BottomSheet -- forms need to stay legible on their
