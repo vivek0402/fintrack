@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, X, SearchX } from 'lucide-react';
@@ -17,6 +17,8 @@ import { BulkOpsPanel } from '@/components/transactions/BulkOpsPanel';
 import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
+import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
@@ -174,6 +176,11 @@ function TransactionsPageInner() {
         }
     };
 
+    // Mobile pull-to-refresh -- fetchTransactions always resolves (its own
+    // try/catch/finally never rethrows), so the indicator's "refreshing"
+    // state tracks the real fetch, not a fixed timeout.
+    const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(fetchTransactions, isMobile);
+
     useEffect(() => {
         if (user) { setDisplayCount(50); fetchTransactions(); }
     }, [user, selectedMonth, selectedYear, filterCreditCardId]);
@@ -314,6 +321,10 @@ function TransactionsPageInner() {
 
     return (
         <>
+            {/* ── PULL-TO-REFRESH WRAPPER (mobile only -- usePullToRefresh no-ops
+                its listeners when isMobile is false) ── */}
+            <div ref={pullToRefreshRef as RefObject<HTMLDivElement>}>
+            {isMobile && <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── TOP BAR: month nav, net hero, income/expense chips, icon controls ── */}
@@ -419,6 +430,7 @@ function TransactionsPageInner() {
                     )}
                 </div>
 
+            </div>
             </div>
 
             {/* ── QUICK ADD FAB — portalled to document.body so it's pinned to the

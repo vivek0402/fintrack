@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, type RefObject } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
@@ -16,6 +16,8 @@ import { toast } from '@/store/toastStore';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { calculateHealthScore } from '@/lib/healthScore';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
@@ -208,6 +210,22 @@ export default function DashboardPage() {
     const [budgets, setBudgets]         = useState<any[]>([]);
     const [goals, setGoals]             = useState<any[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
+    // Bumped by mobile pull-to-refresh to re-run the fetch effect below
+    // without refactoring its inline fetchData into a standalone callable --
+    // see the effect's dependency array a few hundred lines down.
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // The fetch effect's fetchData is defined inline (not a standalone
+    // callable), and its own dataLoading flag can short-circuit to false
+    // without ever going true on a cache hit (see the effect below) -- so
+    // there's no reliable "fetch actually finished" signal to await here.
+    // Bumping refreshKey re-runs the effect; resolving after a short fixed
+    // delay is the documented, acceptable simplification for this page.
+    const handleDashboardRefresh = useCallback(() => {
+        setRefreshKey(k => k + 1);
+        return new Promise<void>(resolve => setTimeout(resolve, 600));
+    }, []);
+    const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(handleDashboardRefresh, isMobile);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
     // Distinct from "haven't loaded one yet" -- a failed fetch used to just
@@ -396,7 +414,7 @@ export default function DashboardPage() {
 
         opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
-    }, [user, month, year]);
+    }, [user, month, year, refreshKey]);
 
     // Daily brief — only relevant for the current month/today. The backend only
     // regenerates it once per day (or via the 4x/day intraday cron), but without
@@ -653,6 +671,8 @@ export default function DashboardPage() {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
+            <div ref={pullToRefreshRef as RefObject<HTMLDivElement>}>
+            {isMobile && <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER (no card) ── */}
@@ -1106,6 +1126,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+            </div>
             </div>
     );
 }
