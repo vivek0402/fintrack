@@ -69,6 +69,44 @@ describe('POST /api/recurring', () => {
         expect(res.status).toBe(201);
         expect(res.body.recurring).toMatchObject({ id: 1, description: 'Rent' });
     });
+
+    test('rejects category_id that does not belong to the user (no INSERT runs)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // category ownership check finds nothing
+
+        const res = await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: 1, category_id: 'not-mine' });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check, no INSERT
+    });
+
+    test('creates a recurring transaction when category_id belongs to the user', async () => {
+        const recurring = { id: 2, type: 'expense', amount: '1000.00', description: 'Rent', frequency: 'monthly', category_id: 'cat-1' };
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'cat-1' }] }) // category ownership check passes
+            .mockResolvedValueOnce({ rows: [recurring] });      // INSERT
+
+        const res = await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: 1, category_id: 'cat-1' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.recurring).toMatchObject({ id: 2, category_id: 'cat-1' });
+    });
+});
+
+describe('GET /api/recurring', () => {
+    afterEach(() => pool.query.mockReset());
+
+    test('scopes the categories join to the same user_id as the recurring transaction (no cross-user leakage)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        await request(buildApp()).get('/api/recurring');
+
+        const [query] = pool.query.mock.calls[0];
+        expect(query).toMatch(/LEFT JOIN categories c ON r\.category_id = c\.id AND c\.user_id = r\.user_id/);
+    });
 });
 
 describe('PATCH /api/recurring/:id/toggle', () => {

@@ -164,6 +164,22 @@ router.post('/', async (req, res) => {
             if (!cardCheck.length)
                 return res.status(400).json({ error: 'Invalid credit_card_id.' });
         }
+        if (category_id) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.length)
+                return res.status(400).json({ error: 'Invalid category_id.' });
+        }
+        if (account_id) {
+            const { rows: accountCheck } = await pool.query(
+                `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
+                [account_id, req.user.id]
+            );
+            if (!accountCheck.length)
+                return res.status(400).json({ error: 'Invalid account_id.' });
+        }
 
         // Only 'manual' and 'sms' may be claimed by this public endpoint —
         // 'cams_import'/'pdf_import' are stamped server-side by their own
@@ -531,6 +547,14 @@ router.put('/:id', async (req, res) => {
             );
             if (!cardCheck.length)
                 return res.status(400).json({ error: 'Invalid credit_card_id.' });
+        }
+        if (category_id) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.length)
+                return res.status(400).json({ error: 'Invalid category_id.' });
         }
 
         const existing = await pool.query(
