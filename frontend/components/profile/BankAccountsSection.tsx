@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { accountsAPI } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 interface BankAccount {
     id: number;
@@ -27,6 +28,7 @@ function fmt(n: number) {
 }
 
 export function BankAccountsSection() {
+    const { user } = useAuthStore();
     const [accounts, setAccounts] = useState<BankAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
@@ -122,6 +124,7 @@ export function BankAccountsSection() {
                     setSuccessMsg(n > 0 ? `✓ Set as default. ${n} existing transactions linked to this account.` : '✓ Set as default account.');
                 }
             }
+            if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
             setShowModal(false);
             fetchAccounts();
         } catch (err) {
@@ -137,6 +140,7 @@ export function BankAccountsSection() {
             const res = await accountsAPI.setDefault(id);
             const n = res.data.transactions_linked ?? 0;
             setSuccessMsg(n > 0 ? `✓ Set as default. ${n} existing transactions linked to this account.` : '✓ Set as default account.');
+            if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
             fetchAccounts();
         } catch (err) {
             console.error(err);
@@ -148,6 +152,7 @@ export function BankAccountsSection() {
         if (!window.confirm('Delete this account? Linked transactions will be unlinked.')) return;
         try {
             await accountsAPI.delete(id);
+            if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
             fetchAccounts();
         } catch (err) {
             console.error(err);

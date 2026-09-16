@@ -153,6 +153,7 @@ export default function InvestmentsPage() {
                 account_label: form.account_label.trim() || undefined,
             };
             await investmentAPI.create(payload);
+            if (user) { localStorage.removeItem(`investments-cache-${user.id}`); localStorage.removeItem(`investment-ratio-cache-${user.id}`); }
             setShowAdd(false);
             setForm(emptyForm);
             setFormErrors({});
@@ -185,6 +186,7 @@ export default function InvestmentsPage() {
         setPriceLoading(true);
         try {
             await investmentAPI.update(activeInvestment.id, { current_nav_or_price: value });
+            if (user) { localStorage.removeItem(`investments-cache-${user.id}`); localStorage.removeItem(`investment-ratio-cache-${user.id}`); }
             setActiveInvestment(null);
             toast.success('Price updated');
             fetchData();
@@ -216,6 +218,7 @@ export default function InvestmentsPage() {
             if (cancelled) return;
             try {
                 await investmentAPI.delete(id);
+                if (user) { localStorage.removeItem(`investments-cache-${user.id}`); localStorage.removeItem(`investment-ratio-cache-${user.id}`); }
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
                 fetchData();
             } catch {

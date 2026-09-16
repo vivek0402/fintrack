@@ -311,6 +311,7 @@ function DebtIntelligencePageInner() {
                 bank_or_lender: addForm.bank_or_lender.trim() || undefined,
                 prepayment_penalty_pct: addForm.prepayment_penalty_pct.trim() ? parseFloat(addForm.prepayment_penalty_pct) : undefined,
             });
+            if (user) { localStorage.removeItem(`dti-cache-${user.id}`); localStorage.removeItem(`active-loan-count-cache-${user.id}`); }
             setShowAdd(false);
             setAddForm(emptyAddForm);
             setAddErrors({});
@@ -369,6 +370,7 @@ function DebtIntelligencePageInner() {
                 bank_or_lender: editForm.bank_or_lender.trim() || undefined,
                 notes: editForm.notes.trim() || undefined,
             });
+            if (user) { localStorage.removeItem(`dti-cache-${user.id}`); localStorage.removeItem(`active-loan-count-cache-${user.id}`); }
             const loanId = editLoan.id;
             setEditLoan(null);
             toast.success('Loan updated');
@@ -386,6 +388,7 @@ function DebtIntelligencePageInner() {
     const handleMarkRepaid = async (loan: Loan) => {
         try {
             await loanAPI.delete(loan.id);
+            if (user) { localStorage.removeItem(`dti-cache-${user.id}`); localStorage.removeItem(`active-loan-count-cache-${user.id}`); }
             toast.success(`${loan.name} marked as repaid`);
             fetchData();
         } catch {
@@ -416,6 +419,7 @@ function DebtIntelligencePageInner() {
         setLogPrepayLoading(true);
         try {
             await loanAPI.addPrepayment(logPrepayLoanId, { amount, prepayment_date: logPrepayForm.prepayment_date });
+            if (user) { localStorage.removeItem(`dti-cache-${user.id}`); localStorage.removeItem(`active-loan-count-cache-${user.id}`); }
             toast.success('Prepayment logged');
             const loanId = logPrepayLoanId;
             setLogPrepayLoanId(null);

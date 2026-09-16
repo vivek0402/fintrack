@@ -386,13 +386,13 @@ export default function DashboardPage() {
         const FIFTEEN_MIN = 15 * 60 * 1000;
         const THIRTY_MIN = 30 * 60 * 1000;
 
-        fetchCached<any>(`accounts-cache-${user.id}`, TEN_MIN, () => accountsAPI.getAll(), data => setAccounts(data.accounts ?? data ?? []));
-        fetchCached<any>(`investments-cache-${user.id}`, TEN_MIN, () => investmentAPI.getAll(), data => setInvestments(data.investments ?? []));
-        fetchCached<any>(`investment-ratio-cache-${user.id}`, FIFTEEN_MIN, () => analyticsAPI.getInvestmentRatio(), data => setInvestmentRatio(data));
-        fetchCached<any>(`credit-utilization-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getCreditUtilization(), data => setCreditUtilization(data));
-        fetchCached<any>(`dti-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getDti(), data => setDti(data));
-        fetchCached<any>(`active-loan-count-cache-${user.id}`, FIFTEEN_MIN, () => loanAPI.getAll(true), data => setActiveLoanCount((data.loans || []).length));
-        fetchCached<any>(`salary-intel-cache-${user.id}`, THIRTY_MIN, () => aiAPI.salaryIntelligence(), data => { if (data?.detected) setSalaryData(data); });
+        fetchCached(`accounts-cache-${user.id}`, TEN_MIN, () => accountsAPI.getAll(), data => setAccounts(data.accounts ?? data ?? []));
+        fetchCached(`investments-cache-${user.id}`, TEN_MIN, () => investmentAPI.getAll(), data => setInvestments(data.investments ?? []));
+        fetchCached(`investment-ratio-cache-${user.id}`, FIFTEEN_MIN, () => analyticsAPI.getInvestmentRatio(), data => setInvestmentRatio(data));
+        fetchCached(`credit-utilization-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getCreditUtilization(), data => setCreditUtilization(data));
+        fetchCached(`dti-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getDti(), data => setDti(data));
+        fetchCached(`active-loan-count-cache-${user.id}`, FIFTEEN_MIN, () => loanAPI.getAll(true), data => setActiveLoanCount((data.loans || []).length));
+        fetchCached(`salary-intel-cache-${user.id}`, THIRTY_MIN, () => aiAPI.salaryIntelligence(), data => { if (data?.detected) setSalaryData(data); });
 
         opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));

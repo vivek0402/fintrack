@@ -179,6 +179,7 @@ export default function AccountsPage() {
         try {
             const data = { name: bankForm.name.trim(), account_type: bankForm.account_type, last_four: bankForm.last_four || null, starting_balance: parseFloat(bankForm.starting_balance) || 0, balance_as_of: bankForm.balance_as_of || null };
             if (editingBank) await accountsAPI.update(editingBank.id, data); else await accountsAPI.create(data);
+            if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
             await fetchAll(); setShowBankModal(false); showToast(editingBank ? 'Account updated' : 'Account added');
         } catch { showToast('Failed to save account'); }
         setSaving(false);
@@ -198,6 +199,7 @@ export default function AccountsPage() {
         try {
             const data = { bank_name: cardForm.bank_name.trim(), card_name: cardForm.card_name.trim(), last_four: cardForm.last_four || null, credit_limit: parseFloat(cardForm.credit_limit) || 0, outstanding_balance: parseFloat(cardForm.outstanding_balance) || 0, balance_as_of: cardForm.balance_as_of || null, billing_date: parseInt(cardForm.billing_date) || null, due_days: parseInt(cardForm.due_days) || 20, network: cardForm.network, color: cardForm.color, interest_rate_pct: cardForm.interest_rate_pct ? parseFloat(cardForm.interest_rate_pct) : null };
             if (editingCard) await creditCardsAPI.update(editingCard.id, data); else await creditCardsAPI.create(data);
+            if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
             await fetchAll(); setShowCardModal(false); showToast(editingCard ? 'Card updated' : 'Card added');
         } catch { showToast('Failed to save card'); }
         setSaving(false);
@@ -213,6 +215,7 @@ export default function AccountsPage() {
         setSaving(true);
         try {
             await creditCardsAPI.payBill(payingCard.id, { bank_account_id: parseInt(payForm.bank_account_id), amount: parseFloat(payForm.amount), date: payForm.date });
+            if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
             await fetchAll(); setShowPayModal(false); showToast('Payment recorded');
         } catch { showToast('Failed to record payment'); }
         setSaving(false);
@@ -239,16 +242,26 @@ export default function AccountsPage() {
         setEditingWalletBalanceId(null);
     };
     const handleSetDefault = async (id: number) => {
-        try { await accountsAPI.setDefault(id); await fetchAll(); showToast('Default account updated'); }
+        try {
+            await accountsAPI.setDefault(id);
+            if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
+            await fetchAll(); showToast('Default account updated');
+        }
         catch { showToast('Failed to set default'); }
     };
     const confirmDelete = (type: 'bank' | 'card' | 'wallet', id: number, name: string) => setDeleteConfirm({ type, id, name });
     const executeDelete = async () => {
         if (!deleteConfirm) return;
         try {
-            if      (deleteConfirm.type === 'bank')   await accountsAPI.delete(deleteConfirm.id);
-            else if (deleteConfirm.type === 'card')   await creditCardsAPI.delete(deleteConfirm.id);
-            else                                       await walletsAPI.delete(deleteConfirm.id);
+            if (deleteConfirm.type === 'bank') {
+                await accountsAPI.delete(deleteConfirm.id);
+                if (user) localStorage.removeItem(`accounts-cache-${user.id}`);
+            } else if (deleteConfirm.type === 'card') {
+                await creditCardsAPI.delete(deleteConfirm.id);
+                if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
+            } else {
+                await walletsAPI.delete(deleteConfirm.id);
+            }
             await fetchAll(); showToast('Deleted');
         } catch { showToast('Failed to delete'); }
         setDeleteConfirm(null);
