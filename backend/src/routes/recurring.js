@@ -107,6 +107,14 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidRecurringFrequency(frequency))
             return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
+        if (category_id) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.length)
+                return res.status(400).json({ error: 'Invalid category_id.' });
+        }
 
         const { rows: oldRows } = await pool.query(
             'SELECT amount FROM recurring_transactions WHERE id=$1 AND user_id=$2',

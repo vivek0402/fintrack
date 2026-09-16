@@ -109,6 +109,36 @@ describe('GET /api/recurring', () => {
     });
 });
 
+describe('PUT /api/recurring/:id', () => {
+    afterEach(() => pool.query.mockReset());
+
+    test('rejects category_id that does not belong to the user (no UPDATE runs)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // category ownership check finds nothing
+
+        const res = await request(buildApp())
+            .put('/api/recurring/1')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', category_id: 'not-mine' });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check, no UPDATE
+    });
+
+    test('updates a recurring transaction when category_id belongs to the user', async () => {
+        const updated = { id: 1, type: 'expense', amount: '1200.00', description: 'Rent', frequency: 'monthly', category_id: 'cat-1' };
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'cat-1' }] })    // category ownership check passes
+            .mockResolvedValueOnce({ rows: [{ amount: '1000' }] }) // oldRows lookup
+            .mockResolvedValueOnce({ rows: [updated] });           // UPDATE
+
+        const res = await request(buildApp())
+            .put('/api/recurring/1')
+            .send({ type: 'expense', amount: 1200, description: 'Rent', frequency: 'monthly', category_id: 'cat-1' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.recurring).toMatchObject({ id: 1, category_id: 'cat-1' });
+    });
+});
+
 describe('PATCH /api/recurring/:id/toggle', () => {
     afterEach(() => pool.query.mockReset());
 
