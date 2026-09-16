@@ -166,7 +166,7 @@ router.post('/', async (req, res) => {
         }
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)
@@ -550,7 +550,7 @@ router.put('/:id', async (req, res) => {
         }
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)

@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT r.*, c.name AS category_name, c.color AS category_color, c.icon AS category_icon
-       FROM recurring_transactions r LEFT JOIN categories c ON r.category_id = c.id AND c.user_id = r.user_id
+       FROM recurring_transactions r LEFT JOIN categories c ON r.category_id = c.id AND (c.user_id = r.user_id OR c.user_id IS NULL)
        WHERE r.user_id=$1 ORDER BY r.created_at DESC`,
             [req.user.id]
         );
@@ -35,7 +35,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)
@@ -109,7 +109,7 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND user_id = $2`,
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)
