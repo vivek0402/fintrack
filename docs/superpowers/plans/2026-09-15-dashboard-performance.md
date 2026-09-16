@@ -431,6 +431,128 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 
 ---
 
+### Task 3.5: Lazy-detect opportunities on a user's first-ever `GET /`
+
+**Files:**
+- Modify: `backend/src/routes/opportunities.js`
+- Modify: `backend/tests/opportunities.routes.test.js`
+
+**Why:** Task 2 moved detection to a once-daily 7am cron that only scans users active in the last 2 days (a transaction or an opened daily briefing). Task 3 made the dashboard read via `GET /` instead of triggering detection on `POST /detect`. Together, this means a user with zero opportunity rows ever created (a brand-new signup, or anyone who hasn't logged a transaction or opened their briefing recently) would see an empty opportunities section indefinitely — not just until the next cron run, but forever, until they happen to satisfy the cron's activity filter. This task closes that gap: `GET /` detects once, inline, the very first time a user has no opportunity rows at all (any status), then serves the fast read path for every call after that — matching old on-first-load behavior without paying the detection cost on every subsequent load.
+
+Read the current `GET /` route handler in `backend/src/routes/opportunities.js` in full first (it currently runs three `Promise.all`'d queries: active rows, dismissed count, acted-on count) before editing.
+
+- [ ] **Step 1: Write the failing test**
+
+In `backend/tests/opportunities.routes.test.js`, add:
+```js
+describe('GET / — lazy-detects on a user\'s first-ever call', () => {
+    test('runs detection and saves before responding when the user has zero opportunity rows of any status', async () => {
+        const app = express();
+        app.use(express.json());
+        app.use((req, res, next) => { req.user = { id: 'user-1' }; next(); });
+        app.use('/', opportunitiesRouter);
+
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [] }); // no rows at all yet
+            if (sql.includes('FROM bank_accounts')) return Promise.resolve({ rows: [{ total: '1500000' }] });
+            if (sql.includes("type = 'expense'") && sql.includes('3 months')) return Promise.resolve({ rows: [{ avg: '50000' }] });
+            if (sql.includes("status = 'active'")) return Promise.resolve({ rows: [{ id: 'opp-1', type: 'idle_cash' }] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            return Promise.resolve({ rows: [] });
+        });
+
+        const res = await request(app).get('/');
+        expect(res.status).toBe(200);
+        expect(res.body.opportunities).toEqual([{ id: 'opp-1', type: 'idle_cash' }]);
+
+        const existsCheck = pool.query.mock.calls.some(c => c[0].includes('SELECT 1 FROM opportunities'));
+        expect(existsCheck).toBe(true);
+    });
+
+    test('skips detection entirely when the user already has at least one opportunity row', async () => {
+        const app = express();
+        app.use(express.json());
+        app.use((req, res, next) => { req.user = { id: 'user-1' }; next(); });
+        app.use('/', opportunitiesRouter);
+
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [{ '?column?': 1 }] }); // has a row already
+            if (sql.includes("status = 'active'")) return Promise.resolve({ rows: [{ id: 'opp-existing' }] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '2' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '1' }] });
+            return Promise.resolve({ rows: [] });
+        });
+
+        const res = await request(app).get('/');
+        expect(res.status).toBe(200);
+        expect(res.body.opportunities).toEqual([{ id: 'opp-existing' }]);
+
+        // Only the exists-check + the 3 summary queries should run -- never
+        // a bank-balance or avg-expense query, since detection must not fire.
+        const bankBalanceCalls = pool.query.mock.calls.filter(c => c[0].includes('FROM bank_accounts'));
+        expect(bankBalanceCalls).toHaveLength(0);
+    });
+});
+```
+Check the real existing top of `backend/tests/opportunities.routes.test.js` for how `express`, `request` (supertest), and the router are already imported/mounted in this file's other route-level tests (there may already be an existing pattern for testing `GET /` or `POST /detect` through a mounted Express app with a fake auth middleware — reuse that exact pattern, including the correct import name for the router itself, e.g. `opportunitiesRouter` may actually be named differently in this file's existing imports). Adjust the test scaffolding above to match whatever pattern already exists in this file rather than introducing a second, inconsistent way of mounting the router — if no such pattern exists yet in this file (only direct function-call tests exist so far), it's fine to introduce one, following supertest conventions already used elsewhere in this backend's test suite (check another route test file, e.g. `backend/tests/personalLoans.routes.test.js` or similar, for the established supertest mounting convention in this codebase).
+
+- [ ] **Step 2: Run tests, confirm they fail** (route doesn't lazy-detect yet).
+
+- [ ] **Step 3: Implement**
+
+Change the `GET /` handler to:
+```js
+router.get('/', async (req, res) => {
+    try {
+        const existsRes = await pool.query(`SELECT 1 FROM opportunities WHERE user_id = $1 LIMIT 1`, [req.user.id]);
+        if (existsRes.rows.length === 0) {
+            // First time we've ever seen this user on this endpoint -- detect
+            // once inline so they don't wait for the next daily cron run.
+            // Every call after this one takes the fast read-only path below.
+            const detected = await detectOpportunities(req.user.id);
+            await saveOpportunities(req.user.id, detected);
+        }
+
+        const [activeRes, dismissedRes, actedRes] = await Promise.all([
+            pool.query(`SELECT * FROM opportunities WHERE user_id = $1 AND status = 'active' ORDER BY priority ASC, detected_at DESC`, [req.user.id]),
+            pool.query(`SELECT COUNT(*) FROM opportunities WHERE user_id = $1 AND status = 'dismissed'`, [req.user.id]),
+            pool.query(`SELECT COUNT(*) FROM opportunities WHERE user_id = $1 AND status = 'acted_on'`, [req.user.id]),
+        ]);
+
+        res.json({
+            opportunities: activeRes.rows,
+            summary: {
+                active_count: activeRes.rows.length,
+                dismissed_count: parseInt(dismissedRes.rows[0].count, 10),
+                acted_on_count: parseInt(actedRes.rows[0].count, 10),
+            },
+        });
+    } catch (err) {
+        console.error('[Opportunities]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+```
+Note the exists-check is scoped to ANY status (not just `status = 'active'`) — a user who has previously had opportunities detected, then dismissed or acted on every single one, must NOT be re-detected on every subsequent `GET /` just because their active count happens to be zero. Only a user with literally zero rows ever (brand new to this feature) triggers the inline detection.
+
+- [ ] **Step 4: Run tests to verify they pass.**
+
+- [ ] **Step 5: Run the full backend suite** (`cd backend && npx jest`) — confirm nothing else broke.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/src/routes/opportunities.js backend/tests/opportunities.routes.test.js
+git commit -m "perf(opportunities): lazy-detect on a user's first-ever GET so new/inactive users aren't stuck waiting for the daily cron"
+```
+with trailer:
+```
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+```
+
+---
+
 ### Task 4: A tiny reusable localStorage TTL-cache primitive
 
 **Files:**
