@@ -219,6 +219,29 @@ describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', 
         expect(insertIndex).toBeLessThan(activeReadIndex);
     });
 
+    test('returns 200 with an empty/zero summary when lazy-detect throws, instead of 500ing the dashboard load', async () => {
+        const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [] }); // no rows ever -> triggers lazy-detect
+            if (sql.includes('FROM financial_plans')) return Promise.reject(new Error('db exploded'));
+            if (sql.includes('SELECT * FROM opportunities') && sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            return Promise.resolve({ rows: [] });
+        });
+
+        const res = await request(buildApp()).get('/api/opportunities');
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({
+            opportunities: [],
+            summary: { active_count: 0, dismissed_count: 0, acted_on_count: 0 },
+        });
+        expect(consoleErrorSpy).toHaveBeenCalled();
+
+        consoleErrorSpy.mockRestore();
+    });
+
     test('does not run detection when the user already has an opportunity row of any status', async () => {
         pool.query.mockImplementation((sql) => {
             if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [{ '?column?': 1 }] }); // has a row (any status)

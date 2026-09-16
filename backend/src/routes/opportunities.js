@@ -411,8 +411,25 @@ router.get('/', async (req, res) => {
             [req.user.id]
         );
         if (existsRes.rows.length === 0) {
-            const detected = await detectOpportunities(req.user.id);
-            await saveOpportunities(req.user.id, detected);
+            // Own try/catch: this is a passive read path (GET /) that previously could
+            // never fail this way -- an empty result just meant `[]`/`0`, never an error.
+            // A detection/save failure here must not 500 the user's dashboard load; log
+            // and fall through to the normal summary read below, which will legitimately
+            // come back empty/zero for this user (same as if lazy-detect had never run).
+            try {
+                const detected = await detectOpportunities(req.user.id);
+                // Accepted tradeoff: a partial saveOpportunities failure (one of its
+                // parallel upserts rejects while siblings already committed) can leave
+                // some opportunity types permanently undetected for this user outside the
+                // daily cron, since the exists-check above only requires ANY row to skip
+                // re-detection next time. saveOpportunities is intentionally
+                // non-transactional (Task 1) so cron/POST /detect callers get
+                // cross-upsert concurrency; making this one call site atomic would need a
+                // different code path than the shared helper those callers also use.
+                await saveOpportunities(req.user.id, detected);
+            } catch (err) {
+                console.error('[Opportunities] lazy-detect failed', err.message);
+            }
         }
 
         const [activeRes, dismissedRes, actedRes] = await Promise.all([
