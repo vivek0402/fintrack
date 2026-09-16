@@ -921,7 +921,10 @@ cron.schedule('0 21 * * *', async () => {
     console.log('[Cron] Generating daily briefings...');
     let success = 0, failed = 0, skipped = 0;
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // Must agree with ai.js's own dateStr() (IST-based) -- this cron looks up
+        // today's daily_briefings row by brief_date, so a mismatched day boundary
+        // here would make it check push_sent_at against the wrong day's row.
+        const today = aiRoutes.dateStr(new Date());
         const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
 
         for (const { user_id } of users) {

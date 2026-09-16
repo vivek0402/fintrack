@@ -1385,7 +1385,11 @@ ${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 }
 
 // ─── FEATURE: Daily Briefing ─────────────────────────────────────────
-const dateStr = (d) => d.toISOString().split('T')[0];
+// IST, not UTC -- this drives the daily brief's "today"/"yesterday" boundary
+// (brief_date, streak windows, refresh-log rate limiting). Using UTC here
+// meant the day rolled over at 5:30am IST instead of midnight IST for every
+// user of this India-only app.
+const dateStr = (d) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 async function getDailyBriefData(userId) {
     const now = new Date();
@@ -2059,3 +2063,4 @@ module.exports.generateDailyBriefing = generateDailyBriefing;
 module.exports.rankActionCandidates = rankActionCandidates;
 module.exports.buildDailyBriefPoints = buildDailyBriefPoints;
 module.exports.filterRepeatedRiskFlags = filterRepeatedRiskFlags;
+module.exports.dateStr = dateStr;

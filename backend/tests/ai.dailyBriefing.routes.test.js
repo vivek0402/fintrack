@@ -29,6 +29,7 @@ const request = require('supertest');
 const pool = require('../src/db/pool');
 const { aiComplete } = require('../src/utils/ai');
 const aiRouter = require('../src/routes/ai');
+const { dateStr } = aiRouter;
 
 function buildApp() {
     const app = express();
@@ -36,6 +37,21 @@ function buildApp() {
     app.use('/api/ai', aiRouter);
     return app;
 }
+
+describe('dateStr — IST day boundary', () => {
+    test('a moment already tomorrow in IST but still today in UTC reports the IST date', () => {
+        // 2026-01-15 01:00 IST == 2026-01-14 19:30 UTC. A UTC-based dateStr
+        // (the pre-fix implementation) would report 2026-01-14 here -- almost
+        // 5.5 hours into "tomorrow" for every user of this India-only app.
+        const ts = new Date('2026-01-14T19:30:00.000Z');
+        expect(dateStr(ts)).toBe('2026-01-15');
+    });
+
+    test('a moment still today in both IST and UTC agrees with the UTC date', () => {
+        const ts = new Date('2026-01-15T10:00:00.000Z'); // 2026-01-15 15:30 IST
+        expect(dateStr(ts)).toBe('2026-01-15');
+    });
+});
 
 describe('POST /api/ai/briefing/daily/generate', () => {
     beforeEach(() => {
