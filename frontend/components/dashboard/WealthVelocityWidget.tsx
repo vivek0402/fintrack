@@ -94,7 +94,7 @@ export function WealthVelocityWidget() {
                             <div style={{ width: 110, height: 60, flexShrink: 0 }}>
                                 <ResponsiveContainer width="100%" height={60}>
                                     <BarChart data={last6}>
-                                        <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} isAnimationActive={false}>
+                                        <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={600}>
                                             {last6.map((d, i) => (
                                                 <Cell key={i} fill={d.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
                                             ))}

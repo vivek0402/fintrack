@@ -64,7 +64,7 @@ export function AssetAllocationWidget() {
                 <div style={{ width: 100, height: 100, flexShrink: 0 }}>
                     <ResponsiveContainer width="100%" height={100}>
                         <PieChart>
-                            <Pie data={allocations} dataKey="amount" nameKey="label" innerRadius={28} outerRadius={45} paddingAngle={2} isAnimationActive={false}>
+                            <Pie data={allocations} dataKey="amount" nameKey="label" innerRadius={28} outerRadius={45} paddingAngle={2} animationDuration={600}>
                                 {allocations.map((_, i) => (
                                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                 ))}

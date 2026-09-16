@@ -79,7 +79,7 @@ export function NetWorthWidget() {
                     <div style={{ width: 110, height: 40, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height={40}>
                             <LineChart data={last6}>
-                                <Line type="monotone" dataKey="net_worth" stroke="var(--accent)" strokeWidth={2} dot={false} isAnimationActive={false} />
+                                <Line type="monotone" dataKey="net_worth" stroke="var(--accent)" strokeWidth={2} dot={false} animationDuration={600} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

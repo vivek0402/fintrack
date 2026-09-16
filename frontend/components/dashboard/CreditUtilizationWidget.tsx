@@ -70,7 +70,7 @@ export function CreditUtilizationWidget() {
                 <div style={{ width: 80, height: 80, flexShrink: 0, position: 'relative' }}>
                     <ResponsiveContainer width="100%" height={80}>
                         <PieChart>
-                            <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} isAnimationActive={false} stroke="none">
+                            <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} animationDuration={600} stroke="none">
                                 <Cell fill={color} />
                                 <Cell fill="var(--border-subtle)" />
                             </Pie>

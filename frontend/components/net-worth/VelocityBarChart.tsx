@@ -26,7 +26,7 @@ export function VelocityBarChart({ allMomChanges }: Props) {
             <BarChart data={allMomChanges}>
                 <XAxis dataKey="to_date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<VelocityTooltip />} />
-                <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} isAnimationActive={false}>
+                <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={600}>
                     {allMomChanges.map((d, i) => (
                         <Cell key={i} fill={d.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
                     ))}
