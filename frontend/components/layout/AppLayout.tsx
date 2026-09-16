@@ -29,7 +29,7 @@ const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
-    const { loadTheme } = useThemeStore();
+    const { loadTheme, loadSidebarCollapsed, sidebarCollapsed } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
     const [aiFabHover, setAiFabHover] = useState(false);
@@ -37,7 +37,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const [showTour, setShowTour] = useState(false);
     const { user } = useAuthStore();
 
-    useEffect(() => { loadTheme(); }, []);
+    useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
 
     useEffect(() => {
         initPushNotifications();
@@ -97,7 +97,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <main
                 key={pathname}
                 style={{
-                    marginLeft: isMobile ? '0' : '240px',
+                    marginLeft: isMobile ? '0' : sidebarCollapsed ? '76px' : '240px',
                     flex: 1,
                     minHeight: '100vh',
                     overflowX: 'hidden',
@@ -107,6 +107,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     // positioned and would otherwise paint over unpositioned content.
                     position: 'relative',
                     zIndex: 1,
+                    transition: 'margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
             >
                 <div style={{

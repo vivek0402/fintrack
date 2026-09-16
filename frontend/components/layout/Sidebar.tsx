@@ -9,6 +9,7 @@ import {
     Waves, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, Handshake,
     MoreHorizontal, ChevronUp, HelpCircle,
+    PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -68,12 +69,12 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
-    const { loadTheme } = useThemeStore();
+    const { loadTheme, sidebarCollapsed, toggleSidebarCollapsed, loadSidebarCollapsed } = useThemeStore();
     const isMobile = useIsMobile();
 
     const [moreOpen, setMoreOpen] = useState(false);
 
-    useEffect(() => { loadTheme(); }, []);
+    useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
 
     // Auto-expand "More" if the active page lives in one of its groups
     useEffect(() => {
@@ -89,20 +90,23 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const renderLink = ({ href, icon: Icon, label }: { href: string; icon: typeof LayoutDashboard; label: string }) => {
         const isActive = pathname === href || pathname.startsWith(href + '/');
         return (
-            <Link key={href} href={href} style={{ textDecoration: 'none' }}>
+            <Link key={href} href={href} style={{ textDecoration: 'none' }} title={sidebarCollapsed ? label : undefined}>
                 <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 'var(--space-3)',
-                        padding: '9px var(--space-3)',
+                        justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                        gap: sidebarCollapsed ? 0 : 'var(--space-3)',
+                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
                         borderRadius: 'var(--radius-md)',
                         background: isActive ? 'var(--accent-subtle)' : 'transparent',
                         color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
                         fontSize: 'var(--text-body)',
                         fontWeight: isActive ? 600 : 400,
-                        transition: 'all var(--transition-fast)',
+                        transition: 'background var(--transition-fast), color var(--transition-fast)',
                         cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
                     }}
                     onMouseEnter={e => {
                         if (!isActive) {
@@ -117,8 +121,8 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         }
                     }}
                 >
-                    <Icon size={17} color="currentColor" />
-                    {label}
+                    <Icon size={17} color="currentColor" style={{ flexShrink: 0 }} />
+                    {!sidebarCollapsed && label}
                 </div>
             </Link>
         );
@@ -135,7 +139,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
         // practice. Border is set to a right edge only, so it overrides the
         // class's all-round border.
         <aside className="glass-surface glass-nav glass-nav-desktop" style={{
-            width: '240px',
+            width: sidebarCollapsed ? '76px' : '240px',
             flexShrink: 0,
             height: '100vh',
             border: 'none',
@@ -147,12 +151,45 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
             top: 0,
             left: 0,
             zIndex: 50,
+            transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'visible',
         }}>
+            {/* Collapse/expand toggle — floats on the sidebar's right border so
+                it never competes with the header's own icons at either width. */}
+            <button
+                type="button"
+                onClick={toggleSidebarCollapsed}
+                title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                style={{
+                    position: 'absolute',
+                    top: '28px',
+                    right: '-12px',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '50%',
+                    background: 'var(--bg-surface-2)',
+                    border: '1px solid var(--border-visible)',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: 'var(--shadow-card)',
+                    transition: 'background var(--transition-fast), color var(--transition-fast)',
+                    zIndex: 51,
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+            >
+                {sidebarCollapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
+            </button>
+
             {/* Wordmark + notification bell */}
             <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: sidebarCollapsed ? 'center' : 'space-between',
                 padding: '0 var(--space-2)',
                 marginBottom: 'var(--space-6)',
             }}>
@@ -166,46 +203,50 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     }}>
                         Fin
                     </span>
-                    <span style={{
-                        fontFamily: 'var(--font-display)',
-                        fontWeight: 500,
-                        fontSize: '20px',
-                        color: 'var(--accent)',
-                        letterSpacing: '-0.02em',
-                    }}>
-                        Track
-                    </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    {onOpenTour && (
-                        <button
-                            type="button"
-                            onClick={onOpenTour}
-                            title="Replay the app tour"
-                            aria-label="Replay the app tour"
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                padding: '6px',
-                                borderRadius: 'var(--radius-md)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'background var(--transition-fast)',
-                            }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                        >
-                            <HelpCircle size={18} />
-                        </button>
+                    {!sidebarCollapsed && (
+                        <span style={{
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 500,
+                            fontSize: '20px',
+                            color: 'var(--accent)',
+                            letterSpacing: '-0.02em',
+                        }}>
+                            Track
+                        </span>
                     )}
-                    <NotificationBell panelAlign="left" />
                 </div>
+                {!sidebarCollapsed && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        {onOpenTour && (
+                            <button
+                                type="button"
+                                onClick={onOpenTour}
+                                title="Replay the app tour"
+                                aria-label="Replay the app tour"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    padding: '6px',
+                                    borderRadius: 'var(--radius-md)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'background var(--transition-fast)',
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            >
+                                <HelpCircle size={18} />
+                            </button>
+                        )}
+                        <NotificationBell panelAlign="left" />
+                    </div>
+                )}
             </div>
 
-            <GlobalSearch />
+            {!sidebarCollapsed && <GlobalSearch />}
 
             {/* Nav — scrollable */}
             <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: 'var(--space-4)', overflowY: 'auto', overflowX: 'hidden' }}>
@@ -215,12 +256,13 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 <button
                     type="button"
                     onClick={() => setMoreOpen(v => !v)}
+                    title={sidebarCollapsed ? 'More' : undefined}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
+                        justifyContent: sidebarCollapsed ? 'center' : 'space-between',
                         gap: 'var(--space-3)',
-                        padding: '9px var(--space-3)',
+                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
                         marginTop: 'var(--space-1)',
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',
@@ -229,31 +271,35 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         fontSize: 'var(--text-body)',
                         fontFamily: 'var(--font-body)',
                         cursor: 'pointer',
-                        transition: 'all var(--transition-fast)',
+                        transition: 'color var(--transition-fast)',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
                 >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : 'var(--space-3)' }}>
                         <MoreHorizontal size={17} color="currentColor" />
-                        More
+                        {!sidebarCollapsed && 'More'}
                     </span>
-                    <ChevronUp size={15} color="currentColor" style={{ transform: moreOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform var(--transition-fast)' }} />
+                    {!sidebarCollapsed && (
+                        <ChevronUp size={15} color="currentColor" style={{ transform: moreOpen ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform var(--transition-fast)' }} />
+                    )}
                 </button>
 
                 {moreOpen && moreGroups.map(group => (
                     <div key={group.label} style={{ marginTop: 'var(--space-2)' }}>
-                        <p style={{
-                            fontSize: 'var(--text-label)',
-                            fontWeight: 700,
-                            color: 'var(--text-muted)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.08em',
-                            margin: '0 0 var(--space-1) var(--space-3)',
-                            fontFamily: 'var(--font-body)',
-                        }}>
-                            {group.label}
-                        </p>
+                        {!sidebarCollapsed && (
+                            <p style={{
+                                fontSize: 'var(--text-label)',
+                                fontWeight: 700,
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                                margin: '0 0 var(--space-1) var(--space-3)',
+                                fontFamily: 'var(--font-body)',
+                            }}>
+                                {group.label}
+                            </p>
+                        )}
                         {group.items.map(renderLink)}
                     </div>
                 ))}
@@ -267,7 +313,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     margin: 'var(--space-3) 0',
                 }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-2)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-2)' }} title={sidebarCollapsed ? (user?.full_name || user?.email) : undefined}>
                     <div style={{
                         width: '34px',
                         height: '34px',
@@ -284,41 +330,45 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     }}>
                         {initials}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                        <p style={{
-                            fontSize: 'var(--text-body)',
-                            fontWeight: 600,
-                            color: 'var(--text-primary)',
-                            margin: 0,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}>
-                            {user?.full_name}
-                        </p>
-                        <p style={{
-                            fontSize: 'var(--text-caption)',
-                            color: 'var(--text-muted)',
-                            margin: '1px 0 0 0',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                        }}>
-                            {user?.email}
-                        </p>
-                    </div>
+                    {!sidebarCollapsed && (
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{
+                                fontSize: 'var(--text-body)',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                margin: 0,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                            }}>
+                                {user?.full_name}
+                            </p>
+                            <p style={{
+                                fontSize: 'var(--text-caption)',
+                                color: 'var(--text-muted)',
+                                margin: '1px 0 0 0',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                            }}>
+                                {user?.email}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
-                <InstallPWA />
+                {!sidebarCollapsed && <InstallPWA />}
 
                 <button
                     type="button"
                     onClick={handleLogout}
+                    title={sidebarCollapsed ? 'Logout' : undefined}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 'var(--space-3)',
-                        padding: '9px var(--space-3)',
+                        justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                        gap: sidebarCollapsed ? 0 : 'var(--space-3)',
+                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
                         width: '100%',
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',
@@ -327,7 +377,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         fontSize: 'var(--text-body)',
                         fontFamily: 'var(--font-body)',
                         cursor: 'pointer',
-                        transition: 'all var(--transition-fast)',
+                        transition: 'background var(--transition-fast), color var(--transition-fast)',
                     }}
                     onMouseEnter={e => {
                         const el = e.currentTarget as HTMLElement;
@@ -341,7 +391,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     }}
                 >
                     <LogOut size={17} />
-                    Logout
+                    {!sidebarCollapsed && 'Logout'}
                 </button>
             </div>
         </aside>

@@ -8,21 +8,27 @@ function applyAttributes(theme: Theme) {
 
 interface ThemeStore {
     theme: Theme;
-    sidebarWidth: number;
+    sidebarCollapsed: boolean;
     setTheme: (theme: Theme) => void;
-    setSidebarWidth: (w: number) => void;
+    toggleSidebarCollapsed: () => void;
     loadTheme: () => void;
+    loadSidebarCollapsed: () => void;
 }
 
-export const useThemeStore = create<ThemeStore>((set) => ({
+export const useThemeStore = create<ThemeStore>((set, get) => ({
     theme: 'dark',
-    sidebarWidth: 220,
-    setSidebarWidth: (w) => set({ sidebarWidth: w }),
+    sidebarCollapsed: false,
 
     setTheme: (theme) => {
         localStorage.setItem('fintrack-theme', theme);
         applyAttributes(theme);
         set({ theme });
+    },
+
+    toggleSidebarCollapsed: () => {
+        const next = !get().sidebarCollapsed;
+        localStorage.setItem('fintrack-sidebar-collapsed', String(next));
+        set({ sidebarCollapsed: next });
     },
 
     loadTheme: () => {
@@ -35,5 +41,9 @@ export const useThemeStore = create<ThemeStore>((set) => ({
 
         applyAttributes(theme);
         set({ theme });
+    },
+
+    loadSidebarCollapsed: () => {
+        set({ sidebarCollapsed: localStorage.getItem('fintrack-sidebar-collapsed') === 'true' });
     },
 }));
