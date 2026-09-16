@@ -173,7 +173,7 @@ export default function PersonalLoansPage() {
                     <Skeleton height={80} /><Skeleton height={80} />
                 </div>
             ) : loadError ? (
-                <EmptyState icon={Handshake} title="Couldn't load your personal loans" subtitle="Check your connection and try again." />
+                <EmptyState icon={Handshake} title="Couldn't load your personal loans" subtitle="Check your connection and try again." animated={false} />
             ) : loans.length === 0 ? (
                 <EmptyState icon={Handshake} title="No personal loans yet" subtitle="Track money you've lent to or borrowed from friends and family." />
             ) : (
