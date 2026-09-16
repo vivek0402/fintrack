@@ -225,6 +225,21 @@ router.post('/', async (req, res) => {
             }
         }
 
+        // Batch-verify every submitted category_id is either owned by this user or
+        // a shared legacy default (categories.user_id IS NULL -- see migration 001),
+        // rather than a real category belonging to a different user. One query for
+        // however many distinct ids were submitted, rather than one per expense.
+        const submittedCategoryIds = [...new Set(expenses.map(e => e.category_id).filter(Boolean))];
+        if (submittedCategoryIds.length > 0) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = ANY($1::uuid[]) AND (user_id = $2 OR user_id IS NULL)`,
+                [submittedCategoryIds, req.user.id]
+            );
+            if (categoryCheck.length !== submittedCategoryIds.length) {
+                return res.status(400).json({ error: 'One or more expense category_id values are invalid.' });
+            }
+        }
+
         const hasLoan = loan_principal !== null && loan_principal !== undefined;
         if (hasLoan) {
             if (!isPositiveNumber(loan_principal)) {

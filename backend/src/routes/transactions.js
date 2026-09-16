@@ -165,6 +165,12 @@ router.post('/', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid credit_card_id.' });
         }
         if (category_id) {
+            // Unlike credit_card_id/account_id below (and goal_id further down), this
+            // check allows user_id IS NULL through: categories.user_id is nullable for
+            // legacy pre-per-user default categories (see migration 001) that are
+            // shared, not owned by anyone. bank_accounts/credit_cards/savings_goals
+            // are all NOT NULL and must stay strict -- don't copy this OR-NULL
+            // pattern onto them.
             const { rows: categoryCheck } = await pool.query(
                 `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
