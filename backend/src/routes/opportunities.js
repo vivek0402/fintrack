@@ -400,6 +400,21 @@ router.post('/detect', async (req, res) => {
 
 router.get('/', async (req, res) => {
     try {
+        // Lazy-detect exactly once ever per user: a brand-new signup (or anyone the
+        // daily cron's "active in last 2 days" filter never catches) would otherwise
+        // see an empty opportunities section indefinitely. This checks for ANY
+        // opportunity row of ANY status -- a user who has previously had every
+        // opportunity dismissed or acted-on must NOT be re-detected just because
+        // their active count is currently zero.
+        const existsRes = await pool.query(
+            `SELECT 1 FROM opportunities WHERE user_id = $1 LIMIT 1`,
+            [req.user.id]
+        );
+        if (existsRes.rows.length === 0) {
+            const detected = await detectOpportunities(req.user.id);
+            await saveOpportunities(req.user.id, detected);
+        }
+
         const [activeRes, dismissedRes, actedRes] = await Promise.all([
             pool.query(`SELECT * FROM opportunities WHERE user_id = $1 AND status = 'active' ORDER BY priority ASC, detected_at DESC`, [req.user.id]),
             pool.query(`SELECT COUNT(*) FROM opportunities WHERE user_id = $1 AND status = 'dismissed'`, [req.user.id]),

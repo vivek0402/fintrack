@@ -1,8 +1,17 @@
+process.env.JWT_SECRET = 'test-secret';
+
 jest.mock('../src/db/pool', () => ({
     query: jest.fn(),
 }));
+jest.mock('../src/middleware/auth', () => (req, res, next) => {
+    req.user = { id: 'user-123' };
+    next();
+});
 
+const express = require('express');
+const request = require('supertest');
 const pool = require('../src/db/pool');
+const router = require('../src/routes/opportunities');
 const {
     getFinancialPlan,
     detectIdleCash,
@@ -13,6 +22,13 @@ const {
     detectOpportunities,
     saveOpportunities,
 } = require('../src/routes/opportunities');
+
+function buildApp() {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/opportunities', router);
+    return app;
+}
 
 afterEach(() => {
     pool.query.mockReset();
@@ -153,5 +169,76 @@ describe('saveOpportunities — parallel upsert', () => {
         expect(secondCallStarted).toBe(true);
         resolveFirst({ rows: [] });
         await promise;
+    });
+});
+
+describe('GET /api/opportunities — lazy-detect on a user\'s first-ever call', () => {
+    function mockQueriesForFreshDetectionRun(freshActiveRows) {
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [] }); // no rows of any status ever
+            if (sql.includes('FROM financial_plans')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM bank_accounts')) return Promise.resolve({ rows: [{ total: '500000' }] });
+            if (sql.includes("type = 'expense'") && sql.includes('3 months')) return Promise.resolve({ rows: [{ avg: '10000' }] });
+            if (sql.includes('FROM credit_cards')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM loans')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM transactions t LEFT JOIN categories')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM investments')) return Promise.resolve({ rows: [] });
+            if (sql.includes('FROM users WHERE id')) return Promise.resolve({ rows: [{ ai_cache: {} }] });
+            if (sql.includes('FROM budgets')) return Promise.resolve({ rows: [{ total: '0' }] });
+            if (sql.includes('INSERT INTO opportunities')) return Promise.resolve({ rows: [] });
+            if (sql.includes('SELECT * FROM opportunities') && sql.includes("status = 'active'")) return Promise.resolve({ rows: freshActiveRows });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '0' }] });
+            return Promise.resolve({ rows: [] });
+        });
+    }
+
+    test('runs detection inline and reflects the freshly-saved data when the user has zero opportunity rows of any status', async () => {
+        const freshActiveRows = [{ id: 'opp-1', type: 'idle_cash', title: 'Fresh idle cash opportunity' }];
+        mockQueriesForFreshDetectionRun(freshActiveRows);
+
+        const res = await request(buildApp()).get('/api/opportunities');
+
+        expect(res.status).toBe(200);
+        expect(res.body.opportunities).toEqual(freshActiveRows);
+
+        // Detection actually ran: bank balance + avg expenses were queried (the shared
+        // inputs detectOpportunities computes) and at least one opportunity was upserted.
+        const bankBalanceCalls = pool.query.mock.calls.filter(c => c[0].includes('FROM bank_accounts'));
+        const insertCalls = pool.query.mock.calls.filter(c => c[0].includes('INSERT INTO opportunities'));
+        expect(bankBalanceCalls.length).toBeGreaterThan(0);
+        expect(insertCalls.length).toBeGreaterThan(0);
+
+        // Detection (and its save) happened BEFORE the final summary read, so that a
+        // freshly-detected/saved opportunity is what the response reflects.
+        const existsCheckIndex = pool.query.mock.calls.findIndex(c => c[0].includes('SELECT 1 FROM opportunities'));
+        const insertIndex = pool.query.mock.calls.findIndex(c => c[0].includes('INSERT INTO opportunities'));
+        const activeReadIndex = pool.query.mock.calls.findIndex(c => c[0].includes('SELECT * FROM opportunities') && c[0].includes("status = 'active'"));
+        expect(existsCheckIndex).toBeGreaterThanOrEqual(0);
+        expect(existsCheckIndex).toBeLessThan(insertIndex);
+        expect(insertIndex).toBeLessThan(activeReadIndex);
+    });
+
+    test('does not run detection when the user already has an opportunity row of any status', async () => {
+        pool.query.mockImplementation((sql) => {
+            if (sql.includes('SELECT 1 FROM opportunities')) return Promise.resolve({ rows: [{ '?column?': 1 }] }); // has a row (any status)
+            if (sql.includes("status = 'active'")) return Promise.resolve({ rows: [] });
+            if (sql.includes("status = 'dismissed'")) return Promise.resolve({ rows: [{ count: '3' }] });
+            if (sql.includes("status = 'acted_on'")) return Promise.resolve({ rows: [{ count: '2' }] });
+            return Promise.resolve({ rows: [] });
+        });
+
+        const res = await request(buildApp()).get('/api/opportunities');
+
+        expect(res.status).toBe(200);
+        expect(res.body.summary).toEqual({ active_count: 0, dismissed_count: 3, acted_on_count: 2 });
+
+        // No detection: none of the shared-input queries fired.
+        const bankBalanceCalls = pool.query.mock.calls.filter(c => c[0].includes('FROM bank_accounts'));
+        const avgExpenseCalls = pool.query.mock.calls.filter(c => c[0].includes("type = 'expense'") && c[0].includes('3 months'));
+        const insertCalls = pool.query.mock.calls.filter(c => c[0].includes('INSERT INTO opportunities'));
+        expect(bankBalanceCalls).toHaveLength(0);
+        expect(avgExpenseCalls).toHaveLength(0);
+        expect(insertCalls).toHaveLength(0);
     });
 });
