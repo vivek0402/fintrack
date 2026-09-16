@@ -19,6 +19,16 @@ export function useCountUp(target: number, duration = 900, enabled = true): numb
             return;
         }
 
+        const prefersReducedMotion =
+            typeof window !== 'undefined' &&
+            window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+        if (prefersReducedMotion) {
+            prevTarget.current = target;
+            setValue(target);
+            return;
+        }
+
         const startVal = prevTarget.current;
         prevTarget.current = target;
         const startTime = performance.now();

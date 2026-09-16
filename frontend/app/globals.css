@@ -544,6 +544,13 @@ button:active:not(:disabled) {
   @keyframes springIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes milestoneBurst { from { opacity: 1; } to { opacity: 0; } }
   @keyframes panelMorphSlide { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeUp { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scaleIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes softPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.65; } }
+  @keyframes budgetFill { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideInRight { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheetUp { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheetDown { from { opacity: 1; } to { opacity: 0; } }
 }
 
 /* Hide native number spinner arrows */
