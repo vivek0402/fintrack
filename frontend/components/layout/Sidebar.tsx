@@ -73,6 +73,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const isMobile = useIsMobile();
 
     const [moreOpen, setMoreOpen] = useState(false);
+    const [collapseTogglePressed, setCollapseTogglePressed] = useState(false);
 
     useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
 
@@ -176,11 +177,14 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: 'var(--shadow-card)',
-                    transition: 'background var(--transition-fast), color var(--transition-fast)',
+                    transform: collapseTogglePressed ? 'scale(0.93)' : 'scale(1)',
+                    transition: 'background var(--transition-fast), color var(--transition-fast), transform 180ms cubic-bezier(0.34,1.56,0.64,1)',
                     zIndex: 51,
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-3)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface-2)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; setCollapseTogglePressed(false); }}
+                onMouseDown={() => setCollapseTogglePressed(true)}
+                onMouseUp={() => setCollapseTogglePressed(false)}
             >
                 {sidebarCollapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
             </button>

@@ -34,6 +34,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const [aiFabHover, setAiFabHover] = useState(false);
     const [addFabHover, setAddFabHover] = useState(false);
+    const [aiFabPressed, setAiFabPressed] = useState(false);
+    const [addFabPressed, setAddFabPressed] = useState(false);
     const [showTour, setShowTour] = useState(false);
     const { user } = useAuthStore();
 
@@ -141,7 +143,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <button
                         onClick={() => router.push('/transactions?add=true')}
                         onMouseEnter={() => setAddFabHover(true)}
-                        onMouseLeave={() => setAddFabHover(false)}
+                        onMouseLeave={() => { setAddFabHover(false); setAddFabPressed(false); }}
+                        onMouseDown={() => setAddFabPressed(true)}
+                        onMouseUp={() => setAddFabPressed(false)}
                         aria-label="Add transaction"
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
@@ -149,8 +153,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: addFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
-                            transform: addFabHover ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                            transform: addFabPressed ? 'scale(0.93)' : addFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease',
                         }}
                     >
                         <Plus size={22} color="white" strokeWidth={2.5} />
@@ -175,7 +179,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <button
                         onClick={() => router.push('/ai-advisor')}
                         onMouseEnter={() => setAiFabHover(true)}
-                        onMouseLeave={() => setAiFabHover(false)}
+                        onMouseLeave={() => { setAiFabHover(false); setAiFabPressed(false); }}
+                        onMouseDown={() => setAiFabPressed(true)}
+                        onMouseUp={() => setAiFabPressed(false)}
                         aria-label="Open AI chat"
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
@@ -183,8 +189,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             boxShadow: aiFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
-                            transform: aiFabHover ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                            transform: aiFabPressed ? 'scale(0.93)' : aiFabHover ? 'scale(1.1)' : 'scale(1)',
+                            transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease',
                             animation: 'softPulse 3s ease-in-out infinite',
                             animationPlayState: aiFabHover ? 'paused' : 'running',
                         }}
