@@ -190,7 +190,7 @@ const aiLimiter = rateLimit({
         const auth = req.headers['authorization'];
         if (auth && auth.startsWith('Bearer ')) {
             try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
                 return `ai:user:${decoded.id}`;
             } catch { /* fall through to IP */ }
         }
@@ -212,7 +212,7 @@ const suggestLimiter = rateLimit({
         const auth = req.headers['authorization'];
         if (auth && auth.startsWith('Bearer ')) {
             try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
                 return `suggest:user:${decoded.id}`;
             } catch { /* fall through to IP */ }
         }
@@ -233,7 +233,7 @@ const contextLimiter = rateLimit({
         const auth = req.headers['authorization'];
         if (auth && auth.startsWith('Bearer ')) {
             try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
                 return `context:user:${decoded.id}`;
             } catch { /* fall through to IP */ }
         }

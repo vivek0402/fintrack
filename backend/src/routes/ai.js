@@ -11,7 +11,15 @@ const { isPositiveNumber, isValidDateString } = require('../utils/validation');
 const { detectSpendingSpike, detectForecastWarning } = require('./opportunities');
 const { isNonSavingsExpense, isRealIncome, nonSpendingExclusionSQL } = require('../utils/savingsRate');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(new Error('Only JPEG, PNG, WEBP, HEIC, or HEIF images are accepted'), false);
+    },
+});
 
 // ─── FEATURE 4: Parse SMS ───────────────────────────────────────────
 router.post('/parse-sms', authMiddleware, async (req, res) => {
@@ -291,7 +299,12 @@ Existing recurring: ${JSON.stringify(existing)}`,
 });
 
 // ─── FEATURE 6: Parse Receipt Image ────────────────────────────────
-router.post('/parse-image', authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/parse-image', authMiddleware, (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Invalid file upload.' });
+        next();
+    });
+}, async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'Image file is required' });
 

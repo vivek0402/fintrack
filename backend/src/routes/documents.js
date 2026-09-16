@@ -15,6 +15,17 @@ const BUCKET = 'fintrack-documents';
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const allowed = [
+            'application/pdf',
+            'image/jpeg',
+            'image/png',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+        ];
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(new Error('Only PDF, JPEG, PNG, or Excel files are accepted'), false);
+    },
 });
 
 // POST /api/documents

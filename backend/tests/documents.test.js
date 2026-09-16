@@ -57,6 +57,19 @@ describe('Documents routes', () => {
         expect(res.body.error).toBeDefined();
     });
 
+    test('POST / rejects a disallowed file type with 400, not 500', async () => {
+        const res = await request(app)
+            .post('/api/documents')
+            .field('name', 'My Document')
+            .field('type', 'form_16')
+            .attach('file', Buffer.from('#!/bin/sh\necho hi'), { filename: 'test.sh', contentType: 'application/x-sh' });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBeDefined();
+        expect(pool.query).not.toHaveBeenCalled();
+        expect(mockUpload).not.toHaveBeenCalled();
+    });
+
     test('POST / returns 400 if type is invalid', async () => {
         const res = await request(app)
             .post('/api/documents')
