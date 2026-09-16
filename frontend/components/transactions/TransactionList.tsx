@@ -55,6 +55,12 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                     const cy = now.getFullYear();
                     localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
                     localStorage.removeItem(`analytics-cache-${user.id}-${cm}-${cy}`);
+                    // Deleting a transaction can also change a bank balance, this
+                    // month's investment ratio, and DTI -- not month-keyed like the
+                    // caches above, so just one unconditional bust each.
+                    localStorage.removeItem(`accounts-cache-${user.id}`);
+                    localStorage.removeItem(`investment-ratio-cache-${user.id}`);
+                    localStorage.removeItem(`dti-cache-${user.id}`);
                     const tx = transactions.find(t => t.id === id);
                     if (tx?.date) {
                         const [txYear, txMonth] = (tx.date as string).split('T')[0].split('-');

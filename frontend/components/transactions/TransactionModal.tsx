@@ -395,6 +395,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 const now = new Date(); const cm = now.getMonth() + 1; const cy = now.getFullYear();
                 localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
                 localStorage.removeItem(`analytics-cache-${user.id}-${cm}-${cy}`);
+                // A transaction can move a bank balance, this month's investment
+                // ratio, and DTI (income-driven) -- none of these are month-keyed
+                // like the caches above, so just one unconditional bust each.
+                localStorage.removeItem(`accounts-cache-${user.id}`);
+                localStorage.removeItem(`investment-ratio-cache-${user.id}`);
+                localStorage.removeItem(`dti-cache-${user.id}`);
                 if (form.date) {
                     const [txYear, txMonth] = form.date.split('-');
                     const tm = parseInt(txMonth); const ty = parseInt(txYear);
