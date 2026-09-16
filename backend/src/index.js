@@ -297,6 +297,7 @@ app.use('/api/goals',        require('./routes/goals'));
 app.use('/api/personal-loans', require('./routes/personalLoans'));
 const aiRoutes = require('./routes/ai');
 app.use('/api/ai',           aiLimiter, aiRoutes);
+const opportunitiesRoutes = require('./routes/opportunities');
 app.use('/api/splits',       require('./routes/splits'));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/accounts',          require('./routes/accounts'));
@@ -314,7 +315,7 @@ app.use('/api/planning',         require('./routes/planning'));
 app.use('/api/milestones',       require('./routes/milestones'));
 app.use('/api/documents',        require('./routes/documents'));
 app.use('/api/ai/agent',         require('./routes/agents'));
-app.use('/api/ai/opportunities', require('./routes/opportunities'));
+app.use('/api/ai/opportunities', opportunitiesRoutes);
 app.use('/api/insights',     require('./routes/insights'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
@@ -875,6 +876,43 @@ cron.schedule('0 9,12,15,18 * * *', async () => {
         console.log(`[Cron:DailyBriefRefresh] done — success: ${success}, failed: ${failed}`);
     } catch (err) {
         console.error('[Cron:DailyBriefRefresh] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: daily opportunity detection — 7am IST ─────────────────────────────
+// Moves the expensive multi-detector scan (10 detectors, ~10 queries even
+// after dedup) off the dashboard's request path -- opportunities like idle
+// cash or a high-interest card don't need to be recomputed on every single
+// page open. The dashboard now reads the already-detected list via
+// GET /api/ai/opportunities (one cheap SELECT) instead of triggering a fresh
+// POST /detect synchronously on every visit.
+cron.schedule('0 7 * * *', async () => {
+    console.log('[Cron] Detecting opportunities...');
+    let success = 0, failed = 0;
+    try {
+        const { rows: users } = await pool.query(
+            `SELECT id AS user_id FROM users u
+             WHERE EXISTS (
+                 SELECT 1 FROM transactions t WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '2 days'
+             ) OR EXISTS (
+                 SELECT 1 FROM daily_briefings b WHERE b.user_id = u.id AND b.opened_at > NOW() - INTERVAL '2 days'
+             )`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const detected = await opportunitiesRoutes.detectOpportunities(user_id);
+                await opportunitiesRoutes.saveOpportunities(user_id, detected);
+                success++;
+            } catch (err) {
+                failed++;
+                console.error(`[Cron:Opportunities] user ${user_id}:`, err.message);
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        console.log(`[Cron:Opportunities] done — success: ${success}, failed: ${failed}`);
+    } catch (err) {
+        console.error('[Cron:Opportunities] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 
