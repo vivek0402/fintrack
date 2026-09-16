@@ -398,6 +398,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 // A transaction can move a bank balance, this month's investment
                 // ratio, and DTI (income-driven) -- none of these are month-keyed
                 // like the caches above, so just one unconditional bust each.
+                // (The daily brief is deliberately NOT busted here: the backend
+                // only regenerates its narrative via the intraday cron or a manual
+                // refresh, never on-demand -- clearing the client cache would just
+                // force an extra round trip that returns the same, still-stale
+                // server row, with no actual freshness gain.)
                 localStorage.removeItem(`accounts-cache-${user.id}`);
                 localStorage.removeItem(`investment-ratio-cache-${user.id}`);
                 localStorage.removeItem(`dti-cache-${user.id}`);

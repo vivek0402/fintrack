@@ -398,12 +398,30 @@ export default function DashboardPage() {
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user, month, year]);
 
-    // Daily brief — only relevant for the current month/today, server-cached per day
-    const fetchDailyBrief = () => {
+    // Daily brief — only relevant for the current month/today. The backend only
+    // regenerates it once per day (or via the 4x/day intraday cron), but without
+    // a client-side cache this still fired a fresh request and showed a loading
+    // skeleton on EVERY dashboard open, reading as "regenerating" even though
+    // the content was unchanged. Short TTL since the intraday cron can refresh
+    // it during the day; skipCache lets the retry button always hit the network.
+    const DAILY_BRIEF_TTL = 15 * 60 * 1000;
+    const fetchDailyBrief = (opts?: { skipCache?: boolean }) => {
+        if (!opts?.skipCache && user) {
+            const cached = getCached<any>(`daily-brief-cache-${user.id}`, DAILY_BRIEF_TTL);
+            if (cached !== null) {
+                setDailyBrief(cached);
+                setDailyBriefError(false);
+                setDailyBriefLoading(false);
+                return;
+            }
+        }
         setDailyBriefLoading(true);
         setDailyBriefError(false);
         dailyBriefingAPI.getLatest()
-            .then(res => setDailyBrief(res.data))
+            .then(res => {
+                setDailyBrief(res.data);
+                if (user) setCached(`daily-brief-cache-${user.id}`, res.data);
+            })
             .catch(() => { setDailyBrief(null); setDailyBriefError(true); })
             .finally(() => setDailyBriefLoading(false));
     };
@@ -558,6 +576,7 @@ export default function DashboardPage() {
                             try {
                                 const res = await dailyBriefingAPI.generate();
                                 setDailyBrief(res.data);
+                                if (user) setCached(`daily-brief-cache-${user.id}`, res.data);
                                 recent.push(now);
                                 dailyBriefRefreshTimesRef.current = recent;
                                 if (recent.length >= 2) {
@@ -584,7 +603,7 @@ export default function DashboardPage() {
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
                         Couldn't load today's brief.
                     </p>
-                    <button type="button" onClick={fetchDailyBrief}
+                    <button type="button" onClick={() => fetchDailyBrief({ skipCache: true })}
                         style={{ padding: '6px 14px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
                         Retry
                     </button>
