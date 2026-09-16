@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
 import { getCurrentMonthYear, fmt, getSmartIcon } from '@/lib/utils';
+import { getCached, setCached } from '@/lib/apiCache';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
@@ -368,13 +369,31 @@ export default function DashboardPage() {
         };
 
         fetchData();
-        accountsAPI.getAll().then(res => setAccounts(res.data.accounts ?? res.data ?? [])).catch(() => {});
-        investmentAPI.getAll().then(res => setInvestments(res.data.investments ?? [])).catch(() => {});
-        analyticsAPI.getInvestmentRatio().then(res => setInvestmentRatio(res.data)).catch(() => {});
-        debtAPI.getCreditUtilization().then(res => setCreditUtilization(res.data)).catch(() => {});
-        debtAPI.getDti().then(res => setDti(res.data)).catch(() => {});
-        loanAPI.getAll(true).then(res => setActiveLoanCount((res.data.loans || []).length)).catch(() => {});
-        aiAPI.salaryIntelligence().then(res => { if (res.data?.detected) setSalaryData(res.data); }).catch(() => {});
+
+        // Data that doesn't need to be fresh on every single dashboard open --
+        // cache it client-side so a repeat visit within the TTL costs nothing.
+        // Opportunities and the weekly briefing are deliberately NOT cached
+        // here: opportunities is now already a single cheap SELECT (detection
+        // itself runs on a daily cron, not per-request), and the briefing has
+        // its own weekly-scoped freshness logic already.
+        function fetchCached<T>(key: string, ttlMs: number, fetcher: () => Promise<{ data: T }>, onData: (data: T) => void) {
+            const cached = getCached<T>(key, ttlMs);
+            if (cached !== null) { onData(cached); return; }
+            fetcher().then(res => { onData(res.data); setCached(key, res.data); }).catch(() => {});
+        }
+
+        const TEN_MIN = 10 * 60 * 1000;
+        const FIFTEEN_MIN = 15 * 60 * 1000;
+        const THIRTY_MIN = 30 * 60 * 1000;
+
+        fetchCached<any>(`accounts-cache-${user.id}`, TEN_MIN, () => accountsAPI.getAll(), data => setAccounts(data.accounts ?? data ?? []));
+        fetchCached<any>(`investments-cache-${user.id}`, TEN_MIN, () => investmentAPI.getAll(), data => setInvestments(data.investments ?? []));
+        fetchCached<any>(`investment-ratio-cache-${user.id}`, FIFTEEN_MIN, () => analyticsAPI.getInvestmentRatio(), data => setInvestmentRatio(data));
+        fetchCached<any>(`credit-utilization-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getCreditUtilization(), data => setCreditUtilization(data));
+        fetchCached<any>(`dti-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getDti(), data => setDti(data));
+        fetchCached<any>(`active-loan-count-cache-${user.id}`, FIFTEEN_MIN, () => loanAPI.getAll(true), data => setActiveLoanCount((data.loans || []).length));
+        fetchCached<any>(`salary-intel-cache-${user.id}`, THIRTY_MIN, () => aiAPI.salaryIntelligence(), data => { if (data?.detected) setSalaryData(data); });
+
         opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user, month, year]);
