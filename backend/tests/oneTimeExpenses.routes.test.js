@@ -58,6 +58,26 @@ describe('POST /api/one-time-expenses', () => {
         const insertCalls = pool.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO one_time_expenses'));
         expect(insertCalls.length).toBe(0);
     });
+
+    test('accepts a bank_account_id that DOES belong to the user and creates the expense', async () => {
+        // Ownership check finds the account...
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 7 }] });
+        // ...then the INSERT proceeds normally.
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'exp-1', title: 'Trip', amount: '0', bank_account_id: 7 }] });
+
+        const res = await request(app)
+            .post('/api/one-time-expenses')
+            .send({ title: 'Trip', bank_account_id: 7 });
+
+        expect(res.status).toBe(201);
+        expect(res.body.expense.bank_account_id).toBe(7);
+        const insertCalls = pool.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO one_time_expenses'));
+        expect(insertCalls.length).toBe(1);
+        // The ownership check ran before the INSERT, scoped to the requesting user.
+        const [ownershipSql, ownershipParams] = pool.query.mock.calls[0];
+        expect(ownershipSql).toMatch(/SELECT id FROM bank_accounts/);
+        expect(ownershipParams).toEqual([7, 'user-123']);
+    });
 });
 
 describe('GET /api/one-time-expenses', () => {
@@ -107,6 +127,38 @@ describe('PUT /api/one-time-expenses/:id', () => {
         expect(calls).toContain('ROLLBACK');
         expect(calls.some(s => s.includes('UPDATE bank_accounts'))).toBe(false);
         expect(calls.some(s => s.includes('UPDATE one_time_expenses'))).toBe(false);
+    });
+
+    test('accepts a bank_account_id that DOES belong to the user and proceeds with the update', async () => {
+        const calls = [];
+        const client = mockClient(async (sql, params) => {
+            calls.push(sql);
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes('SELECT * FROM one_time_expenses')) {
+                return { rows: [{ id: 'exp-1', user_id: 'user-123', bank_account_id: null, title: 'Trip', category: 'Other', notes: null, icon: 'receipt', color: '#a855f7', start_date: null, end_date: null }] };
+            }
+            if (sql.includes('SELECT COALESCE(SUM(amount), 0)')) return { rows: [{ total: 0 }] };
+            if (sql.includes('SELECT id FROM bank_accounts')) return { rows: [{ id: 7 }] };
+            if (sql.includes('UPDATE one_time_expenses')) {
+                return { rows: [{ id: 'exp-1', title: 'Trip', bank_account_id: 7 }] };
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(app)
+            .put('/api/one-time-expenses/exp-1')
+            .send({ bank_account_id: 7 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.expense.bank_account_id).toBe(7);
+        expect(calls.some(s => s.includes('SELECT id FROM bank_accounts'))).toBe(true);
+        expect(calls).toContain('COMMIT');
+        expect(calls).not.toContain('ROLLBACK');
+        const updateCall = calls.find(s => s.includes('UPDATE one_time_expenses'));
+        expect(updateCall).toBeDefined();
+        // Ownership check ran before the final UPDATE.
+        expect(calls.indexOf(calls.find(s => s.includes('SELECT id FROM bank_accounts')))).toBeLessThan(calls.indexOf(updateCall));
     });
 });
 
