@@ -5,6 +5,7 @@ const { aiComplete } = require('../utils/ai');
 const { getCached, setCached } = require('../utils/aiCache');
 const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthStart, istPriorMonthStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -129,9 +130,8 @@ router.get('/peer-benchmarks', async (req, res) => {
 
         // Last full calendar month range
         const now = new Date();
-        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-        const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        const lastMonthStart = istPriorMonthStart(now);
+        const thisMonthStart = istMonthStart(now);
 
         const [expenseRes, monthIncomeRes, nonSavingsExpenseRes] = await Promise.all([
             pool.query(
