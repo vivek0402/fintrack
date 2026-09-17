@@ -23,6 +23,16 @@ public class MainActivity extends BridgeActivity {
                 if (wv != null) {
                     wv.post(() -> wv.loadUrl(BuildConfig.APP_URL + targetPath));
                 }
+                // launchMode="singleTask" means Android can persist this exact
+                // Intent as the task's identity and redeliver it to a future
+                // onCreate after the process is killed and the task is
+                // restored (e.g. backgrounded, reaped for memory, reopened
+                // later) — getIntent() would keep returning OPEN_ADD=true
+                // forever, reopening Add Transaction on every subsequent cold
+                // start regardless of what the user actually tapped. Clear the
+                // one-time extras once consumed so a future onCreate reading
+                // this same persisted Intent sees a plain launch.
+                consumeOneTimeExtras(getIntent());
             }
         }
     }
@@ -35,7 +45,20 @@ public class MainActivity extends BridgeActivity {
         String event = extractEvent(intent);
         if (event != null) {
             evalOnBridge("window.dispatchEvent(new CustomEvent('" + event + "'))");
+            // setIntent(intent) just made this the Activity's persisted Intent
+            // going forward, so it needs the same one-time-extra cleanup as
+            // the onCreate path above, for the same reason.
+            consumeOneTimeExtras(intent);
         }
+    }
+
+    // Strips the one-time navigation extras after they've been acted on, so
+    // launchMode="singleTask" can't replay the same "open Add Transaction" /
+    // "open a screen" action on a later, unrelated app launch.
+    private void consumeOneTimeExtras(Intent intent) {
+        if (intent == null) return;
+        intent.removeExtra("OPEN_ADD");
+        intent.removeExtra("OPEN_SCREEN");
     }
 
     private String extractTargetPath(Intent intent) {
