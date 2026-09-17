@@ -7,6 +7,7 @@ import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
@@ -38,6 +39,7 @@ const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Ico
 
 export function WealthVelocityWidget() {
     const [data, setData] = useState<WealthVelocityData | null>(null);
+    const prefersReducedMotion = usePrefersReducedMotion();
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -94,7 +96,7 @@ export function WealthVelocityWidget() {
                             <div style={{ width: 110, height: 60, flexShrink: 0 }}>
                                 <ResponsiveContainer width="100%" height={60}>
                                     <BarChart data={last6}>
-                                        <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={600}>
+                                        <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={prefersReducedMotion ? 0 : 600}>
                                             {last6.map((d, i) => (
                                                 <Cell key={i} fill={d.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
                                             ))}

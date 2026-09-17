@@ -7,6 +7,7 @@ import { AlertTriangle } from 'lucide-react';
 import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 const CHART_COLORS = [
     'var(--accent)', 'var(--color-inc)', 'var(--color-info)', 'var(--accent-2)',
@@ -32,6 +33,7 @@ interface AssetAllocationData {
 export function AssetAllocationWidget() {
     const [data, setData] = useState<AssetAllocationData | null>(null);
     const [loading, setLoading] = useState(true);
+    const prefersReducedMotion = usePrefersReducedMotion();
 
     useEffect(() => {
         analyticsAPI.getAssetAllocation()
@@ -64,7 +66,7 @@ export function AssetAllocationWidget() {
                 <div style={{ width: 100, height: 100, flexShrink: 0 }}>
                     <ResponsiveContainer width="100%" height={100}>
                         <PieChart>
-                            <Pie data={allocations} dataKey="amount" nameKey="label" innerRadius={28} outerRadius={45} paddingAngle={2} animationDuration={600}>
+                            <Pie data={allocations} dataKey="amount" nameKey="label" innerRadius={28} outerRadius={45} paddingAngle={2} animationDuration={prefersReducedMotion ? 0 : 600}>
                                 {allocations.map((_, i) => (
                                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                 ))}

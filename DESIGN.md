@@ -222,7 +222,7 @@ Always use the canonical v2 tokens in new code.
   medium: 250–400ms  — panel transitions, modal open
   long:   400–700ms  — chart mount animations, page transitions
   ```
-- **Chart animation:** Mount on first render only. Never loop.
+- **Chart animation:** Mount on first render only. Never loop. In practice this means charts animate on (re)mount and on prop changes, per Recharts' default behavior — not gated to a true one-time-ever mount.
 
 ## Data Visualization (Recharts)
 

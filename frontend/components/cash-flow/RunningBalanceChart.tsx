@@ -2,6 +2,7 @@
 
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid } from 'recharts';
 import { fmt } from '@/lib/utils';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 const fmtAbbrev = (n: number) => {
     const sign = n < 0 ? '-' : '';
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export function RunningBalanceChart({ months, balanceLineColor }: Props) {
+    const prefersReducedMotion = usePrefersReducedMotion();
     return (
         <ResponsiveContainer>
             <LineChart data={months}>
@@ -35,7 +37,7 @@ export function RunningBalanceChart({ months, balanceLineColor }: Props) {
                 <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={70} />
                 <Tooltip content={<BalanceTooltip />} />
                 <ReferenceLine y={0} stroke="var(--bg-border-strong)" />
-                <Line type="monotone" dataKey="running_balance" name="Running Balance" stroke={balanceLineColor} strokeWidth={1.5} dot={false} animationDuration={600} />
+                <Line type="monotone" dataKey="running_balance" name="Running Balance" stroke={balanceLineColor} strokeWidth={1.5} dot={false} animationDuration={prefersReducedMotion ? 0 : 600} />
             </LineChart>
         </ResponsiveContainer>
     );

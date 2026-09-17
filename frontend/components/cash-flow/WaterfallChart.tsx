@@ -2,6 +2,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, CartesianGrid, Cell } from 'recharts';
 import { fmt } from '@/lib/utils';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 const fmtAbbrev = (n: number) => {
     const sign = n < 0 ? '-' : '';
@@ -42,6 +43,7 @@ function WaterfallTooltip({ active, payload }: any) {
 interface Props { months: CashflowMonth[] }
 
 export function WaterfallChart({ months }: Props) {
+    const prefersReducedMotion = usePrefersReducedMotion();
     return (
         <ResponsiveContainer>
             <BarChart data={months}>
@@ -50,7 +52,7 @@ export function WaterfallChart({ months }: Props) {
                 <YAxis tickFormatter={fmtAbbrev} tick={{ fontSize: 11, fontFamily: 'var(--font-mono)', fill: 'var(--text-muted)' }} tickLine={false} axisLine={false} width={70} />
                 <Tooltip content={<WaterfallTooltip />} />
                 <ReferenceLine y={0} stroke="var(--bg-border-strong)" />
-                <Bar dataKey="net_cashflow" name="Net Cash Flow" radius={[4, 4, 4, 4]} animationDuration={600}>
+                <Bar dataKey="net_cashflow" name="Net Cash Flow" radius={[4, 4, 4, 4]} animationDuration={prefersReducedMotion ? 0 : 600}>
                     {months.map((m, i) => (
                         <Cell key={i} fill={m.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
                     ))}

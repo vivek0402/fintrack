@@ -1,6 +1,7 @@
 'use client';
 
 import { BarChart, Bar, XAxis, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 // Duplicated from app/net-worth/page.tsx (a local, page-only one-liner, not
 // in lib/utils) rather than threaded through as a prop -- keeps this
@@ -21,12 +22,13 @@ function VelocityTooltip({ active, payload, label }: any) {
 interface Props { allMomChanges: { to_date: string; absolute_change: number }[] }
 
 export function VelocityBarChart({ allMomChanges }: Props) {
+    const prefersReducedMotion = usePrefersReducedMotion();
     return (
         <ResponsiveContainer width="100%" height={140}>
             <BarChart data={allMomChanges}>
                 <XAxis dataKey="to_date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<VelocityTooltip />} />
-                <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={600}>
+                <Bar dataKey="absolute_change" radius={[3, 3, 3, 3]} animationDuration={prefersReducedMotion ? 0 : 600}>
                     {allMomChanges.map((d, i) => (
                         <Cell key={i} fill={d.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
                     ))}

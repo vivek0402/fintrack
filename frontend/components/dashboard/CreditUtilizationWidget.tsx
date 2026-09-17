@@ -8,6 +8,7 @@ import { debtAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -36,6 +37,7 @@ interface CreditUtilizationData {
 export function CreditUtilizationWidget() {
     const [data, setData] = useState<CreditUtilizationData | null>(null);
     const [loading, setLoading] = useState(true);
+    const prefersReducedMotion = usePrefersReducedMotion();
 
     useEffect(() => {
         debtAPI.getCreditUtilization()
@@ -70,7 +72,7 @@ export function CreditUtilizationWidget() {
                 <div style={{ width: 80, height: 80, flexShrink: 0, position: 'relative' }}>
                     <ResponsiveContainer width="100%" height={80}>
                         <PieChart>
-                            <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} animationDuration={600} stroke="none">
+                            <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} animationDuration={prefersReducedMotion ? 0 : 600} stroke="none">
                                 <Cell fill={color} />
                                 <Cell fill="var(--border-subtle)" />
                             </Pie>
