@@ -8,14 +8,13 @@ import {
     LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
     Waves, PiggyBank, Compass,
     CreditCard, FolderOpen, Users, Handshake,
-    MoreHorizontal, ChevronUp, HelpCircle,
+    MoreHorizontal, ChevronUp,
     PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
-import { NotificationBell } from '@/components/ui/NotificationBell';
 import { InstallPWA } from '@/components/ui/InstallPWA';
 
 // Always-visible daily-driver set — keeps the primary nav short
@@ -65,7 +64,7 @@ const moreGroups = [
 
 const moreItems = moreGroups.flatMap(g => g.items);
 
-export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
+export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const { user, logout } = useAuthStore();
@@ -94,11 +93,12 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
             <Link key={href} href={href} style={{ textDecoration: 'none' }} title={sidebarCollapsed ? label : undefined}>
                 <div
                     style={{
+                        position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                         gap: sidebarCollapsed ? 0 : 'var(--space-3)',
-                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
+                        padding: sidebarCollapsed ? '11px 0' : '11px var(--space-3)',
                         borderRadius: 'var(--radius-md)',
                         background: isActive ? 'var(--accent-subtle)' : 'transparent',
                         color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
@@ -122,6 +122,18 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         }
                     }}
                 >
+                    {isActive && (
+                        <span style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '3px',
+                            height: '60%',
+                            borderRadius: '0 3px 3px 0',
+                            background: 'var(--accent)',
+                        }} />
+                    )}
                     <Icon size={17} color="currentColor" style={{ flexShrink: 0 }} />
                     {!sidebarCollapsed && label}
                 </div>
@@ -189,71 +201,40 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 {sidebarCollapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
             </button>
 
-            {/* Wordmark + notification bell */}
+            {/* Wordmark */}
             <div style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: sidebarCollapsed ? 'center' : 'space-between',
+                alignItems: 'baseline',
+                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                 padding: '0 var(--space-2)',
-                marginBottom: 'var(--space-6)',
+                marginBottom: 'var(--space-8)',
             }}>
-                <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                <span style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 800,
+                    fontSize: '21px',
+                    color: 'var(--text-primary)',
+                    letterSpacing: '-0.02em',
+                }}>
+                    Fin
+                </span>
+                {!sidebarCollapsed && (
                     <span style={{
                         fontFamily: 'var(--font-display)',
-                        fontWeight: 800,
-                        fontSize: '20px',
-                        color: 'var(--text-primary)',
+                        fontWeight: 500,
+                        fontSize: '21px',
+                        color: 'var(--accent)',
                         letterSpacing: '-0.02em',
                     }}>
-                        Fin
+                        Track
                     </span>
-                    {!sidebarCollapsed && (
-                        <span style={{
-                            fontFamily: 'var(--font-display)',
-                            fontWeight: 500,
-                            fontSize: '20px',
-                            color: 'var(--accent)',
-                            letterSpacing: '-0.02em',
-                        }}>
-                            Track
-                        </span>
-                    )}
-                </div>
-                {!sidebarCollapsed && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        {onOpenTour && (
-                            <button
-                                type="button"
-                                onClick={onOpenTour}
-                                title="Replay the app tour"
-                                aria-label="Replay the app tour"
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--text-secondary)',
-                                    cursor: 'pointer',
-                                    padding: '6px',
-                                    borderRadius: 'var(--radius-md)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'background var(--transition-fast)',
-                                }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                            >
-                                <HelpCircle size={18} />
-                            </button>
-                        )}
-                        <NotificationBell panelAlign="left" />
-                    </div>
                 )}
             </div>
 
             {!sidebarCollapsed && <GlobalSearch />}
 
             {/* Nav — scrollable */}
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, marginTop: 'var(--space-4)', overflowY: 'auto', overflowX: 'hidden' }}>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1, marginTop: 'var(--space-5)', overflowY: 'auto', overflowX: 'hidden' }}>
                 {coreItems.map(renderLink)}
 
                 {/* More toggle */}
@@ -266,8 +247,8 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         alignItems: 'center',
                         justifyContent: sidebarCollapsed ? 'center' : 'space-between',
                         gap: 'var(--space-3)',
-                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
-                        marginTop: 'var(--space-1)',
+                        padding: sidebarCollapsed ? '11px 0' : '11px var(--space-3)',
+                        marginTop: 'var(--space-2)',
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',
                         border: 'none',
@@ -290,7 +271,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 </button>
 
                 {moreOpen && moreGroups.map(group => (
-                    <div key={group.label} style={{ marginTop: 'var(--space-2)' }}>
+                    <div key={group.label} style={{ marginTop: 'var(--space-4)' }}>
                         {!sidebarCollapsed && (
                             <p style={{
                                 fontSize: 'var(--text-label)',
@@ -298,13 +279,15 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                                 color: 'var(--text-muted)',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.08em',
-                                margin: '0 0 var(--space-1) var(--space-3)',
+                                margin: '0 0 var(--space-2) var(--space-3)',
                                 fontFamily: 'var(--font-body)',
                             }}>
                                 {group.label}
                             </p>
                         )}
-                        {group.items.map(renderLink)}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                            {group.items.map(renderLink)}
+                        </div>
                     </div>
                 ))}
             </nav>
@@ -313,17 +296,17 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
             <div style={{ flexShrink: 0 }}>
                 <div style={{
                     height: '1px',
-                    background: 'var(--border-subtle)',
-                    margin: 'var(--space-3) 0',
+                    background: 'linear-gradient(90deg, transparent, var(--border-visible) 20%, var(--border-visible) 80%, transparent)',
+                    margin: 'var(--space-5) 0',
                 }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 'var(--space-3)', padding: 'var(--space-2) var(--space-2)' }} title={sidebarCollapsed ? (user?.full_name || user?.email) : undefined}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-2)' }} title={sidebarCollapsed ? (user?.full_name || user?.email) : undefined}>
                     <div style={{
-                        width: '34px',
-                        height: '34px',
+                        width: '36px',
+                        height: '36px',
                         borderRadius: '50%',
                         flexShrink: 0,
-                        background: 'var(--accent)',
+                        background: 'linear-gradient(135deg, var(--accent), var(--color-inc))',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -331,6 +314,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         fontSize: '13px',
                         fontWeight: 700,
                         color: '#fff',
+                        boxShadow: '0 0 0 2px var(--bg-surface-1), 0 0 0 3px var(--accent-border)',
                     }}>
                         {initials}
                     </div>
@@ -372,7 +356,7 @@ export function Sidebar({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         alignItems: 'center',
                         justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                         gap: sidebarCollapsed ? 0 : 'var(--space-3)',
-                        padding: sidebarCollapsed ? '9px 0' : '9px var(--space-3)',
+                        padding: sidebarCollapsed ? '11px 0' : '11px var(--space-3)',
                         width: '100%',
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',

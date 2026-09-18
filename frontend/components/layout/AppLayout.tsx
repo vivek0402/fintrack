@@ -95,7 +95,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 }
             `}</style>
             <OfflineBanner />
-            <Sidebar onOpenTour={() => setShowTour(true)} />
+            <Sidebar />
             <main
                 key={pathname}
                 style={{
