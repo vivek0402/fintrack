@@ -30,8 +30,6 @@ function buildAlerts(
 ): Alert[] {
   if (!summary) return [];
 
-  const income   = Number(summary.total_income);
-  const expenses = Number(summary.total_expenses);
   const today      = new Date();
   const daysElapsed = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -49,20 +47,6 @@ function buildAlerts(
         severity: pct >= 100 ? 'danger' : 'warning',
         message: `⚠️ ${b.name ?? b.category_name} budget is ${Math.round(pct)}% used`,
         sub: `${daysLeft} days left this month`,
-      });
-    }
-  }
-
-  // b) Daily pace — projected monthly > budget by 5%
-  if (daysElapsed > 3 && income > 0) {
-    const totalBudget = budgets.reduce((s, b) => s + parseFloat(b.amount), 0) || income;
-    const projected   = (expenses / daysElapsed) * daysInMonth;
-    if (projected > totalBudget * 1.05) {
-      all.push({
-        id: 'daily-pace',
-        severity: projected > totalBudget * 1.20 ? 'danger' : 'warning',
-        message: `📊 On pace to spend ${fmt(projected)} this month`,
-        sub: `Budget: ${fmt(totalBudget)}`,
       });
     }
   }
