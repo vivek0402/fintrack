@@ -234,7 +234,7 @@ export function Sidebar() {
             {!sidebarCollapsed && <GlobalSearch />}
 
             {/* Nav — scrollable */}
-            <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1, marginTop: 'var(--space-5)', overflowY: 'auto', overflowX: 'hidden' }}>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1, minHeight: 0, marginTop: 'var(--space-5)', overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain' }}>
                 {coreItems.map(renderLink)}
 
                 {/* More toggle */}
