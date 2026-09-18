@@ -30,6 +30,8 @@ function buildAlerts(
 ): Alert[] {
   if (!summary) return [];
 
+  const income   = Number(summary.total_income);
+  const expenses = Number(summary.total_expenses);
   const today      = new Date();
   const daysElapsed = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -92,7 +94,7 @@ function buildAlerts(
     const totalBudget = budgets.reduce((s, b) => s + parseFloat(b.amount), 0) || income;
     const weeklyRate  = (expenses / daysElapsed) * 7;
     const weekPct     = (weeklyRate / totalBudget) * 100;
-    if (weekPct > 40 && !all.find(a => a.id === 'daily-pace')) {
+    if (weekPct > 40) {
       all.push({
         id: 'big-week',
         severity: 'warning',
