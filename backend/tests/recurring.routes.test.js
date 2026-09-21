@@ -141,6 +141,63 @@ describe('POST /api/recurring — IST day boundary for next_due_date', () => {
         const [, params] = pool.query.mock.calls[0];
         expect(params[8]).toBe('2026-01-22'); // next_due_date
     });
+
+    test('a monthly item with day_of_month created at a moment already tomorrow in IST but still today in UTC rolls over into next month correctly', async () => {
+        // Same boundary moment as above: 2026-01-14T19:30:00.000Z is
+        // 2026-01-15 01:00 IST (already Jan 15 in IST) but still Jan 14 in UTC.
+        //
+        // day_of_month=15 is chosen specifically to distinguish the two
+        // calendars: with the correct IST "today" (Jan 15), setUTCDate(15)
+        // lands exactly ON today, so `nextDue <= today` is true and the code
+        // must roll over to next month (2026-02-15). A UTC-anchored "today"
+        // (Jan 14) would instead see setDate(15) as being AFTER today, skip
+        // the rollover, and incorrectly return 2026-01-15.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T19:30:00.000Z'));
+
+        const recurring = { id: 2, type: 'expense', amount: '1000.00', description: 'Rent', frequency: 'monthly', day_of_month: 15 };
+        pool.query.mockResolvedValueOnce({ rows: [recurring] });
+
+        await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: 15 });
+
+        const [, params] = pool.query.mock.calls[0];
+        expect(params[8]).toBe('2026-02-15'); // next_due_date -- rolled over to next month
+    });
+
+    test('a monthly item with a day_of_month still ahead of the IST day does not roll over', async () => {
+        // Same boundary moment; day_of_month=20 is still ahead of the correct
+        // IST "today" (Jan 15), so no rollover should happen and next_due_date
+        // should land in the current month.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T19:30:00.000Z'));
+
+        const recurring = { id: 3, type: 'expense', amount: '1000.00', description: 'Rent', frequency: 'monthly', day_of_month: 20 };
+        pool.query.mockResolvedValueOnce({ rows: [recurring] });
+
+        await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: 20 });
+
+        const [, params] = pool.query.mock.calls[0];
+        expect(params[8]).toBe('2026-01-20'); // next_due_date -- no rollover
+    });
+
+    test('a daily item created at a moment already tomorrow in IST but still today in UTC anchors on the IST day', async () => {
+        // Same boundary moment: correct IST "today" is Jan 15, so the daily
+        // item's next_due_date must be Jan 16 -- not Jan 15, which is what a
+        // UTC-anchored "today" (Jan 14) plus one day would incorrectly produce.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T19:30:00.000Z'));
+
+        const recurring = { id: 4, type: 'expense', amount: '1000.00', description: 'Coffee', frequency: 'daily' };
+        pool.query.mockResolvedValueOnce({ rows: [recurring] });
+
+        await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Coffee', frequency: 'daily' });
+
+        const [, params] = pool.query.mock.calls[0];
+        expect(params[8]).toBe('2026-01-16'); // next_due_date
+    });
 });
 
 describe('POST /api/recurring/process — IST day boundary (mirrors the cron fix in index.js)', () => {
