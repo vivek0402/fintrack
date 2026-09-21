@@ -273,6 +273,25 @@ describe('fetchCreditCardsWithBalance', () => {
         expect(out.current_outstanding_balance).toBe('12000');
     });
 
+    it('still merges (does not return the cached row) when the EMI map has a genuine 0-value entry', async () => {
+        // Distinguishes emiByCard.has(row.id) from a truthiness check on the
+        // looked-up value. This EMI is active (4 of 10 installments posted)
+        // but its remaining_principal happens to be 0 -- fetchActiveEmiPrincipalByCard
+        // still includes it (only status is filtered, not the amount), so the
+        // map genuinely has an entry for this card. addEmiPrincipal must not
+        // treat that entry as "no EMI" and hand back the raw cached row.
+        const rawRow = card({ id: 1, current_outstanding_balance: '12000' });
+        const pool = fakePool(
+            { rows: [rawRow] },
+            { rows: [emiRow({ credit_card_id: 1, remaining_principal: '0', installments_posted: 4, installments_total: 10 })] },
+        );
+
+        const [out] = await fetchCreditCardsWithBalance(pool, 'u1');
+
+        expect(out.current_outstanding_balance).toBe('12000.00'); // went through the merge (.toFixed(2)), not the raw '12000' passthrough
+        expect(out).not.toBe(rawRow); // freshly built, not the stale cached reference
+    });
+
     it('only adds EMI principal to the matching card, not others', async () => {
         const pool = fakePool(
             { rows: [

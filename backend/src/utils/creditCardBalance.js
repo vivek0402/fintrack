@@ -68,8 +68,16 @@ const CARD_WITH_BALANCE_SINGLE_QUERY = `
 function addEmiPrincipal(rows, emiPrincipals) {
     const emiByCard = new Map(emiPrincipals.map(e => [e.credit_card_id, e.remaining_principal]));
     return rows.map(row => {
+        // .has(), not a truthiness check on the looked-up value: a card with
+        // no entry in the map (the common case) must short-circuit, but a
+        // card that legitimately has a 0-remaining-principal entry must
+        // still go through the merge rather than silently keeping the stale
+        // cached row. fetchActiveEmiPrincipalByCard only ever emits entries
+        // with a positive sum today, so this distinction is currently moot
+        // -- but that invariant lives in a different file and isn't
+        // enforced here, so don't rely on it.
+        if (!emiByCard.has(row.id)) return row;
         const emiPrincipal = emiByCard.get(row.id);
-        if (!emiPrincipal) return row;
         return {
             ...row,
             current_outstanding_balance: (parseFloat(row.current_outstanding_balance) + emiPrincipal).toFixed(2),
