@@ -4,11 +4,43 @@ const {
     fetchActiveEmiPrincipalByCard,
     deriveStatus,
     buildEmiInstallmentSchedule,
+    postDueEmiInstallments,
 } = require('../src/utils/creditCardEmi');
 const { generateAmortization } = require('../src/utils/amortization');
 
 function mockPool(rows) {
     return { query: jest.fn().mockResolvedValue({ rows }) };
+}
+
+// Builds a pool whose `.query` answers the initial due-installments SELECT
+// with `dueRows`, and whose `.connect()` hands out a fresh mock client per
+// installment (mirroring the real per-row BEGIN/COMMIT client pool.connect()
+// usage in postDueEmiInstallments). `clientQueryImpl` lets individual tests
+// override a specific client's query behavior (e.g. to fail one row).
+function mockPoolForPosting(dueRows, { clientQueryImpl } = {}) {
+    const clients = [];
+    const pool = {
+        query: jest.fn().mockResolvedValue({ rows: dueRows }),
+        connect: jest.fn(async () => {
+            let nextId = 100 + clients.length;
+            const client = {
+                query: jest.fn(async (sql, params) => {
+                    if (clientQueryImpl) {
+                        const override = clientQueryImpl(client, sql, params);
+                        if (override !== undefined) return override;
+                    }
+                    if (typeof sql === 'string' && sql.trim().startsWith('INSERT INTO transactions')) {
+                        return { rows: [{ id: `tx-${nextId++}` }] };
+                    }
+                    return { rows: [] };
+                }),
+                release: jest.fn(),
+            };
+            clients.push(client);
+            return client;
+        }),
+    };
+    return { pool, clients };
 }
 
 describe('deriveStatus', () => {
@@ -158,5 +190,110 @@ describe('buildEmiInstallmentSchedule', () => {
     test('throws if the amortization schedule length does not match tenure_months', () => {
         const amortization = { schedule: [{ emi: 100, principal_component: 100, interest_component: 0 }] };
         expect(() => buildEmiInstallmentSchedule(amortization, '2026-01-15', 6)).toThrow(/does not match tenure_months/);
+    });
+});
+
+describe('postDueEmiInstallments', () => {
+    function dueRow(overrides = {}) {
+        return {
+            id: 'inst-1',
+            emi_id: 'emi-1',
+            user_id: 'u1',
+            installment_number: 2,
+            due_date: '2026-03-01',
+            amount: '1000.00',
+            principal_component: '950.00',
+            interest_component: '50.00',
+            posted_at: null,
+            transaction_id: null,
+            credit_card_id: 7,
+            emi_description: 'iPhone 16',
+            category_id: 'cat-1',
+            tenure_months: 6,
+            ...overrides,
+        };
+    }
+
+    test('posts a due installment: inserts an expense transaction and marks the installment posted, atomically', async () => {
+        const { pool, clients } = mockPoolForPosting([dueRow()]);
+
+        const result = await postDueEmiInstallments(pool, '2026-03-01');
+
+        expect(result).toEqual({ processed: 1, due: 1 });
+        expect(pool.query).toHaveBeenCalledWith(expect.any(String), ['2026-03-01']);
+
+        expect(clients).toHaveLength(1);
+        const calls = clients[0].query.mock.calls.map(c => c[0]);
+        expect(calls[0]).toBe('BEGIN');
+        expect(calls[calls.length - 1]).toBe('COMMIT');
+
+        const insertCall = clients[0].query.mock.calls.find(c => c[0].includes('INSERT INTO transactions'));
+        expect(insertCall[1]).toEqual(['u1', 'cat-1', '1000.00', 'EMI installment 2/6 — iPhone 16', '2026-03-01', 7]);
+
+        const updateCall = clients[0].query.mock.calls.find(c => c[0].includes('UPDATE credit_card_emi_installments'));
+        expect(updateCall[1]).toEqual(['tx-100', 'inst-1']);
+
+        expect(clients[0].release).toHaveBeenCalled();
+    });
+
+    test('queries with the given "today" IST date string, relying on the DB (posted_at IS NULL AND due_date <= today) to exclude not-yet-due and already-posted rows', async () => {
+        const { pool } = mockPoolForPosting([]);
+        const result = await postDueEmiInstallments(pool, '2026-03-15');
+
+        expect(result).toEqual({ processed: 0, due: 0 });
+        expect(pool.query).toHaveBeenCalledTimes(1);
+        expect(pool.query.mock.calls[0][1]).toEqual(['2026-03-15']);
+        expect(pool.query.mock.calls[0][0]).toMatch(/posted_at IS NULL AND ci\.due_date <= \$1/);
+    });
+
+    test("one installment's failure does not block the others from posting", async () => {
+        const rows = [dueRow({ id: 'inst-fail', installment_number: 1 }), dueRow({ id: 'inst-ok', installment_number: 3 })];
+        let connectCount = 0;
+        const { pool, clients } = mockPoolForPosting(rows, {
+            clientQueryImpl: (client, sql) => {
+                // Fail the transaction insert for the first client only --
+                // the second client's queries fall through to the default
+                // mock behavior.
+                if (connectCount === 1 && typeof sql === 'string' && sql.includes('INSERT INTO transactions')) {
+                    throw new Error('insert failed');
+                }
+            },
+        });
+        const realConnect = pool.connect;
+        pool.connect = jest.fn(async () => {
+            connectCount++;
+            return realConnect();
+        });
+
+        const result = await postDueEmiInstallments(pool, '2026-03-01');
+
+        expect(result).toEqual({ processed: 1, due: 2 });
+        expect(clients).toHaveLength(2);
+        // Failed row: rolled back, no update executed, client still released.
+        const failedCalls = clients[0].query.mock.calls.map(c => c[0]);
+        expect(failedCalls).toContain('ROLLBACK');
+        expect(failedCalls.some(sql => sql.includes('UPDATE credit_card_emi_installments'))).toBe(false);
+        expect(clients[0].release).toHaveBeenCalled();
+        // Second row still succeeded.
+        const okCalls = clients[1].query.mock.calls.map(c => c[0]);
+        expect(okCalls).toContain('COMMIT');
+        expect(clients[1].release).toHaveBeenCalled();
+    });
+
+    test('rolls back and does not update the installment row if the UPDATE step itself fails after the INSERT succeeded', async () => {
+        const { pool, clients } = mockPoolForPosting([dueRow()], {
+            clientQueryImpl: (client, sql) => {
+                if (typeof sql === 'string' && sql.includes('UPDATE credit_card_emi_installments')) {
+                    throw new Error('update failed');
+                }
+            },
+        });
+
+        const result = await postDueEmiInstallments(pool, '2026-03-01');
+
+        expect(result).toEqual({ processed: 0, due: 1 });
+        const calls = clients[0].query.mock.calls.map(c => c[0]);
+        expect(calls).toContain('ROLLBACK');
+        expect(calls).not.toContain('COMMIT');
     });
 });

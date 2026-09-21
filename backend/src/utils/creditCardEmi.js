@@ -1,4 +1,4 @@
-const { istAddMonths } = require('./istDate');
+const { istAddMonths, istDateStr } = require('./istDate');
 
 // Centralizes "what's the current state of a credit card EMI" the same way
 // personalLoans.js centralizes it for personal loans. Status is never stored
@@ -134,10 +134,88 @@ function buildEmiInstallmentSchedule(amortization, purchaseDate, tenureMonths) {
     });
 }
 
+// Selects every credit_card_emi_installments row that's due and hasn't
+// posted yet, joined up to its parent EMI for the fields the posting cron
+// needs (credit_card_id, a human-readable description, category_id, and
+// tenure_months for the "N/M" label). posted_at IS NULL AND due_date <= $1
+// is exactly the predicate idx_credit_card_emi_installments_due_unposted
+// (migration 073) was built for, so this stays index-only on the
+// installments side regardless of table size.
+const DUE_UNPOSTED_INSTALLMENTS_QUERY = `
+    SELECT ci.*, e.credit_card_id, e.description AS emi_description, e.category_id, e.tenure_months
+    FROM credit_card_emi_installments ci
+    JOIN credit_card_emis e ON e.id = ci.emi_id
+    WHERE ci.posted_at IS NULL AND ci.due_date <= $1
+    ORDER BY ci.due_date ASC
+`;
+
+// Posts every due, unposted EMI installment as a real expense transaction
+// and marks the installment posted -- this is what makes an EMI's future
+// installments actually show up as spend and count toward the card's
+// balance (via creditCardBalance.js's transaction-sum logic) on schedule,
+// without the app ever needing to be opened. Structurally the sibling of
+// the recurring-transactions cron in index.js: same per-row try/catch
+// isolation so one installment's failure can't block the rest from
+// posting.
+//
+// The installment's own posted_at/due_date are the sole source of truth
+// for "is this due" -- no extra filtering on the EMI's own active/
+// completed status is needed, since a fully-posted EMI naturally has no
+// unposted installment rows left to match this query in the first place.
+//
+// No-cost vs. interest-bearing EMIs are posted identically here: amount/
+// principal_component/interest_component were already computed correctly
+// by buildEmiInstallmentSchedule back at EMI creation time (an even split
+// for no-cost, an amortized split otherwise) -- this function's only job
+// is to post `amount` as a transaction on schedule, regardless of how it
+// was split.
+//
+// Each installment's transaction insert + posted_at/transaction_id update
+// run inside one BEGIN/COMMIT on a dedicated client (not two independent
+// pool.query calls) so they can never be observed apart -- if the update
+// failed after the insert succeeded, the installment would still look
+// unposted and get re-inserted as a duplicate transaction on the next run.
+async function postDueEmiInstallments(pool, today = istDateStr()) {
+    const due = await pool.query(DUE_UNPOSTED_INSTALLMENTS_QUERY, [today]);
+
+    let processed = 0;
+    for (const installment of due.rows) {
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            const label = `EMI installment ${installment.installment_number}/${installment.tenure_months} — ${installment.emi_description}`;
+            const txResult = await client.query(
+                `INSERT INTO transactions (user_id, category_id, type, amount, description, date, credit_card_id)
+                 VALUES ($1,$2,'expense',$3,$4,$5,$6)
+                 RETURNING id`,
+                [installment.user_id, installment.category_id, installment.amount, label, installment.due_date, installment.credit_card_id]
+            );
+            const transactionId = txResult.rows[0].id;
+
+            await client.query(
+                `UPDATE credit_card_emi_installments SET posted_at = NOW(), transaction_id = $1 WHERE id = $2`,
+                [transactionId, installment.id]
+            );
+
+            await client.query('COMMIT');
+            processed++;
+        } catch (err) {
+            await client.query('ROLLBACK').catch(() => {});
+            console.error(`[Cron] Failed to post EMI installment ${installment.id} (emi ${installment.emi_id}):`, err.message);
+        } finally {
+            client.release();
+        }
+    }
+
+    return { processed, due: due.rows.length };
+}
+
 module.exports = {
     fetchCreditCardEmisWithBalance,
     fetchCreditCardEmiWithBalance,
     fetchActiveEmiPrincipalByCard,
     deriveStatus,
     buildEmiInstallmentSchedule,
+    postDueEmiInstallments,
 };
