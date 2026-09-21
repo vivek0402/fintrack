@@ -171,6 +171,36 @@ describe('POST /api/planning', () => {
     });
 });
 
+describe('GET /api/planning/cashflow — IST month boundary', () => {
+    afterEach(() => jest.useRealTimers());
+
+    test('uses the IST calendar month, not the UTC one, for the trailing 3-full-months window and the forward month labels', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. The trailing window must
+        // start at 2025-11-01 and end at 2026-02-01 (not a UTC-anchored
+        // January/October pair), and month 1 of the 12-month forward
+        // projection must be labeled "Mar 2026" (one month after February),
+        // not "Feb 2026".
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ total: '0' }] }) // income
+            .mockResolvedValueOnce({ rows: [] })               // expense by category
+            .mockResolvedValueOnce({ rows: [] })               // loans
+            .mockResolvedValueOnce({ rows: [] });               // recurring
+
+        const res = await request(app).get('/api/planning/cashflow');
+
+        expect(res.status).toBe(200);
+
+        const [, incomeParams] = pool.query.mock.calls[0];
+        expect(incomeParams).toEqual(['user-123', '2025-11-01', '2026-02-01']);
+
+        expect(res.body.months[0].month).toBe('Mar 2026');
+        expect(res.body.months[11].month).toBe('Feb 2027');
+    });
+});
+
 describe('DELETE /api/planning', () => {
     test('deletes only the caller\'s own plan, scoped by user_id', async () => {
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'plan-1' }] });

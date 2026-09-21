@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
+const { istDateStr } = require('../utils/istDate');
 
 // ─── PARENT EXPENSE ROUTES ────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ router.post('/', authMiddleware, async (req, res) => {
       bank_account_id ? parseInt(bank_account_id, 10) : null,
       title,
       category || 'Other',
-      start_date || new Date().toISOString().split('T')[0],
+      start_date || istDateStr(),
       notes || null,
       icon || 'receipt',
       color || '#a855f7',

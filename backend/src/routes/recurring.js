@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isValidTransactionType, isValidRecurringFrequency } = require('../utils/validation');
+const { istDateStr } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -42,16 +43,20 @@ router.post('/', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid category_id.' });
         }
 
-        const today = new Date();
-        let nextDue = new Date();
+        // Anchor "today" on the IST calendar date (not the server/UTC one), then do
+        // all day/month arithmetic in UTC-midnight space against that anchor so the
+        // server process's own timezone can't reintroduce the boundary bug when the
+        // result is serialized back to a date string below.
+        const today = new Date(`${istDateStr()}T00:00:00.000Z`);
+        let nextDue = new Date(today);
 
         if (frequency === 'monthly' && day_of_month) {
-            nextDue.setDate(day_of_month);
-            if (nextDue <= today) nextDue.setMonth(nextDue.getMonth() + 1);
+            nextDue.setUTCDate(day_of_month);
+            if (nextDue <= today) nextDue.setUTCMonth(nextDue.getUTCMonth() + 1);
         } else if (frequency === 'weekly') {
-            nextDue.setDate(today.getDate() + 7);
+            nextDue.setUTCDate(today.getUTCDate() + 7);
         } else {
-            nextDue.setDate(today.getDate() + 1);
+            nextDue.setUTCDate(today.getUTCDate() + 1);
         }
 
         const result = await pool.query(
@@ -139,7 +144,7 @@ router.put('/:id', async (req, res) => {
         if (oldRows.length && Math.abs(oldAmount - newAmount) > 1) {
             setImmediate(async () => {
                 try {
-                    const alertKey = `bill_changed:${updated.id}:${new Date().toISOString().slice(0, 7)}`;
+                    const alertKey = `bill_changed:${updated.id}:${istDateStr().slice(0, 7)}`;
                     const diff = newAmount - oldAmount;
                     await notifyOnce(req.user.id, alertKey, {
                         title: 'Recurring Bill Updated 📝',
@@ -157,7 +162,7 @@ router.put('/:id', async (req, res) => {
 
 router.post('/process', async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = istDateStr();
         const due = await pool.query(
             `SELECT * FROM recurring_transactions WHERE user_id=$1 AND is_active=true AND next_due_date <= $2`,
             [req.user.id, today]

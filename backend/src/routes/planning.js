@@ -9,6 +9,7 @@ const { aiComplete } = require('../utils/ai');
 const { computeDriftReport } = require('../services/behaviorAnalysis');
 const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthStart, istMonthsAgoStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -559,12 +560,7 @@ function emiForLoan(loan) {
 // (i.e. excluding the current, in-progress month).
 function lastNFullMonthsRange(n) {
     const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const start = new Date(now.getFullYear(), now.getMonth() - n, 1);
-    return {
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0],
-    };
+    return { start: istMonthsAgoStart(n, now), end: istMonthStart(now) };
 }
 
 function addMonthsToDate(date, months) {
@@ -637,8 +633,8 @@ router.get('/cashflow', async (req, res) => {
         const now = new Date();
 
         for (let i = 1; i <= 12; i++) {
-            const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-            const label = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const [futureYear, futureMonth] = istMonthsAgoStart(-i, now).split('-').map(Number);
+            const label = new Date(Date.UTC(futureYear, futureMonth - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
             const fixed_outflows = fixed_monthly_outflows + recurring_outflows;
             const net_cashflow = net_monthly_cashflow;

@@ -3,6 +3,7 @@ const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isNonNegativeNumber, isValidDateString, isValidMilestoneStatus } = require('../utils/validation');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthStart, istMonthsAgoStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -11,12 +12,7 @@ router.use(auth);
 // (i.e. excluding the current, in-progress month).
 function lastNFullMonthsRange(n) {
     const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const start = new Date(now.getFullYear(), now.getMonth() - n, 1);
-    return {
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0],
-    };
+    return { start: istMonthsAgoStart(n, now), end: istMonthStart(now) };
 }
 
 async function getAverageMonthlySavings(userId) {

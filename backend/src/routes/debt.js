@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { isPositiveNumber } = require('../utils/validation');
 const { calculateEMI, generateAmortization, monthsRemainingForLoan } = require('../utils/amortization');
 const { fetchCreditCardsWithBalance, fetchCreditCardsWithCycleBreakdown } = require('../utils/creditCardBalance');
+const { istDateStr, istMonthStart, istMonthsAgoStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -190,7 +191,7 @@ router.get('/prepayment-impact', async (req, res) => {
         if (before.invalid)
             return res.status(400).json({ error: before.error });
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = istDateStr();
         const after = generateAmortization({
             outstanding_balance: outstanding,
             interest_rate_pct: interestRate,
@@ -311,15 +312,15 @@ function classifyDti(pct) {
 // back to 5% of current_outstanding_balance, unchanged from before.
 async function computeDtiBreakdown(userId) {
     const now = new Date();
-    const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const firstOfThisMonth = istMonthStart(now);
+    const threeMonthsAgo = istMonthsAgoStart(3, now);
 
     const [incomeRes, loansRes, cards] = await Promise.all([
         pool.query(
             `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
              WHERE user_id = $1 AND type = 'income' AND date >= $2 AND date < $3
              AND NOT (COALESCE(tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])`,
-            [userId, threeMonthsAgo.toISOString().split('T')[0], firstOfThisMonth.toISOString().split('T')[0]]
+            [userId, threeMonthsAgo, firstOfThisMonth]
         ),
         pool.query('SELECT * FROM loans WHERE user_id = $1 AND is_active = true', [userId]),
         fetchCreditCardsWithCycleBreakdown(pool, userId),

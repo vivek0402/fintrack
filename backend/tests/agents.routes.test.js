@@ -11,6 +11,9 @@ jest.mock('../src/middleware/auth', () => (req, res, next) => {
     req.user = { id: 'user-123', email: 'test@example.com' };
     next();
 });
+jest.mock('../src/utils/ai', () => ({
+    aiComplete: jest.fn().mockResolvedValue('ok'),
+}));
 
 const express = require('express');
 const request = require('supertest');
@@ -123,6 +126,48 @@ describe('GET /conversations/:id', () => {
 
         expect(forbidden.status).toBe(403);
         expect(missing.status).toBe(404);
+    });
+});
+
+describe('POST /message — IST month boundary for budget_master data (fetchBudgetMasterData)', () => {
+    afterEach(() => { pool.query.mockReset(); jest.useRealTimers(); });
+
+    it('uses the IST calendar month, not the UTC one, for the budgets query', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. The budgets query's
+        // EXTRACT(MONTH)/EXTRACT(YEAR) params must resolve to (2, 2026), not
+        // a UTC-anchored (1, 2026).
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+
+        // fetchUnifiedData -> Promise.all([fetchDebtCoachData, fetchInvestmentAdvisorData, fetchBudgetMasterData])
+        // fetchDebtCoachData: loans, prepayments, computeDtiBreakdown (income, loans, cards), computeCreditUtilization (cards)
+        pool.query.mockResolvedValueOnce({ rows: [] });      // loans
+        pool.query.mockResolvedValueOnce({ rows: [] });      // prepayments
+        pool.query.mockResolvedValueOnce({ rows: [{ total: '0' }] }); // dti income
+        pool.query.mockResolvedValueOnce({ rows: [] });      // dti loans
+        pool.query.mockResolvedValueOnce({ rows: [] });      // dti credit cards
+        pool.query.mockResolvedValueOnce({ rows: [] });      // credit utilization cards
+        // fetchInvestmentAdvisorData: holdings, top holdings, snapshots, bank balance
+        pool.query.mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [{ total: '0' }] });
+        // fetchBudgetMasterData: spending, budgets, savings
+        pool.query.mockResolvedValueOnce({ rows: [] }); // spending
+        pool.query.mockResolvedValueOnce({ rows: [] }); // budgets -- the one under test
+        pool.query.mockResolvedValueOnce({ rows: [] }); // savings
+        // No conversation_id was sent, so the route persists a new conversation.
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'conv-new' }] }); // INSERT INTO agent_conversations
+
+        const res = await request(app).post('/api/agents/message').send({ message: 'hi' });
+
+        expect(res.status).toBe(200);
+
+        const budgetsCall = pool.query.mock.calls.find(([sql]) => sql.includes('FROM budgets b'));
+        expect(budgetsCall).toBeDefined();
+        const [, budgetsParams] = budgetsCall;
+        expect(budgetsParams[1]).toBe(2);    // month
+        expect(budgetsParams[2]).toBe(2026); // year
     });
 });
 

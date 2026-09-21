@@ -59,6 +59,23 @@ describe('POST /api/one-time-expenses', () => {
         expect(insertCalls.length).toBe(0);
     });
 
+    test('defaults start_date to the IST calendar day, not the UTC one, when omitted', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'exp-1', title: 'Trip', amount: '0', start_date: '2026-02-01' }] });
+
+            const res = await request(app).post('/api/one-time-expenses').send({ title: 'Trip' });
+
+            expect(res.status).toBe(201);
+            const [, params] = pool.query.mock.calls[0];
+            expect(params[4]).toBe('2026-02-01'); // date column uses the same default
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     test('accepts a bank_account_id that DOES belong to the user and creates the expense', async () => {
         // Ownership check finds the account...
         pool.query.mockResolvedValueOnce({ rows: [{ id: 7 }] });

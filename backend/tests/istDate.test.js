@@ -6,6 +6,7 @@ const {
     istMonthStart,
     istPriorMonthStart,
     istNextMonthStart,
+    istMonthsAgoStart,
     mondayOf,
 } = require('../src/utils/istDate');
 
@@ -95,6 +96,35 @@ describe('istNextMonthStart', () => {
     test('a moment in December resolves to the NEXT YEAR\'s January start', () => {
         const ts = new Date('2026-12-15T10:00:00.000Z');
         expect(istNextMonthStart(ts)).toBe('2027-01-01');
+    });
+});
+
+describe('istMonthsAgoStart', () => {
+    test('3 months back from February rolls over into the previous year\'s November', () => {
+        const ts = new Date('2026-02-15T10:00:00.000Z'); // Feb 2026
+        expect(istMonthsAgoStart(3, ts)).toBe('2025-11-01');
+    });
+
+    test('a simple same-year case: 3 months back from June is March', () => {
+        const ts = new Date('2026-06-15T10:00:00.000Z');
+        expect(istMonthsAgoStart(3, ts)).toBe('2026-03-01');
+    });
+
+    test('negative n (reaching into the future) agrees with istNextMonthStart for n=-1', () => {
+        const ts = new Date('2026-11-15T10:00:00.000Z');
+        expect(istMonthsAgoStart(-1, ts)).toBe(istNextMonthStart(ts));
+    });
+
+    test('negative n across a year boundary agrees with istNextMonthStart', () => {
+        const ts = new Date('2026-12-15T10:00:00.000Z');
+        expect(istMonthsAgoStart(-1, ts)).toBe(istNextMonthStart(ts));
+        expect(istMonthsAgoStart(-1, ts)).toBe('2027-01-01');
+    });
+
+    test('n=1 agrees with istPriorMonthStart', () => {
+        const ts = new Date('2026-01-15T10:00:00.000Z');
+        expect(istMonthsAgoStart(1, ts)).toBe(istPriorMonthStart(ts));
+        expect(istMonthsAgoStart(1, ts)).toBe('2025-12-01');
     });
 });
 

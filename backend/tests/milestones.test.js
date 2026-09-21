@@ -124,6 +124,27 @@ describe('PATCH /api/milestones/:id/progress', () => {
     });
 });
 
+describe('GET /api/milestones — IST month boundary for lastNFullMonthsRange (average savings window)', () => {
+    afterEach(() => jest.useRealTimers());
+
+    test('uses the IST calendar month, not the UTC one, for the trailing 3-full-months savings window', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. "This month" (excluded) must
+        // resolve to February, so the last 3 FULL months end at 2026-02-01 and
+        // start at 2025-11-01 -- not a UTC-anchored January/October pair.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+
+        pool.query
+            .mockResolvedValueOnce({ rows: [] }) // milestones list
+            .mockResolvedValueOnce({ rows: [] }); // average monthly savings
+
+        await request(app).get('/api/milestones');
+
+        const [, avgSavingsParams] = pool.query.mock.calls[1];
+        expect(avgSavingsParams).toEqual(['user-123', '2025-11-01', '2026-02-01']);
+    });
+});
+
 describe('DELETE /api/milestones/:id', () => {
     test('unlinks children', async () => {
         pool.query

@@ -68,6 +68,41 @@ describe('GET /api/groups/:id', () => {
     });
 });
 
+describe('POST /api/groups/:id/splits — IST date default', () => {
+    afterEach(() => jest.useRealTimers());
+
+    test('defaults the split date to the IST calendar day, not the UTC one, when date is omitted', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31. A UTC-based default
+        // would insert the split under Jan 31 instead of Feb 1.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'grp-1' }] }); // group ownership check
+        const client = mockClient(async (sql, params) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes('INSERT INTO group_splits')) {
+                expect(params[4]).toBe('2026-02-01');
+                return { rows: [{ id: 'split-1' }] };
+            }
+            if (sql.includes('INSERT INTO group_split_shares')) return {};
+            if (sql.includes('SELECT name FROM expense_groups')) return { rows: [{ name: 'Trip' }] };
+            if (sql.includes('INSERT INTO transactions')) {
+                expect(params[5]).toBe('2026-02-01');
+                return {};
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'split-1', shares: [] }] }); // final re-fetch
+
+        const res = await request(app)
+            .post('/api/groups/grp-1/splits')
+            .send({ description: 'Dinner', total_amount: 100, paid_by: 'Me', shares: [{ member: 'Me', amount: 100 }] });
+
+        expect(res.status).toBe(201);
+    });
+});
+
 describe('PATCH /api/groups/:id/splits/:splitId/shares/:shareId/settle', () => {
     test('flips only the targeted share, not all shares in the split', async () => {
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'share-2', settled: false }] }); // ownership + current state

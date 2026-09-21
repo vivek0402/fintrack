@@ -121,6 +121,79 @@ describe('POST /api/recurring', () => {
     });
 });
 
+describe('POST /api/recurring — IST day boundary for next_due_date', () => {
+    afterEach(() => { pool.query.mockReset(); jest.useRealTimers(); });
+
+    test('a weekly item created at a moment already tomorrow in IST but still today in UTC anchors on the IST day', async () => {
+        // 2026-01-14T19:30:00.000Z is 2026-01-15 01:00 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 14. next_due_date must
+        // be 7 days after the IST day (2026-01-22), not 7 days after the UTC
+        // day (2026-01-21).
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T19:30:00.000Z'));
+
+        const recurring = { id: 1, type: 'expense', amount: '1000.00', description: 'Rent', frequency: 'weekly' };
+        pool.query.mockResolvedValueOnce({ rows: [recurring] });
+
+        await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'weekly' });
+
+        const [, params] = pool.query.mock.calls[0];
+        expect(params[8]).toBe('2026-01-22'); // next_due_date
+    });
+});
+
+describe('POST /api/recurring/process — IST day boundary (mirrors the cron fix in index.js)', () => {
+    afterEach(() => { pool.query.mockReset(); jest.useRealTimers(); });
+
+    test('picks up an item due today-in-IST even though the server is still on yesterday in UTC', async () => {
+        // 2026-01-14T19:30:00.000Z is 2026-01-15 01:00 IST -- already Jan 15 in
+        // IST while UTC is still on Jan 14. An item whose next_due_date is
+        // 2026-01-15 is due right now for the IST user; a UTC-based `today`
+        // would compute '2026-01-14' and miss it (next_due_date <= today would
+        // be false), leaving the recurring item unprocessed for the user until
+        // up to 5.5 hours later.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T19:30:00.000Z'));
+
+        const dueItem = {
+            id: 'r1', user_id: 'user-123', category_id: null, type: 'expense',
+            amount: '500', description: 'Netflix', notes: null,
+            frequency: 'monthly', day_of_month: 15, next_due_date: '2026-01-15',
+        };
+        pool.query
+            .mockResolvedValueOnce({ rows: [dueItem] })  // SELECT due items
+            .mockResolvedValueOnce({ rowCount: 1 })       // UPDATE next_due_date (CAS)
+            .mockResolvedValueOnce({ rows: [] });         // INSERT transactions
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.status).toBe(200);
+        expect(res.body.processed).toBe(1);
+        expect(res.body.created).toEqual(['Netflix']);
+
+        // The SELECT's `today` param must be the IST date, not the UTC one.
+        const [, selectParams] = pool.query.mock.calls[0];
+        expect(selectParams[1]).toBe('2026-01-15');
+    });
+
+    test('does NOT pick up an item due tomorrow-in-IST even though the UTC clock already reads that date', async () => {
+        // Guards against overcorrecting to "always use tomorrow": at
+        // 2026-01-14T10:00:00.000Z (15:30 IST, still Jan 14 in both calendars),
+        // an item due 2026-01-15 must not be processed yet.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-14T10:00:00.000Z'));
+
+        pool.query.mockResolvedValueOnce({ rows: [] }); // nothing due for 2026-01-14
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.status).toBe(200);
+        expect(res.body.processed).toBe(0);
+
+        const [, selectParams] = pool.query.mock.calls[0];
+        expect(selectParams[1]).toBe('2026-01-14');
+    });
+});
+
 describe('GET /api/recurring', () => {
     afterEach(() => pool.query.mockReset());
 
@@ -188,6 +261,39 @@ describe('PUT /api/recurring/:id', () => {
 
         expect(res.status).toBe(200);
         expect(res.body.recurring).toMatchObject({ id: 1, category_id: 'legacy-cat' });
+    });
+});
+
+describe('PUT /api/recurring/:id — IST-anchored bill-changed notification key', () => {
+    afterEach(() => { pool.query.mockReset(); jest.useRealTimers(); });
+
+    test('dedup key uses the IST month, not the UTC one, near a month boundary', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. A UTC-based key would let a
+        // duplicate "bill changed" notification through in the new IST month.
+        // setImmediate is left un-faked so the fire-and-forget notification
+        // callback in the route still actually runs during this test.
+        jest.useFakeTimers({ doNotFake: ['setImmediate'] }).setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+
+        const updated = { id: 1, type: 'expense', amount: '1200.00', description: 'Rent', frequency: 'monthly' };
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ amount: '1000' }] }) // oldRows lookup
+            .mockResolvedValueOnce({ rows: [updated] });           // UPDATE
+
+        const { notifyOnce } = require('../src/utils/fcm');
+        notifyOnce.mockClear();
+
+        const res = await request(buildApp())
+            .put('/api/recurring/1')
+            .send({ type: 'expense', amount: 1200, description: 'Rent', frequency: 'monthly' });
+
+        expect(res.status).toBe(200);
+        // notifyOnce runs on setImmediate — flush the microtask/macrotask queue.
+        await new Promise(resolve => setImmediate(resolve));
+
+        expect(notifyOnce).toHaveBeenCalledTimes(1);
+        const [, alertKey] = notifyOnce.mock.calls[0];
+        expect(alertKey).toBe('bill_changed:1:2026-02');
     });
 });
 

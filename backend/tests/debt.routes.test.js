@@ -65,6 +65,27 @@ describe('computeDtiBreakdown', () => {
         expect(Number.isFinite(result.dti_ratio)).toBe(true);
         expect(result.status).toBe('excellent');
     });
+
+    test('uses the IST month boundary, not the UTC one, for the trailing 3-month income window', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. "This month" must resolve
+        // to February (firstOfThisMonth=2026-02-01) and the trailing window
+        // must start from November (threeMonthsAgo=2025-11-01), not from a
+        // UTC-anchored January/October pair.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockResolvedValueOnce({ rows: [{ total: '0' }] }); // income
+            pool.query.mockResolvedValueOnce({ rows: [] }); // loans
+            pool.query.mockResolvedValueOnce({ rows: [] }); // credit cards
+
+            await computeDtiBreakdown('user-1');
+
+            const [, incomeParams] = pool.query.mock.calls[0];
+            expect(incomeParams).toEqual(['user-1', '2025-11-01', '2026-02-01']);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
 });
 
 describe('GET /api/debt/payoff-optimizer', () => {
@@ -109,5 +130,63 @@ describe('GET /api/debt/prepayment-impact — cross-user access', () => {
         const res = await request(app).get('/api/debt/prepayment-impact?loan_id=loan-1&prepayment_amount=10000');
 
         expect(res.status).toBe(403);
+    });
+});
+
+describe('GET /api/debt/prepayment-impact — IST "today" for the simulated prepayment date', () => {
+    test('uses the IST calendar day, not the UTC one, as the prepayment date', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31. The "after"
+        // simulation's synthetic prepayment must be dated 2026-02-01, not
+        // 2026-01-31. Uses isolateModulesAsync with its own mocked pool/auth/
+        // amortization so this one test can freshly require debt.js under a
+        // spy without disturbing the rest of this file's shared `pool`/`app`.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        let capturedPrepaymentDate;
+        try {
+            await jest.isolateModulesAsync(async () => {
+                jest.doMock('../src/db/pool', () => ({ query: jest.fn() }));
+                jest.doMock('../src/middleware/auth', () => (req, res, next) => {
+                    req.user = { id: 'user-123' };
+                    next();
+                });
+                jest.doMock('../src/utils/amortization', () => {
+                    const actual = jest.requireActual('../src/utils/amortization');
+                    return {
+                        ...actual,
+                        generateAmortization: jest.fn((args) => {
+                            if (args.prepayments && args.prepayments.length > 0) {
+                                capturedPrepaymentDate = args.prepayments[args.prepayments.length - 1].date;
+                            }
+                            return actual.generateAmortization(args);
+                        }),
+                    };
+                });
+
+                const freshPool = require('../src/db/pool');
+                const freshRouter = require('../src/routes/debt');
+                const freshExpress = require('express');
+                const freshRequest = require('supertest');
+                const freshApp = freshExpress();
+                freshApp.use(freshExpress.json());
+                freshApp.use('/api/debt', freshRouter);
+
+                freshPool.query.mockResolvedValueOnce({
+                    rows: [{
+                        id: 'loan-1', user_id: 'user-123', outstanding_balance: '100000',
+                        interest_rate_pct: '12', emi_amount: '5000', tenure_months: 24,
+                        prepayment_penalty_pct: null,
+                    }],
+                });
+                freshPool.query.mockResolvedValueOnce({ rows: [] }); // existing prepayments
+
+                const res = await freshRequest(freshApp).get('/api/debt/prepayment-impact?loan_id=loan-1&prepayment_amount=10000');
+                expect(res.status).toBe(200);
+            });
+
+            expect(capturedPrepaymentDate).toBe('2026-02-01');
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });

@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const authMiddleware = require('../middleware/auth');
 const { isPositiveNumber } = require('../utils/validation');
+const { istDateStr } = require('../utils/istDate');
 
 // GET /api/splits — list all splits for the user
 router.get('/', authMiddleware, async (req, res) => {
@@ -34,7 +35,7 @@ router.post('/', authMiddleware, async (req, res) => {
         // Give each participant an equal rounded share; absorb any rounding remainder into the user's share
         const participantShare = Math.round((total / splitCount) * 100) / 100;
         const yourShare = Math.round((total - participants.length * participantShare) * 100) / 100;
-        const splitDate = date || new Date().toISOString().split('T')[0];
+        const splitDate = date || istDateStr();
 
         // Create a transaction for the user's share
         const txResult = await pool.query(

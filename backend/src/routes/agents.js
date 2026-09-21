@@ -6,6 +6,7 @@ const { aiComplete } = require('../utils/ai');
 const { calculateEMI, monthsRemainingForLoan } = require('../utils/amortization');
 const { computeDtiBreakdown, computeCreditUtilization } = require('./debt');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthYear } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -179,8 +180,7 @@ async function fetchInvestmentAdvisorData(userId) {
 
 async function fetchBudgetMasterData(userId) {
     const now = new Date();
-    const m = now.getMonth() + 1;
-    const y = now.getFullYear();
+    const { month: m, year: y } = istMonthYear(now);
 
     // Three independent queries — none depends on another's result — run in parallel.
     const [spendingRes, budgetsRes, savingsRes] = await Promise.all([

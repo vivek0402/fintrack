@@ -51,6 +51,17 @@ function istNextMonthStart(d = new Date()) {
     return `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
 }
 
+// 'YYYY-MM-01' for the IST calendar month that is `n` months before the one
+// containing `d` (n=1 behaves like istPriorMonthStart; negative n reaches
+// into the future, e.g. n=-1 behaves like istNextMonthStart).
+function istMonthsAgoStart(n, d = new Date()) {
+    const { month, year } = istMonthYear(d);
+    const totalMonths = (year * 12 + (month - 1)) - n;
+    const resultYear = Math.floor(totalMonths / 12);
+    const resultMonth = (totalMonths % 12) + 1;
+    return `${resultYear}-${String(resultMonth).padStart(2, '0')}-01`;
+}
+
 // 'YYYY-MM-DD' for the Monday of the IST calendar week containing `d`. Day-of-
 // week math is done via UTC getters against a UTC-midnight reconstruction of
 // the IST calendar date string, so the result never depends on the server
@@ -63,4 +74,4 @@ function mondayOf(d = new Date()) {
     return asUtcMidnight.toISOString().split('T')[0];
 }
 
-module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, mondayOf };
+module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf };
