@@ -22,6 +22,14 @@ afterEach(() => {
     pool.query.mockReset();
 });
 
+// Credit-card balance helpers now issue a second query (active EMI
+// principal for the user) after the cards query. Default that to "no active
+// EMIs" globally; any test that cares about EMI behaviour overrides it with
+// an explicit mockResolvedValueOnce queued before this default kicks in.
+beforeEach(() => {
+    pool.query.mockResolvedValue({ rows: [] });
+});
+
 // The largest untested route file, feeding the whole Analytics page. Focus is
 // on /wealth-velocity, which carries the most derived logic -- and whose
 // `trend` value is what the dashboard's WealthVelocityWidget renders as its

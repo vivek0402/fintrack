@@ -35,6 +35,7 @@ const pool = require('./db/pool');
 const { getLatestNav } = require('./utils/marketData');
 const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
+const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -389,6 +390,23 @@ cron.schedule('0 0 * * *', async () => {
         console.log(`[Cron] Done — processed ${processed}/${due.rows.length} recurring transactions.`);
     } catch (err) {
         console.error('[Cron] Recurring job failed:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: post due credit card EMI installments daily at midnight ───────────
+// Sibling to the recurring-transactions cron above -- both post transactions
+// from a schedule server-side so they happen even if the app isn't opened.
+// The actual query + per-row posting logic lives in
+// creditCardEmi.js#postDueEmiInstallments (index.js's inline cron bodies
+// aren't unit-tested directly, so it's extracted to be testable without
+// node-cron/the app).
+cron.schedule('0 0 * * *', async () => {
+    console.log('[Cron] Posting due credit card EMI installments...');
+    try {
+        const { processed, due } = await postDueEmiInstallments(pool);
+        console.log(`[Cron] Done — processed ${processed}/${due} credit card EMI installments.`);
+    } catch (err) {
+        console.error('[Cron:CreditCardEmi] job failed:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 

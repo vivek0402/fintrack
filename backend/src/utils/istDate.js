@@ -74,4 +74,24 @@ function mondayOf(d = new Date()) {
     return asUtcMidnight.toISOString().split('T')[0];
 }
 
-module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf };
+// 'YYYY-MM-DD' for the date `n` whole months after `dateStr` ('YYYY-MM-DD'),
+// clamped to the target month's last day when the source day-of-month
+// doesn't exist there (e.g. Jan 31 + 1 month -> Feb 28/29) -- the standard
+// EMI due-date convention. Pure integer arithmetic on the parsed
+// year/month/day, same as istNextMonthStart/istPriorMonthStart above; no
+// server-timezone Date object is ever constructed from `dateStr`, so this
+// stays IST-safe by construction (there is no "today" involved -- the
+// caller supplies the anchor date). Date.UTC is used only to look up how
+// many days are in the *target* calendar month, which is timezone-
+// independent (same trick istDaysInMonth already uses).
+function istAddMonths(dateStr, n) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const totalMonths = year * 12 + (month - 1) + n;
+    const targetYear = Math.floor(totalMonths / 12);
+    const targetMonth = (totalMonths % 12) + 1; // 1-indexed
+    const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+    const targetDay = Math.min(day, daysInTargetMonth);
+    return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+}
+
+module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf, istAddMonths };

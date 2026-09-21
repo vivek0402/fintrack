@@ -156,6 +156,18 @@ describe('POST /message — IST month boundary for budget_master data (fetchBudg
         pool.query.mockResolvedValueOnce({ rows: [] }); // spending
         pool.query.mockResolvedValueOnce({ rows: [] }); // budgets -- the one under test
         pool.query.mockResolvedValueOnce({ rows: [] }); // savings
+        // Credit card EMI principal fold-in (creditCardBalance.js's
+        // fetchActiveEmiPrincipalByCard, called from fetchCreditCardsWithBalance
+        // and again from fetchCreditCardsWithCycleBreakdown for the
+        // statement-balance fix -- see creditCardBalance.js). These resolve
+        // after all the calls above because they're each a *second* await
+        // inside their respective functions (base cards query first, then the
+        // EMI query), so their continuations land after every "first hop" call
+        // across the three concurrently-running fetchers -- confirmed by
+        // tracing actual pool.query call order, not assumed from source order.
+        pool.query.mockResolvedValueOnce({ rows: [] }); // dti cycle-breakdown's fetchCreditCardsWithBalance EMI fetch
+        pool.query.mockResolvedValueOnce({ rows: [] }); // credit utilization's fetchCreditCardsWithBalance EMI fetch
+        pool.query.mockResolvedValueOnce({ rows: [] }); // dti cycle-breakdown's own direct EMI fetch (statement-balance fix)
         // No conversation_id was sent, so the route persists a new conversation.
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'conv-new' }] }); // INSERT INTO agent_conversations
 
