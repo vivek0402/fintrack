@@ -202,7 +202,7 @@ async function postDueEmiInstallments(pool, today = istDateStr()) {
             processed++;
         } catch (err) {
             await client.query('ROLLBACK').catch(() => {});
-            console.error(`[Cron] Failed to post EMI installment ${installment.id} (emi ${installment.emi_id}):`, err.message);
+            console.error(`[Cron] Failed to post EMI installment ${installment.id} (emi ${installment.emi_id}, user ${installment.user_id}):`, err.message);
         } finally {
             client.release();
         }
