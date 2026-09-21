@@ -178,6 +178,29 @@ describe('GET /peer-benchmarks — summary', () => {
     });
 });
 
+describe('GET /peer-benchmarks — IST month boundary', () => {
+    it('uses the IST calendar month, not the UTC one, for lastMonthStart/thisMonthStart', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar month in IST while UTC is still on January 31. A UTC-based
+        // computation would treat "this month" as January and "last month" as
+        // December here, which is wrong for this India-only app.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            mockBenchmarks({ monthIncome: 100000, catRows: [['Rent', 30000]] });
+            await get();
+
+            // Query order: [0] 3-month income, then [1] expenses-by-category,
+            // [2] month income, [3] non-savings expense -- the last three all
+            // take [userId, lastMonthStart, thisMonthStart] as params.
+            const [, lastMonthStart, thisMonthStart] = pool.query.mock.calls[1][1];
+            expect(lastMonthStart).toBe('2026-01-01');
+            expect(thisMonthStart).toBe('2026-02-01');
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+});
+
 describe('GET /peer-benchmarks — plumbing', () => {
     it('scopes every query to the authenticated user', async () => {
         mockBenchmarks();

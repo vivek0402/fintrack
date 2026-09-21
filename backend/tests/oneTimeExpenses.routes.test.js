@@ -43,6 +43,58 @@ describe('POST /api/one-time-expenses', () => {
         expect(res.body.expense.item_count).toBe(0);
         expect(res.body.expense.items).toEqual([]);
     });
+
+    test('rejects a bank_account_id that does not belong to the user (IDOR)', async () => {
+        // The only query issued should be the ownership check, which returns no rows.
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(app)
+            .post('/api/one-time-expenses')
+            .send({ title: 'Trip', bank_account_id: 1 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/bank_account_id/i);
+        // No INSERT should ever have been attempted.
+        const insertCalls = pool.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO one_time_expenses'));
+        expect(insertCalls.length).toBe(0);
+    });
+
+    test('defaults start_date to the IST calendar day, not the UTC one, when omitted', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'exp-1', title: 'Trip', amount: '0', start_date: '2026-02-01' }] });
+
+            const res = await request(app).post('/api/one-time-expenses').send({ title: 'Trip' });
+
+            expect(res.status).toBe(201);
+            const [, params] = pool.query.mock.calls[0];
+            expect(params[4]).toBe('2026-02-01'); // date column uses the same default
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    test('accepts a bank_account_id that DOES belong to the user and creates the expense', async () => {
+        // Ownership check finds the account...
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 7 }] });
+        // ...then the INSERT proceeds normally.
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'exp-1', title: 'Trip', amount: '0', bank_account_id: 7 }] });
+
+        const res = await request(app)
+            .post('/api/one-time-expenses')
+            .send({ title: 'Trip', bank_account_id: 7 });
+
+        expect(res.status).toBe(201);
+        expect(res.body.expense.bank_account_id).toBe(7);
+        const insertCalls = pool.query.mock.calls.filter(([sql]) => sql.includes('INSERT INTO one_time_expenses'));
+        expect(insertCalls.length).toBe(1);
+        // The ownership check ran before the INSERT, scoped to the requesting user.
+        const [ownershipSql, ownershipParams] = pool.query.mock.calls[0];
+        expect(ownershipSql).toMatch(/SELECT id FROM bank_accounts/);
+        expect(ownershipParams).toEqual([7, 'user-123']);
+    });
 });
 
 describe('GET /api/one-time-expenses', () => {
@@ -54,6 +106,76 @@ describe('GET /api/one-time-expenses', () => {
         expect(res.status).toBe(200);
         expect(res.body.expenses).toEqual([]);
         expect(pool.query).toHaveBeenCalledTimes(1);
+    });
+
+    test('scopes the bank_accounts join to the owning user so a foreign account name can never leak', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        await request(app).get('/api/one-time-expenses');
+
+        const [sql] = pool.query.mock.calls[0];
+        expect(sql).toMatch(/ba\.user_id\s*=\s*o\.user_id/);
+    });
+});
+
+describe('PUT /api/one-time-expenses/:id', () => {
+    test('rejects a bank_account_id that does not belong to the user (IDOR), and rolls back', async () => {
+        const calls = [];
+        const client = mockClient(async (sql, params) => {
+            calls.push(sql);
+            if (sql === 'BEGIN' || sql === 'ROLLBACK' || sql === 'COMMIT') return {};
+            if (sql.includes('SELECT * FROM one_time_expenses')) {
+                return { rows: [{ id: 'exp-1', user_id: 'user-123', bank_account_id: null, title: 'Trip', category: 'Other', notes: null, icon: 'receipt', color: '#a855f7', start_date: null, end_date: null }] };
+            }
+            if (sql.includes('SELECT COALESCE(SUM(amount), 0)')) return { rows: [{ total: 0 }] };
+            if (sql.includes('SELECT id FROM bank_accounts')) return { rows: [] };
+            if (sql.includes('UPDATE bank_accounts')) throw new Error('should not rebalance before ownership check');
+            if (sql.includes('UPDATE one_time_expenses')) throw new Error('should not update before ownership check');
+            throw new Error(`Unexpected query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(app)
+            .put('/api/one-time-expenses/exp-1')
+            .send({ bank_account_id: 999 });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/bank_account_id/i);
+        expect(calls).toContain('ROLLBACK');
+        expect(calls.some(s => s.includes('UPDATE bank_accounts'))).toBe(false);
+        expect(calls.some(s => s.includes('UPDATE one_time_expenses'))).toBe(false);
+    });
+
+    test('accepts a bank_account_id that DOES belong to the user and proceeds with the update', async () => {
+        const calls = [];
+        const client = mockClient(async (sql, params) => {
+            calls.push(sql);
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes('SELECT * FROM one_time_expenses')) {
+                return { rows: [{ id: 'exp-1', user_id: 'user-123', bank_account_id: null, title: 'Trip', category: 'Other', notes: null, icon: 'receipt', color: '#a855f7', start_date: null, end_date: null }] };
+            }
+            if (sql.includes('SELECT COALESCE(SUM(amount), 0)')) return { rows: [{ total: 0 }] };
+            if (sql.includes('SELECT id FROM bank_accounts')) return { rows: [{ id: 7 }] };
+            if (sql.includes('UPDATE one_time_expenses')) {
+                return { rows: [{ id: 'exp-1', title: 'Trip', bank_account_id: 7 }] };
+            }
+            throw new Error(`Unexpected query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(app)
+            .put('/api/one-time-expenses/exp-1')
+            .send({ bank_account_id: 7 });
+
+        expect(res.status).toBe(200);
+        expect(res.body.expense.bank_account_id).toBe(7);
+        expect(calls.some(s => s.includes('SELECT id FROM bank_accounts'))).toBe(true);
+        expect(calls).toContain('COMMIT');
+        expect(calls).not.toContain('ROLLBACK');
+        const updateCall = calls.find(s => s.includes('UPDATE one_time_expenses'));
+        expect(updateCall).toBeDefined();
+        // Ownership check ran before the final UPDATE.
+        expect(calls.indexOf(calls.find(s => s.includes('SELECT id FROM bank_accounts')))).toBeLessThan(calls.indexOf(updateCall));
     });
 });
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isPositiveNumber, isNonNegativeNumber } = require('../utils/validation');
+const { istDateStr } = require('../utils/istDate');
 
 router.use(auth);
 
@@ -250,7 +251,7 @@ router.post('/:id/splits', async (req, res) => {
             const splitResult = await client.query(
                 `INSERT INTO group_splits (group_id, description, total_amount, paid_by, date)
                  VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-                [req.params.id, description, total_amount, paid_by, date || new Date().toISOString().split('T')[0]]
+                [req.params.id, description, total_amount, paid_by, date || istDateStr()]
             );
             const split = splitResult.rows[0];
             for (const s of shares) {
@@ -270,7 +271,7 @@ router.post('/:id/splits', async (req, res) => {
                      VALUES ($1, 'expense', $2, $3, $4, $5, $6, $7, $8, 'manual')`,
                     [req.user.id, meShare.amount, description,
                      `My share in ${groupName}`, '{group-split}',
-                     date || new Date().toISOString().split('T')[0], req.params.id, split.id]
+                     date || istDateStr(), req.params.id, split.id]
                 );
             }
 
@@ -318,7 +319,7 @@ router.put('/:id/splits/:splitId', async (req, res) => {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            const splitDate = date || new Date().toISOString().split('T')[0];
+            const splitDate = date || istDateStr();
             await client.query(
                 `UPDATE group_splits SET description = $1, total_amount = $2, paid_by = $3, date = $4 WHERE id = $5`,
                 [description, total_amount, paid_by, splitDate, req.params.splitId]

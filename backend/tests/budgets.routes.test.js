@@ -29,6 +29,7 @@ afterEach(() => {
 describe('POST /api/budgets', () => {
     test('reposting the same category/month/year upserts via ON CONFLICT instead of duplicating', async () => {
         pool.query.mockImplementation(async (sql) => {
+            if (sql.includes('FROM categories')) return { rows: [{ id: 'cat-1' }] }; // ownership check
             expect(sql).toMatch(/ON CONFLICT \(user_id, category_id, month, year\)\s+DO UPDATE/);
             return { rows: [{ id: 'b1', amount: '500' }] };
         });
@@ -39,7 +40,7 @@ describe('POST /api/budgets', () => {
 
         expect(res1.status).toBe(201);
         expect(res2.status).toBe(201);
-        expect(pool.query).toHaveBeenCalledTimes(2);
+        expect(pool.query).toHaveBeenCalledTimes(4); // 2 requests x (ownership check + upsert)
     });
 
     test('negative amount returns 400', async () => {
@@ -49,6 +50,54 @@ describe('POST /api/budgets', () => {
 
         expect(res.status).toBe(400);
         expect(pool.query).not.toHaveBeenCalled();
+    });
+
+    test('rejects category_id genuinely owned by a different real user (no INSERT/UPSERT runs)', async () => {
+        // A category owned by a different real user has a non-null, foreign user_id,
+        // so it never matches `user_id = $2 OR user_id IS NULL` and the check
+        // correctly finds nothing.
+        pool.query.mockResolvedValueOnce({ rows: [] }); // category ownership check finds nothing
+
+        const res = await request(app)
+            .post('/api/budgets')
+            .send({ category_id: 'not-mine', amount: 500, month: 6, year: 2026 });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check, no INSERT/UPSERT
+
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/WHERE id = \$1 AND \(user_id = \$2 OR user_id IS NULL\)/);
+        expect(params).toEqual(['not-mine', 'user-123']);
+    });
+
+    test('creates a budget when category_id belongs to the user', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'cat-1' }] })             // category ownership check
+            .mockResolvedValueOnce({ rows: [{ id: 'b1', amount: '500' }] }); // INSERT/UPSERT
+
+        const res = await request(app)
+            .post('/api/budgets')
+            .send({ category_id: 'cat-1', amount: 500, month: 6, year: 2026 });
+
+        expect(res.status).toBe(201);
+        expect(res.body.budget).toMatchObject({ id: 'b1' });
+    });
+
+    test('accepts category_id that is a shared legacy default (user_id IS NULL)', async () => {
+        // Legacy global categories seeded by 001_initial_schema.sql have user_id
+        // IS NULL and are not owned by any specific user -- the ownership check's
+        // `OR user_id IS NULL` clause must let these through for pre-existing
+        // accounts that still reference them.
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'legacy-cat' }] })              // ownership check matches via IS NULL
+            .mockResolvedValueOnce({ rows: [{ id: 'b2', amount: '200' }] });      // INSERT/UPSERT
+
+        const res = await request(app)
+            .post('/api/budgets')
+            .send({ category_id: 'legacy-cat', amount: 200, month: 6, year: 2026 });
+
+        expect(res.status).toBe(201);
+        expect(res.body.budget).toMatchObject({ id: 'b2' });
     });
 });
 
@@ -73,5 +122,28 @@ describe('GET /api/budgets', () => {
         expect(res.status).toBe(200);
         expect(res.body.budgets[0].spent).not.toBeNull();
         expect(parseFloat(res.body.budgets[0].spent)).toBe(0);
+    });
+
+    test('scopes the categories join to the same user_id as the budget, or a shared legacy default', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        await request(app).get('/api/budgets?month=6&year=2026');
+
+        const [query] = pool.query.mock.calls[0];
+        expect(query).toMatch(/JOIN categories c ON b\.category_id = c\.id AND \(c\.user_id = b\.user_id OR c\.user_id IS NULL\)/);
+    });
+
+    test('still returns a budget row whose category is a shared legacy default (user_id IS NULL)', async () => {
+        // Regression check: an INNER JOIN without the `OR c.user_id IS NULL`
+        // clause would silently drop this row entirely instead of erroring.
+        pool.query.mockResolvedValueOnce({
+            rows: [{ id: 'b3', category_id: 'legacy-cat', category_name: 'Food', amount: '500', spent: '0' }],
+        });
+
+        const res = await request(app).get('/api/budgets?month=6&year=2026');
+
+        expect(res.status).toBe(200);
+        expect(res.body.budgets).toHaveLength(1);
+        expect(res.body.budgets[0]).toMatchObject({ id: 'b3', category_name: 'Food' });
     });
 });

@@ -50,6 +50,30 @@ describe('POST /api/splits', () => {
         expect(Math.round(sum * 100) / 100).toBe(100);
     });
 
+    test('defaults the split date to the IST calendar day, not the UTC one, when date is omitted', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockResolvedValueOnce({ rows: [{ id: 'tx-1' }] }); // INSERT transactions
+            pool.query.mockImplementationOnce(async (sql, params) => {
+                expect(params[7]).toBe('2026-02-01'); // splitDate param on expense_splits INSERT
+                return { rows: [{ id: 'split-1', date: params[7] }] };
+            });
+
+            const res = await request(app)
+                .post('/api/splits')
+                .send({ description: 'Dinner', total_amount: 100, participants: [{ name: 'A' }] });
+
+            expect(res.status).toBe(201);
+            expect(res.body.split.date).toBe('2026-02-01');
+            const [, txParams] = pool.query.mock.calls[0];
+            expect(txParams[3]).toBe('2026-02-01'); // transaction date param
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
     test('total_amount of 0 returns 400', async () => {
         const res = await request(app)
             .post('/api/splits')

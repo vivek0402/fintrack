@@ -164,6 +164,28 @@ router.post('/', async (req, res) => {
             if (!cardCheck.length)
                 return res.status(400).json({ error: 'Invalid credit_card_id.' });
         }
+        if (category_id) {
+            // Unlike credit_card_id/account_id below (and goal_id further down), this
+            // check allows user_id IS NULL through: categories.user_id is nullable for
+            // legacy pre-per-user default categories (see migration 001) that are
+            // shared, not owned by anyone. bank_accounts/credit_cards/savings_goals
+            // are all NOT NULL and must stay strict -- don't copy this OR-NULL
+            // pattern onto them.
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.length)
+                return res.status(400).json({ error: 'Invalid category_id.' });
+        }
+        if (account_id) {
+            const { rows: accountCheck } = await pool.query(
+                `SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2`,
+                [account_id, req.user.id]
+            );
+            if (!accountCheck.length)
+                return res.status(400).json({ error: 'Invalid account_id.' });
+        }
 
         // Only 'manual' and 'sms' may be claimed by this public endpoint —
         // 'cams_import'/'pdf_import' are stamped server-side by their own
@@ -531,6 +553,14 @@ router.put('/:id', async (req, res) => {
             );
             if (!cardCheck.length)
                 return res.status(400).json({ error: 'Invalid credit_card_id.' });
+        }
+        if (category_id) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.length)
+                return res.status(400).json({ error: 'Invalid category_id.' });
         }
 
         const existing = await pool.query(

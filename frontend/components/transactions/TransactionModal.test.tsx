@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TransactionModal } from './TransactionModal';
-import { transactionsAPI } from '@/lib/api';
+import { transactionsAPI, creditCardsAPI } from '@/lib/api';
 
 // Integration coverage for the highest-traffic write path in the app. The
 // primitives are unit-tested elsewhere; what matters here is the composed
@@ -22,7 +22,10 @@ vi.mock('@/lib/api', () => ({
     accountsAPI:    { getAll: vi.fn().mockResolvedValue({ data: { accounts: [
         { id: 1, name: 'HDFC', is_default: true }, { id: 2, name: 'ICICI' },
     ] } }) },
-    creditCardsAPI: { getAll: vi.fn().mockResolvedValue({ data: { cards: [] } }) },
+    creditCardsAPI: {
+        getAll: vi.fn().mockResolvedValue({ data: { cards: [] } }),
+        convertToEmi: vi.fn().mockResolvedValue({ data: { emi: {}, schedule: [] } }),
+    },
     goalsAPI:       { getAll: vi.fn().mockResolvedValue({ data: { goals: [] } }) },
     marketDataAPI:  { searchMutualFunds: vi.fn(), getLatestNav: vi.fn() },
     analyticsAPI:   { paymentMethods: vi.fn().mockResolvedValue({ data: { breakdown: [] } }) },
@@ -324,5 +327,132 @@ describe('entry feedback', () => {
         // Hard assertion, not waitFor: we want the state RIGHT NOW.
         expect(screen.getByText('Fresh signal')).toBeInTheDocument();
         expect(screen.queryByText('Stale signal')).toBeNull();
+    });
+});
+
+describe('EMI conversion', () => {
+    const oneCard = { id: 5, bank_name: 'HDFC', card_name: 'Millennia', last_four: '1234' };
+
+    // Payment method lives in a themed sheet (Modal), not a native <select>,
+    // so it's picked by opening the sheet and clicking the row -- same
+    // pattern the app itself uses via setPaymentSheetOpen.
+    async function selectCreditCardPaymentMethod() {
+        const trigger = await waitFor(() => {
+            const el = Array.from(document.querySelectorAll<HTMLElement>('div[role="button"]'))
+                .find(d => d.textContent?.includes('UPI'));
+            expect(el).toBeTruthy();
+            return el!;
+        });
+        fireEvent.click(trigger);
+        const cardOption = await waitFor(() => screen.getByRole('button', { name: /credit card/i }));
+        fireEvent.click(cardOption);
+    }
+
+    function openMoreDetails() {
+        fireEvent.click(screen.getByRole('button', { name: /more details/i }));
+    }
+
+    it('does not show the EMI section for the default (non-card) payment method', async () => {
+        open();
+        await fillBasics('1000', 'Laptop');
+        openMoreDetails();
+        expect(screen.queryByLabelText(/convert to emi/i)).toBeNull();
+    });
+
+    it('does not show the EMI section while editing an existing transaction', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
+        open({ transaction: { id: 't1', type: 'expense', amount: 1000, description: 'Laptop', date: '2026-09-01', payment_method: 'Credit Card', credit_card_id: 5 } });
+        await waitFor(() => expect(creditCardsAPI.getAll).toHaveBeenCalled());
+        expect(screen.queryByLabelText(/convert to emi/i)).toBeNull();
+    });
+
+    it('reveals tenure/interest/fee fields once "Convert to EMI" is toggled on', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
+        open();
+        await fillBasics('1000', 'Laptop');
+        openMoreDetails();
+        await selectCreditCardPaymentMethod();
+
+        const checkbox = await waitFor(() => screen.getByLabelText(/convert to emi/i));
+        expect(screen.queryByPlaceholderText('Tenure (months)')).toBeNull();
+
+        fireEvent.click(checkbox);
+
+        expect(screen.getByPlaceholderText('Tenure (months)')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Interest rate % p.a.')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('Processing fee (optional)')).toBeInTheDocument();
+        expect(screen.getByLabelText(/no-cost emi/i)).toBeInTheDocument();
+    });
+
+    it('syncs is_no_cost with the typed interest rate', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
+        open();
+        await fillBasics('1000', 'Laptop');
+        openMoreDetails();
+        await selectCreditCardPaymentMethod();
+        fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
+
+        const noCostToggle = screen.getByLabelText(/no-cost emi/i) as HTMLInputElement;
+        expect(noCostToggle.checked).toBe(true);
+        const rateField = screen.getByPlaceholderText('Interest rate % p.a.') as HTMLInputElement;
+        expect(rateField.disabled).toBe(true);
+
+        // Turning off "no-cost" enables the rate field.
+        fireEvent.click(noCostToggle);
+        expect((screen.getByPlaceholderText('Interest rate % p.a.') as HTMLInputElement).disabled).toBe(false);
+
+        // Typing a non-zero rate keeps no-cost off; typing back to 0 flips it on.
+        fireEvent.change(screen.getByPlaceholderText('Interest rate % p.a.'), { target: { value: '13' } });
+        expect((screen.getByLabelText(/no-cost emi/i) as HTMLInputElement).checked).toBe(false);
+
+        fireEvent.change(screen.getByPlaceholderText('Interest rate % p.a.'), { target: { value: '0' } });
+        expect((screen.getByLabelText(/no-cost emi/i) as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('calls creditCardsAPI.convertToEmi (not transactionsAPI.create) with the entered EMI details', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
+        const { onSuccess } = open();
+        await fillBasics('12000', 'New phone');
+        openMoreDetails();
+        await selectCreditCardPaymentMethod();
+        fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
+
+        fireEvent.change(screen.getByPlaceholderText('Tenure (months)'), { target: { value: '6' } });
+        fireEvent.change(screen.getByPlaceholderText('Processing fee (optional)'), { target: { value: '99' } });
+
+        // Several number inputs are visible now (amount, tenure, interest,
+        // fee), so the shared submit() helper's unique-spinbutton lookup no
+        // longer applies -- submit the form directly instead.
+        fireEvent.submit(document.querySelector('form')!);
+
+        await waitFor(() => expect(creditCardsAPI.convertToEmi).toHaveBeenCalledOnce());
+        expect(creditCardsAPI.convertToEmi).toHaveBeenCalledWith(5, expect.objectContaining({
+            description: 'New phone',
+            amount: 12000,
+            tenure_months: 6,
+            interest_rate_pct: 0,
+            is_no_cost: true,
+            processing_fee: 99,
+        }));
+        expect(transactionsAPI.create).not.toHaveBeenCalled();
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    });
+
+    it('shows a validation error and does not submit when tenure is left blank', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
+        open();
+        await fillBasics('12000', 'New phone');
+        openMoreDetails();
+        await selectCreditCardPaymentMethod();
+        fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
+
+        // Tenure left blank. Several number inputs are visible at this point,
+        // so submit the form directly rather than via the shared submit()
+        // helper (which assumes a single spinbutton).
+        fireEvent.submit(document.querySelector('form')!);
+
+        await waitFor(() => expect(screen.getByText(/valid emi tenure/i)).toBeInTheDocument());
+        expect(creditCardsAPI.convertToEmi).not.toHaveBeenCalled();
+        expect(transactionsAPI.create).not.toHaveBeenCalled();
     });
 });

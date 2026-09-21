@@ -156,6 +156,72 @@ describe('POST /api/transactions', () => {
         const [, insertParams] = pool.query.mock.calls[1];
         expect(insertParams).toContain(5); // credit_card_id made it into the INSERT
     });
+
+    test('rejects category_id genuinely owned by a different real user (no INSERT runs)', async () => {
+        // A category owned by a different real user has a non-null, foreign user_id,
+        // so it never matches `user_id = $2 OR user_id IS NULL` and the check
+        // correctly finds nothing.
+        pool.query.mockResolvedValueOnce({ rows: [] }); // category ownership check finds nothing
+
+        const res = await request(buildApp())
+            .post('/api/transactions')
+            .send({ type: 'expense', amount: 50, description: 'Lunch', date: '2026-06-01', category_id: 'not-mine' });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check, no INSERT
+
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/WHERE id = \$1 AND \(user_id = \$2 OR user_id IS NULL\)/);
+        expect(params).toEqual(['not-mine', 'user-123']);
+    });
+
+    test('accepts category_id that is a shared legacy default (user_id IS NULL)', async () => {
+        // Legacy global categories seeded by 001_initial_schema.sql have user_id
+        // IS NULL and are not owned by any specific user -- the ownership check's
+        // `OR user_id IS NULL` clause must let these through for pre-existing
+        // accounts that still reference them.
+        const tx = { id: 5, user_id: 'user-123', type: 'expense', amount: '10.00', category_id: 'legacy-cat', account_id: null };
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'legacy-cat' }] }) // category ownership check matches via IS NULL
+            .mockResolvedValueOnce({ rows: [tx] })                   // INSERT transaction
+            .mockResolvedValueOnce({ rows: [] });                    // default account lookup
+
+        const res = await request(buildApp())
+            .post('/api/transactions')
+            .send({ type: 'expense', amount: 10, description: 'Tea', date: '2026-06-01', category_id: 'legacy-cat' });
+
+        expect(res.status).toBe(201);
+        const [, insertParams] = pool.query.mock.calls[1];
+        expect(insertParams).toContain('legacy-cat');
+    });
+
+    test('rejects account_id that does not belong to the user (no INSERT runs)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // account ownership check finds nothing
+
+        const res = await request(buildApp())
+            .post('/api/transactions')
+            .send({ type: 'expense', amount: 50, description: 'Lunch', date: '2026-06-01', account_id: 999 });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check, no INSERT
+    });
+
+    test('accepts category_id and account_id that belong to the user', async () => {
+        const tx = { id: 3, user_id: 'user-123', type: 'expense', amount: '30.00', category_id: 'cat-1', account_id: 7 };
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'cat-1' }] }) // category ownership check passes
+            .mockResolvedValueOnce({ rows: [{ id: 7 }] })       // account ownership check passes
+            .mockResolvedValueOnce({ rows: [tx] });             // INSERT transaction
+
+        const res = await request(buildApp())
+            .post('/api/transactions')
+            .send({ type: 'expense', amount: 30, description: 'Snacks', date: '2026-06-01', category_id: 'cat-1', account_id: 7 });
+
+        expect(res.status).toBe(201);
+        const [, insertParams] = pool.query.mock.calls[2];
+        expect(insertParams).toContain('cat-1');
+        expect(insertParams).toContain(7);
+    });
 });
 
 describe('PUT /api/transactions/:id — credit_card_id', () => {
@@ -214,6 +280,78 @@ describe('PUT /api/transactions/:id — credit_card_id', () => {
 
         expect(res.status).toBe(200);
         expect(updateParams[11]).toBe(false); // clearCreditCardId false -> COALESCE keeps existing value
+    });
+});
+
+describe('PUT /api/transactions/:id — category_id', () => {
+    function mockClient(queryImpl) {
+        return { query: jest.fn(queryImpl), release: jest.fn() };
+    }
+
+    afterEach(() => {
+        pool.query.mockReset();
+        pool.connect.mockReset();
+    });
+
+    test('rejects category_id genuinely owned by a different real user (no UPDATE runs)', async () => {
+        // A category owned by a different real user has a non-null, foreign user_id,
+        // so it never matches `user_id = $2 OR user_id IS NULL` and the check
+        // correctly finds nothing.
+        pool.query.mockResolvedValueOnce({ rows: [] }); // category ownership check finds nothing
+
+        const res = await request(buildApp())
+            .put('/api/transactions/1')
+            .send({ category_id: 'not-mine' });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).toHaveBeenCalledTimes(1); // only the ownership check ran
+        expect(pool.connect).not.toHaveBeenCalled();
+
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/WHERE id = \$1 AND \(user_id = \$2 OR user_id IS NULL\)/);
+        expect(params).toEqual(['not-mine', 'user-123']);
+    });
+
+    test('accepts category_id that is a shared legacy default (user_id IS NULL)', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'legacy-cat' }] })          // category ownership check matches via IS NULL
+            .mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null }] });     // existing transaction lookup
+        const client = mockClient(async (sql) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.startsWith('UPDATE transactions')) {
+                return { rows: [{ id: 1, category_id: 'legacy-cat' }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(buildApp())
+            .put('/api/transactions/1')
+            .send({ category_id: 'legacy-cat' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.transaction.category_id).toBe('legacy-cat');
+    });
+
+    test('accepts category_id that belongs to the user', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'cat-1' }] })           // category ownership check
+            .mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null }] }); // existing transaction lookup
+        const client = mockClient(async (sql) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.startsWith('UPDATE transactions')) {
+                return { rows: [{ id: 1, category_id: 'cat-1' }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(buildApp())
+            .put('/api/transactions/1')
+            .send({ category_id: 'cat-1' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.transaction.category_id).toBe('cat-1');
     });
 });
 
@@ -321,7 +459,9 @@ describe('classifier learning hooks', () => {
     test('PUT relearns from the full before row to the updated row', async () => {
         const before = { id: 't1', user_id: 'user-123', type: 'expense', amount: '50.00', description: 'Lunch', date: '2026-06-01', goal_id: null, category_id: null, payment_method: 'UPI' };
         const after = { ...before, category_id: 'c9' };
-        pool.query.mockResolvedValueOnce({ rows: [before] }); // existing lookup
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'c9' }] }) // category ownership check
+            .mockResolvedValueOnce({ rows: [before] });      // existing lookup
         const client = { query: jest.fn(), release: jest.fn() };
         client.query
             .mockResolvedValueOnce({ rows: [] })        // BEGIN
@@ -333,7 +473,7 @@ describe('classifier learning hooks', () => {
         expect(classifierStore.relearnInBackground).toHaveBeenCalledWith(expect.anything(), 'user-123',
             expect.objectContaining({ id: 't1', description: 'Lunch', payment_method: 'UPI' }),
             expect.objectContaining({ id: 't1', category_id: 'c9' }));
-        expect(pool.query.mock.calls[0][0]).toMatch(/SELECT \* FROM transactions/);
+        expect(pool.query.mock.calls[1][0]).toMatch(/SELECT \* FROM transactions/);
     });
 
     test('DELETE unlearns the deleted row', async () => {

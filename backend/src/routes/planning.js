@@ -9,6 +9,7 @@ const { aiComplete } = require('../utils/ai');
 const { computeDriftReport } = require('../services/behaviorAnalysis');
 const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthStart, istMonthsAgoStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -222,6 +223,21 @@ router.post('/', async (req, res) => {
             }
             if (expense.category_id !== undefined && expense.category_id !== null && typeof expense.category_id !== 'string') {
                 return res.status(400).json({ error: `Expense "${expense.name}" has an invalid category_id.` });
+            }
+        }
+
+        // Batch-verify every submitted category_id is either owned by this user or
+        // a shared legacy default (categories.user_id IS NULL -- see migration 001),
+        // rather than a real category belonging to a different user. One query for
+        // however many distinct ids were submitted, rather than one per expense.
+        const submittedCategoryIds = [...new Set(expenses.map(e => e.category_id).filter(Boolean))];
+        if (submittedCategoryIds.length > 0) {
+            const { rows: categoryCheck } = await pool.query(
+                `SELECT id FROM categories WHERE id = ANY($1::uuid[]) AND (user_id = $2 OR user_id IS NULL)`,
+                [submittedCategoryIds, req.user.id]
+            );
+            if (categoryCheck.length !== submittedCategoryIds.length) {
+                return res.status(400).json({ error: 'One or more expense category_id values are invalid.' });
             }
         }
 
@@ -544,12 +560,7 @@ function emiForLoan(loan) {
 // (i.e. excluding the current, in-progress month).
 function lastNFullMonthsRange(n) {
     const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const start = new Date(now.getFullYear(), now.getMonth() - n, 1);
-    return {
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0],
-    };
+    return { start: istMonthsAgoStart(n, now), end: istMonthStart(now) };
 }
 
 function addMonthsToDate(date, months) {
@@ -622,8 +633,8 @@ router.get('/cashflow', async (req, res) => {
         const now = new Date();
 
         for (let i = 1; i <= 12; i++) {
-            const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-            const label = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const [futureYear, futureMonth] = istMonthsAgoStart(-i, now).split('-').map(Number);
+            const label = new Date(Date.UTC(futureYear, futureMonth - 1, 1)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 
             const fixed_outflows = fixed_monthly_outflows + recurring_outflows;
             const net_cashflow = net_monthly_cashflow;

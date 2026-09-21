@@ -152,8 +152,8 @@ router.post('/register', async (req, res) => {
         if (!full_name || !email || !password)
             return res.status(400).json({ error: 'All fields are required.' });
 
-        if (password.length < 6)
-            return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+        if (password.length < 8)
+            return res.status(400).json({ error: 'Password must be at least 8 characters.' });
 
         const existing = await pool.query(
             'SELECT id, is_verified FROM users WHERE email = $1', [email]
@@ -320,8 +320,8 @@ router.post('/reset-password', async (req, res) => {
         if (!email || !otp || !new_password)
             return res.status(400).json({ error: 'Email, OTP, and new password are required.' });
 
-        if (new_password.length < 6)
-            return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+        if (new_password.length < 8)
+            return res.status(400).json({ error: 'Password must be at least 8 characters.' });
 
         const record = await verifyOTP(email, otp, 'reset_password');
         if (!record)

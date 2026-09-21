@@ -5,6 +5,7 @@ const { monthsRemainingForLoan } = require('../utils/amortization');
 const { getCached } = require('../utils/aiCache');
 const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istMonthYear, istNextMonthStart } = require('../utils/istDate');
 const router = express.Router();
 
 router.use(auth);
@@ -262,9 +263,10 @@ async function detectForecastWarning(userId) {
     if (!cached || cached.insufficientData || !cached.totalForecast) return null;
 
     const now = new Date();
+    const { month, year } = istMonthYear(now);
     const budgetRes = await pool.query(
         `SELECT COALESCE(SUM(amount), 0) AS total FROM budgets WHERE user_id = $1 AND month = $2 AND year = $3`,
-        [userId, now.getMonth() + 1, now.getFullYear()]
+        [userId, month, year]
     );
     const totalBudget = fmt(budgetRes.rows[0].total);
     if (totalBudget <= 0) return null;
@@ -280,7 +282,7 @@ async function detectForecastWarning(userId) {
         priority: overPct > 30 ? 1 : 2,
         action_label: 'View forecast',
         action_route: '/forecast',
-        expires_at: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
+        expires_at: `${istNextMonthStart(now)}T00:00:00.000Z`,
         // Additive field, same reasoning as detectSpendingSpike's pct_above.
         over_pct: overPct,
     };

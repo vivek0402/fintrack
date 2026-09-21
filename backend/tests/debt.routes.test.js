@@ -27,6 +27,15 @@ afterEach(() => {
     pool.query.mockReset();
 });
 
+// fetchCreditCardsWithBalance/fetchCreditCardsWithCycleBreakdown now issue a
+// second query (active EMI principal for the user) after the cards query.
+// Default that to "no active EMIs" for every test in this file; a test that
+// wants to assert EMI behaviour would override it with an explicit
+// mockResolvedValueOnce queued before this default kicks in.
+beforeEach(() => {
+    pool.query.mockResolvedValue({ rows: [] });
+});
+
 describe('computeCreditUtilization', () => {
     test('a card with credit_limit 0 does not divide by zero', async () => {
         pool.query.mockResolvedValueOnce({
@@ -64,6 +73,27 @@ describe('computeDtiBreakdown', () => {
         expect(result.dti_ratio).toBe(0);
         expect(Number.isFinite(result.dti_ratio)).toBe(true);
         expect(result.status).toBe('excellent');
+    });
+
+    test('uses the IST month boundary, not the UTC one, for the trailing 3-month income window', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC is still on January 31. "This month" must resolve
+        // to February (firstOfThisMonth=2026-02-01) and the trailing window
+        // must start from November (threeMonthsAgo=2025-11-01), not from a
+        // UTC-anchored January/October pair.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockResolvedValueOnce({ rows: [{ total: '0' }] }); // income
+            pool.query.mockResolvedValueOnce({ rows: [] }); // loans
+            pool.query.mockResolvedValueOnce({ rows: [] }); // credit cards
+
+            await computeDtiBreakdown('user-1');
+
+            const [, incomeParams] = pool.query.mock.calls[0];
+            expect(incomeParams).toEqual(['user-1', '2025-11-01', '2026-02-01']);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });
 
@@ -109,5 +139,134 @@ describe('GET /api/debt/prepayment-impact — cross-user access', () => {
         const res = await request(app).get('/api/debt/prepayment-impact?loan_id=loan-1&prepayment_amount=10000');
 
         expect(res.status).toBe(403);
+    });
+});
+
+describe('GET /api/debt/prepayment-impact — IST "today" for the simulated prepayment date', () => {
+    test('uses the IST calendar day, not the UTC one, as the prepayment date', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already the next
+        // calendar day in IST while UTC is still on Jan 31. The "after"
+        // simulation's synthetic prepayment must be dated 2026-02-01, not
+        // 2026-01-31. Uses isolateModulesAsync with its own mocked pool/auth/
+        // amortization so this one test can freshly require debt.js under a
+        // spy without disturbing the rest of this file's shared `pool`/`app`.
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        let capturedPrepaymentDate;
+        try {
+            await jest.isolateModulesAsync(async () => {
+                jest.doMock('../src/db/pool', () => ({ query: jest.fn() }));
+                jest.doMock('../src/middleware/auth', () => (req, res, next) => {
+                    req.user = { id: 'user-123' };
+                    next();
+                });
+                jest.doMock('../src/utils/amortization', () => {
+                    const actual = jest.requireActual('../src/utils/amortization');
+                    return {
+                        ...actual,
+                        generateAmortization: jest.fn((args) => {
+                            if (args.prepayments && args.prepayments.length > 0) {
+                                capturedPrepaymentDate = args.prepayments[args.prepayments.length - 1].date;
+                            }
+                            return actual.generateAmortization(args);
+                        }),
+                    };
+                });
+
+                const freshPool = require('../src/db/pool');
+                const freshRouter = require('../src/routes/debt');
+                const freshExpress = require('express');
+                const freshRequest = require('supertest');
+                const freshApp = freshExpress();
+                freshApp.use(freshExpress.json());
+                freshApp.use('/api/debt', freshRouter);
+
+                freshPool.query.mockResolvedValueOnce({
+                    rows: [{
+                        id: 'loan-1', user_id: 'user-123', outstanding_balance: '100000',
+                        interest_rate_pct: '12', emi_amount: '5000', tenure_months: 24,
+                        prepayment_penalty_pct: null,
+                    }],
+                });
+                freshPool.query.mockResolvedValueOnce({ rows: [] }); // existing prepayments
+
+                const res = await freshRequest(freshApp).get('/api/debt/prepayment-impact?loan_id=loan-1&prepayment_amount=10000');
+                expect(res.status).toBe(200);
+            });
+
+            expect(capturedPrepaymentDate).toBe('2026-02-01');
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+});
+
+// --- Credit card EMI isolation -------------------------------------------
+//
+// Architectural invariant (locked in during design review before any EMI
+// code was written): DTI and the payoff optimizer must never double-count
+// EMI-converted credit card debt. That debt is already counted exactly once
+// via the card's own current_outstanding_balance (see creditCardBalance.js's
+// fetchActiveEmiPrincipalByCard fold-in, added in the T3 task). debt.js's
+// loan-side calculations (monthly_loan_emi, breakdown_loans, and the whole
+// payoff-optimizer) read exclusively from the `loans` table and must stay
+// blind to credit_card_emis / credit_card_emi_installments.
+//
+// We don't need a real credit_card_emis row seeded anywhere for these tests
+// to be meaningful: since pool.query is fully mocked here, if debt.js (or
+// anything it calls for the loan-side numbers) ever queried an EMI table,
+// that query would hit the same mock and we'd see it in the call log below.
+// A mocked-empty-loans response that still returns "zero debt" IS the proof
+// that `loans` is the only data source these calculations consult.
+describe('EMI isolation — loans-table calculations must not pick up credit_card_emis debt', () => {
+    test('GET /api/debt/payoff-optimizer: zero loans returns zero-debt result regardless of any credit_card_emis activity', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // loans — empty, as if the user's only debt lives in credit_card_emis
+
+        const res = await request(app).get('/api/debt/payoff-optimizer');
+
+        expect(res.status).toBe(200);
+        expect(res.body.loans).toEqual([]);
+        expect(res.body.message).toMatch(/no active loans/i);
+        // No avalanche/snowball simulation should have run.
+        expect(res.body.avalanche).toBeUndefined();
+        expect(res.body.snowball).toBeUndefined();
+    });
+
+    test('GET /api/debt/dti: zero loans yields zero monthly_loan_emi and an empty breakdown_loans, regardless of any credit_card_emis activity', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ total: '150000' }] }); // trailing-3-month income
+        pool.query.mockResolvedValueOnce({ rows: [] }); // loans — empty
+        // The cards query and any EMI-principal lookup fall back to the
+        // beforeEach default of { rows: [] } — they affect only
+        // monthly_credit_obligation / breakdown_cards, never the loan side.
+
+        const res = await request(app).get('/api/debt/dti');
+
+        expect(res.status).toBe(200);
+        expect(res.body.monthly_loan_emi).toBe(0);
+        expect(res.body.breakdown_loans).toEqual([]);
+    });
+
+    test('computeDtiBreakdown: zero loans yields zero monthly_loan_emi directly (unit-level, bypassing the route)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ total: '150000' }] }); // income
+        pool.query.mockResolvedValueOnce({ rows: [] }); // loans
+        pool.query.mockResolvedValueOnce({ rows: [] }); // cards
+
+        const result = await computeDtiBreakdown('user-1');
+
+        expect(result.monthly_loan_emi).toBe(0);
+        expect(result.breakdown_loans).toEqual([]);
+    });
+
+    test('static check: debt.js source contains no reference to credit_card_emis or credit_card_emi_installments', () => {
+        // Cheap, high-value regression guard: if someone later "helpfully"
+        // folds EMI data into a DTI/payoff-optimizer calculation without
+        // realizing the architectural reason it was kept separate (avoiding
+        // double-counting debt already reflected in the card's own
+        // current_outstanding_balance), this test fails loudly.
+        const fs = require('fs');
+        const path = require('path');
+        const src = fs.readFileSync(path.join(__dirname, '../src/routes/debt.js'), 'utf8');
+
+        expect(src).not.toMatch(/credit_card_emi_installments/i);
+        expect(src).not.toMatch(/credit_card_emis/i);
     });
 });

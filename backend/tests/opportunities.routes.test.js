@@ -18,6 +18,7 @@ const {
     detectEmergencyFundLow,
     detectCreditCardInterest,
     detectSpendingSpike,
+    detectForecastWarning,
     detectAllocationGap,
     detectOpportunities,
     saveOpportunities,
@@ -32,6 +33,14 @@ function buildApp() {
 
 afterEach(() => {
     pool.query.mockReset();
+});
+
+// Credit-card balance helpers now issue a second query (active EMI
+// principal for the user) after the cards query. Default that to "no active
+// EMIs" globally; any test that cares about EMI behaviour overrides it with
+// an explicit mockResolvedValueOnce queued before this default kicks in.
+beforeEach(() => {
+    pool.query.mockResolvedValue({ rows: [] });
 });
 
 describe('getFinancialPlan', () => {
@@ -104,6 +113,44 @@ describe('detectSpendingSpike — noise floor', () => {
         const result = await detectSpendingSpike('user-1');
         expect(result).not.toBeNull();
         expect(result.title).toContain('Dining');
+    });
+});
+
+describe('detectForecastWarning — IST month boundary', () => {
+    test('looks up the budget using the IST calendar month/year, not the UTC one', async () => {
+        // 2026-01-31T19:00:00.000Z is 2026-02-01 00:30 IST -- already February
+        // in IST while UTC still reads January 31. A UTC-based lookup would
+        // fetch January's budget (month=1) instead of February's (month=2).
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-31T19:00:00.000Z'));
+        try {
+            pool.query.mockImplementation((sql) => {
+                if (sql.includes('FROM users WHERE id')) {
+                    return Promise.resolve({
+                        rows: [{
+                            ai_cache: {
+                                forecast: {
+                                    data: { totalForecast: 100000, avgDaily: 3000 },
+                                    generated_at: new Date().toISOString(),
+                                },
+                            },
+                        }],
+                    });
+                }
+                if (sql.includes('FROM budgets')) {
+                    return Promise.resolve({ rows: [{ total: '50000' }] });
+                }
+                return Promise.resolve({ rows: [] });
+            });
+
+            const result = await detectForecastWarning('user-1');
+
+            const budgetCall = pool.query.mock.calls.find(c => c[0].includes('FROM budgets'));
+            expect(budgetCall[1]).toEqual(['user-1', 2, 2026]);
+            expect(result).not.toBeNull();
+            expect(result.expires_at).toBe('2026-03-01T00:00:00.000Z');
+        } finally {
+            jest.useRealTimers();
+        }
     });
 });
 

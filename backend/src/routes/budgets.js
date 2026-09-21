@@ -17,7 +17,7 @@ router.get('/', async (req, res) => {
               c.is_investment_category,
               COALESCE(SUM(t.amount), 0) AS spent
        FROM budgets b
-       JOIN categories c ON b.category_id = c.id
+       JOIN categories c ON b.category_id = c.id AND (c.user_id = b.user_id OR c.user_id IS NULL)
        LEFT JOIN transactions t
          ON t.category_id = b.category_id AND t.user_id = b.user_id
          AND t.type = 'expense'
@@ -41,6 +41,13 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'All fields required.' });
         if (!isNonNegativeNumber(amount))
             return res.status(400).json({ error: 'amount must be >= 0.' });
+
+        const { rows: categoryCheck } = await pool.query(
+            `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+            [category_id, req.user.id]
+        );
+        if (!categoryCheck.length)
+            return res.status(400).json({ error: 'Invalid category_id.' });
 
         const result = await pool.query(
             `INSERT INTO budgets (user_id, category_id, amount, month, year)

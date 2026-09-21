@@ -10,8 +10,24 @@ const { getCached, setCached } = require('../utils/aiCache');
 const { isPositiveNumber, isValidDateString } = require('../utils/validation');
 const { detectSpendingSpike, detectForecastWarning } = require('./opportunities');
 const { isNonSavingsExpense, isRealIncome, nonSpendingExclusionSQL } = require('../utils/savingsRate');
+const { istDateStr: dateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, mondayOf } = require('../utils/istDate');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    // This checks the client-reported Content-Type only — it does not sniff
+    // file content/magic bytes, so it's trivially spoofable and NOT a hard
+    // security boundary. It's just a UX/defense-in-depth gate against
+    // accidental wrong-file-type uploads. Acceptable here because the only
+    // consumer of this buffer is Gemini vision (getVisionModel), which fails
+    // gracefully (returns a parse error to the user) on unexpected input --
+    // nothing here executes or interprets the file server-side.
+    fileFilter: (req, file, cb) => {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(new Error('Only JPEG, PNG, WEBP, HEIC, or HEIF images are accepted'), false);
+    },
+});
 
 // ─── FEATURE 4: Parse SMS ───────────────────────────────────────────
 router.post('/parse-sms', authMiddleware, async (req, res) => {
@@ -19,7 +35,7 @@ router.post('/parse-sms', authMiddleware, async (req, res) => {
         const { sms } = req.body;
         if (!sms) return res.status(400).json({ error: 'SMS text is required' });
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = dateStr();
         const text = (await aiComplete('parse-sms', [{
             role: 'user',
             content: `You are a financial transaction parser for an Indian personal finance app.
@@ -64,8 +80,7 @@ router.post('/afford', authMiddleware, async (req, res) => {
 
         const userId = req.user.id;
         const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
+        const { month, year } = istMonthYear(now);
 
         const [txRes, budgetRes, goalRes] = await Promise.all([
             pool.query(
@@ -204,7 +219,7 @@ router.post('/chat', authMiddleware, async (req, res) => {
 
 You have access to their COMPLETE financial data for the last 6 months. Always use this data to answer questions accurately. Never say you don't have data for a month if it appears below.
 
-TODAY'S DATE: ${new Date().toISOString().split('T')[0]}
+TODAY'S DATE: ${dateStr()}
 CURRENCY: Indian Rupees (₹)
 
 ## MONTHLY SUMMARY (last 6 months)
@@ -291,7 +306,12 @@ Existing recurring: ${JSON.stringify(existing)}`,
 });
 
 // ─── FEATURE 6: Parse Receipt Image ────────────────────────────────
-router.post('/parse-image', authMiddleware, upload.single('image'), async (req, res) => {
+router.post('/parse-image', authMiddleware, (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Invalid file upload.' });
+        next();
+    });
+}, async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'Image file is required' });
 
@@ -358,8 +378,7 @@ router.get('/salary-intelligence', authMiddleware, async (req, res) => {
     try {
         const userId = req.user.id;
         const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
+        const { month, year } = istMonthYear(now);
 
         // Check cache before running any DB queries
         if (!req.query.force) {
@@ -694,8 +713,8 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
 
         // 2. Date math
         const today = new Date();
-        const daysElapsed = today.getDate();
-        const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const daysElapsed = istDayOfMonth(today);
+        const daysInMonth = istDaysInMonth(today);
         const daysRemaining = daysInMonth - daysElapsed;
 
         // 3. Daily average = current spend / days elapsed (not 3-month / 90)
@@ -789,7 +808,7 @@ router.get('/forecast-calendar', authMiddleware, async (req, res) => {
         // 8. AI insight using corrected numbers
         const insightPrompt = `You are a personal finance advisor for an Indian user.
 
-Their ${today.toLocaleString('en-IN', { month: 'long', year: 'numeric' })} data:
+Their ${today.toLocaleString('en-IN', { month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' })} data:
 - Days elapsed: ${daysElapsed} of ${daysInMonth}
 - Spent so far: ₹${Math.round(currentMonthSpent).toLocaleString('en-IN')}
 - Daily spend rate: ₹${avgDaily.toLocaleString('en-IN')}/day
@@ -839,8 +858,9 @@ router.post('/health-report', authMiddleware, async (req, res) => {
     try {
         const { month, year } = req.body;
         const userId = req.user.id;
-        const targetMonth = month || (new Date().getMonth() + 1);
-        const targetYear = year || new Date().getFullYear();
+        const currentMonthYear = istMonthYear(new Date());
+        const targetMonth = month || currentMonthYear.month;
+        const targetYear = year || currentMonthYear.year;
 
         const [txRes, budgetRes, goalRes] = await Promise.all([
             pool.query(
@@ -943,7 +963,7 @@ router.post('/quick-add', authMiddleware, async (req, res) => {
         const { text } = req.body;
         if (!text) return res.status(400).json({ success: false, error: 'Text is required' });
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = dateStr();
         const raw = (await aiComplete('quick-add', [{
             role: 'user',
             content: `You are a financial transaction parser for an Indian personal finance app.
@@ -1164,23 +1184,13 @@ Make all amounts realistic and add up to exactly the salary amount. Use their ac
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 
 // Normalize any date to the Monday of its week (date-only, local time)
-const mondayOf = (d = new Date()) => {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    date.setDate(date.getDate() + diff);
-    date.setHours(0, 0, 0, 0);
-    return date.toISOString().split('T')[0];
-};
-
 async function getBriefingData(userId) {
-    const today = new Date().toISOString().split('T')[0];
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-    const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
     const now = new Date();
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const today = dateStr(now);
+    const weekAgo = dateStr(new Date(now.getTime() - 7 * 86400000));
+    const in7 = dateStr(new Date(now.getTime() + 7 * 86400000));
+    const monthStart = istMonthStart(now);
+    const lastMonthStart = istPriorMonthStart(now);
     const lastMonthEnd = monthStart;
 
     const [
@@ -1385,22 +1395,16 @@ ${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 }
 
 // ─── FEATURE: Daily Briefing ─────────────────────────────────────────
-// IST, not UTC -- this drives the daily brief's "today"/"yesterday" boundary
-// (brief_date, streak windows, refresh-log rate limiting). Using UTC here
-// meant the day rolled over at 5:30am IST instead of midnight IST for every
-// user of this India-only app.
-const dateStr = (d) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
 async function getDailyBriefData(userId) {
     const now = new Date();
     const todayStr = dateStr(now);
     const yesterday = dateStr(new Date(now.getTime() - 86400000));
     const in2days = dateStr(new Date(now.getTime() + 2 * 86400000));
-    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const monthStart = istMonthStart(now);
+    const daysInMonth = istDaysInMonth(now);
     const streakWindowStart = dateStr(new Date(now.getTime() - 30 * 86400000));
 
-    // Trend/comparison window bounds. `mondayOf` (defined above, near getBriefingData)
+    // Trend/comparison window bounds. `mondayOf` (imported from utils/istDate)
     // is reused here for week boundaries. The prior-week window is truncated to the
     // same number of elapsed days as the current (partial) week, not the whole week —
     // comparing a partial week to a full prior week would always make "this week"
@@ -1410,7 +1414,7 @@ async function getDailyBriefData(userId) {
     const daysElapsedThisWeek = Math.floor((new Date(todayStr) - new Date(currentWeekStart)) / 86400000) + 1;
     const priorWeekStart = mondayOf(new Date(now.getTime() - 7 * 86400000));
     const priorWeekEnd = dateStr(new Date(new Date(priorWeekStart).getTime() + daysElapsedThisWeek * 86400000));
-    const dayOfMonth = now.getDate();
+    const dayOfMonth = istDayOfMonth(now);
 
     const [
         yesterdaySpend,
@@ -1484,7 +1488,7 @@ async function getDailyBriefData(userId) {
 
     const income = parseFloat(monthIncomeSoFar.rows[0]?.total || 0);
     const idealDailyBudget = income > 0 ? income / daysInMonth : 0;
-    const daysElapsedBeforeToday = Math.max(0, now.getDate() - 1);
+    const daysElapsedBeforeToday = Math.max(0, dayOfMonth - 1);
     const avgDailySoFar = daysElapsedBeforeToday > 0
         ? parseFloat(monthExpenseSoFar.rows[0]?.total || 0) / daysElapsedBeforeToday
         : 0;
