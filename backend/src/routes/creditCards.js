@@ -5,9 +5,9 @@ const pool    = require('../db/pool');
 const auth    = require('../middleware/auth');
 const { isNonNegativeNumber, isPositiveNumber, isValidDateString } = require('../utils/validation');
 const { fetchCreditCardsWithBalance, fetchCreditCardWithBalance, fetchCreditCardsWithCycleBreakdown } = require('../utils/creditCardBalance');
-const { fetchCreditCardEmiWithBalance } = require('../utils/creditCardEmi');
+const { fetchCreditCardEmiWithBalance, buildEmiInstallmentSchedule } = require('../utils/creditCardEmi');
 const { generateAmortization } = require('../utils/amortization');
-const { istDateStr, istAddMonths } = require('../utils/istDate');
+const { istDateStr } = require('../utils/istDate');
 
 router.use(auth);
 
@@ -260,17 +260,28 @@ router.post('/:id/convert-to-emi', async (req, res) => {
         const principal = parseFloat(amount);
         const rate = parseFloat(interest_rate_pct);
         // generateAmortization is used for its principal/interest-component
-        // math ONLY -- its own internal schedule dates (computed from
-        // server-local `new Date()` month arithmetic) are discarded and
-        // recomputed below via istAddMonths off purchaseDate instead. See T4
-        // notes: amortization.js is shared with loans.js/debt.js and is
-        // deliberately left untouched rather than taught a start-date param.
+        // math only -- buildEmiInstallmentSchedule (creditCardEmi.js) turns
+        // it into IST-safe due-dated installment rows; see its comment for
+        // why amortization.js itself is left untouched.
         const amortization = generateAmortization({
             outstanding_balance: principal,
             interest_rate_pct: rate,
             tenure_months_remaining: tenureMonths,
         });
+        // Not reachable from this endpoint in practice: `invalid` only fires
+        // when the EMI amount is <= the first month's interest accrual, and
+        // this route never passes its own `emi_amount` override -- the only
+        // way to trigger that -- so generateAmortization always derives the
+        // EMI itself via calculateEMI(), which is mathematically guaranteed
+        // to exceed one month's interest for any principal/rate/tenure > 0.
+        // Kept as a guard (not deleted) in case that assumption ever changes.
         if (amortization.invalid) return res.status(400).json({ error: amortization.error });
+
+        // Computed before BEGIN, and can throw (caught below, surfaced as a
+        // clean 500) if the schedule length doesn't match tenureMonths --
+        // that way a mismatch is caught before any row is written, not
+        // discovered after a partial insert.
+        const scheduleEntries = buildEmiInstallmentSchedule(amortization, purchaseDate, tenureMonths);
 
         await client.query('BEGIN');
 
@@ -301,23 +312,16 @@ router.post('/:id/convert-to-emi', async (req, res) => {
         );
         const emi = emiResult.rows[0];
 
-        // First installment is due one month after the purchase date -- the
-        // standard EMI convention (a purchase made today isn't due
-        // immediately). installment_number runs 1..tenure_months;
         // posted_at/transaction_id stay NULL -- nothing posts until a later
         // task's cron does, as each installment comes due.
-        const schedule = amortization.schedule.slice(0, tenureMonths);
         const installmentRows = [];
-        for (let i = 0; i < schedule.length; i++) {
-            const monthEntry = schedule[i];
-            const installmentNumber = i + 1;
-            const dueDate = istAddMonths(purchaseDate, installmentNumber);
+        for (const entry of scheduleEntries) {
             const installmentResult = await client.query(
                 `INSERT INTO credit_card_emi_installments
                     (emi_id, user_id, installment_number, due_date, amount, principal_component, interest_component, posted_at, transaction_id)
                  VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL)
                  RETURNING *`,
-                [emi.id, req.user.id, installmentNumber, dueDate, monthEntry.emi, monthEntry.principal_component, monthEntry.interest_component]
+                [emi.id, req.user.id, entry.installment_number, entry.due_date, entry.amount, entry.principal_component, entry.interest_component]
             );
             installmentRows.push(installmentResult.rows[0]);
         }

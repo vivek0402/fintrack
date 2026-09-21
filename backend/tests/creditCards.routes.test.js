@@ -279,7 +279,13 @@ describe('POST /api/credit-cards/:id/convert-to-emi', () => {
         return { client, installmentInserts, getFeeInsertParams: () => feeInsertParams, getEmiInsertParams: () => emiInsertParams };
     }
 
-    test('interest-bearing EMI: correct schedule length and principal/interest split', async () => {
+    // Schedule-math correctness (interest split, no-cost even split, IST due
+    // dates, tenure_months-mismatch guard) is covered directly against
+    // buildEmiInstallmentSchedule in tests/creditCardEmi.test.js now that the
+    // route only wires that pure function's output into INSERTs. This is a
+    // thin smoke test proving the route actually calls through to it and
+    // persists what it returns -- not re-testing the amortization math.
+    test('creates the EMI and installment rows for a valid interest-bearing request', async () => {
         const { client, installmentInserts } = buildEmiClient();
         pool.connect.mockResolvedValue(client);
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1', principal_amount: '12000.00', remaining_principal: '12000.00', installments_posted: 0, installments_total: 6 }] });
@@ -290,28 +296,8 @@ describe('POST /api/credit-cards/:id/convert-to-emi', () => {
 
         expect(res.status).toBe(201);
         expect(installmentInserts).toHaveLength(6);
-        const totalPrincipal = installmentInserts.reduce((sum, p) => sum + p[5], 0);
-        expect(Math.round(totalPrincipal * 100) / 100).toBeCloseTo(12000, 1);
-        expect(installmentInserts.some(p => p[6] > 0)).toBe(true); // some interest charged
         expect(res.body.installments).toHaveLength(6);
         expect(res.body.emi.status).toBe('active');
-    });
-
-    test('no-cost EMI (interest_rate_pct 0): even split, zero interest component', async () => {
-        const { client, installmentInserts } = buildEmiClient();
-        pool.connect.mockResolvedValue(client);
-        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
-
-        const res = await request(buildApp())
-            .post('/api/credit-cards/card-1/convert-to-emi')
-            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6, interest_rate_pct: 0, is_no_cost: true });
-
-        expect(res.status).toBe(201);
-        expect(installmentInserts).toHaveLength(6);
-        for (const params of installmentInserts) {
-            expect(params[6]).toBe(0); // interest_component
-            expect(params[5]).toBeCloseTo(2000, 2); // principal_component
-        }
     });
 
     test('rejects a non-integer tenure_months before touching the database', async () => {
@@ -407,26 +393,25 @@ describe('POST /api/credit-cards/:id/convert-to-emi', () => {
         expect(client.release).toHaveBeenCalledTimes(1);
     });
 
-    // The whole point of routing date math through istDate.js's helpers: a
-    // purchase timestamp that lands late evening UTC is already the *next*
-    // calendar day in IST. A naive `new Date(date)` + plain JS month
-    // arithmetic (server-timezone dependent, and what generateAmortization
-    // itself does internally) would compute the purchase's calendar day as
-    // Jan 31 here; IST correctly says Feb 1, which shifts every installment
-    // due date by a day AND changes the first due month's clamped day.
-    test('installment due dates use the IST calendar date, not the naive UTC one', async () => {
+    // The route's responsibility for IST-correctness is narrower than it
+    // looks: it must anchor `purchaseDate` via istDateStr(new Date(date))
+    // before calling buildEmiInstallmentSchedule. That the resulting due
+    // dates are then computed correctly off *that* anchor is covered in
+    // tests/creditCardEmi.test.js. This test covers the route's own half --
+    // that a UTC-boundary timestamp is actually normalized to the IST
+    // calendar date before reaching the schedule builder.
+    test('normalizes a UTC-boundary purchase timestamp to its IST calendar date before scheduling', async () => {
         const { client, installmentInserts } = buildEmiClient();
         pool.connect.mockResolvedValue(client);
         pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
 
-        // 2026-01-31T20:00:00.000Z is 2026-02-01 01:30 IST.
+        // 2026-01-31T20:00:00.000Z is 2026-02-01 01:30 IST -- a naive
+        // server-timezone Date read would see this as Jan 31.
         const res = await request(buildApp())
             .post('/api/credit-cards/card-1/convert-to-emi')
             .send({ description: 'Phone', amount: 6000, date: '2026-01-31T20:00:00.000Z', tenure_months: 3, interest_rate_pct: 0 });
 
         expect(res.status).toBe(201);
-        expect(installmentInserts[0][3]).toBe('2026-03-01'); // 1 month after 2026-02-01
-        expect(installmentInserts[1][3]).toBe('2026-04-01');
-        expect(installmentInserts[2][3]).toBe('2026-05-01');
+        expect(installmentInserts[0][3]).toBe('2026-03-01'); // 1 month after the IST purchase date, 2026-02-01
     });
 });

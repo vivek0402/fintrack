@@ -3,6 +3,18 @@ CREATE TABLE IF NOT EXISTS credit_card_emis (
     user_id                UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     credit_card_id         INTEGER NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
     source_transaction_id  UUID REFERENCES transactions(id) ON DELETE SET NULL,
+    description            TEXT NOT NULL,
+    purchase_date          DATE NOT NULL,
+    -- The EMI's category (e.g. "Electronics", "Travel") is stored once on
+    -- the EMI header rather than per-installment: every installment of a
+    -- given EMI is a slice of the same purchase, so they all share one
+    -- category, and a later task's cron (which posts installment
+    -- transactions as they come due) can read it from here rather than
+    -- needing it duplicated on every installment row. Nullable and
+    -- ON DELETE SET NULL, same as transactions.category_id and
+    -- financial_plan_expenses.category_id -- a deleted category must not
+    -- block the EMI or installment cron from working.
+    category_id            UUID REFERENCES categories(id) ON DELETE SET NULL,
     principal_amount       NUMERIC(12,2) NOT NULL CHECK (principal_amount > 0),
     tenure_months          INTEGER NOT NULL CHECK (tenure_months > 0),
     interest_rate_pct      NUMERIC(6,3) NOT NULL DEFAULT 0 CHECK (interest_rate_pct >= 0),
@@ -16,6 +28,7 @@ CREATE TABLE IF NOT EXISTS credit_card_emis (
 
 CREATE INDEX IF NOT EXISTS idx_credit_card_emis_user ON credit_card_emis(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_card_emis_credit_card ON credit_card_emis(credit_card_id);
+CREATE INDEX IF NOT EXISTS idx_credit_card_emis_category ON credit_card_emis(category_id) WHERE category_id IS NOT NULL;
 
 COMMENT ON COLUMN credit_card_emis.markup_suspected IS
     'Manual user flag ("I think this no-cost EMI price was marked up"). Not set by any automated detection.';
