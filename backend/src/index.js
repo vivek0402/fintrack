@@ -821,7 +821,20 @@ cron.schedule('0 8 * * 1', async () => {
     let success = 0, failed = 0, skipped = 0;
     try {
         const weekOf = aiRoutes.mondayOf();
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        // Scope to users active in the last 7 days (logged a transaction or opened
+        // a briefing) — this is a weekly summary, not a same-day refresh, so a wider
+        // window than the intraday cron's 2 days is appropriate. Not gated on FCM
+        // token possession: generateWeeklyBriefing() always stores the briefing row
+        // (read via GET /briefing/latest) and only conditionally sends the push, so a
+        // user without a token still benefits from having it generated.
+        const { rows: users } = await pool.query(
+            `SELECT id AS user_id FROM users u
+             WHERE EXISTS (
+                 SELECT 1 FROM transactions t WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '7 days'
+             ) OR EXISTS (
+                 SELECT 1 FROM daily_briefings b WHERE b.user_id = u.id AND b.opened_at > NOW() - INTERVAL '7 days'
+             )`
+        );
 
         for (const { user_id } of users) {
             try {
@@ -925,7 +938,20 @@ cron.schedule('0 21 * * *', async () => {
         // today's daily_briefings row by brief_date, so a mismatched day boundary
         // here would make it check push_sent_at against the wrong day's row.
         const today = aiRoutes.dateStr(new Date());
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        // Scope to users active in the last 7 days (logged a transaction or opened
+        // a briefing) — this is a daily summary notification, not a same-day refresh,
+        // so a wider window than the intraday cron's 2 days is appropriate. Not gated
+        // on FCM token possession: generateDailyBriefing() always stores the briefing
+        // row (read via GET /briefing/daily/latest) and only conditionally sends the
+        // push, so a user without a token still benefits from having it generated.
+        const { rows: users } = await pool.query(
+            `SELECT id AS user_id FROM users u
+             WHERE EXISTS (
+                 SELECT 1 FROM transactions t WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '7 days'
+             ) OR EXISTS (
+                 SELECT 1 FROM daily_briefings b WHERE b.user_id = u.id AND b.opened_at > NOW() - INTERVAL '7 days'
+             )`
+        );
 
         for (const { user_id } of users) {
             try {
