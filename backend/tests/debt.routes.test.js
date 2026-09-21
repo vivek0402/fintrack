@@ -27,6 +27,15 @@ afterEach(() => {
     pool.query.mockReset();
 });
 
+// fetchCreditCardsWithBalance/fetchCreditCardsWithCycleBreakdown now issue a
+// second query (active EMI principal for the user) after the cards query.
+// Default that to "no active EMIs" for every test in this file; a test that
+// wants to assert EMI behaviour would override it with an explicit
+// mockResolvedValueOnce queued before this default kicks in.
+beforeEach(() => {
+    pool.query.mockResolvedValue({ rows: [] });
+});
+
 describe('computeCreditUtilization', () => {
     test('a card with credit_limit 0 does not divide by zero', async () => {
         pool.query.mockResolvedValueOnce({

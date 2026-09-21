@@ -30,6 +30,14 @@ afterEach(() => {
     pool.connect.mockReset();
 });
 
+// Credit-card balance helpers now issue a second query (active EMI
+// principal for the user) after the cards query. Default that to "no active
+// EMIs" globally; any test that cares about EMI behaviour overrides it with
+// an explicit mockResolvedValueOnce queued before this default kicks in.
+beforeEach(() => {
+    pool.query.mockResolvedValue({ rows: [] });
+});
+
 describe('GET /api/credit-cards', () => {
     test('returns cards with the computed current_outstanding_balance field', async () => {
         pool.query.mockResolvedValueOnce({

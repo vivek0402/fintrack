@@ -1,6 +1,15 @@
 const { inr, ordinal, istTimeLabel, detectDuplicate, detectAnomaly } = require('../src/utils/txEntrySignals');
 
-const pool = () => ({ query: jest.fn() });
+// detectCard now goes through fetchCreditCardWithBalance, which issues a
+// second query (active EMI principal for the user) after the card lookup.
+// Default that to "no active EMIs" so tests that only care about the first
+// (card) query don't have to know about it; tests that do care override
+// with an explicit mockResolvedValueOnce before this default kicks in.
+const pool = () => {
+    const query = jest.fn();
+    query.mockResolvedValue({ rows: [] });
+    return { query };
+};
 
 describe('helpers', () => {
     test('inr formats rounded Indian-grouped currency with sign', () => {
