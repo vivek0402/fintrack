@@ -145,7 +145,20 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 5: Fix `mondayOf()` IST bug
+### Tasks 5-7 — actual outcome (superseded the plan below, per mid-flight user decision)
+
+Tasks 5, 6, and 7 as originally written below turned out to undercount the scope: investigating `mondayOf()` surfaced ~10 more UTC-vs-IST instances scattered through `ai.js` alone, and a subsequent code-quality review found the identical bug class live in 8 more route files entirely outside `ai.js`/`insights.js`/`opportunities.js` (`agents.js`, `debt.js`, `groups.js`, `milestones.js`, `planning.js`, `recurring.js`, `oneTimeExpenses.js`, `splits.js`) — most notably `recurring.js`'s `POST /process`, a route hit live from the dashboard/budgets pages on every load, duplicating the exact bug Task 4 believed it had already closed via the cron alone.
+
+Per an explicit mid-flight user decision, the fix was generalized rather than done as the three narrow tasks below:
+1. Extracted `backend/src/utils/istDate.js` (`istDateStr`, `istMonthYear`, `istDayOfMonth`, `istDaysInMonth`, `istMonthStart`, `istPriorMonthStart`, `istNextMonthStart`, `istMonthsAgoStart`, `mondayOf`) as the one shared source of truth for every "what day/month/week is it for the IST user" computation.
+2. Commit `41a3b7d` rewired `ai.js` (including `mondayOf`, `getBriefingData`, `getDailyBriefData`, `/parse-sms`, `/afford`, the chat prompt, `/salary-intelligence`, `/quick-add`, `/forecast-calendar`, `/health-report`), `insights.js`'s peer-benchmarks, and `opportunities.js`'s `detectForecastWarning` — this supersedes Tasks 5, 6, and 7 below in full.
+3. Commit `a007e5f` (+ test-coverage follow-up `f9ab559`) extended the same shared helper to `agents.js`, `debt.js`, `groups.js`, `milestones.js`, `planning.js`, `recurring.js` (3 separate fixes, including the `POST /process`/`POST /` pair), `oneTimeExpenses.js`, and `splits.js`.
+
+**Deliberately left open, per a second mid-flight user decision to stop here and move to the plan's remaining tasks:** a residual set of `now`-derived UTC date computations still exist in `index.js` (crons other than the two already fixed), `ai.js` (one confirmed-benign remaining hit, `t.date.toISOString()...` operating on a persisted value, not "now"), `behaviorAnalysis.js`, `creditCardBalance.js`, `pdfImport.js`, `transactions.js`, and `amortization.js` — none of these were triaged for live-vs-benign status. Worth a dedicated future pass. Also flagged but explicitly NOT fixed (separate, pre-existing, currently-dormant risk, only latent because the server runs in UTC): `recurring.js`'s `POST /process` day-advancement loop still walks `next_due_date` via local (non-UTC) `Date` methods, inconsistent with `POST /`'s new UTC-anchored arithmetic for the *initial* due date — would only diverge if the server's `TZ` were ever set away from UTC.
+
+The three sub-plans below are left as originally written for historical/audit-trail purposes; do not re-execute them.
+
+### Task 5 (superseded): Fix `mondayOf()` IST bug
 
 **Files:** Modify `backend/src/routes/ai.js`, `backend/tests/ai.dailyBriefing.routes.test.js` (or wherever `mondayOf` might already have coverage — check `backend/tests/` for existing `mondayOf` tests first).
 
@@ -169,7 +182,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 6: Fix `getDailyBriefData` month-boundary IST bugs
+### Task 6 (superseded): Fix `getDailyBriefData` month-boundary IST bugs
 
 **Files:** Modify `backend/src/routes/ai.js`, its test file.
 
@@ -193,7 +206,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 7: Fix `insights.js` peer-benchmarks and `opportunities.js` forecast-warning month-boundary bugs
+### Task 7 (superseded): Fix `insights.js` peer-benchmarks and `opportunities.js` forecast-warning month-boundary bugs
 
 **Files:** Modify `backend/src/routes/insights.js`, `backend/src/routes/opportunities.js`, their test files.
 
