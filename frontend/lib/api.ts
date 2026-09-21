@@ -299,6 +299,11 @@ export const creditCardsAPI = {
     delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
     payBill: (id: number, data: { bank_account_id: number; amount: number; date: string; notes?: string }) =>
         api.post(`/api/credit-cards/${id}/pay`, data),
+    convertToEmi: (cardId: number, data: {
+        description: string; amount: number; date: string; category_id?: string;
+        tenure_months: number; interest_rate_pct?: number; is_no_cost?: boolean;
+        processing_fee?: number; markup_suspected?: boolean; notes?: string;
+    }) => api.post(`/api/credit-cards/${cardId}/convert-to-emi`, data),
 };
 
 export const walletsAPI = {

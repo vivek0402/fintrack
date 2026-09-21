@@ -97,6 +97,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             name: '', ticker_or_folio: '', units: '', price_per_unit: '',
             scheme_code: '', account_label: '',
         },
+        emi: {
+            enabled: false,
+            tenure_months: '',
+            interest_rate_pct: '0',
+            is_no_cost: true,
+            processing_fee: '',
+            markup_suspected: false,
+        },
     });
     const [tagInput, setTagInput] = useState('');
     const { categories, refresh: refreshCategories, addLocal: addLocalCategory } = useCategories();
@@ -172,16 +180,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // Populate form
      
     const blankInvestment = { type: 'mutual_fund', name: '', ticker_or_folio: '', units: '', price_per_unit: '', scheme_code: '', account_label: '' };
+    const blankEmi = { enabled: false, tenure_months: '', interest_rate_pct: '0', is_no_cost: true, processing_fee: '', markup_suspected: false };
 
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment });
+            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment, emi: blankEmi });
         } else if (prefill) {
-            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
+            setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment, emi: blankEmi });
             setTagInput('');
         } else {
-            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment });
+            setForm({ type: 'expense', amount: '', description: '', notes: '', date: defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment, emi: blankEmi });
             setTagInput('');
         }
         setError('');
@@ -219,6 +228,16 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             setForm(prev => ({ ...prev, credit_card_id: cards[0].id }));
         }
     }, [form.payment_method, cards, isOpen]);
+
+    // EMI conversion only makes sense for a new expense charged to a specific
+    // card -- if any of those conditions stop holding (payment method changed,
+    // card cleared, switched to editing), drop a stale "enabled" flag so a
+    // hidden section can never sneak an EMI conversion into a plain submit.
+    useEffect(() => {
+        if (!isOpen || !form.emi.enabled) return;
+        const stillApplies = form.type === 'expense' && form.payment_method === 'Credit Card' && !!form.credit_card_id && !isEditing;
+        if (!stillApplies) setForm(prev => ({ ...prev, emi: { ...prev.emi, enabled: false } }));
+    }, [isOpen, form.type, form.payment_method, form.credit_card_id, form.emi.enabled, isEditing]);
 
     useEffect(() => {
         if (!isOpen || form.type === 'transfer') { setMlSuggest(EMPTY_SUGGEST); return; }
@@ -375,6 +394,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             finally { setLoading(false); }
             return;
         }
+        if (!isEditing && form.emi.enabled) {
+            const tenureNum = Number(form.emi.tenure_months);
+            if (!form.emi.tenure_months || !Number.isInteger(tenureNum) || tenureNum <= 0) {
+                setError('Enter a valid EMI tenure in months.');
+                setLoading(false);
+                return;
+            }
+        }
         const investmentDetails = (isInvestmentCategory && !isEditing && form.investment.units && form.investment.price_per_unit && form.investment.name)
             ? {
                 type: form.investment.type,
@@ -387,9 +414,30 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             }
             : undefined;
         const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, goal_id: form.goal_id, investment_details: investmentDetails };
+        const submittingEmi = !isEditing && form.emi.enabled;
         let createdInvestment: { is_new_holding: boolean } | undefined;
         try {
             if (isEditing) await transactionsAPI.update(transaction.id, payload);
+            else if (submittingEmi) {
+                // 0% interest is the derivation the backend itself uses for
+                // is_no_cost -- computed fresh here rather than trusted from the
+                // "No-cost EMI" toggle, so the two can never disagree and trip
+                // the server's 400 validation.
+                const interestRate = parseFloat(form.emi.interest_rate_pct) || 0;
+                const isNoCost = interestRate === 0;
+                await creditCardsAPI.convertToEmi(form.credit_card_id as number, {
+                    description: form.description,
+                    amount: parseFloat(form.amount),
+                    date: form.date,
+                    category_id: form.category_id || undefined,
+                    tenure_months: parseInt(form.emi.tenure_months, 10),
+                    interest_rate_pct: interestRate,
+                    is_no_cost: isNoCost,
+                    processing_fee: form.emi.processing_fee ? parseFloat(form.emi.processing_fee) : undefined,
+                    markup_suspected: isNoCost ? form.emi.markup_suspected : undefined,
+                    notes: form.notes || undefined,
+                });
+            }
             else { const res = await transactionsAPI.create(payload); createdInvestment = res.data.investment; }
             if (user) {
                 const now = new Date(); const cm = now.getMonth() + 1; const cy = now.getFullYear();
@@ -421,12 +469,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 const fKey = `forecast-cache-${user?.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
                 localStorage.removeItem(fKey);
             } catch { /* silent */ }
-            if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
+            if (submittingEmi) toast.success('EMI purchase recorded');
+            else if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
             else toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
             onSuccess(); onClose();
         } catch (err: any) {
             const isNetworkErr = !err.response;
-            if (isNetworkErr && !isEditing) {
+            // An EMI conversion isn't a plain transaction create -- there's no
+            // sensible way to replay it from the offline queue, so it always
+            // surfaces as an error rather than silently queuing a payload the
+            // sync path doesn't know how to submit.
+            if (isNetworkErr && !isEditing && !submittingEmi) {
                 try {
                     const tempId = await addToQueue('create', payload as Record<string, any>);
                     toast.info('Saved offline — will sync when reconnected');
@@ -483,6 +536,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const safeCats = categories || [];
     const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
     const isInvestmentCategory = !isTransfer && !!selectedCat?.is_investment_category;
+    // EMI conversion only makes sense for a new expense being charged to a
+    // specific card -- not for editing an existing transaction, matching how
+    // the investment section above also excludes isEditing.
+    const showEmiSection = form.type === 'expense' && form.payment_method === 'Credit Card' && !!form.credit_card_id && !isEditing;
 
     // Investment fields live inside "More details" like everything else non-
     // essential, but hiding them behind a collapsed toggle right after the
@@ -970,6 +1027,62 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                     style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-body)' }}>
                                     Use units × price (₹{(parseFloat(form.investment.units) * parseFloat(form.investment.price_per_unit)).toFixed(2)}) as amount
                                 </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── EMI conversion (shown when charging a new expense to a credit card) ── */}
+                    {showEmiSection && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                <input type="checkbox" checked={form.emi.enabled}
+                                    onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, enabled: e.target.checked } }))} />
+                                Convert to EMI
+                            </label>
+
+                            {form.emi.enabled && (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                        <input type="number" min="1" step="1" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                            value={form.emi.tenure_months}
+                                            onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, tenure_months: e.target.value } }))}
+                                            placeholder="Tenure (months)" />
+                                        <input type="number" min="0" step="any" disabled={form.emi.is_no_cost}
+                                            style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const, opacity: form.emi.is_no_cost ? 0.5 : 1 }}
+                                            value={form.emi.is_no_cost ? '0' : form.emi.interest_rate_pct}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                const num = parseFloat(val);
+                                                // Keeps is_no_cost in sync with the typed rate client-side,
+                                                // the same way the backend derives is_no_cost from whether
+                                                // interest_rate_pct is 0.
+                                                setForm(prev => ({ ...prev, emi: { ...prev.emi, interest_rate_pct: val, is_no_cost: !val || num === 0 } }));
+                                            }}
+                                            placeholder="Interest rate % p.a." />
+                                    </div>
+
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                                        <input type="checkbox" checked={form.emi.is_no_cost}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setForm(prev => ({ ...prev, emi: { ...prev.emi, is_no_cost: checked, interest_rate_pct: checked ? '0' : prev.emi.interest_rate_pct, markup_suspected: checked ? prev.emi.markup_suspected : false } }));
+                                            }} />
+                                        No-cost EMI (0% interest)
+                                    </label>
+
+                                    {form.emi.is_no_cost && (
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                                            <input type="checkbox" checked={form.emi.markup_suspected}
+                                                onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, markup_suspected: e.target.checked } }))} />
+                                            I think this might be marked up
+                                        </label>
+                                    )}
+
+                                    <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
+                                        value={form.emi.processing_fee}
+                                        onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, processing_fee: e.target.value } }))}
+                                        placeholder="Processing fee (optional)" />
+                                </>
                             )}
                         </div>
                     )}
