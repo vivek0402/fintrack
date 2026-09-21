@@ -5,6 +5,9 @@ const pool    = require('../db/pool');
 const auth    = require('../middleware/auth');
 const { isNonNegativeNumber, isPositiveNumber, isValidDateString } = require('../utils/validation');
 const { fetchCreditCardsWithBalance, fetchCreditCardWithBalance, fetchCreditCardsWithCycleBreakdown } = require('../utils/creditCardBalance');
+const { fetchCreditCardEmiWithBalance } = require('../utils/creditCardEmi');
+const { generateAmortization } = require('../utils/amortization');
+const { istDateStr, istAddMonths } = require('../utils/istDate');
 
 router.use(auth);
 
@@ -182,6 +185,151 @@ router.post('/:id/pay', async (req, res) => {
         await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Failed to record payment' });
+    } finally {
+        client.release();
+    }
+});
+
+// POST /api/credit-cards/:id/convert-to-emi -- v1 scope is entry-time only:
+// this creates a brand-new EMI purchase from scratch. It does NOT
+// retroactively convert an already-posted transaction (that's deferred to a
+// future v1.1). No full-price transaction is created here at all -- the
+// purchase amount only ever appears gradually, via installment transactions
+// a later task's cron posts as they come due. source_transaction_id is
+// therefore always NULL in this flow.
+router.post('/:id/convert-to-emi', async (req, res) => {
+    const {
+        description, amount, date, category_id = null,
+        tenure_months, interest_rate_pct = 0, is_no_cost,
+        processing_fee = null, markup_suspected = false, notes = null,
+    } = req.body;
+
+    if (typeof description !== 'string' || !description.trim()) return res.status(400).json({ error: 'description is required' });
+    if (!isPositiveNumber(amount)) return res.status(400).json({ error: 'amount must be greater than 0' });
+    if (!isValidDateString(date)) return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
+    // Accept a numeric string the same way isPositiveNumber does elsewhere in
+    // this file, but also reject a non-integer value (6.5) -- tenure_months
+    // is an INTEGER column, and a float slipping past this check would
+    // either get silently truncated by Postgres or throw, neither of which
+    // is a clean 400.
+    if (!isPositiveNumber(tenure_months) || !Number.isInteger(parseFloat(tenure_months)))
+        return res.status(400).json({ error: 'tenure_months must be a positive integer' });
+    const tenureMonths = parseInt(tenure_months, 10);
+    if (!isNonNegativeNumber(interest_rate_pct)) return res.status(400).json({ error: 'interest_rate_pct must be >= 0' });
+    if (processing_fee !== null && !isNonNegativeNumber(processing_fee)) return res.status(400).json({ error: 'processing_fee must be >= 0' });
+
+    // is_no_cost is derived from interest_rate_pct === 0 rather than trusted
+    // as an independent client input -- letting the client assert "no cost"
+    // on a plan the math would actually charge interest on (or vice versa)
+    // would let the stored flag silently lie about what was charged. If the
+    // client sends both, they must agree with each other; if it sends
+    // neither or only interest_rate_pct, the derived value is used.
+    const derivedIsNoCost = parseFloat(interest_rate_pct) === 0;
+    if (is_no_cost !== undefined && Boolean(is_no_cost) !== derivedIsNoCost) {
+        return res.status(400).json({ error: `is_no_cost (${is_no_cost}) is inconsistent with interest_rate_pct (${interest_rate_pct})` });
+    }
+
+    const client = await pool.connect();
+    try {
+        const cardCheck = await client.query(`SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]);
+        // No explicit release() here -- the finally block below always runs,
+        // including on these early returns, same convention as /pay above.
+        if (!cardCheck.rows.length) return res.status(404).json({ error: 'Card not found' });
+
+        // Same "shared default category (user_id IS NULL) OR this user's own
+        // category" ownership check used in planning.js for
+        // financial_plan_expenses.category_id -- deliberately kept identical
+        // in shape after 4e394ad tightened that exact check.
+        if (category_id) {
+            const categoryCheck = await client.query(
+                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+                [category_id, req.user.id]
+            );
+            if (!categoryCheck.rows.length) return res.status(400).json({ error: 'Invalid category_id.' });
+        }
+
+        // Anchor every downstream date computation (installment due dates,
+        // the fee transaction's date) off the IST calendar date the purchase
+        // actually falls on. `date` may arrive as a bare 'YYYY-MM-DD' or as a
+        // full timestamp near the UTC/IST midnight boundary; routing it
+        // through istDateStr (rather than slicing the string or doing raw
+        // Date math) is exactly what istDate.js exists to make automatic --
+        // see its header comment for the bug history this avoids.
+        const purchaseDate = istDateStr(new Date(date));
+
+        const principal = parseFloat(amount);
+        const rate = parseFloat(interest_rate_pct);
+        // generateAmortization is used for its principal/interest-component
+        // math ONLY -- its own internal schedule dates (computed from
+        // server-local `new Date()` month arithmetic) are discarded and
+        // recomputed below via istAddMonths off purchaseDate instead. See T4
+        // notes: amortization.js is shared with loans.js/debt.js and is
+        // deliberately left untouched rather than taught a start-date param.
+        const amortization = generateAmortization({
+            outstanding_balance: principal,
+            interest_rate_pct: rate,
+            tenure_months_remaining: tenureMonths,
+        });
+        if (amortization.invalid) return res.status(400).json({ error: amortization.error });
+
+        await client.query('BEGIN');
+
+        // The processing fee is a real one-time charge that hits the card
+        // immediately -- it is NOT part of the EMI principal/schedule, so it
+        // gets its own ordinary expense transaction rather than folding into
+        // credit_card_emis.processing_fee silently.
+        let feeTransaction = null;
+        const fee = processing_fee !== null ? parseFloat(processing_fee) : 0;
+        if (fee > 0) {
+            const feeResult = await client.query(
+                `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, credit_card_id, category_id)
+                 VALUES ($1,'expense',$2,$3,$4,$5,$6,$7,$8)
+                 RETURNING *`,
+                [req.user.id, fee, `EMI processing fee - ${description.trim()}`, notes || null, ['credit_card_emi_fee'], purchaseDate, req.params.id, category_id || null]
+            );
+            feeTransaction = feeResult.rows[0];
+        }
+
+        const emiResult = await client.query(
+            `INSERT INTO credit_card_emis
+                (user_id, credit_card_id, source_transaction_id, description, purchase_date, category_id,
+                 principal_amount, tenure_months, interest_rate_pct, is_no_cost, processing_fee, markup_suspected, notes)
+             VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             RETURNING *`,
+            [req.user.id, req.params.id, description.trim(), purchaseDate, category_id || null,
+             principal, tenureMonths, rate, derivedIsNoCost, processing_fee !== null ? fee : null, Boolean(markup_suspected), notes || null]
+        );
+        const emi = emiResult.rows[0];
+
+        // First installment is due one month after the purchase date -- the
+        // standard EMI convention (a purchase made today isn't due
+        // immediately). installment_number runs 1..tenure_months;
+        // posted_at/transaction_id stay NULL -- nothing posts until a later
+        // task's cron does, as each installment comes due.
+        const schedule = amortization.schedule.slice(0, tenureMonths);
+        const installmentRows = [];
+        for (let i = 0; i < schedule.length; i++) {
+            const monthEntry = schedule[i];
+            const installmentNumber = i + 1;
+            const dueDate = istAddMonths(purchaseDate, installmentNumber);
+            const installmentResult = await client.query(
+                `INSERT INTO credit_card_emi_installments
+                    (emi_id, user_id, installment_number, due_date, amount, principal_component, interest_component, posted_at, transaction_id)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL)
+                 RETURNING *`,
+                [emi.id, req.user.id, installmentNumber, dueDate, monthEntry.emi, monthEntry.principal_component, monthEntry.interest_component]
+            );
+            installmentRows.push(installmentResult.rows[0]);
+        }
+
+        await client.query('COMMIT');
+
+        const refreshedEmi = await fetchCreditCardEmiWithBalance(pool, req.user.id, emi.id);
+        res.status(201).json({ emi: refreshedEmi, installments: installmentRows, fee_transaction: feeTransaction });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Failed to convert to EMI' });
     } finally {
         client.release();
     }

@@ -237,3 +237,196 @@ describe('POST /api/credit-cards/:id/pay', () => {
         expect(client.release).toHaveBeenCalled();
     });
 });
+
+describe('POST /api/credit-cards/:id/convert-to-emi', () => {
+    // Builds a mock transaction client that answers every query this route
+    // issues, and records what was sent to the EMI/installment/fee inserts
+    // so assertions can inspect exact params rather than re-deriving them.
+    function buildEmiClient({ cardExists = true, categoryValid = true } = {}) {
+        const installmentInserts = [];
+        let feeInsertParams = null;
+        let emiInsertParams = null;
+        const client = {
+            query: jest.fn(async (sql, params) => {
+                if (sql.includes('FROM credit_cards')) return cardExists ? { rows: [{ id: 'card-1' }] } : { rows: [] };
+                if (sql.includes('FROM categories')) return categoryValid ? { rows: [{ id: params[0] }] } : { rows: [] };
+                if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
+                if (sql.includes('INSERT INTO transactions')) {
+                    feeInsertParams = params;
+                    return { rows: [{ id: 'fee-tx-1', type: 'expense', amount: params[1], tags: params[4] }] };
+                }
+                if (sql.includes('INSERT INTO credit_card_emis')) {
+                    emiInsertParams = params;
+                    return { rows: [{ id: 'emi-1', user_id: params[0], credit_card_id: params[1] }] };
+                }
+                if (sql.includes('INSERT INTO credit_card_emi_installments')) {
+                    installmentInserts.push(params);
+                    return {
+                        rows: [{
+                            id: `inst-${installmentInserts.length}`,
+                            installment_number: params[2],
+                            due_date: params[3],
+                            amount: params[4],
+                            principal_component: params[5],
+                            interest_component: params[6],
+                        }],
+                    };
+                }
+                throw new Error(`Unexpected client query: ${sql}`);
+            }),
+            release: jest.fn(),
+        };
+        return { client, installmentInserts, getFeeInsertParams: () => feeInsertParams, getEmiInsertParams: () => emiInsertParams };
+    }
+
+    test('interest-bearing EMI: correct schedule length and principal/interest split', async () => {
+        const { client, installmentInserts } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1', principal_amount: '12000.00', remaining_principal: '12000.00', installments_posted: 0, installments_total: 6 }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'New laptop', amount: 12000, date: '2026-01-15', tenure_months: 6, interest_rate_pct: 18 });
+
+        expect(res.status).toBe(201);
+        expect(installmentInserts).toHaveLength(6);
+        const totalPrincipal = installmentInserts.reduce((sum, p) => sum + p[5], 0);
+        expect(Math.round(totalPrincipal * 100) / 100).toBeCloseTo(12000, 1);
+        expect(installmentInserts.some(p => p[6] > 0)).toBe(true); // some interest charged
+        expect(res.body.installments).toHaveLength(6);
+        expect(res.body.emi.status).toBe('active');
+    });
+
+    test('no-cost EMI (interest_rate_pct 0): even split, zero interest component', async () => {
+        const { client, installmentInserts } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6, interest_rate_pct: 0, is_no_cost: true });
+
+        expect(res.status).toBe(201);
+        expect(installmentInserts).toHaveLength(6);
+        for (const params of installmentInserts) {
+            expect(params[6]).toBe(0); // interest_component
+            expect(params[5]).toBeCloseTo(2000, 2); // principal_component
+        }
+    });
+
+    test('rejects a non-integer tenure_months before touching the database', async () => {
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6.5 });
+
+        expect(res.status).toBe(400);
+        expect(pool.connect).not.toHaveBeenCalled();
+    });
+
+    test('rejects is_no_cost inconsistent with interest_rate_pct', async () => {
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6, interest_rate_pct: 18, is_no_cost: true });
+
+        expect(res.status).toBe(400);
+        expect(pool.connect).not.toHaveBeenCalled();
+    });
+
+    test('processing fee: creates a separate transaction, not folded into EMI principal', async () => {
+        const { client, installmentInserts, getFeeInsertParams } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'Fridge', amount: 20000, date: '2026-01-15', tenure_months: 4, interest_rate_pct: 0, processing_fee: 500 });
+
+        expect(res.status).toBe(201);
+        const feeParams = getFeeInsertParams();
+        expect(feeParams).not.toBeNull();
+        expect(feeParams[1]).toBe(500); // fee amount
+        expect(feeParams[4]).toEqual(['credit_card_emi_fee']);
+        // Principal split across installments still sums to the purchase
+        // amount only -- the fee never leaks into it.
+        const totalPrincipal = installmentInserts.reduce((sum, p) => sum + p[5], 0);
+        expect(Math.round(totalPrincipal * 100) / 100).toBeCloseTo(20000, 1);
+        expect(res.body.fee_transaction).not.toBeNull();
+    });
+
+    test('does not create a fee transaction when processing_fee is omitted', async () => {
+        const { client, getFeeInsertParams } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'Fridge', amount: 20000, date: '2026-01-15', tenure_months: 4 });
+
+        expect(res.status).toBe(201);
+        expect(getFeeInsertParams()).toBeNull();
+        expect(res.body.fee_transaction).toBeNull();
+    });
+
+    test('markup_suspected flag is stored on the EMI row', async () => {
+        const { client, getEmiInsertParams } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6, interest_rate_pct: 0, markup_suspected: true });
+
+        expect(res.status).toBe(201);
+        const emiParams = getEmiInsertParams();
+        expect(emiParams[10]).toBe(true); // markup_suspected
+        expect(emiParams[8]).toBe(true);  // derived is_no_cost
+    });
+
+    test('card not found or not owned by user returns 404', async () => {
+        const { client } = buildEmiClient({ cardExists: false });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6 });
+
+        expect(res.status).toBe(404);
+        expect(client.release).toHaveBeenCalledTimes(1);
+    });
+
+    test('invalid category_id (not owned by user) returns 400 before BEGIN', async () => {
+        const { client } = buildEmiClient({ categoryValid: false });
+        pool.connect.mockResolvedValue(client);
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'TV', amount: 12000, date: '2026-01-15', tenure_months: 6, category_id: 'someone-elses-category' });
+
+        expect(res.status).toBe(400);
+        expect(client.query.mock.calls.some(([sql]) => sql === 'BEGIN')).toBe(false);
+        expect(client.release).toHaveBeenCalledTimes(1);
+    });
+
+    // The whole point of routing date math through istDate.js's helpers: a
+    // purchase timestamp that lands late evening UTC is already the *next*
+    // calendar day in IST. A naive `new Date(date)` + plain JS month
+    // arithmetic (server-timezone dependent, and what generateAmortization
+    // itself does internally) would compute the purchase's calendar day as
+    // Jan 31 here; IST correctly says Feb 1, which shifts every installment
+    // due date by a day AND changes the first due month's clamped day.
+    test('installment due dates use the IST calendar date, not the naive UTC one', async () => {
+        const { client, installmentInserts } = buildEmiClient();
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'emi-1' }] });
+
+        // 2026-01-31T20:00:00.000Z is 2026-02-01 01:30 IST.
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/convert-to-emi')
+            .send({ description: 'Phone', amount: 6000, date: '2026-01-31T20:00:00.000Z', tenure_months: 3, interest_rate_pct: 0 });
+
+        expect(res.status).toBe(201);
+        expect(installmentInserts[0][3]).toBe('2026-03-01'); // 1 month after 2026-02-01
+        expect(installmentInserts[1][3]).toBe('2026-04-01');
+        expect(installmentInserts[2][3]).toBe('2026-05-01');
+    });
+});
