@@ -11,6 +11,11 @@ const EMI_WITH_BALANCE_QUERY = `
         COALESCE(i.installments_posted, 0) AS installments_posted,
         e.tenure_months AS installments_total
     FROM credit_card_emis e
+    -- installments_total reads straight off credit_card_emis.tenure_months
+    -- rather than COUNT(*)-ing the installments rows: tenure_months is the
+    -- contractual plan length and is always populated the moment the EMI is
+    -- created (before any installment rows may even exist yet), so it's the
+    -- more directly queryable and more reliably-present source of truth.
     LEFT JOIN (
         SELECT emi_id,
             SUM(principal_component) FILTER (WHERE posted_at IS NOT NULL) AS posted_principal,
