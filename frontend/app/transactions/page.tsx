@@ -19,7 +19,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
 const getNowYear  = () => new Date().getFullYear();
@@ -54,6 +54,8 @@ function TransactionsPageInner() {
     const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
     const [initialQuery, setInitialQuery]   = useState('');
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
+    const [filterFrom, setFilterFrom] = useState<string | null>(null);
+    const [filterTo, setFilterTo]     = useState<string | null>(null);
     const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
     const [creditCards, setCreditCards]     = useState<any[]>([]);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
@@ -149,6 +151,17 @@ function TransactionsPageInner() {
             setSelectedMonth(null); // show all-time activity for this card, not just the current month
             router.replace('/transactions');
         }
+        // from/to (e.g. deep-linked from a billing cycle row) override month/year
+        // entirely on the backend, so mirror that here -- clear the month pager
+        // whenever either is present.
+        const from = searchParams.get('from');
+        const to = searchParams.get('to');
+        if (from || to) {
+            setFilterFrom(from);
+            setFilterTo(to);
+            setSelectedMonth(null);
+            router.replace('/transactions');
+        }
     }, [searchParams]);
 
     const fetchTransactions = async () => {
@@ -157,6 +170,12 @@ function TransactionsPageInner() {
         setFetchError(false);
         const params: Record<string, any> = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
         if (filterCreditCardId) params.credit_card_id = filterCreditCardId;
+        // from/to override month/year entirely on the backend -- don't send both.
+        if (filterFrom || filterTo) {
+            delete params.month; delete params.year;
+            if (filterFrom) params.from = filterFrom;
+            if (filterTo) params.to = filterTo;
+        }
         try {
             // Bypass apiWithCache here (which swallows failures and falls back to
             // cache silently) so a genuine backend error can surface distinctly
@@ -183,13 +202,13 @@ function TransactionsPageInner() {
 
     useEffect(() => {
         if (user) { setDisplayCount(50); fetchTransactions(); }
-    }, [user, selectedMonth, selectedYear, filterCreditCardId]);
+    }, [user, selectedMonth, selectedYear, filterCreditCardId, filterFrom, filterTo]);
 
     useEffect(() => {
         const handler = () => fetchTransactions();
         window.addEventListener('fintrack:queue-synced', handler);
         return () => window.removeEventListener('fintrack:queue-synced', handler);
-    }, [user, selectedMonth, selectedYear, filterCreditCardId]);
+    }, [user, selectedMonth, selectedYear, filterCreditCardId, filterFrom, filterTo]);
 
     // Powers the filter bar's Account section and resolves filterCreditCardId
     // (set from a ?credit_card_id= deep link) to a human-readable chip label.
@@ -318,6 +337,12 @@ function TransactionsPageInner() {
             : 'Card filter',
         onClear: () => setFilterCreditCardId(null),
     }] : [];
+    // Deep-linked from a billing cycle row -- lets the user get back to the
+    // normal month view without editing the URL by hand.
+    const cycleChips = (filterFrom || filterTo) ? [{
+        label: `Cycle: ${filterFrom ? formatDate(filterFrom) : '…'} – ${filterTo ? formatDate(filterTo) : 'now'}`,
+        onClear: () => { setFilterFrom(null); setFilterTo(null); },
+    }] : [];
 
     return (
         <>
@@ -357,7 +382,7 @@ function TransactionsPageInner() {
                     onSetDateContext={handleSetDateContext}
                     initialQuery={initialQuery}
                     accounts={accounts}
-                    extraChips={creditCardChips}
+                    extraChips={[...creditCardChips, ...cycleChips]}
                     onRegisterClearAll={fn => { clearAllRef.current = fn; }}
                     hideTriggers
                     onRegisterOpenSearch={fn => { openSearchRef.current = fn; }}

@@ -87,6 +87,33 @@ describe('data fetching', () => {
         await waitFor(() => expect(cacheTransactions).toHaveBeenCalledWith(rows));
     });
 
+    it('reads from/to from the URL and passes them through, overriding month/year', async () => {
+        // Reached from the new cycle-history page's "tap a cycle" navigation.
+        searchParams = new URLSearchParams('credit_card_id=7&from=2026-08-06&to=2026-09-05');
+        render(<TransactionsPage />);
+
+        await waitFor(() => {
+            const scoped = getAll.mock.calls.map(([p]) => p).find(p => p?.from);
+            expect(scoped).toBeDefined();
+            expect(scoped.from).toBe('2026-08-06');
+            expect(scoped.to).toBe('2026-09-05');
+            expect(scoped.month).toBeUndefined();
+            expect(scoped.year).toBeUndefined();
+        });
+    });
+
+    it('passes from without to for a half-open (current cycle) range', async () => {
+        searchParams = new URLSearchParams('credit_card_id=7&from=2026-09-06');
+        render(<TransactionsPage />);
+
+        await waitFor(() => {
+            const scoped = getAll.mock.calls.map(([p]) => p).find(p => p?.from);
+            expect(scoped).toBeDefined();
+            expect(scoped.from).toBe('2026-09-06');
+            expect(scoped.to).toBeUndefined();
+        });
+    });
+
     it('scopes to one card and widens to all-time when the URL says so', async () => {
         // Reached from the Accounts page's per-card "History" button. Two
         // things happen together: the id is coerced to a number, and the month

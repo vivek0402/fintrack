@@ -434,6 +434,9 @@ export default function AccountsPage() {
                                         )}
                                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                                             <button type="button" onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)} style={outlineBtn}>History</button>
+                                            {c.statement_balance != null && (
+                                                <button type="button" onClick={() => router.push(`/accounts/credit-cards/${c.id}/cycles`)} style={outlineBtn}>Cycles</button>
+                                            )}
                                             <button type="button" onClick={() => openPayCard(c)} style={outlineBtn}>Pay Bill</button>
                                             <button type="button" onClick={() => openEditCard(c)} style={outlineBtn}><Pencil size={12} /> Edit</button>
                                             <button type="button" onClick={() => confirmDelete('card', c.id, `${c.bank_name} ${c.card_name}`)} style={{ ...iconBtn, marginLeft: 'auto' }}>

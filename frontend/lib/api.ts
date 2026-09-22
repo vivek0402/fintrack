@@ -89,7 +89,7 @@ export const authAPI = {
 };
 
 export const transactionsAPI = {
-    getAll: (params?: { type?: string; month?: number; year?: number; credit_card_id?: number }) =>
+    getAll: (params?: { type?: string; month?: number; year?: number; credit_card_id?: number; from?: string; to?: string }) =>
         api.get('/api/transactions', { params }),
     search: (q: string) =>
         api.get('/api/transactions/search', { params: { q } }),
@@ -299,6 +299,8 @@ export const creditCardsAPI = {
     delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
     payBill: (id: number, data: { bank_account_id: number; amount: number; date: string; notes?: string }) =>
         api.post(`/api/credit-cards/${id}/pay`, data),
+    getCycles: (cardId: number, limit?: number) =>
+        api.get(`/api/credit-cards/${cardId}/cycles`, { params: limit ? { limit } : undefined }),
     convertToEmi: (cardId: number, data: {
         description: string; amount: number; date: string; category_id?: string;
         tenure_months: number; interest_rate_pct?: number; is_no_cost?: boolean;
