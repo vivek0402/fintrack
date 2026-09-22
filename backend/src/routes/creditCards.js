@@ -8,8 +8,32 @@ const { fetchCreditCardsWithBalance, fetchCreditCardWithBalance, fetchCreditCard
 const { fetchCreditCardEmiWithBalance, buildEmiInstallmentSchedule } = require('../utils/creditCardEmi');
 const { generateAmortization } = require('../utils/amortization');
 const { istDateStr } = require('../utils/istDate');
+const { fetchCyclesWithTotals } = require('../utils/creditCardCycles');
 
 router.use(auth);
+
+const DEFAULT_CYCLE_LIMIT = 6;
+const MAX_CYCLE_LIMIT = 24;
+
+// Route-layer-only date formatting for cycle labels ("Sep 6", not "September
+// 06, 2026" or "09/06") -- kept out of creditCardCycles.js, which stays pure
+// data/computation per its own header comment. Anchors via Date.UTC off an
+// already-resolved 'YYYY-MM-DD' string (never the server's local clock/tz),
+// same discipline dayBefore() in creditCardCycles.js documents for itself,
+// then renders with timeZone: 'UTC' so the UTC-anchored value round-trips
+// back out as the same calendar day regardless of server timezone.
+function formatCycleShortDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+function buildCycleLabel(cycle) {
+    const startLabel = formatCycleShortDate(cycle.start);
+    return cycle.is_current
+        ? `${startLabel} – present`
+        : `${startLabel} – ${formatCycleShortDate(cycle.end)}`;
+}
 
 // GET /api/credit-cards
 router.get('/', async (req, res) => {
@@ -336,6 +360,39 @@ router.post('/:id/convert-to-emi', async (req, res) => {
         res.status(500).json({ error: 'Failed to convert to EMI' });
     } finally {
         client.release();
+    }
+});
+
+// GET /api/credit-cards/:id/cycles -- per-billing-cycle statement history
+// (distinct, non-overlapping cycles), complementing the running-total view
+// GET /:id already returns via fetchCreditCardsWithCycleBreakdown. See
+// utils/creditCardCycles.js for the boundary/total computation this just
+// wires up and labels.
+router.get('/:id/cycles', async (req, res) => {
+    try {
+        const cardCheck = await pool.query(`SELECT id FROM credit_cards WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]);
+        if (!cardCheck.rows.length) return res.status(404).json({ error: 'Card not found' });
+
+        // Defense in depth: fetchCyclesWithTotals/computeCycleBoundaries
+        // already cap at MAX_CYCLES (24) internally, but validating at the
+        // route boundary too matches this codebase's existing pattern (e.g.
+        // transactions.js's `Math.min(parsedLimit, 500)` limit handling) --
+        // clamp silently rather than 400 on an oversized limit.
+        const parsedLimit = parseInt(req.query.limit, 10);
+        const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+            ? Math.min(parsedLimit, MAX_CYCLE_LIMIT)
+            : DEFAULT_CYCLE_LIMIT;
+
+        // A card with no billing_date returns [] here (fetchCyclesWithTotals
+        // short-circuits before the bucket query) -- that's a valid 200, not
+        // an error; the frontend shows the "set a billing date" hint (same
+        // pattern as the existing statement_balance/new_charges split on the
+        // Accounts page), not this route.
+        const cycles = await fetchCyclesWithTotals(pool, req.user.id, req.params.id, limit);
+        res.json({ cycles: cycles.map(c => ({ ...c, label: buildCycleLabel(c) })) });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch credit card cycles' });
     }
 });
 

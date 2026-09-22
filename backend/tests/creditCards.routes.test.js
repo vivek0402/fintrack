@@ -238,6 +238,91 @@ describe('POST /api/credit-cards/:id/pay', () => {
     });
 });
 
+describe('GET /api/credit-cards/:id/cycles', () => {
+    // fetchCyclesWithTotals (creditCardCycles.js) does its own DB work via
+    // the same `pool` this route uses -- consistent with how this file tests
+    // other routes that call into util functions (fetchCreditCardWithBalance
+    // etc via GET / and /pay above), we mock at the pool.query level rather
+    // than mocking the creditCardCycles module. Call order per request:
+    // (1) route's own ownership check, (2) fetchCyclesWithTotals's
+    // CARD_CYCLE_INPUTS_QUERY, (3) the VALUES-join bucket query (only when
+    // boundaries were actually computed).
+    function mockCardWithBillingDate(overrides = {}) {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'card-1' }] }) // ownership check
+            .mockResolvedValueOnce({ rows: [{ billing_date: 6, balance_as_of: null, outstanding_balance: '0', ...overrides }] }) // CARD_CYCLE_INPUTS_QUERY
+            .mockResolvedValueOnce({ rows: [] }); // bucket query -- empty is fine, totals just default to '0'
+    }
+
+    test('default limit (no ?limit=) returns 6 cycles', async () => {
+        mockCardWithBillingDate();
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles');
+
+        expect(res.status).toBe(200);
+        expect(res.body.cycles).toHaveLength(6);
+    });
+
+    test('?limit=12 respects the requested count', async () => {
+        mockCardWithBillingDate();
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=12');
+
+        expect(res.status).toBe(200);
+        expect(res.body.cycles).toHaveLength(12);
+    });
+
+    test('?limit=1000 clamps to 24', async () => {
+        mockCardWithBillingDate();
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=1000');
+
+        expect(res.status).toBe(200);
+        expect(res.body.cycles).toHaveLength(24);
+    });
+
+    test('card not found or not owned by user returns 404', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] }); // ownership check fails
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles');
+
+        expect(res.status).toBe(404);
+        expect(pool.query).toHaveBeenCalledTimes(1); // never reaches fetchCyclesWithTotals
+    });
+
+    test('no billing_date set returns an empty cycles array with HTTP 200 (not an error)', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'card-1' }] }) // ownership check
+            .mockResolvedValueOnce({ rows: [{ billing_date: null, balance_as_of: null, outstanding_balance: '0' }] }); // CARD_CYCLE_INPUTS_QUERY
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles');
+
+        expect(res.status).toBe(200);
+        expect(res.body.cycles).toEqual([]);
+        expect(pool.query).toHaveBeenCalledTimes(2); // short-circuits before the bucket query
+    });
+
+    test('includes correctly-formatted label fields for both the current and a closed cycle', async () => {
+        mockCardWithBillingDate();
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=2');
+
+        expect(res.status).toBe(200);
+        expect(res.body.cycles).toHaveLength(2);
+
+        const [current, closed] = res.body.cycles;
+        expect(current.is_current).toBe(true);
+        expect(current.end).toBeNull();
+        // "Sep 6 – present" style -- short month, day, no year, no padding.
+        expect(current.label).toMatch(/^[A-Z][a-z]{2} \d{1,2} – present$/);
+
+        expect(closed.is_current).toBe(false);
+        expect(closed.end).not.toBeNull();
+        // "Aug 6 – Sep 5" style.
+        expect(closed.label).toMatch(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/);
+    });
+});
+
 describe('POST /api/credit-cards/:id/convert-to-emi', () => {
     // Builds a mock transaction client that answers every query this route
     // issues, and records what was sent to the EMI/installment/fee inserts
