@@ -10,7 +10,6 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Modal } from '@/components/ui/Modal';
-import { DatePicker } from '@/components/ui/DatePicker';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -46,6 +45,24 @@ interface Cycle { start: string; end: string | null; label: string; total: strin
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(n: number) { return fmtBase(Math.abs(n)); }
+
+// Same calendar-grid builder as TransactionModal's own dateSheet -- kept as
+// a local copy (that file doesn't export it) rather than a shared import,
+// same "small enough to duplicate, not worth a new shared module" call the
+// PAY_METHOD_ICONS copy above makes.
+function buildCalDays(month: number, year: number) {
+    const first = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrev  = new Date(year, month, 0).getDate();
+    const cells: { day: number; month: 'prev' | 'cur' | 'next' }[] = [];
+    for (let i = first - 1; i >= 0; i--)  cells.push({ day: daysInPrev - i, month: 'prev' });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, month: 'cur' });
+    const remaining = 42 - cells.length;
+    for (let d = 1; d <= remaining; d++)   cells.push({ day: d, month: 'next' });
+    return cells;
+}
+const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function getDueDays(billingDate: number | null, dueDays: number): number | null {
     if (!billingDate) return null;
@@ -165,6 +182,9 @@ export default function AccountsPage() {
     const [showCycleSheet,   setShowCycleSheet]   = useState(false);
     const [showPayMethodSheet, setShowPayMethodSheet] = useState(false);
     const [showPayAccountSheet, setShowPayAccountSheet] = useState(false);
+    const [showPayDateSheet, setShowPayDateSheet] = useState(false);
+    const [payCalMonth, setPayCalMonth] = useState(new Date().getMonth());
+    const [payCalYear,  setPayCalYear]  = useState(new Date().getFullYear());
 
     const [editingWalletBalanceId,  setEditingWalletBalanceId] = useState<number | null>(null);
     const [walletBalanceInput,      setWalletBalanceInput]     = useState('');
@@ -243,7 +263,10 @@ export default function AccountsPage() {
 
     const openPayCard = (c: CreditCard) => {
         setPayingCard(c);
-        setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: new Date().toISOString().split('T')[0], payment_method: 'UPI' });
+        const today = new Date();
+        setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: today.toISOString().split('T')[0], payment_method: 'UPI' });
+        setPayCalMonth(today.getMonth());
+        setPayCalYear(today.getFullYear());
         setPayCycles([]);
         setSelectedCycleKey(null);
         setShowPayModal(true);
@@ -283,6 +306,34 @@ export default function AccountsPage() {
         if (t === 0) return 'Paid in full';
         if (t < 0) return 'Overpaid · credit';
         return 'Closed';
+    };
+
+    // Quick chips + calendar grid for the Date sheet -- same pattern as
+    // TransactionModal's own dateSheet, rendered through the shared Modal
+    // (portals to document.body) rather than an inline dropdown, so it can
+    // never get clipped by this modal's own scrolling body.
+    const payQuickDates = ['Today', 'Yesterday', '2 days ago'].map((label, offset) => {
+        const d = new Date(); d.setDate(d.getDate() - offset);
+        return { label, value: d.toLocaleDateString('en-CA') };
+    });
+    const payTodayStr = new Date().toLocaleDateString('en-CA');
+    const payDateLabel = (() => {
+        const quick = payQuickDates.find(q => q.value === payForm.date);
+        if (quick) return quick.label;
+        const d = payForm.date ? new Date(payForm.date + 'T00:00:00') : null;
+        return d ? `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]} ${d.getFullYear()}` : 'Select a date';
+    })();
+    const pickPayDate = (value: string) => {
+        setPayForm(f => ({ ...f, date: value }));
+        const d = new Date(value + 'T00:00:00');
+        setPayCalMonth(d.getMonth()); setPayCalYear(d.getFullYear());
+        setShowPayDateSheet(false);
+    };
+    const handlePayDayClick = (day: number, monthType: 'prev' | 'cur' | 'next') => {
+        let m = payCalMonth, y = payCalYear;
+        if (monthType === 'prev') { m--; if (m < 0)  { m = 11; y--; } }
+        if (monthType === 'next') { m++; if (m > 11) { m = 0;  y++; } }
+        pickPayDate(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
     };
     const savePay = async () => {
         if (!payingCard || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) return;
@@ -723,7 +774,12 @@ export default function AccountsPage() {
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <label style={labelSt}>Date</label>
-                                <DatePicker value={payForm.date} onChange={d => setPayForm(f => ({ ...f, date: d }))} />
+                                <div onClick={() => setShowPayDateSheet(true)} style={triggerSt}>
+                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payDateLabel}</span>
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ stroke: 'var(--text-muted)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg>
+                                </div>
                             </div>
                         </div>
 
@@ -793,6 +849,53 @@ export default function AccountsPage() {
                                 </button>
                             );
                         })}
+                    </div>
+                </Modal>
+            )}
+
+            {/* Date sheet */}
+            {mounted && (
+                <Modal isOpen={showPayDateSheet} onClose={() => setShowPayDateSheet(false)} title="Date" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                            {payQuickDates.map(q => {
+                                const active = payForm.date === q.value;
+                                return (
+                                    <button key={q.value} type="button" onClick={() => pickPayDate(q.value)}
+                                        style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                        {q.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                <button type="button" aria-label="Previous month" onClick={() => { let m = payCalMonth - 1, y = payCalYear; if (m < 0) { m = 11; y--; } setPayCalMonth(m); setPayCalYear(y); }}
+                                    style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: 16, lineHeight: 1 }}>‹</button>
+                                <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)' }}>{MONTHS[payCalMonth]} {payCalYear}</span>
+                                <button type="button" aria-label="Next month" onClick={() => { let m = payCalMonth + 1, y = payCalYear; if (m > 11) { m = 0; y++; } setPayCalMonth(m); setPayCalYear(y); }}
+                                    style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: 16, lineHeight: 1 }}>›</button>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
+                                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+                                {buildCalDays(payCalMonth, payCalYear).map((cell, i) => {
+                                    const cy = cell.month === 'prev' ? (payCalMonth === 0 ? payCalYear - 1 : payCalYear) : cell.month === 'next' ? (payCalMonth === 11 ? payCalYear + 1 : payCalYear) : payCalYear;
+                                    const cm = cell.month === 'prev' ? (payCalMonth === 0 ? 12 : payCalMonth) : cell.month === 'next' ? (payCalMonth === 11 ? 1 : payCalMonth + 2) : payCalMonth + 1;
+                                    const dateStr = `${cy}-${String(cm).padStart(2,'0')}-${String(cell.day).padStart(2,'0')}`;
+                                    const isSelected = payForm.date === dateStr;
+                                    const isToday = payTodayStr === dateStr;
+                                    const isOtherMonth = cell.month !== 'cur';
+                                    return (
+                                        <div key={i} onClick={() => handlePayDayClick(cell.day, cell.month)}
+                                            style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px' }}>
+                                            {cell.day}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </Modal>
             )}
