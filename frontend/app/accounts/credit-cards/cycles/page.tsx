@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { creditCardsAPI } from '@/lib/api';
@@ -20,10 +20,10 @@ interface Cycle {
 
 function fmt(n: number) { return fmtBase(Math.abs(n)); }
 
-export default function CreditCardCyclesPage() {
+function CreditCardCyclesPageInner() {
     const router = useRouter();
-    const params = useParams<{ id: string }>();
-    const cardId = Number(params.id);
+    const searchParams = useSearchParams();
+    const cardId = Number(searchParams.get('id'));
     const { user, isLoading, loadFromStorage } = useAuthStore();
 
     const [cycles, setCycles]   = useState<Cycle[]>([]);
@@ -121,5 +121,13 @@ export default function CreditCardCyclesPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function CreditCardCyclesPage() {
+    return (
+        <Suspense fallback={<Skeleton width="100%" height={300} borderRadius={12} />}>
+            <CreditCardCyclesPageInner />
+        </Suspense>
     );
 }

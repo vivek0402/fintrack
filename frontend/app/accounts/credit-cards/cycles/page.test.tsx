@@ -4,11 +4,11 @@ import CreditCardCyclesPage from './page';
 import { creditCardsAPI } from '@/lib/api';
 
 const push = vi.fn();
-let routeId = '7';
+let searchParams = new URLSearchParams({ id: '7' });
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
-    useParams: () => ({ id: routeId }),
+    useSearchParams: () => searchParams,
 }));
 
 vi.mock('@/store/authStore', () => ({
@@ -32,7 +32,7 @@ const cycles = [
 
 beforeEach(() => {
     vi.clearAllMocks();
-    routeId = '7';
+    searchParams = new URLSearchParams({ id: '7' });
     getCycles.mockResolvedValue({ data: { cycles } });
 });
 
@@ -110,7 +110,7 @@ describe('CreditCardCyclesPage', () => {
     });
 
     it('shows an error state for a non-numeric card id without calling the API', async () => {
-        routeId = 'abc';
+        searchParams = new URLSearchParams({ id: 'abc' });
         render(<CreditCardCyclesPage />);
         expect(await screen.findByText("Couldn't load billing cycles")).toBeInTheDocument();
         expect(getCycles).not.toHaveBeenCalled();
