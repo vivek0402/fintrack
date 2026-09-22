@@ -15,6 +15,12 @@ router.use(auth);
 const DEFAULT_CYCLE_LIMIT = 6;
 const MAX_CYCLE_LIMIT = 24;
 
+// Same set the frontend's payment-method pickers (Add Transaction, Pay Bill)
+// offer -- kept in sync by convention rather than a shared import, same as
+// transactions.js leaves payment_method free-form but this route validates
+// it since /pay is otherwise the only write path that hardcoded a value.
+const PAYMENT_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'];
+
 // Route-layer-only date formatting for cycle labels ("Sep 6", not "September
 // 06, 2026" or "09/06") -- kept out of creditCardCycles.js, which stays pure
 // data/computation per its own header comment. Anchors via Date.UTC off an
@@ -167,11 +173,12 @@ router.delete('/:id', async (req, res) => {
 // be wrong -- it's type='income' with credit_card_id set, which is how
 // utils/creditCardBalance.js's formula reduces what's owed.
 router.post('/:id/pay', async (req, res) => {
-    const { bank_account_id, amount, date, notes } = req.body;
+    const { bank_account_id, amount, date, notes, payment_method = 'Net Banking' } = req.body;
 
     if (!isPositiveNumber(amount)) return res.status(400).json({ error: 'amount must be greater than 0' });
     if (!isValidDateString(date)) return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
     if (!bank_account_id) return res.status(400).json({ error: 'bank_account_id is required' });
+    if (!PAYMENT_METHODS.includes(payment_method)) return res.status(400).json({ error: `payment_method must be one of: ${PAYMENT_METHODS.join(', ')}` });
 
     const client = await pool.connect();
     try {
@@ -191,15 +198,15 @@ router.post('/:id/pay', async (req, res) => {
         await client.query('BEGIN');
         const bankLeg = await client.query(
             `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, account_id, payment_method, transfer_group_id)
-             VALUES ($1,'expense',$2,$3,$4,$5,$6,$7,'Net Banking',$8)
+             VALUES ($1,'expense',$2,$3,$4,$5,$6,$7,$9,$8)
              RETURNING *`,
-            [req.user.id, amount, `Payment to ${card.bank_name} ${card.card_name}`, notes || null, ['credit_card_payment'], date, bank_account_id, transferGroupId]
+            [req.user.id, amount, `Payment to ${card.bank_name} ${card.card_name}`, notes || null, ['credit_card_payment'], date, bank_account_id, transferGroupId, payment_method]
         );
         const cardLeg = await client.query(
             `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, credit_card_id, payment_method, transfer_group_id)
-             VALUES ($1,'income',$2,$3,$4,$5,$6,$7,'Net Banking',$8)
+             VALUES ($1,'income',$2,$3,$4,$5,$6,$7,$9,$8)
              RETURNING *`,
-            [req.user.id, amount, `Payment from ${bank.name}`, notes || null, ['credit_card_payment'], date, req.params.id, transferGroupId]
+            [req.user.id, amount, `Payment from ${bank.name}`, notes || null, ['credit_card_payment'], date, req.params.id, transferGroupId, payment_method]
         );
         await client.query('COMMIT');
 

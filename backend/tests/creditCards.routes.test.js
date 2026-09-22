@@ -192,6 +192,40 @@ describe('POST /api/credit-cards/:id/pay', () => {
         expect(client.release).toHaveBeenCalled();
     });
 
+    test('stores the given payment_method on both legs, defaulting to Net Banking when omitted', async () => {
+        const client = mockClient(async (sql, params) => {
+            if (sql.includes('FROM credit_cards')) return { rows: [{ id: 'card-1', bank_name: 'HDFC', card_name: 'Millennia' }] };
+            if (sql.includes('FROM bank_accounts')) return { rows: [{ id: 42, name: 'Main Account' }] };
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes("VALUES ($1,'expense'")) {
+                expect(params[8]).toBe('UPI');
+                return { rows: [{ id: 'tx-1', type: 'expense', amount: 300, account_id: 42 }] };
+            }
+            if (sql.includes("VALUES ($1,'income'")) {
+                expect(params[8]).toBe('UPI');
+                return { rows: [{ id: 'tx-2', type: 'income', amount: 300, credit_card_id: 'card-1' }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'card-1', current_outstanding_balance: 700 }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/pay')
+            .send({ bank_account_id: 42, amount: 300, date: '2026-06-15', payment_method: 'UPI' });
+
+        expect(res.status).toBe(201);
+    });
+
+    test('rejects an unrecognized payment_method before touching the database', async () => {
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/pay')
+            .send({ bank_account_id: 42, amount: 300, date: '2026-06-15', payment_method: 'Bitcoin' });
+
+        expect(res.status).toBe(400);
+        expect(pool.connect).not.toHaveBeenCalled();
+    });
+
     test('releases the client exactly once when the card is not found (no double-release)', async () => {
         const client = mockClient(async (sql) => {
             if (sql.includes('FROM credit_cards')) return { rows: [] }; // card not found

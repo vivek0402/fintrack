@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon } from 'lucide-react';
+import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon, ChevronDown, Check } from 'lucide-react';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -39,6 +41,7 @@ interface CreditCard {
     statement_due_date: string | null;
 }
 interface Wallet { id: number; name: string; emoji: string; balance: number; }
+interface Cycle { start: string; end: string | null; label: string; total: string; is_current: boolean; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +66,14 @@ const ACCOUNT_TYPES = ['Savings', 'Current', 'Salary', 'FD'];
 const NETWORKS      = ['Visa', 'Mastercard', 'Amex', 'RuPay'];
 const CARD_COLORS   = ['#6366f1', '#00e5a0', '#f59e0b', '#ef4444', '#ec4899', '#0ea5e9'];
 const WALLET_EMOJIS = ['👛', '💰', '📱', '🏧', '💳', '🪙', '💵', '🏦'];
+// Same set + icons as the Add Transaction modal's payment method picker
+// (components/transactions/TransactionModal.tsx) -- kept as a local copy
+// since that file's map isn't exported, same "free-form but validated"
+// convention the backend's PAYMENT_METHODS list documents.
+const PAY_METHOD_ICONS: Record<string, string> = {
+    'Cash': '💵', 'UPI': '📱', 'Credit Card': '💳', 'Debit Card': '🏧', 'Net Banking': '🏦', 'Wallet': '👛',
+};
+const PAY_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'];
 
 const emptyBankForm   = () => ({ name: '', account_type: 'Savings', last_four: '', starting_balance: '', balance_as_of: '' });
 const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', balance_as_of: '', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1', interest_rate_pct: '' });
@@ -102,6 +113,26 @@ const outlineBtn: React.CSSProperties = {
 };
 const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' };
 
+// ── Pay Bill modal style helpers ────────────────────────────────────────────
+// Violet, not --accent -- matches Add Transaction's Transfer segment tint,
+// since a bill payment is a transfer under the hood (POST /:id/pay inserts
+// two linked transaction legs sharing a transfer_group_id).
+const PAY_TINT = '#7c3aed';
+const triggerSt: React.CSSProperties = {
+    width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
+    borderRadius: 10, padding: '11px 13px', display: 'flex', alignItems: 'center',
+    justifyContent: 'space-between', gap: 8, cursor: 'pointer', boxSizing: 'border-box',
+};
+const tileSt: React.CSSProperties = {
+    flex: 1, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
+    borderRadius: 12, padding: '10px 12px',
+};
+const tileKeySt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, fontFamily: 'var(--font-body)' };
+const tileValSt: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' };
+const tileDueSt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-body)' };
+function cycleAmountColor(total: number) { return total > 0 ? 'var(--color-warn)' : total < 0 ? 'var(--color-inc)' : 'var(--text-muted)'; }
+function fmtCycleAmount(total: number) { return `${total < 0 ? '−' : ''}${fmt(total)}`; }
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AccountsPage() {
@@ -128,7 +159,12 @@ export default function AccountsPage() {
     const [bankForm,   setBankForm]   = useState(emptyBankForm());
     const [cardForm,   setCardForm]   = useState(emptyCardForm());
     const [walletForm, setWalletForm] = useState(emptyWalletForm());
-    const [payForm,     setPayForm]   = useState({ bank_account_id: '', amount: '', date: new Date().toISOString().split('T')[0] });
+    const [payForm,     setPayForm]   = useState({ bank_account_id: '', amount: '', date: new Date().toISOString().split('T')[0], payment_method: 'UPI' });
+    const [payCycles,        setPayCycles]        = useState<Cycle[]>([]);
+    const [selectedCycleKey, setSelectedCycleKey] = useState<string | null>(null);
+    const [showCycleSheet,   setShowCycleSheet]   = useState(false);
+    const [showPayMethodSheet, setShowPayMethodSheet] = useState(false);
+    const [showPayAccountSheet, setShowPayAccountSheet] = useState(false);
 
     const [editingWalletBalanceId,  setEditingWalletBalanceId] = useState<number | null>(null);
     const [walletBalanceInput,      setWalletBalanceInput]     = useState('');
@@ -207,14 +243,52 @@ export default function AccountsPage() {
 
     const openPayCard = (c: CreditCard) => {
         setPayingCard(c);
-        setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: new Date().toISOString().split('T')[0] });
+        setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: new Date().toISOString().split('T')[0], payment_method: 'UPI' });
+        setPayCycles([]);
+        setSelectedCycleKey(null);
         setShowPayModal(true);
+        // A card with no billing_date returns [] here (same short-circuit
+        // GET /:id/cycles already documents) -- the Cycle field just doesn't
+        // render in that case, falling back to a manually-typed amount.
+        creditCardsAPI.getCycles(c.id).then(res => {
+            const cycles: Cycle[] = res.data?.cycles || [];
+            setPayCycles(cycles);
+            // Default to the most recent CLOSED cycle (index 1 -- index 0 is
+            // always the still-open current one) when it's actually owed;
+            // that's the same cycle current_outstanding_balance's
+            // statement_balance already represents. Falls back to the
+            // current cycle if there's no closed cycle yet.
+            const defaultCycle = (cycles[1] && Number(cycles[1].total) > 0) ? cycles[1] : cycles[0];
+            if (defaultCycle) {
+                setSelectedCycleKey(defaultCycle.start);
+                if (Number(defaultCycle.total) > 0) setPayForm(f => ({ ...f, amount: String(defaultCycle.total) }));
+            }
+        }).catch(() => setPayCycles([]));
+    };
+    const selectedCycle = payCycles.find(c => c.start === selectedCycleKey) || null;
+    const selectedCycleIdx = payCycles.findIndex(c => c.start === selectedCycleKey);
+    const pickCycle = (cycle: Cycle) => {
+        setSelectedCycleKey(cycle.start);
+        if (Number(cycle.total) > 0) setPayForm(f => ({ ...f, amount: String(cycle.total) }));
+        setShowCycleSheet(false);
+    };
+    // idx === 1 is always the most recently CLOSED cycle (idx 0 is the
+    // still-open current one) -- the same cycle current_outstanding_balance's
+    // statement_due_date already represents, so it's the only one that gets
+    // a real due date instead of a generic status.
+    const cycleStatusLabel = (cycle: Cycle, idx: number) => {
+        if (cycle.is_current) return 'Not yet billed';
+        if (idx === 1 && payingCard?.statement_due_date) return `Due ${formatDate(payingCard.statement_due_date)}`;
+        const t = Number(cycle.total);
+        if (t === 0) return 'Paid in full';
+        if (t < 0) return 'Overpaid · credit';
+        return 'Closed';
     };
     const savePay = async () => {
         if (!payingCard || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) return;
         setSaving(true);
         try {
-            await creditCardsAPI.payBill(payingCard.id, { bank_account_id: parseInt(payForm.bank_account_id), amount: parseFloat(payForm.amount), date: payForm.date });
+            await creditCardsAPI.payBill(payingCard.id, { bank_account_id: parseInt(payForm.bank_account_id), amount: parseFloat(payForm.amount), date: payForm.date, payment_method: payForm.payment_method });
             if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
             await fetchAll(); setShowPayModal(false); showToast('Payment recorded');
         } catch { showToast('Failed to record payment'); }
@@ -580,54 +654,166 @@ export default function AccountsPage() {
                 document.body
             )}
 
-            {/* Pay Bill Modal */}
-            {showPayModal && mounted && payingCard && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowPayModal(false)}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-                            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Pay {payingCard.bank_name} {payingCard.card_name}</span>
-                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowPayModal(false)}><X size={16} /></button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
-                                Current outstanding: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(payingCard.current_outstanding_balance)}</span>
-                            </p>
-                            {payingCard.statement_balance != null && (
-                                <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
-                                    Statement balance: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(payingCard.statement_balance)}</span>
-                                    {payingCard.statement_due_date && <> (due {formatDate(payingCard.statement_due_date)})</>}
-                                </p>
-                            )}
-                            <div>
-                                <label style={labelSt}>Pay From *</label>
-                                <select style={inputSt} value={payForm.bank_account_id} onChange={e => setPayForm(f => ({ ...f, bank_account_id: e.target.value }))}>
-                                    <option value="">Select account</option>
-                                    {banks.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                                </select>
+            {/* Pay Bill Modal -- same chrome as Add Transaction's shared <Modal>,
+                a Cycle picker sourced from the existing GET /:id/cycles
+                endpoint, and a Pay-by method matching Add Transaction's
+                payment-method sheet. Still calls creditCardsAPI.payBill under
+                the hood -- see the /:id/pay route comment for why this is
+                already an atomic transfer, not a plain expense. */}
+            {mounted && payingCard && (
+                <Modal
+                    isOpen={showPayModal}
+                    onClose={() => setShowPayModal(false)}
+                    title={`Pay ${payingCard.bank_name} ${payingCard.card_name}`}
+                    footer={
+                        <button type="button" onClick={savePay} disabled={saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0}
+                            style={{
+                                width: '100%', height: 48, border: 'none', borderRadius: 'var(--radius-md)',
+                                background: (saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) ? 'var(--border-subtle)' : PAY_TINT,
+                                color: 'white', fontSize: '14.5px', fontWeight: 600, fontFamily: 'var(--font-body)',
+                                cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1,
+                                boxShadow: '0 12px 26px -10px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
+                            }}>
+                            {saving ? 'Recording…' : `Pay${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''}`}
+                        </button>
+                    }
+                >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={tileSt}>
+                                <div style={tileKeySt}>Outstanding</div>
+                                <div style={tileValSt}>{fmt(payingCard.current_outstanding_balance)}</div>
                             </div>
+                            {payingCard.statement_balance != null && (
+                                <div style={tileSt}>
+                                    <div style={tileKeySt}>Statement</div>
+                                    <div style={tileValSt}>{fmt(payingCard.statement_balance)}</div>
+                                    {payingCard.statement_due_date && <div style={tileDueSt}>due {formatDate(payingCard.statement_due_date)}</div>}
+                                </div>
+                            )}
+                        </div>
+
+                        {payCycles.length > 0 && (
                             <div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <label style={labelSt}>Amount (₹) *</label>
-                                    {payingCard.statement_balance != null && (
-                                        <button type="button" onClick={() => setPayForm(f => ({ ...f, amount: String(payingCard.statement_balance) }))}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)', padding: 0, marginBottom: 6 }}>
-                                            Pay statement balance
-                                        </button>
+                                <label style={labelSt}>Cycle</label>
+                                <div onClick={() => setShowCycleSheet(true)} style={triggerSt}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {selectedCycle?.label || 'Select a cycle'}
+                                        </div>
+                                        {selectedCycle && <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2 }}>{cycleStatusLabel(selectedCycle, selectedCycleIdx)}</div>}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                        {selectedCycle && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: cycleAmountColor(Number(selectedCycle.total)) }}>{fmtCycleAmount(Number(selectedCycle.total))}</span>}
+                                        <ChevronDown size={14} color="var(--text-muted)" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <label style={labelSt}>Pay by</label>
+                                <div onClick={() => setShowPayMethodSheet(true)} style={triggerSt}>
+                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {PAY_METHOD_ICONS[payForm.payment_method]} {payForm.payment_method}
+                                    </span>
+                                    <ChevronDown size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                                </div>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <label style={labelSt}>Date</label>
+                                <DatePicker value={payForm.date} onChange={d => setPayForm(f => ({ ...f, date: d }))} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={labelSt}>Amount</label>
+                            <div style={{ position: 'relative' }}>
+                                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: PAY_TINT, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20 }}>₹</span>
+                                <input type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0"
+                                    style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--glass-fill-1)', border: `1px solid color-mix(in srgb, ${PAY_TINT} 30%, transparent)`, borderRadius: 10, fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: PAY_TINT, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' }} />
+                            </div>
+                            {banks.length > 0 && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
+                                    from <b style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'account'}</b>
+                                    {banks.length > 1 && (
+                                        <>
+                                            <span style={{ color: 'var(--border-visible)' }}>·</span>
+                                            <span onClick={() => setShowPayAccountSheet(true)} style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>change</span>
+                                        </>
                                     )}
                                 </div>
-                                <input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0" />
-                            </div>
-                            <div><label style={labelSt}>Date</label><input style={inputSt} type="date" value={payForm.date} onChange={e => setPayForm(f => ({ ...f, date: e.target.value }))} /></div>
-                        </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowPayModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={savePay} disabled={saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0} style={{ flex: 2, padding: 10, background: (saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                                {saving ? 'Recording…' : 'Record Payment'}
-                            </button>
+                            )}
                         </div>
                     </div>
-                </div>,
-                document.body
+                </Modal>
+            )}
+
+            {/* Cycle picker sheet */}
+            {mounted && payingCard && payCycles.length > 0 && (
+                <Modal isOpen={showCycleSheet} onClose={() => setShowCycleSheet(false)} title="Which cycle?" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {payCycles.map((cycle, idx) => {
+                            const active = cycle.start === selectedCycleKey;
+                            const total = Number(cycle.total);
+                            const disabled = !cycle.is_current && total <= 0;
+                            return (
+                                <button key={cycle.start} type="button" disabled={disabled} onClick={() => pickCycle(cycle)}
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', gap: 2, width: '100%', padding: '11px 14px',
+                                        borderRadius: 'var(--radius-md)', border: 'none', textAlign: 'left', fontFamily: 'var(--font-body)',
+                                        background: active ? 'var(--accent-subtle)' : 'transparent',
+                                        cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+                                    }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-primary)' }}>{cycle.label}</span>
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: cycleAmountColor(total) }}>{fmtCycleAmount(total)}</span>
+                                    </div>
+                                    <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{cycleStatusLabel(cycle, idx)}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </Modal>
+            )}
+
+            {/* Pay-by method sheet */}
+            {mounted && (
+                <Modal isOpen={showPayMethodSheet} onClose={() => setShowPayMethodSheet(false)} title="Pay by" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {PAY_METHODS.map(m => {
+                            const active = payForm.payment_method === m;
+                            return (
+                                <button key={m} type="button" onClick={() => { setPayForm(f => ({ ...f, payment_method: m })); setShowPayMethodSheet(false); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                                    <span style={{ flexShrink: 0 }}>{PAY_METHOD_ICONS[m]}</span>
+                                    <span style={{ flex: 1 }}>{m}</span>
+                                    {active && <Check size={16} />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </Modal>
+            )}
+
+            {/* Pay-from account sheet -- an escape hatch, not a required field;
+                only reachable via "change" (rendered only when banks.length > 1) */}
+            {mounted && (
+                <Modal isOpen={showPayAccountSheet} onClose={() => setShowPayAccountSheet(false)} title="Pay from" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {banks.map(b => {
+                            const active = payForm.bank_account_id === String(b.id);
+                            return (
+                                <button key={b.id} type="button" onClick={() => { setPayForm(f => ({ ...f, bank_account_id: String(b.id) })); setShowPayAccountSheet(false); }}
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                                    {b.name}
+                                    {active && <Check size={16} />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </Modal>
             )}
 
             {/* Wallet Modal */}
