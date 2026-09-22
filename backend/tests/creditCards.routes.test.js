@@ -321,6 +321,17 @@ describe('GET /api/credit-cards/:id/cycles', () => {
         // "Aug 6 – Sep 5" style.
         expect(closed.label).toMatch(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/);
     });
+
+    test('returns 500 when fetchCyclesWithTotals\' DB query rejects', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'card-1' }] }) // ownership check succeeds
+            .mockRejectedValueOnce(new Error('connection lost')); // CARD_CYCLE_INPUTS_QUERY inside fetchCyclesWithTotals
+
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles');
+
+        expect(res.status).toBe(500);
+        expect(res.body.error).toBe('Failed to fetch credit card cycles');
+    });
 });
 
 describe('POST /api/credit-cards/:id/convert-to-emi', () => {
