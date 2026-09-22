@@ -82,7 +82,7 @@ export default function CreditCardCyclesPage() {
                         ))}
                     </div>
                 ) : error ? (
-                    <FetchErrorCard onRetry={fetchCycles} />
+                    <FetchErrorCard onRetry={fetchCycles} message="Couldn't load billing cycles" />
                 ) : cycles.length === 0 ? (
                     <EmptyState
                         icon={CalendarClock}

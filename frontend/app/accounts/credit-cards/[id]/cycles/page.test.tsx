@@ -4,10 +4,11 @@ import CreditCardCyclesPage from './page';
 import { creditCardsAPI } from '@/lib/api';
 
 const push = vi.fn();
+let routeId = '7';
 
 vi.mock('next/navigation', () => ({
     useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
-    useParams: () => ({ id: '7' }),
+    useParams: () => ({ id: routeId }),
 }));
 
 vi.mock('@/store/authStore', () => ({
@@ -31,6 +32,7 @@ const cycles = [
 
 beforeEach(() => {
     vi.clearAllMocks();
+    routeId = '7';
     getCycles.mockResolvedValue({ data: { cycles } });
 });
 
@@ -64,7 +66,20 @@ describe('CreditCardCyclesPage', () => {
     it('shows an error state when the fetch fails', async () => {
         getCycles.mockRejectedValue(new Error('network down'));
         render(<CreditCardCyclesPage />);
-        await waitFor(() => expect(document.body.textContent).toMatch(/couldn't load|could not load/i));
+        expect(await screen.findByText("Couldn't load billing cycles")).toBeInTheDocument();
+    });
+
+    it('shows the empty state when there are no cycles', async () => {
+        getCycles.mockResolvedValue({ data: { cycles: [] } });
+        render(<CreditCardCyclesPage />);
+        expect(await screen.findByText('No billing cycles yet')).toBeInTheDocument();
+    });
+
+    it('shows an error state for a non-numeric card id without calling the API', async () => {
+        routeId = 'abc';
+        render(<CreditCardCyclesPage />);
+        expect(await screen.findByText("Couldn't load billing cycles")).toBeInTheDocument();
+        expect(getCycles).not.toHaveBeenCalled();
     });
 
     it('navigates a closed cycle with both from and to', async () => {
