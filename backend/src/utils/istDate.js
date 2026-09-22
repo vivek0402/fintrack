@@ -107,6 +107,12 @@ function istAddMonths(dateStr, n) {
 // "most recent occurrence of a billing day-of-month" concept, previously
 // duplicated with raw `new Date(...)` arithmetic -- can share it instead of
 // re-deriving it.
+//
+// Note: the constructed 'YYYY-MM-{day}' string may be lexicographically
+// valid but calendar-invalid (e.g. '...-02-31' when day=31 in February) --
+// that's intentional, since it's only ever used for the string comparison
+// above or fed to istAddMonths, which clamps it to a real day in the target
+// month. Do not "fix" this by validating the date first.
 function istMostRecentDayOfMonth(day, todayStr = istDateStr()) {
     const [ty, tm] = todayStr.split('-').map(Number);
     let result = `${ty}-${String(tm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

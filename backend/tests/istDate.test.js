@@ -165,6 +165,16 @@ describe('istMostRecentDayOfMonth', () => {
         expect(istMostRecentDayOfMonth(10, '2026-01-05')).toBe('2025-12-10');
     });
 
+    // A calendar-invalid-but-lexicographically-valid intermediate string
+    // (February has no 31st) is intentional, not a bug -- '2026-02-31' still
+    // compares correctly as "after" any real February date, so the rollback
+    // fires, and istAddMonths then resolves the result to a real day in the
+    // TARGET month (January), which does have a 31st, rather than clamping
+    // against the nonexistent February date.
+    test('day that does not exist in the current month (e.g. 31 in February) still rolls back correctly', () => {
+        expect(istMostRecentDayOfMonth(31, '2026-02-15')).toBe('2026-01-31');
+    });
+
     test('defaults todayStr to the real current IST date when omitted', () => {
         // Just prove it doesn't throw and produces a sane, non-future result.
         expect(istMostRecentDayOfMonth(1) <= istDateStr()).toBe(true);
