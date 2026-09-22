@@ -5,6 +5,7 @@ const {
     fetchCreditCardsWithBalance,
     getLastStatementCloseDate,
 } = require('../src/utils/creditCardBalance');
+const { istDateStr } = require('../src/utils/istDate');
 
 // The billing-cycle breakdown behind the Accounts page's "Statement: ₹X · due
 // ..." and "New charges: +₹Y" lines. It is additive on top of
@@ -88,6 +89,19 @@ describe('fetchCreditCardsWithCycleBreakdown', () => {
         // billing_date is 1-28; if this month's has not arrived yet the last
         // close was last month. Getting this wrong would show a statement that
         // has not been issued.
+        //
+        // Compared as calendar-date strings in the same IST representation
+        // the production code itself uses (istDateStr()), not as raw
+        // timestamps via `new Date(...).getTime() <= Date.now()`. The old
+        // timestamp comparison mixed two different clock references: an
+        // IST-calendar-derived date vs. the real UTC instant -- during the
+        // ~18:30-24:00 UTC daily window where IST's calendar day is already
+        // ahead of UTC's, a correctly-computed close date (e.g. UTC midnight
+        // of "today" in IST) can be numerically later than Date.now() even
+        // though it is not, in IST terms, in the future. Comparing
+        // date-strings in the same representation the code produces them in
+        // is a same-clock, same-representation comparison and has no such
+        // window.
         const pool = fakePool(
             { rows: [card({ billing_date: 28 })] },
             NO_EMIS,
@@ -96,8 +110,7 @@ describe('fetchCreditCardsWithCycleBreakdown', () => {
         );
         const [out] = await fetchCreditCardsWithCycleBreakdown(pool, 'u1');
 
-        const close = new Date(out.last_statement_close_date);
-        expect(close.getTime()).toBeLessThanOrEqual(Date.now());
+        expect(out.last_statement_close_date <= istDateStr()).toBe(true);
     });
 
     it('splits the balance into statement plus new charges', async () => {
