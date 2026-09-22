@@ -119,19 +119,42 @@ function buildBucketQuery(boundaries) {
 }
 
 const CARD_CYCLE_INPUTS_QUERY = `
-    SELECT billing_date, balance_as_of
+    SELECT billing_date, balance_as_of, outstanding_balance
     FROM credit_cards
     WHERE id = $1 AND user_id = $2
 `;
 
 // Two DB round trips total, neither of which scales with `count`: one to
-// read the card's billing_date/balance_as_of (needed before boundaries can
-// even be computed), and one -- built by buildBucketQuery above -- that sums
-// every cycle's transactions in a single query regardless of how many
-// cycles were requested. The second query is what the "not one query per
-// cycle" requirement is actually guarding against; this is not an N+1 over
-// cycles, and a card with no billing_date (or not found) short-circuits
-// before ever running it.
+// read the card's billing_date/balance_as_of/outstanding_balance (needed
+// before boundaries can even be computed), and one -- built by
+// buildBucketQuery above -- that sums every cycle's transactions in a
+// single query regardless of how many cycles were requested. The second
+// query is what the "not one query per cycle" requirement is actually
+// guarding against; this is not an N+1 over cycles, and a card with no
+// billing_date (or not found) short-circuits before ever running it.
+//
+// current_outstanding_balance (creditCardBalance.js's
+// CARDS_WITH_BALANCE_QUERY) is COALESCE(c.outstanding_balance, 0) +
+// transaction activity since balance_as_of -- the baseline snapshot of
+// what was owed AS OF balance_as_of, plus everything tracked since. Cycle
+// totals here only bucket transaction activity, so that baseline has to be
+// folded in somewhere or the cycle totals would under-count relative to
+// current_outstanding_balance for any card with a nonzero snapshot. It
+// belongs on the OLDEST cycle returned (the last entry, most-recent-first)
+// -- that's the cycle whose start is clipped to (or lands exactly on)
+// balance_as_of by construction, i.e. "everything before this point,
+// collapsed" is precisely what the baseline represents.
+//
+// Active EMI remaining principal (also folded into
+// current_outstanding_balance, via fetchActiveEmiPrincipalByCard/
+// addEmiPrincipal in creditCardBalance.js) is deliberately left OUT of
+// every cycle total here: it's not-yet-posted future liability with no
+// transaction and therefore no date to bucket by. Once an installment
+// actually posts it becomes an ordinary transaction and already lands in
+// the correct cycle via the bucket query below -- nothing extra needed for
+// that case. So the true reconciliation against current_outstanding_balance
+// is sum(cycle totals) + active_emi_remaining_principal, not sum(cycle
+// totals) alone -- see the regression test in creditCardCycles.test.js.
 async function fetchCyclesWithTotals(pool, userId, cardId, count) {
     const { rows } = await pool.query(CARD_CYCLE_INPUTS_QUERY, [cardId, userId]);
     const card = rows[0];
@@ -153,10 +176,19 @@ async function fetchCyclesWithTotals(pool, userId, cardId, count) {
     const { rows: totalsRows } = await pool.query(sql, [cardId, userId, ...params]);
     const totalByIdx = new Map(totalsRows.map(r => [Number(r.idx), r.total]));
 
-    return boundaries.map((b, idx) => ({
+    const results = boundaries.map((b, idx) => ({
         ...b,
         total: totalByIdx.has(idx) ? totalByIdx.get(idx) : '0',
     }));
+
+    // Fold the baseline snapshot into the oldest cycle -- the last entry,
+    // since `results` is most-recent-first. parseFloat/COALESCE-to-0 same
+    // as CARDS_WITH_BALANCE_QUERY does for outstanding_balance.
+    const oldest = results[results.length - 1];
+    const baseline = parseFloat(card.outstanding_balance) || 0;
+    oldest.total = (parseFloat(oldest.total) + baseline).toFixed(2);
+
+    return results;
 }
 
 module.exports = {

@@ -180,64 +180,118 @@ describe('fetchCyclesWithTotals', () => {
             { rows: [{ idx: 0, total: '500.00' }] }, // idx 1 absent -- LEFT JOIN with no matching rows just group-drops it in some engines
         );
         const result = await fetchCyclesWithTotals(pool, 'u1', 1, 2);
-        expect(result[1].total).toBe('0');
+        // '0.00', not '0' -- the oldest cycle (idx 1 here) always gets the
+        // baseline snapshot folded in via .toFixed(2), even when that
+        // baseline is itself 0 (no outstanding_balance on this card mock).
+        expect(result[1].total).toBe('0.00');
     });
 
-    // The critical regression-class check: summing every cycle's total must
-    // equal current_outstanding_balance from fetchCreditCardsWithBalance
-    // when the cycles fully cover the same span the balance query covers
-    // (balance_as_of through today), no gaps or double-counted
-    // transactions across a cycle boundary. Both functions are exercised
-    // against the SAME fixture of transactions; the fixture's expected sum
-    // is computed independently (by hand, following the expense-adds/
-    // income-subtracts sign convention both queries document), and the two
-    // mocked query results are built FROM that fixture the way real
-    // Postgres aggregation would produce them -- so agreement between the
-    // two functions' outputs is a real check on fetchCyclesWithTotals's
-    // JS-side mapping/summing logic, not a tautology.
-    test('sum of all cycle totals equals current_outstanding_balance when cycles fully cover the same span', async () => {
-        // Fixture: card with a zero baseline snapshot (so
-        // current_outstanding_balance is pure transaction activity since
-        // balance_as_of -- isolates the comparison to just the bucketing
-        // logic) and three cycles' worth of transactions.
-        const transactions = [
-            // cycle 2 (oldest, clipped to balance_as_of 2026-04-05): expense 1000, income 200 -> net 800
-            { type: 'expense', amount: 1000 },
-            { type: 'income', amount: 200 },
-            // cycle 1 (2026-05-05..2026-06-04): expense 2500, expense 700.5 -> net 3200.5
-            { type: 'expense', amount: 2500 },
-            { type: 'expense', amount: 700.5 },
-            // cycle 0 (current, 2026-06-05..open): income 100 -> net -100
-            { type: 'income', amount: 100 },
-        ];
-        const expectedTotal = transactions.reduce(
-            (sum, t) => sum + (t.type === 'expense' ? t.amount : -t.amount),
-            0,
+    test('folds the card\'s outstanding_balance baseline snapshot into the oldest cycle only, not every cycle', async () => {
+        const pool = mockPool(
+            { rows: [{ billing_date: 5, balance_as_of: '2026-04-05', outstanding_balance: '2500.00' }] },
+            { rows: [
+                { idx: 0, total: '100.00' },
+                { idx: 1, total: '200.00' },
+                { idx: 2, total: '50.00' },
+            ] },
         );
-        const cycleTotals = ['-100.00', '3200.50', '800.00']; // cycle 0, 1, 2 respectively, matching the grouping above
-        expect(cycleTotals.reduce((s, v) => s + parseFloat(v), 0)).toBeCloseTo(expectedTotal, 2);
+        const result = await fetchCyclesWithTotals(pool, 'u1', 1, 3);
 
-        // fetchCreditCardsWithBalance: card row already carries
-        // current_outstanding_balance as CARDS_WITH_BALANCE_QUERY's GROUP BY
-        // would compute it (baseline 0 + expense sum - income sum), plus the
-        // no-active-EMI second query it always issues.
-        const balancePool = mockPool(
-            { rows: [{ id: 1, outstanding_balance: '0', current_outstanding_balance: expectedTotal.toFixed(2) }] },
-            { rows: [] }, // fetchActiveEmiPrincipalByCard: no active EMIs
-        );
-        const [cardWithBalance] = await fetchCreditCardsWithBalance(balancePool, 'u1');
+        expect(result[0].total).toBe('100.00'); // current cycle: untouched
+        expect(result[1].total).toBe('200.00'); // a middle closed cycle: untouched
+        expect(result[2].total).toBe('2550.00'); // oldest cycle: 50.00 + 2500.00 baseline
+    });
+
+    // Mirrors buildBucketQuery's WHERE clause -- t.date >= cycle.start AND
+    // (cycle.end IS NULL OR t.date <= cycle.end) -- and its sign convention
+    // (expense adds, income subtracts), computed from each transaction's
+    // ACTUAL date rather than hand-assigned to a cycle. Used to build the
+    // mocked bucket-query rows fed to the pool below, so the test also
+    // exercises date-range edge behavior (a transaction dated exactly on a
+    // cycle's start/end) instead of only the JS-side idx-to-cycle mapping.
+    function bucketByDateRange(transactions, boundaries) {
+        return boundaries.map(c => {
+            const net = transactions
+                .filter(t => t.date >= c.start && (c.end === null || t.date <= c.end))
+                .reduce((sum, t) => sum + (t.type === 'expense' ? t.amount : -t.amount), 0);
+            return net.toFixed(2);
+        });
+    }
+
+    // The critical regression-class check: sum(cycle totals) +
+    // active_emi_remaining_principal must equal current_outstanding_balance
+    // from fetchCreditCardsWithBalance, when the cycles fully cover the same
+    // span the balance query covers (balance_as_of through today) -- no
+    // gaps, no double-counting across a cycle boundary. The full formula
+    // (creditCardBalance.js's CARDS_WITH_BALANCE_QUERY):
+    //   current_outstanding_balance
+    //     = COALESCE(outstanding_balance, 0)      -- baseline snapshot as of balance_as_of
+    //     + transaction activity since balance_as_of
+    //     + active EMI remaining principal          -- addEmiPrincipal, not tied to any date
+    // fetchCyclesWithTotals folds the baseline into the oldest cycle (Fix 1)
+    // but deliberately leaves EMI remaining principal out of every cycle
+    // (it has no transaction/date to bucket by until it posts) -- so the
+    // two sides only reconcile once the EMI term is added back on the
+    // cycles side, which is exactly what's asserted below.
+    test('sum(cycle totals) + active EMI remaining principal equals current_outstanding_balance, cycles fully covering the span, nonzero baseline', async () => {
+        const billingDate = 5;
+        const today = '2026-06-20';
+        const balanceAsOf = '2026-04-05';
+        const outstandingBaseline = 5000; // nonzero -- exercises Fix 1
+        const emiRemainingPrincipal = 1200; // not tied to any transaction date -- excluded from cycle totals
+
+        // Real production boundary computation, not reimplemented here --
+        // 3 cycles exactly covers [balanceAsOf, today] with billingDate 5.
+        const boundaries = computeCycleBoundaries(billingDate, 3, balanceAsOf, today);
+        expect(boundaries).toEqual([
+            { start: '2026-06-05', end: null, is_current: true },
+            { start: '2026-05-05', end: '2026-06-04', is_current: false },
+            { start: '2026-04-05', end: '2026-05-04', is_current: false },
+        ]);
+
+        // Dated transactions, including two placed exactly on a cycle
+        // boundary (05-04 = the oldest cycle's last day, 05-05 = the middle
+        // cycle's first day) to exercise the >=/<= edges.
+        const transactions = [
+            { date: '2026-04-10', type: 'expense', amount: 1000 },
+            { date: '2026-04-20', type: 'income', amount: 200 },
+            { date: '2026-05-04', type: 'expense', amount: 30 }, // oldest cycle's last day
+            { date: '2026-05-05', type: 'expense', amount: 50 }, // middle cycle's first day
+            { date: '2026-05-10', type: 'expense', amount: 2500 },
+            { date: '2026-06-01', type: 'expense', amount: 700.5 },
+            { date: '2026-06-15', type: 'income', amount: 100 },
+        ];
+        const bucketTotals = bucketByDateRange(transactions, boundaries);
+        // Hand-verified against the fixture above: cycle0 (06-05..open) =
+        // -100; cycle1 (05-05..06-04) = 50+2500+700.5 = 3250.50; cycle2
+        // (04-05..05-04, oldest) = 1000-200+30 = 830.00.
+        expect(bucketTotals).toEqual(['-100.00', '3250.50', '830.00']);
 
         const cyclesPool = mockPool(
-            { rows: [{ billing_date: 5, balance_as_of: '2026-04-05' }] },
-            { rows: [
-                { idx: 0, total: cycleTotals[0] },
-                { idx: 1, total: cycleTotals[1] },
-                { idx: 2, total: cycleTotals[2] },
-            ] },
+            { rows: [{ billing_date: billingDate, balance_as_of: balanceAsOf, outstanding_balance: String(outstandingBaseline) }] },
+            { rows: bucketTotals.map((total, idx) => ({ idx, total })) },
         );
         const cycles = await fetchCyclesWithTotals(cyclesPool, 'u1', 1, 3);
 
+        // Fix 1, concretely: the oldest cycle carries the baseline on top
+        // of its own bucketed total; nothing else does.
+        expect(cycles[2].total).toBe((830 + outstandingBaseline).toFixed(2));
+        expect(cycles[0].total).toBe('-100.00');
+        expect(cycles[1].total).toBe('3250.50');
+
+        // fetchCreditCardsWithBalance, mocked consistently with the same
+        // fixture: current_outstanding_balance = baseline + tx activity
+        // (what CARDS_WITH_BALANCE_QUERY's aggregation would produce) with
+        // the active EMI's remaining principal folded in by addEmiPrincipal
+        // (fetchActiveEmiPrincipalByCard's underlying query, mocked here).
+        const txActivitySum = transactions.reduce((sum, t) => sum + (t.type === 'expense' ? t.amount : -t.amount), 0);
+        const balancePool = mockPool(
+            { rows: [{ id: 1, outstanding_balance: String(outstandingBaseline), current_outstanding_balance: (outstandingBaseline + txActivitySum).toFixed(2) }] },
+            { rows: [{ id: 'e1', credit_card_id: 1, principal_amount: '2000', posted_principal: '800', remaining_principal: String(emiRemainingPrincipal), installments_posted: 4, installments_total: 10 }] },
+        );
+        const [cardWithBalance] = await fetchCreditCardsWithBalance(balancePool, 'u1');
+
         const sumOfCycleTotals = cycles.reduce((sum, c) => sum + parseFloat(c.total), 0);
-        expect(sumOfCycleTotals).toBeCloseTo(parseFloat(cardWithBalance.current_outstanding_balance), 2);
+        expect(sumOfCycleTotals + emiRemainingPrincipal).toBeCloseTo(parseFloat(cardWithBalance.current_outstanding_balance), 2);
     });
 });
