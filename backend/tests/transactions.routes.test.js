@@ -88,6 +88,106 @@ describe('GET /api/transactions', () => {
         expect(res.status).toBe(500);
         expect(res.body.error).toBeDefined();
     });
+
+    test('applies month/year filters when from/to are absent', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get('/api/transactions?month=6&year=2026');
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/EXTRACT\(MONTH FROM t\.date\)/);
+        expect(query).toMatch(/EXTRACT\(YEAR {2}FROM t\.date\)/);
+        expect(params).toContain('6');
+        expect(params).toContain('2026');
+    });
+
+    test('from alone applies a half-open range (>=) with no upper bound', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get('/api/transactions?from=2026-06-01');
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/AND t\.date >= \$\d+/);
+        expect(query).not.toMatch(/t\.date <=/);
+        expect(params).toContain('2026-06-01');
+    });
+
+    test('to alone applies a half-open range (<=) with no lower bound', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get('/api/transactions?to=2026-06-30');
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/AND t\.date <= \$\d+/);
+        expect(query).not.toMatch(/t\.date >=/);
+        expect(params).toContain('2026-06-30');
+    });
+
+    test('from and to together apply a closed range', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get('/api/transactions?from=2026-06-01&to=2026-06-30');
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/AND t\.date >= \$\d+/);
+        expect(query).toMatch(/AND t\.date <= \$\d+/);
+        expect(params).toContain('2026-06-01');
+        expect(params).toContain('2026-06-30');
+    });
+
+    test('from/to entirely override month/year -- no AND-combination, no month/year clause at all', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get('/api/transactions?from=2026-06-01&to=2026-06-30&month=1&year=2020');
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).not.toMatch(/EXTRACT\(MONTH FROM t\.date\)/);
+        expect(query).not.toMatch(/EXTRACT\(YEAR {2}FROM t\.date\)/);
+        expect(params).not.toContain('1');
+        expect(params).not.toContain('2020');
+    });
+
+    test('from/to combine (AND) correctly with type, category_id, and credit_card_id', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).get(
+            '/api/transactions?from=2026-06-01&to=2026-06-30&type=expense&category_id=cat-1&credit_card_id=5'
+        );
+
+        expect(res.status).toBe(200);
+        const [query, params] = pool.query.mock.calls[0];
+        expect(query).toMatch(/AND t\.type = \$\d+/);
+        expect(query).toMatch(/AND t\.date >= \$\d+/);
+        expect(query).toMatch(/AND t\.date <= \$\d+/);
+        expect(query).toMatch(/AND t\.category_id = \$\d+/);
+        expect(query).toMatch(/AND t\.credit_card_id = \$\d+/);
+        expect(params).toContain('expense');
+        expect(params).toContain('2026-06-01');
+        expect(params).toContain('2026-06-30');
+        expect(params).toContain('cat-1');
+        expect(params).toContain('5');
+    });
+
+    test('rejects an invalid from date with 400', async () => {
+        const res = await request(buildApp()).get('/api/transactions?from=not-a-date');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBeDefined();
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+
+    test('rejects an invalid to date with 400', async () => {
+        const res = await request(buildApp()).get('/api/transactions?to=2026-13-99');
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBeDefined();
+        expect(pool.query).not.toHaveBeenCalled();
+    });
 });
 
 describe('POST /api/transactions', () => {

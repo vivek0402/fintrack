@@ -104,7 +104,19 @@ router.get('/context', async (req, res) => {
 
 router.get('/', async (req, res) => {
     try {
-        const { type, month, year, category_id, credit_card_id, limit, offset } = req.query;
+        const { type, month, year, category_id, credit_card_id, limit, offset, from, to } = req.query;
+
+        // from/to take outright precedence over month/year -- if either is present,
+        // month/year are skipped entirely (not ANDed, not validated). This lets a
+        // caller pass a half-open range (e.g. the still-open current billing cycle,
+        // `from` with no `to`) without it accidentally being ANDed against an
+        // unrelated month/year filter passed out of habit.
+        if (from !== undefined && !isValidDateString(from))
+            return res.status(400).json({ error: 'from must be a valid date (YYYY-MM-DD).' });
+        if (to !== undefined && !isValidDateString(to))
+            return res.status(400).json({ error: 'to must be a valid date (YYYY-MM-DD).' });
+        const useDateRange = from !== undefined || to !== undefined;
+
         let query = `SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
                          c.is_investment_category, g.name AS group_name
                   FROM transactions t
@@ -115,8 +127,13 @@ router.get('/', async (req, res) => {
         let n = 1;
 
         if (type) { n++; query += ` AND t.type = $${n}`; params.push(type); }
-        if (month) { n++; query += ` AND EXTRACT(MONTH FROM t.date) = $${n}`; params.push(month); }
-        if (year) { n++; query += ` AND EXTRACT(YEAR  FROM t.date) = $${n}`; params.push(year); }
+        if (useDateRange) {
+            if (from) { n++; query += ` AND t.date >= $${n}`; params.push(from); }
+            if (to) { n++; query += ` AND t.date <= $${n}`; params.push(to); }
+        } else {
+            if (month) { n++; query += ` AND EXTRACT(MONTH FROM t.date) = $${n}`; params.push(month); }
+            if (year) { n++; query += ` AND EXTRACT(YEAR  FROM t.date) = $${n}`; params.push(year); }
+        }
         if (category_id) { n++; query += ` AND t.category_id = $${n}`; params.push(category_id); }
         if (credit_card_id) { n++; query += ` AND t.credit_card_id = $${n}`; params.push(credit_card_id); }
 
