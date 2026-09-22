@@ -113,8 +113,8 @@ export default function CreditCardCyclesPage() {
                                     </span>
                                 )}
                             </div>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                                {fmt(Number(cycle.total))}
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: Number(cycle.total) > 0 ? 'var(--color-warn)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                                {Number(cycle.total) >= 0 ? '+' : '−'}{fmt(Number(cycle.total))}
                             </span>
                         </button>
                     ))

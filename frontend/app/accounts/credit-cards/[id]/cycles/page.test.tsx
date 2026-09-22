@@ -48,10 +48,44 @@ describe('CreditCardCyclesPage', () => {
         expect(rows[0].textContent).toContain('Sep 6 – present');
     });
 
-    it('formats each cycle total with the shared currency formatter', async () => {
+    it('formats each cycle total with the shared currency formatter, prefixed with a sign', async () => {
         render(<CreditCardCyclesPage />);
-        expect(await screen.findByText('₹4,500')).toBeInTheDocument();
-        expect(screen.getByText('₹12,301')).toBeInTheDocument();
+        expect(await screen.findByText('+₹4,500')).toBeInTheDocument();
+        expect(screen.getByText('+₹12,301')).toBeInTheDocument();
+    });
+
+    it('shows a credit-balance (negative) cycle total with a minus sign, not a bare positive amount', async () => {
+        // A mid-cycle bill payment (income-type) that exceeds that cycle's
+        // charges makes the backend's total go negative -- a real credit, not
+        // debt. Math.abs() inside fmt() would otherwise silently drop the sign.
+        getCycles.mockResolvedValue({
+            data: {
+                cycles: [
+                    { start: '2026-09-06', end: null, label: 'Sep 6 – present', total: '-500.00', is_current: true },
+                ],
+            },
+        });
+        render(<CreditCardCyclesPage />);
+        const amount = await screen.findByText('−₹500');
+        expect(amount).toBeInTheDocument();
+        // Mirrors the Accounts page's new_charges_since_statement convention:
+        // a non-positive amount uses the neutral text color, not the warn color
+        // reserved for a positive (owed) total.
+        expect(amount).toHaveStyle({ color: 'var(--text-primary)' });
+    });
+
+    it('shows a positive (owed) cycle total with a plus sign and the warn color', async () => {
+        getCycles.mockResolvedValue({
+            data: {
+                cycles: [
+                    { start: '2026-09-06', end: null, label: 'Sep 6 – present', total: '500.00', is_current: true },
+                ],
+            },
+        });
+        render(<CreditCardCyclesPage />);
+        const amount = await screen.findByText('+₹500');
+        expect(amount).toBeInTheDocument();
+        expect(amount).toHaveStyle({ color: 'var(--color-warn)' });
     });
 
     it('shows a loading state before the fetch resolves', async () => {

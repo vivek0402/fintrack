@@ -186,6 +186,24 @@ describe('fetchCyclesWithTotals', () => {
         expect(result[1].total).toBe('0.00');
     });
 
+    // Pins the "credit balance" case: a mid-cycle bill payment (an
+    // income-type transaction, per buildBucketQuery's sign convention) that
+    // exceeds that cycle's expenses makes total = SUM(expense) - SUM(income)
+    // go negative. That's a real credit, not debt -- the frontend cycles page
+    // must render this with a distinguishing sign/color rather than
+    // Math.abs()-ing it away. Explicitly pinned here per this branch's own
+    // testing discipline, even though it already falls out of the existing
+    // SQL/sign convention.
+    test('a cycle where a bill payment exceeds that cycle\'s charges produces a negative total (credit balance)', async () => {
+        const pool = mockPool(
+            { rows: [{ billing_date: 5, balance_as_of: null }] },
+            { rows: [{ idx: 0, total: '-500.00' }] }, // 200 in charges, 700 payment -> net -500
+        );
+        const result = await fetchCyclesWithTotals(pool, 'u1', 1, 1);
+        expect(result[0].total).toBe('-500.00');
+        expect(parseFloat(result[0].total)).toBeLessThan(0);
+    });
+
     test('folds the card\'s outstanding_balance baseline snapshot into the oldest cycle only, not every cycle', async () => {
         const pool = mockPool(
             { rows: [{ billing_date: 5, balance_as_of: '2026-04-05', outstanding_balance: '2500.00' }] },
