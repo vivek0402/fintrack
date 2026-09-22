@@ -3,6 +3,7 @@ const {
     fetchTotalCreditCardOutstanding,
     fetchCreditCardWithBalance,
     fetchCreditCardsWithBalance,
+    getLastStatementCloseDate,
 } = require('../src/utils/creditCardBalance');
 
 // The billing-cycle breakdown behind the Accounts page's "Statement: ₹X · due
@@ -146,6 +147,36 @@ describe('fetchCreditCardsWithCycleBreakdown', () => {
         expect(out.current_outstanding_balance).toBe('12000.00');
         expect(out.statement_balance).toBe(11000); // 8000 + 3000 EMI
         expect(out.new_charges_since_statement).toBe(1000);
+    });
+});
+
+describe('getLastStatementCloseDate', () => {
+    test('this month\'s billing date already occurred: returns it', () => {
+        const close = getLastStatementCloseDate(5, new Date('2026-06-20T10:00:00.000Z'));
+        expect(close.toISOString().split('T')[0]).toBe('2026-06-05');
+    });
+
+    test('this month\'s billing date has not happened yet: rolls back a month', () => {
+        const close = getLastStatementCloseDate(25, new Date('2026-06-20T10:00:00.000Z'));
+        expect(close.toISOString().split('T')[0]).toBe('2026-05-25');
+    });
+
+    test('returns null when there is no billing date', () => {
+        expect(getLastStatementCloseDate(null, new Date())).toBeNull();
+    });
+
+    // MANDATORY regression coverage for the actual IST-boundary bug fix.
+    // 2026-01-31T19:00:00Z is 2026-02-01 00:30 IST -- IST has already
+    // rolled into February while a raw `new Date(today.getFullYear(),
+    // today.getMonth(), billingDate)` construction (what this function used
+    // to do) reads UTC/server-local fields and is still anchored to
+    // January. With billingDate=1, the correct close is TODAY, Feb 1 (IST)
+    // -- the old code, anchored to UTC's January, would have wrongly
+    // returned January 1st: an entire month stale, not just hours off.
+    test('REGRESSION: picks the correct IST calendar day across a UTC/IST boundary the old raw-Date computation got wrong', () => {
+        const ts = new Date('2026-01-31T19:00:00.000Z');
+        const close = getLastStatementCloseDate(1, ts);
+        expect(close.toISOString().split('T')[0]).toBe('2026-02-01');
     });
 });
 

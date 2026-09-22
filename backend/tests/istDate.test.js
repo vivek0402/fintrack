@@ -8,6 +8,7 @@ const {
     istNextMonthStart,
     istMonthsAgoStart,
     mondayOf,
+    istMostRecentDayOfMonth,
 } = require('../src/utils/istDate');
 
 describe('istDateStr', () => {
@@ -144,5 +145,49 @@ describe('mondayOf', () => {
         // 2026-01-07 is a Wednesday; its week's Monday is 2026-01-05.
         const ts = new Date('2026-01-07T10:00:00.000Z');
         expect(mondayOf(ts)).toBe('2026-01-05');
+    });
+});
+
+describe('istMostRecentDayOfMonth', () => {
+    test('this month\'s day already occurred: returns it unchanged', () => {
+        expect(istMostRecentDayOfMonth(5, '2026-06-20')).toBe('2026-06-05');
+    });
+
+    test('this month\'s day has not happened yet: rolls back to last month', () => {
+        expect(istMostRecentDayOfMonth(25, '2026-06-20')).toBe('2026-05-25');
+    });
+
+    test('the day exactly today counts as already occurred, not future', () => {
+        expect(istMostRecentDayOfMonth(20, '2026-06-20')).toBe('2026-06-20');
+    });
+
+    test('rolling back crosses a year boundary correctly', () => {
+        expect(istMostRecentDayOfMonth(10, '2026-01-05')).toBe('2025-12-10');
+    });
+
+    test('defaults todayStr to the real current IST date when omitted', () => {
+        // Just prove it doesn't throw and produces a sane, non-future result.
+        expect(istMostRecentDayOfMonth(1) <= istDateStr()).toBe(true);
+    });
+
+    // Same spirit as istAddMonths's own IST-boundary test: a moment where
+    // the UTC calendar day is still Jan 31 but IST has already rolled into
+    // Feb 1. A naive implementation reading day/month/year off a raw
+    // (UTC or server-local) Date -- today.getMonth() = January (0), day 1
+    // <= 31 -- would return Jan 1, a WHOLE MONTH stale, not just hours off.
+    // This function instead takes the already-resolved IST calendar-date
+    // string (istDateStr(ts)) and correctly returns Feb 1 -- today's
+    // occurrence, not last month's.
+    test('IST-vs-naive-UTC boundary: picks the correct month, not a UTC-lagged one', () => {
+        const ts = new Date('2026-01-31T19:00:00.000Z'); // 2026-02-01 00:30 IST
+        const todayIst = istDateStr(ts);
+        expect(todayIst).toBe('2026-02-01');
+        expect(istMostRecentDayOfMonth(1, todayIst)).toBe('2026-02-01');
+
+        // What a naive UTC-field-based computation would have produced
+        // instead, for contrast -- the exact bug this fix avoids.
+        const naiveUtcResult = `${ts.getUTCFullYear()}-${String(ts.getUTCMonth() + 1).padStart(2, '0')}-01`;
+        expect(naiveUtcResult).toBe('2026-01-01');
+        expect(istMostRecentDayOfMonth(1, todayIst)).not.toBe(naiveUtcResult);
     });
 });

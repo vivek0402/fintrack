@@ -11,6 +11,7 @@
 // linked to a card INCREASES what's owed; an income transaction linked to a
 // card (used by the bill-payment flow) DECREASES it.
 const { fetchActiveEmiPrincipalByCard } = require('./creditCardEmi');
+const { istDateStr, istMostRecentDayOfMonth } = require('./istDate');
 
 const CARDS_WITH_BALANCE_QUERY = `
     SELECT c.*,
@@ -110,12 +111,21 @@ async function fetchTotalCreditCardOutstanding(pool, userId) {
 
 // The most recent calendar occurrence of billing_date (1-28) that isn't in
 // the future -- i.e. when the card's last statement closed. If this month's
-// billing_date hasn't happened yet, that means the last close was last month.
+// billing_date hasn't happened yet, that means the last close was last
+// month. Delegates to istMostRecentDayOfMonth (istDate.js) -- the same
+// shared primitive creditCardCycles.js's computeCycleBoundaries uses for its
+// own cursor -- instead of the raw `new Date(today.getFullYear(),
+// today.getMonth(), ...)` construction this used to do, which read "today"
+// in whatever timezone the server process happens to run in rather than
+// IST, the same UTC-boundary bug class fixed elsewhere in this app (commits
+// 41a3b7d, a007e5f). Returns a Date at UTC midnight of that calendar day
+// (not a server-local-midnight Date) so it agrees exactly with toDateStr's
+// UTC-based ISO-string extraction below, and so its value never depends on
+// the server process's own timezone offset.
 function getLastStatementCloseDate(billingDate, today = new Date()) {
     if (!billingDate) return null;
-    let close = new Date(today.getFullYear(), today.getMonth(), billingDate);
-    if (close > today) close = new Date(today.getFullYear(), today.getMonth() - 1, billingDate);
-    return close;
+    const closeDateStr = istMostRecentDayOfMonth(billingDate, istDateStr(today));
+    return new Date(`${closeDateStr}T00:00:00.000Z`);
 }
 
 function toDateStr(d) {
@@ -175,7 +185,11 @@ async function fetchCreditCardsWithCycleBreakdown(pool, userId) {
         const statementBalance = parseFloat(rows[0]?.statement_balance ?? card.outstanding_balance) + emiPrincipal;
         const currentOutstanding = parseFloat(card.current_outstanding_balance);
         const dueDate = new Date(closeDate);
-        dueDate.setDate(dueDate.getDate() + (card.due_days || 0));
+        // closeDate is now UTC midnight (see getLastStatementCloseDate
+        // above), so the day arithmetic must stay in UTC too -- local
+        // setDate/getDate would silently shift by a day on a server whose
+        // process timezone isn't UTC.
+        dueDate.setUTCDate(dueDate.getUTCDate() + (card.due_days || 0));
         return {
             ...card,
             statement_balance: statementBalance,
@@ -191,4 +205,5 @@ module.exports = {
     fetchCreditCardWithBalance,
     fetchTotalCreditCardOutstanding,
     fetchCreditCardsWithCycleBreakdown,
+    getLastStatementCloseDate,
 };

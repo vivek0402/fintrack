@@ -8,7 +8,7 @@
 // additive concept computed the same way creditCardEmi.js keeps its
 // boundary/schedule math (computeCycleBoundaries) separate from its DB-query
 // functions (fetchCyclesWithTotals).
-const { istAddMonths, istDateStr } = require('./istDate');
+const { istAddMonths, istDateStr, istMostRecentDayOfMonth } = require('./istDate');
 
 const MAX_CYCLES = 24;
 
@@ -44,16 +44,14 @@ function computeCycleBoundaries(billingDate, count, balanceAsOf, today) {
     if (cappedCount <= 0) return [];
 
     const t = today || istDateStr();
-    const [ty, tm] = t.split('-').map(Number);
 
     // Most recent occurrence of billingDate that isn't in the future. If
     // this calendar month's billingDate hasn't happened yet, the current
-    // (open) cycle actually started last month -- same "hasn't happened
-    // yet" logic as getLastStatementCloseDate in creditCardBalance.js, just
-    // expressed in string/istAddMonths terms instead of a `Date` object so
-    // it never depends on server-local "today".
-    let cursor = `${ty}-${String(tm).padStart(2, '0')}-${String(billingDate).padStart(2, '0')}`;
-    if (cursor > t) cursor = istAddMonths(cursor, -1);
+    // (open) cycle actually started last month -- shared with
+    // getLastStatementCloseDate in creditCardBalance.js via
+    // istMostRecentDayOfMonth (istDate.js), which is what actually keeps
+    // this IST-safe (it never depends on server-local "today").
+    let cursor = istMostRecentDayOfMonth(billingDate, t);
 
     const boundaries = [];
     let end = null; // open-ended for the current cycle only

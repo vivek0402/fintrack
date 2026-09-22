@@ -94,4 +94,24 @@ function istAddMonths(dateStr, n) {
     return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
 }
 
-module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf, istAddMonths };
+// Most recent calendar occurrence of `day` (day-of-month, 1-31) that is NOT
+// in the future, as a 'YYYY-MM-DD' string -- i.e. "this month's occurrence
+// of `day`, unless it hasn't happened yet, in which case last month's."
+// Takes `todayStr` as a 'YYYY-MM-DD' string (defaulting to istDateStr(), the
+// current IST calendar date), never a `Date`, the same discipline
+// istAddMonths documents for itself -- so this never reads day/month/year
+// off a server-timezone Date and stays IST-safe by construction, as long as
+// the caller also resolved its own "today" via istDateStr first. Factored
+// out of creditCardCycles.js's computeCycleBoundaries (its current-cycle
+// cursor) so creditCardBalance.js's getLastStatementCloseDate -- the same
+// "most recent occurrence of a billing day-of-month" concept, previously
+// duplicated with raw `new Date(...)` arithmetic -- can share it instead of
+// re-deriving it.
+function istMostRecentDayOfMonth(day, todayStr = istDateStr()) {
+    const [ty, tm] = todayStr.split('-').map(Number);
+    let result = `${ty}-${String(tm).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (result > todayStr) result = istAddMonths(result, -1);
+    return result;
+}
+
+module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf, istAddMonths, istMostRecentDayOfMonth };
