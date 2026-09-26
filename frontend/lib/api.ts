@@ -325,6 +325,16 @@ export interface ParsedTransaction {
     possible_duplicate?: boolean;
 }
 
+export interface CamsHolding {
+    folio_number: string;
+    fund_house: string;
+    scheme_name: string;
+    units: number;
+    nav: number;
+    current_value: number;
+    purchase_details?: { date: string; units: number; price_per_unit: number }[];
+}
+
 export const importAPI = {
     uploadStatement: (file: File, bankName?: string) => {
         const form = new FormData();
@@ -344,7 +354,7 @@ export const importAPI = {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
-    confirmCamsImport: (jobId: string, holdings: any[]) =>
+    confirmCamsImport: (jobId: string, holdings: CamsHolding[]) =>
         api.post(`/api/import/cams-statement/${jobId}/confirm`, { holdings }),
 };
 

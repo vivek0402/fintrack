@@ -140,7 +140,19 @@ export function getCategoryBg(categoryName?: string | null): string {
     return 'var(--bg-card)';
 }
 
-export async function exportToCSV(transactions: any[], filename: string) {
+// The rows this exports only ever need these display fields, regardless of
+// which page's richer transaction type is passed in.
+interface ExportableTransaction {
+    date: string;
+    description?: string | null;
+    type: string;
+    amount: number | string;
+    category_name?: string | null;
+    notes?: string | null;
+    tags?: string[] | null;
+}
+
+export async function exportToCSV(transactions: ExportableTransaction[], filename: string) {
     const headers = ['Date', 'Description', 'Type', 'Amount', 'Category', 'Notes', 'Tags'];
     const rows = transactions.map(tx => [
         formatDate(tx.date),

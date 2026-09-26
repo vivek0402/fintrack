@@ -4,50 +4,58 @@ import {
     cacheAnalytics, getCachedAnalytics,
     cacheBudgets, getCachedBudgets,
     cacheGoals, getCachedGoals,
+    type WithId,
 } from './offlineCache';
 
+// Reuse the exact param shapes the underlying API methods accept, rather than
+// re-declaring (and risking drift from) them here.
+type GetTransactionsParams = Parameters<typeof transactionsAPI.getAll>[0];
+type GetSummaryParams = Parameters<typeof analyticsAPI.summary>[0];
+
 export const apiWithCache = {
-    async getTransactions(params?: any): Promise<any[]> {
+    // T is caller-supplied: this layer just fetches, caches, and falls back --
+    // it never inspects the shape of what it's caching.
+    async getTransactions<T extends WithId = WithId>(params?: GetTransactionsParams): Promise<T[]> {
         try {
             const res = await transactionsAPI.getAll(params);
-            const txs: any[] = res.data?.transactions ?? [];
+            const txs: T[] = res.data?.transactions ?? [];
             cacheTransactions(txs).catch(() => {});
             return txs;
         } catch {
-            return getCachedTransactions();
+            return getCachedTransactions<T>();
         }
     },
 
-    async getDashboardSummary(params?: any): Promise<any | null> {
+    async getDashboardSummary<T = unknown>(params?: GetSummaryParams): Promise<T | null> {
         const key = `summary:${JSON.stringify(params ?? {})}`;
         try {
             const res = await analyticsAPI.summary(params);
-            cacheAnalytics(key, res.data, 3_600_000).catch(() => {});
+            cacheAnalytics<T>(key, res.data, 3_600_000).catch(() => {});
             return res.data;
         } catch {
-            return getCachedAnalytics(key);
+            return getCachedAnalytics<T>(key);
         }
     },
 
-    async getBudgets(): Promise<any[]> {
+    async getBudgets<T extends WithId = WithId>(): Promise<T[]> {
         try {
             const res = await budgetsAPI.getAll();
-            const budgets: any[] = res.data?.budgets ?? [];
+            const budgets: T[] = res.data?.budgets ?? [];
             cacheBudgets(budgets).catch(() => {});
             return budgets;
         } catch {
-            return getCachedBudgets();
+            return getCachedBudgets<T>();
         }
     },
 
-    async getGoals(): Promise<any[]> {
+    async getGoals<T extends WithId = WithId>(): Promise<T[]> {
         try {
             const res = await goalsAPI.getAll();
-            const goals: any[] = res.data?.goals ?? [];
+            const goals: T[] = res.data?.goals ?? [];
             cacheGoals(goals).catch(() => {});
             return goals;
         } catch {
-            return getCachedGoals();
+            return getCachedGoals<T>();
         }
     },
 };

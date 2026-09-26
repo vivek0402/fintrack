@@ -1,3 +1,11 @@
+// Minimal shape shared by every entity this module caches keyed by id
+// (transactions, budgets, goals) -- callers supply the real shape via the
+// generic parameter, this is just enough structure for the cache layer
+// itself to key the IndexedDB row.
+export interface WithId {
+    id: string | number;
+}
+
 const DB_NAME = 'fintrack-offline';
 const DB_VERSION = 1;
 
@@ -68,32 +76,32 @@ export function idbDelete(store: string, key: IDBValidKey): Promise<void> {
 
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
-export async function cacheTransactions(txs: any[]): Promise<void> {
+export async function cacheTransactions<T extends WithId>(txs: T[]): Promise<void> {
     if (typeof window === 'undefined') return;
     try { await idbPutBatch('transactions', txs.map(t => ({ id: t.id, data: t, syncedAt: Date.now() }))); }
     catch { /* silent */ }
 }
 
-export async function getCachedTransactions(): Promise<any[]> {
+export async function getCachedTransactions<T = unknown>(): Promise<T[]> {
     if (typeof window === 'undefined') return [];
     try {
-        const rows = await idbGetAll<{ id: any; data: any }>('transactions');
+        const rows = await idbGetAll<{ id: string | number; data: T }>('transactions');
         return rows.map(r => r.data);
     } catch { return []; }
 }
 
 // ─── Analytics summary ────────────────────────────────────────────────────────
 
-export async function cacheAnalytics(key: string, data: any, ttlMs = 3_600_000): Promise<void> {
+export async function cacheAnalytics<T>(key: string, data: T, ttlMs = 3_600_000): Promise<void> {
     if (typeof window === 'undefined') return;
     try { await idbPut('analytics_summary', { key, data, cachedAt: Date.now(), expiresAt: Date.now() + ttlMs }); }
     catch { /* silent */ }
 }
 
-export async function getCachedAnalytics(key: string): Promise<any | null> {
+export async function getCachedAnalytics<T = unknown>(key: string): Promise<T | null> {
     if (typeof window === 'undefined') return null;
     try {
-        const row = await idbGet<{ key: string; data: any; expiresAt: number }>('analytics_summary', key);
+        const row = await idbGet<{ key: string; data: T; expiresAt: number }>('analytics_summary', key);
         if (!row || Date.now() > row.expiresAt) return null;
         return row.data;
     } catch { return null; }
@@ -101,32 +109,32 @@ export async function getCachedAnalytics(key: string): Promise<any | null> {
 
 // ─── Budgets ──────────────────────────────────────────────────────────────────
 
-export async function cacheBudgets(budgets: any[]): Promise<void> {
+export async function cacheBudgets<T extends WithId>(budgets: T[]): Promise<void> {
     if (typeof window === 'undefined') return;
     try { await idbPutBatch('budgets', budgets.map(b => ({ id: b.id, data: b, cachedAt: Date.now() }))); }
     catch { /* silent */ }
 }
 
-export async function getCachedBudgets(): Promise<any[]> {
+export async function getCachedBudgets<T = unknown>(): Promise<T[]> {
     if (typeof window === 'undefined') return [];
     try {
-        const rows = await idbGetAll<{ id: any; data: any }>('budgets');
+        const rows = await idbGetAll<{ id: string | number; data: T }>('budgets');
         return rows.map(r => r.data);
     } catch { return []; }
 }
 
 // ─── Goals ────────────────────────────────────────────────────────────────────
 
-export async function cacheGoals(goals: any[]): Promise<void> {
+export async function cacheGoals<T extends WithId>(goals: T[]): Promise<void> {
     if (typeof window === 'undefined') return;
     try { await idbPutBatch('goals', goals.map(g => ({ id: g.id, data: g, cachedAt: Date.now() }))); }
     catch { /* silent */ }
 }
 
-export async function getCachedGoals(): Promise<any[]> {
+export async function getCachedGoals<T = unknown>(): Promise<T[]> {
     if (typeof window === 'undefined') return [];
     try {
-        const rows = await idbGetAll<{ id: any; data: any }>('goals');
+        const rows = await idbGetAll<{ id: string | number; data: T }>('goals');
         return rows.map(r => r.data);
     } catch { return []; }
 }

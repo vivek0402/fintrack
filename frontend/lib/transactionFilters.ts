@@ -23,6 +23,24 @@ export interface PanelFilters {
     hasNotes: boolean;
 }
 
+// Minimal shape these filter/sort helpers actually read. Callers pass their
+// real transaction type (whatever shape the page/component uses) and get it
+// back unchanged -- these functions never construct new transaction objects,
+// they only filter/reorder the array, so a generic bound on the accessed
+// fields keeps the caller's concrete type flowing through untouched.
+export interface FilterableTransaction {
+    id: string;
+    description?: string | null;
+    category_name?: string | null;
+    notes?: string | null;
+    tags?: string[] | null;
+    amount: number | string;
+    type: string;
+    date: string;
+    payment_method?: string | null;
+    account_id?: number | null;
+}
+
 export const DEFAULT_PANEL: PanelFilters = {
     amountMin: '', amountMax: '',
     categories: [], type: 'all',
@@ -36,11 +54,11 @@ function getDateBounds(mode: PanelFilters['dateMode'], from: string, to: string)
     return [null, null];
 }
 
-export function applyAdvancedFilters(
-    transactions: any[],
+export function applyAdvancedFilters<T extends FilterableTransaction>(
+    transactions: T[],
     freeText: string,
     panel: PanelFilters,
-): any[] {
+): T[] {
     const text = freeText.trim().toLowerCase();
     let r = [...transactions];
 
@@ -53,8 +71,8 @@ export function applyAdvancedFilters(
         );
     }
 
-    if (panel.amountMin) { const n = parseFloat(panel.amountMin); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) >= n); }
-    if (panel.amountMax) { const n = parseFloat(panel.amountMax); if (!isNaN(n)) r = r.filter(tx => parseFloat(tx.amount) <= n); }
+    if (panel.amountMin) { const n = parseFloat(panel.amountMin); if (!isNaN(n)) r = r.filter(tx => parseFloat(String(tx.amount)) >= n); }
+    if (panel.amountMax) { const n = parseFloat(panel.amountMax); if (!isNaN(n)) r = r.filter(tx => parseFloat(String(tx.amount)) <= n); }
     if (panel.categories.length > 0) r = r.filter(tx => panel.categories.some(c => tx.category_name?.toLowerCase() === c.toLowerCase()));
     if (panel.type !== 'all') r = r.filter(tx => tx.type === panel.type);
     if (panel.dateMode !== 'default') {
@@ -67,8 +85,8 @@ export function applyAdvancedFilters(
         });
     }
     if (panel.tags.length > 0) r = r.filter(tx => panel.tags.some(tag => tx.tags?.includes(tag)));
-    if (panel.paymentMethods.length > 0) r = r.filter(tx => panel.paymentMethods.includes(tx.payment_method));
-    if (panel.accountIds.length > 0) r = r.filter(tx => panel.accountIds.includes(tx.account_id));
+    if (panel.paymentMethods.length > 0) r = r.filter(tx => tx.payment_method != null && panel.paymentMethods.includes(tx.payment_method));
+    if (panel.accountIds.length > 0) r = r.filter(tx => tx.account_id != null && panel.accountIds.includes(tx.account_id));
     if (panel.hasNotes) r = r.filter(tx => tx.notes && tx.notes.trim());
 
     return r;
@@ -90,12 +108,12 @@ export type SortKey = 'newest' | 'oldest' | 'largest' | 'smallest';
 
 export const DEFAULT_SORT: SortKey = 'newest';
 
-export function sortTransactions(transactions: any[], key: SortKey): any[] {
+export function sortTransactions<T extends FilterableTransaction>(transactions: T[], key: SortKey): T[] {
     const r = [...transactions];
     switch (key) {
         case 'oldest':   return r.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        case 'largest':  return r.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
-        case 'smallest': return r.sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount));
+        case 'largest':  return r.sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount)));
+        case 'smallest': return r.sort((a, b) => parseFloat(String(a.amount)) - parseFloat(String(b.amount)));
         case 'newest':
         default:         return r.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
