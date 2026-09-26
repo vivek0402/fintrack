@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Sparkles, LayoutDashboard, ArrowLeftRight,
     BarChart3, BrainCircuit, CheckCircle2,
