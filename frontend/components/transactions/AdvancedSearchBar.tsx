@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X, SlidersHorizontal, Bookmark, Clock, ChevronDown, ChevronLeft, MoreHorizontal, Check } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -134,19 +134,19 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         return () => document.removeEventListener('mousedown', handler);
     }, [dotMenuId]);
 
-    const saveToHistory = useCallback((q: string) => {
+    const saveToHistory = (q: string) => {
         if (!q.trim()) return;
         setHistory(prev => {
             const next = [q, ...prev.filter(h => h !== q)].slice(0, 10);
             try { sessionStorage.setItem(SS_HIST, JSON.stringify(next)); } catch {}
             return next;
         });
-    }, []);
+    };
 
-    const handleInputBlur = useCallback(() => {
+    const handleInputBlur = () => {
         setTimeout(() => { setHistoryOpen(false); if (!inputValue.trim()) setSearchExpanded(false); }, 160);
         if (inputValue.trim()) saveToHistory(inputValue);
-    }, [inputValue, saveToHistory]);
+    };
 
     const persistViews = (views: SavedView[]) => {
         setSavedViews(views);
