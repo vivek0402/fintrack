@@ -46,7 +46,7 @@ export function RedesignAnnouncement() {
     }
 
     // Apply changes live as user picks
-    useEffect(() => { setTheme(localTheme); }, [localTheme]);
+    useEffect(() => { setTheme(localTheme); }, [localTheme, setTheme]);
 
     const handleDone = () => {
         localStorage.setItem(STORAGE_KEY, '1');
@@ -68,7 +68,7 @@ export function RedesignAnnouncement() {
                         FinTrack has been redesigned ✨
                     </h2>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                        We've rebuilt the whole app with a new design system. Here's what's new.
+                        We&apos;ve rebuilt the whole app with a new design system. Here&apos;s what&apos;s new.
                     </p>
                 </div>
 

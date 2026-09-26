@@ -12,11 +12,9 @@ export function ThemeToggle() {
         loadTheme();
         // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag to defer client-only render past hydration (SSR guard); this is the standard useEffect(() => setMounted(true), []) idiom.
         setMounted(true);
-    }, []);
+    }, [loadTheme]);
 
     if (!mounted) return null;
-
-    const toggle = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
     return (
         <div style={{ padding: '4px 0' }}>

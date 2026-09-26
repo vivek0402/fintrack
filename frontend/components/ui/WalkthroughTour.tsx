@@ -9,7 +9,6 @@ import {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    userId: string;
 }
 
 const STEPS = [
@@ -51,7 +50,7 @@ const STEPS = [
     },
 ];
 
-export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
+export function WalkthroughTour({ isOpen, onClose }: Props) {
     const [step, setStep] = useState(0);
     const [animKey, setAnimKey] = useState(0);
     // Tracks the isOpen value we've already reacted to, so the reset below runs
