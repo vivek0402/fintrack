@@ -54,13 +54,19 @@ const STEPS = [
 export function WalkthroughTour({ isOpen, onClose, userId }: Props) {
     const [step, setStep] = useState(0);
     const [animKey, setAnimKey] = useState(0);
+    // Tracks the isOpen value we've already reacted to, so the reset below runs
+    // exactly once per open — during render, not in an effect (avoids the extra
+    // render pass a useEffect-based reset would cause). See:
+    // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+    const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-    useEffect(() => {
+    if (isOpen !== prevIsOpen) {
+        setPrevIsOpen(isOpen);
         if (isOpen) {
             setStep(0);
             setAnimKey(k => k + 1);
         }
-    }, [isOpen]);
+    }
 
     if (!isOpen) return null;
 

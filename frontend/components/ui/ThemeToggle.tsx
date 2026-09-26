@@ -10,6 +10,7 @@ export function ThemeToggle() {
 
     useEffect(() => {
         loadTheme();
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag to defer client-only render past hydration (SSR guard); this is the standard useEffect(() => setMounted(true), []) idiom.
         setMounted(true);
     }, []);
 

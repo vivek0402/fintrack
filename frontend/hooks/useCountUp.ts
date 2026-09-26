@@ -15,6 +15,7 @@ export function useCountUp(target: number, duration = 900, enabled = true): numb
         if (!enabled) return;
 
         if (target === 0) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- this branch shares the effect with the rAF animation loop below (which genuinely needs an effect for its cleanup); splitting it out would duplicate the target/duration/enabled dependency handling for no behavioral gain.
             setValue(0);
             return;
         }
