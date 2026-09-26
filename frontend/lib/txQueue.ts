@@ -3,14 +3,18 @@ import { transactionsAPI } from '@/lib/api';
 
 export type QueueOperation = 'create' | 'update' | 'delete';
 
+// The queued payload's shape varies by operation (a full transaction body for
+// 'create'/'update', just an id for 'delete'), so there's no single concrete
+// shape to declare here -- callers own the shape, this queue just persists
+// and replays it verbatim.
 export interface QueuedTx {
     tempId: string;
     operation: QueueOperation;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     queuedAt: number;
 }
 
-export async function addToQueue(operation: QueueOperation, data: Record<string, any>): Promise<string> {
+export async function addToQueue(operation: QueueOperation, data: Record<string, unknown>): Promise<string> {
     const tempId = `pending_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const item: QueuedTx = { tempId, operation, data, queuedAt: Date.now() };
     const db = await getOfflineDB();

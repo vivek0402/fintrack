@@ -280,7 +280,7 @@ function TransactionsPageInner() {
         if (!user || selectedMonth === null) { setPrevPeriodSummary(null); return; }
         const prevM = selectedMonth === 1 ? 12 : selectedMonth - 1;
         const prevY = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
-        apiWithCache.getDashboardSummary({ month: prevM, year: prevY })
+        apiWithCache.getDashboardSummary<{ summary: { total_income: number; total_expenses: number } }>({ month: prevM, year: prevY })
             .then(setPrevPeriodSummary)
             .catch(() => setPrevPeriodSummary(null));
     }, [user, selectedMonth, selectedYear]);

@@ -209,7 +209,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         localStorage.setItem(`fintrack-tour-done-${user.id}`, 'true');
                     }
                 }}
-                userId={user?.id || ''}
             />
         </div>
     );

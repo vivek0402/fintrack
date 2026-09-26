@@ -3,20 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
 import { Upload, Loader2, Trash2, CheckCircle2, Info } from 'lucide-react';
-import { importAPI } from '@/lib/api';
+import { importAPI, type CamsHolding } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 
 type Step = 'upload' | 'parsing' | 'review' | 'success';
-
-interface CamsHolding {
-    folio_number: string;
-    fund_house: string;
-    scheme_name: string;
-    units: number;
-    nav: number;
-    current_value: number;
-    purchase_details?: { date: string; units: number; price_per_unit: number }[];
-}
 
 interface CamsImporterProps {
     onClose: () => void;

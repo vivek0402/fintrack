@@ -11,7 +11,10 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { AlertTriangle, ChevronDown, Wallet, TrendingUp, Landmark } from 'lucide-react';
 import { fmt } from '@/lib/utils';
 
-const chartSkeleton = (height: number) => () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+function chartSkeleton(height: number) {
+    const ChartSkeleton = () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+    return ChartSkeleton;
+}
 
 
 const WaterfallChart = dynamic(() => import('@/components/cash-flow/WaterfallChart').then(m => m.WaterfallChart), { ssr: false, loading: chartSkeleton(260) });

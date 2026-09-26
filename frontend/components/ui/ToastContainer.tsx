@@ -101,6 +101,7 @@ export function ToastContainer() {
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag to defer client-only render (createPortal to document.body) past hydration; standard SSR guard idiom.
         setMounted(true);
         const check = () => setIsMobile(window.innerWidth <= 768);
         check();

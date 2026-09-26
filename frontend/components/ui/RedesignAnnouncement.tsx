@@ -22,20 +22,31 @@ export function RedesignAnnouncement() {
     const [show, setShow]       = useState(false);
     const [mounted, setMounted] = useState(false);
     const [localTheme, setLocalTheme] = useState<typeof theme>(theme);
-
-    useEffect(() => { setMounted(true); }, []);
+    // Tracks the user value we've already reacted to, so the localStorage check
+    // below runs during render (once per user change) instead of in an effect —
+    // avoids the extra render pass a useEffect-based check would cause. `user`
+    // starts (and stays) null until auth/persist rehydration completes, so this
+    // never touches localStorage during the initial (prerendered) render.
+    const [prevUser, setPrevUser] = useState(user);
 
     useEffect(() => {
-        if (!user) return;
-        // Only show to users who have already onboarded (existing users)
-        // AND haven't seen the v3 announcement yet
-        const hasOnboarded = !!localStorage.getItem(`onboarded-${user.id}`);
-        const hasSeen      = !!localStorage.getItem(STORAGE_KEY);
-        if (hasOnboarded && !hasSeen) setShow(true);
-    }, [user]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag to defer the createPortal render past hydration; standard SSR guard idiom.
+        setMounted(true);
+    }, []);
+
+    if (user !== prevUser) {
+        setPrevUser(user);
+        if (user) {
+            // Only show to users who have already onboarded (existing users)
+            // AND haven't seen the v3 announcement yet
+            const hasOnboarded = !!localStorage.getItem(`onboarded-${user.id}`);
+            const hasSeen      = !!localStorage.getItem(STORAGE_KEY);
+            if (hasOnboarded && !hasSeen) setShow(true);
+        }
+    }
 
     // Apply changes live as user picks
-    useEffect(() => { setTheme(localTheme); }, [localTheme]);
+    useEffect(() => { setTheme(localTheme); }, [localTheme, setTheme]);
 
     const handleDone = () => {
         localStorage.setItem(STORAGE_KEY, '1');
@@ -57,7 +68,7 @@ export function RedesignAnnouncement() {
                         FinTrack has been redesigned ✨
                     </h2>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                        We've rebuilt the whole app with a new design system. Here's what's new.
+                        We&apos;ve rebuilt the whole app with a new design system. Here&apos;s what&apos;s new.
                     </p>
                 </div>
 
