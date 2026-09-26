@@ -12,7 +12,10 @@ import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
 import { fmt } from '@/lib/utils';
 
-const chartSkeleton = (height: number) => () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+function chartSkeleton(height: number) {
+    const ChartSkeleton = () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+    return ChartSkeleton;
+}
 
 const NetWorthAreaChart = dynamic(() => import('@/components/net-worth/NetWorthAreaChart').then(m => m.NetWorthAreaChart), { ssr: false, loading: chartSkeleton(220) });
 const VelocityBarChart = dynamic(() => import('@/components/net-worth/VelocityBarChart').then(m => m.VelocityBarChart), { ssr: false, loading: chartSkeleton(140) });
