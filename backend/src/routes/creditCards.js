@@ -9,6 +9,7 @@ const { fetchCreditCardEmiWithBalance, buildEmiInstallmentSchedule } = require('
 const { generateAmortization } = require('../utils/amortization');
 const { istDateStr } = require('../utils/istDate');
 const { fetchCyclesWithTotals } = require('../utils/creditCardCycles');
+const { withStatementRemaining } = require('../utils/cardDueAlerts');
 
 router.use(auth);
 
@@ -44,7 +45,9 @@ function buildCycleLabel(cycle) {
 // GET /api/credit-cards
 router.get('/', async (req, res) => {
     try {
-        const cards = await fetchCreditCardsWithCycleBreakdown(pool, req.user.id);
+        const cards = await withStatementRemaining(
+            pool, req.user.id, await fetchCreditCardsWithCycleBreakdown(pool, req.user.id)
+        );
         res.json({ cards });
     } catch (err) {
         console.error(err);

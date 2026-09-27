@@ -54,6 +54,35 @@ describe('GET /api/credit-cards', () => {
         expect(sql).toMatch(/current_outstanding_balance/);
         expect(sql).toMatch(/LEFT JOIN transactions/);
     });
+    test('adds statement_amount_due / statement_paid / statement_remaining per billed card', async () => {
+        pool.query.mockImplementation(async (sql) => {
+            if (/credit_card_emis/.test(sql)) {
+                return { rows: [{ credit_card_id: 1, installments_posted: 1, installments_total: 6, remaining_principal: '3000' }] };
+            }
+            if (/AS statement_balance/.test(sql)) return { rows: [{ statement_balance: '8000' }] };
+            if (/credit_card_payment/.test(sql)) return { rows: [{ paid: '2000' }] };
+            return {
+                rows: [
+                    { id: 1, bank_name: 'HDFC', card_name: 'Millennia', billing_date: 5, due_days: 20, outstanding_balance: '0', current_outstanding_balance: '9000' },
+                    { id: 2, bank_name: 'SBI', card_name: 'SimplyClick', billing_date: null, outstanding_balance: '0', current_outstanding_balance: '100' },
+                ],
+            };
+        });
+
+        const res = await request(buildApp()).get('/api/credit-cards');
+
+        expect(res.status).toBe(200);
+        const [billed, unbilled] = res.body.cards;
+        // statement_balance keeps its existing meaning (EMI principal folded in).
+        expect(billed.statement_balance).toBe(11000);
+        expect(billed.statement_amount_due).toBe(8000);
+        expect(billed.statement_paid).toBe(2000);
+        expect(billed.statement_remaining).toBe(6000);
+        expect(unbilled).toMatchObject({ statement_amount_due: null, statement_paid: null, statement_remaining: null });
+        const paymentCalls = pool.query.mock.calls.filter(([sql]) => /credit_card_payment/.test(sql));
+        expect(paymentCalls).toHaveLength(1);
+        expect(paymentCalls[0][1]).toEqual(['user-123', 1, billed.last_statement_close_date]);
+    });
 });
 
 describe('POST /api/credit-cards', () => {

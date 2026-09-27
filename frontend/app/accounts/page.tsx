@@ -15,6 +15,7 @@ import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useCountUp } from '@/hooks/useCountUp';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
+import { cycleSuggestedAmount, cycleStatusLabel as statusLabelFor, defaultPayCycleIdx, isCycleSelectable, type PayCycle } from '@/lib/cardStatement';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,9 +39,15 @@ interface CreditCard {
     new_charges_since_statement: number | null;
     last_statement_close_date: string | null;
     statement_due_date: string | null;
+    // What the last statement actually billed (statement_balance minus
+    // blocked EMI principal), bill payments recorded since it closed, and
+    // max(0, due - paid). Null when billing_date isn't set.
+    statement_amount_due?: number | null;
+    statement_paid?: number | null;
+    statement_remaining?: number | null;
 }
 interface Wallet { id: number; name: string; emoji: string; balance: number; }
-interface Cycle { start: string; end: string | null; label: string; total: string; is_current: boolean; }
+type Cycle = PayCycle;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -277,36 +284,32 @@ export default function AccountsPage() {
             const cycles: Cycle[] = res.data?.cycles || [];
             setPayCycles(cycles);
             // Default to the most recent CLOSED cycle (index 1 -- index 0 is
-            // always the still-open current one) when it's actually owed;
-            // that's the same cycle current_outstanding_balance's
-            // statement_balance already represents. Falls back to the
-            // current cycle if there's no closed cycle yet.
-            const defaultCycle = (cycles[1] && Number(cycles[1].total) > 0) ? cycles[1] : cycles[0];
+            // always the still-open current one) when something is still
+            // owed on that statement, pre-filling what's left to pay
+            // (c.statement_remaining), not the cycle's net total. Falls back
+            // to the current cycle otherwise. See lib/cardStatement.ts.
+            const idx = defaultPayCycleIdx(cycles, c);
+            const defaultCycle = cycles[idx];
             if (defaultCycle) {
                 setSelectedCycleKey(defaultCycle.start);
-                if (Number(defaultCycle.total) > 0) setPayForm(f => ({ ...f, amount: String(defaultCycle.total) }));
+                const amount = cycleSuggestedAmount(defaultCycle, idx, c);
+                if (amount != null) setPayForm(f => ({ ...f, amount }));
             }
         }).catch(() => setPayCycles([]));
     };
     const selectedCycle = payCycles.find(c => c.start === selectedCycleKey) || null;
     const selectedCycleIdx = payCycles.findIndex(c => c.start === selectedCycleKey);
-    const pickCycle = (cycle: Cycle) => {
+    const pickCycle = (cycle: Cycle, idx: number) => {
         setSelectedCycleKey(cycle.start);
-        if (Number(cycle.total) > 0) setPayForm(f => ({ ...f, amount: String(cycle.total) }));
+        const amount = cycleSuggestedAmount(cycle, idx, payingCard);
+        if (amount != null) setPayForm(f => ({ ...f, amount }));
         setShowCycleSheet(false);
     };
     // idx === 1 is always the most recently CLOSED cycle (idx 0 is the
-    // still-open current one) -- the same cycle current_outstanding_balance's
-    // statement_due_date already represents, so it's the only one that gets
-    // a real due date instead of a generic status.
-    const cycleStatusLabel = (cycle: Cycle, idx: number) => {
-        if (cycle.is_current) return 'Not yet billed';
-        if (idx === 1 && payingCard?.statement_due_date) return `Due ${formatDate(payingCard.statement_due_date)}`;
-        const t = Number(cycle.total);
-        if (t === 0) return 'Paid in full';
-        if (t < 0) return 'Overpaid · credit';
-        return 'Closed';
-    };
+    // still-open current one) -- the same statement statement_due_date and
+    // statement_remaining describe, so its label comes from those rather
+    // than the cycle's net total. See lib/cardStatement.ts.
+    const cycleStatusLabel = (cycle: Cycle, idx: number) => statusLabelFor(cycle, idx, payingCard, formatDate);
 
     // Quick chips + calendar grid for the Date sheet -- same pattern as
     // TransactionModal's own dateSheet, rendered through the shared Modal
@@ -543,7 +546,7 @@ export default function AccountsPage() {
                                         {c.statement_balance != null ? (
                                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', flexWrap: 'wrap', gap: '4px' }}>
                                                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                    Statement: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(c.statement_balance)}</span>
+                                                    Statement: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(c.statement_amount_due ?? c.statement_balance)}</span>
                                                     {c.statement_due_date && <> · due {formatDate(c.statement_due_date)}</>}
                                                 </span>
                                                 <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
@@ -738,7 +741,7 @@ export default function AccountsPage() {
                             {payingCard.statement_balance != null && (
                                 <div style={tileSt}>
                                     <div style={tileKeySt}>Statement</div>
-                                    <div style={tileValSt}>{fmt(payingCard.statement_balance)}</div>
+                                    <div style={tileValSt}>{fmt(payingCard.statement_amount_due ?? payingCard.statement_balance)}</div>
                                     {payingCard.statement_due_date && <div style={tileDueSt}>due {formatDate(payingCard.statement_due_date)}</div>}
                                 </div>
                             )}
@@ -813,9 +816,9 @@ export default function AccountsPage() {
                         {payCycles.map((cycle, idx) => {
                             const active = cycle.start === selectedCycleKey;
                             const total = Number(cycle.total);
-                            const disabled = !cycle.is_current && total <= 0;
+                            const disabled = !isCycleSelectable(cycle, idx, payingCard);
                             return (
-                                <button key={cycle.start} type="button" disabled={disabled} onClick={() => pickCycle(cycle)}
+                                <button key={cycle.start} type="button" disabled={disabled} onClick={() => pickCycle(cycle, idx)}
                                     style={{
                                         display: 'flex', flexDirection: 'column', gap: 2, width: '100%', padding: '11px 14px',
                                         borderRadius: 'var(--radius-md)', border: 'none', textAlign: 'left', fontFamily: 'var(--font-body)',

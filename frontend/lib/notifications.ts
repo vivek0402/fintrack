@@ -21,16 +21,11 @@ export async function initPushNotifications(): Promise<void> {
     console.error('Push registration error:', err);
   });
 
-  PushNotifications.addListener('pushNotificationReceived', (notification) => {
-    addInAppNotification({
-      id: Date.now().toString(),
-      title: notification.title || 'FinTrack',
-      body: notification.body || '',
-      type: (notification.data?.type as NotificationType) || 'info',
-      deepLink: notification.data?.deepLink,
-      readAt: null,
-      createdAt: new Date().toISOString(),
-    });
+  // The server records every push in the bell before sending it, so a
+  // foreground push only needs the bell to refetch (POSTing a copy here would
+  // show it twice).
+  PushNotifications.addListener('pushNotificationReceived', () => {
+    refreshNotificationBell();
   });
 
   PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
@@ -91,6 +86,12 @@ export async function getNotifications(): Promise<{ notifications: AppNotificati
 export function addInAppNotification(n: AppNotification): void {
   notificationsAPI.create({ id: n.id, title: n.title, body: n.body, type: n.type, deepLink: n.deepLink }).catch(() => {});
   window.dispatchEvent(new CustomEvent('fintrack-notification', { detail: n }));
+}
+
+// Asks every mounted NotificationBell to refetch (it listens for this event).
+export function refreshNotificationBell(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('fintrack-notification'));
 }
 
 export async function markAllRead(): Promise<void> {

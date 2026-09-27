@@ -36,6 +36,9 @@ const { getLatestNav } = require('./utils/marketData');
 const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
+const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
+const { buildCardDueAlerts, isCardInDueWindow, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
+const { istDateStr } = require('./utils/istDate');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -729,6 +732,43 @@ cron.schedule('0 9 * * *', async () => {
         }
     } catch (err) {
         console.error('[Cron:PersonalLoanDue] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: credit card bill due within 3 days and unpaid — daily 9am IST ─────
+cron.schedule('0 9 * * *', async () => {
+    try {
+        const today = istDateStr();
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
+                // Due-window filter first, so the payments query only runs for
+                // the few days each cycle a card is actually about to be due.
+                const dueCards = cards.filter(c => isCardInDueWindow(c, today));
+                if (!dueCards.length) continue;
+
+                const paidByCard = new Map();
+                for (const card of dueCards) {
+                    paidByCard.set(card.id, await fetchCardPaymentsSince(pool, user_id, card.id, card.last_statement_close_date));
+                }
+
+                for (const alert of buildCardDueAlerts(dueCards, paidByCard, today)) {
+                    await notifyOnce(user_id, alert.alertKey, {
+                        title: alert.title,
+                        body: alert.body,
+                        data: alert.data,
+                    });
+                }
+            } catch (err) {
+                console.error(`[Cron:CardDue] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:CardDue] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 

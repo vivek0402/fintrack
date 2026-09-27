@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { effectivePrefs, validatePrefsPayload } = require('../utils/notificationPrefs');
 const router = express.Router();
 
 router.use(auth);
@@ -38,6 +39,43 @@ router.delete('/register-token', async (req, res) => {
         );
         res.json({ ok: true });
     } catch (err) {
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// Notification settings (the profile page toggles). `stored: false` means the
+// user has never saved any server-side, so the client can upload its older
+// localStorage copy; prefs are then the all-on defaults.
+router.get('/prefs', async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            'SELECT notification_prefs FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        const stored = rows[0]?.notification_prefs || null;
+        res.json({ prefs: effectivePrefs(stored), stored: !!stored });
+    } catch (err) {
+        console.error('[Notifications] prefs get error:', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
+// Update some or all toggles; unspecified keys keep their stored value.
+router.put('/prefs', async (req, res) => {
+    const { prefs, error } = validatePrefsPayload(req.body);
+    if (error) return res.status(400).json({ error });
+    try {
+        const { rows } = await pool.query(
+            `UPDATE users
+             SET notification_prefs = COALESCE(notification_prefs, '{}'::jsonb) || $2::jsonb
+             WHERE id = $1
+             RETURNING notification_prefs`,
+            [req.user.id, JSON.stringify(prefs)]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'User not found.' });
+        res.json({ prefs: effectivePrefs(rows[0].notification_prefs), stored: true });
+    } catch (err) {
+        console.error('[Notifications] prefs put error:', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

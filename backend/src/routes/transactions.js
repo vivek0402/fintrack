@@ -8,6 +8,7 @@ const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goa
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const { suggest, learnInBackground, unlearnInBackground, relearnInBackground } = require('../utils/txClassifierStore');
 const { collectEntrySignals } = require('../utils/txEntrySignals');
+const { checkLargeCharge } = require('../utils/largeChargeAlert');
 const router = express.Router();
 
 router.use(auth);
@@ -168,6 +169,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidDateString(date))
             return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
+        let isInvestmentCategory = false; // set by the category check below; feeds the large-charge skip rules
         if (credit_card_id) {
             // credit_card_id is only meaningful for user-entered spend -- the
             // income-side leg of a bill payment is written directly by
@@ -189,11 +191,12 @@ router.post('/', async (req, res) => {
             // are all NOT NULL and must stay strict -- don't copy this OR-NULL
             // pattern onto them.
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+                `SELECT id, is_investment_category FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)
                 return res.status(400).json({ error: 'Invalid category_id.' });
+            isInvestmentCategory = categoryCheck[0].is_investment_category === true;
         }
         if (account_id) {
             const { rows: accountCheck } = await pool.query(
@@ -202,6 +205,18 @@ router.post('/', async (req, res) => {
             );
             if (!accountCheck.length)
                 return res.status(400).json({ error: 'Invalid account_id.' });
+        }
+        if (goal_id) {
+            // Same ownership check PUT runs. The goal_id FK only proves the goal
+            // exists, not that it's this user's, so check before the INSERT
+            // below stores it. applyGoalContribution's own user_id filter stays
+            // as a second guard (e.g. goal deleted between here and there).
+            const { rows: goalCheck } = await pool.query(
+                'SELECT id FROM savings_goals WHERE id = $1 AND user_id = $2',
+                [goal_id, req.user.id]
+            );
+            if (!goalCheck.length)
+                return res.status(400).json({ error: 'Invalid goal_id.' });
         }
 
         // Only 'manual' and 'sms' may be claimed by this public endpoint —
@@ -257,10 +272,13 @@ router.post('/', async (req, res) => {
             try {
                 await client.query('BEGIN');
 
+                // goal_id must be stored on the row: DELETE and PUT reverse/move
+                // the contribution only when the row carries it, and the
+                // savings-rate exclusion keys off it.
                 const txResult = await client.query(
-                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource]
+                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source, goal_id)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource, goal_id || null]
                 );
                 tx = txResult.rows[0];
 
@@ -458,18 +476,28 @@ router.post('/', async (req, res) => {
             } catch { /* silent — never delay response */ }
         });
 
-        // Large transaction alert (>₹5000 expenses)
+        // Large-charge alert: pushes only when this expense is unusual for its
+        // description/category history (same rule as the add-form warning),
+        // or, with too little history to judge, when it's ≥ ₹25,000. Income,
+        // transfers, goal/investment contributions and loan legs are skipped
+        // before any history query runs. See utils/largeChargeAlert.js.
+        // Recurring and card-EMI postings are inserted by their own crons,
+        // never through this route, so they never reach this check.
         setImmediate(async () => {
             try {
-                const txAmount = parseFloat(tx.amount);
-                if (txAmount < 5000 || tx.type !== 'expense') return;
-                const alertKey = `large_tx:${tx.id}`;
-                await notifyOnce(req.user.id, alertKey, {
-                    title: 'Big Spend Alert 💸',
-                    body: `You just logged ₹${txAmount.toLocaleString('en-IN')} for "${tx.description}". Hope it was totally worth it! 😊`,
-                    data: { type: 'large_transaction', tx_id: String(tx.id) },
+                const alert = await checkLargeCharge(pool, req.user.id, {
+                    ...tx, // goal_id comes from the INSERT's RETURNING *
+                    // The investment flag isn't a transactions column; it comes
+                    // from the category check above.
+                    is_investment_category: isInvestmentCategory || !!investment_details,
                 });
-            } catch { }
+                if (!alert) return;
+                await notifyOnce(req.user.id, alert.alertKey, {
+                    title: alert.title,
+                    body: alert.body,
+                    data: alert.data,
+                });
+            } catch { /* silent — never delay response */ }
         });
 
         // Category spending spike vs same period last month (≥50% increase)
