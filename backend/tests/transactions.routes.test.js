@@ -701,3 +701,171 @@ describe('GET /api/transactions/context', () => {
         expect(res.status).toBe(500);
     });
 });
+
+describe('goal-linked contributions (POST stores goal_id; DELETE/PUT reconcile it)', () => {
+    // A tiny in-memory stand-in for the two tables involved, so each test can
+    // assert on the resulting state (row stored? goal moved by how much?)
+    // rather than on SQL call order.
+    const GOAL = '11111111-1111-4111-8111-111111111111';
+    const OTHER_USERS_GOAL = '22222222-2222-4222-8222-222222222222';
+    const { notifyOnce } = require('../src/utils/fcm');
+    const flush = async () => {
+        for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r));
+    };
+    let db;
+
+    function goalUpdate(params) {
+        const [delta, goalId, userId] = params;
+        db.goalUpdates++;
+        const g = db.goals.find(x => x.id === goalId && x.user_id === userId);
+        if (!g) return { rows: [], rowCount: 0 };
+        g.saved_amount = Math.max(0, g.saved_amount + delta);
+        return { rows: [{ ...g }], rowCount: 1 };
+    }
+
+    function clientQuery(sql, params) {
+        if (sql === 'BEGIN') { db.snapshot = JSON.stringify({ goals: db.goals, txs: db.txs }); return {}; }
+        if (sql === 'COMMIT') { db.snapshot = null; return {}; }
+        if (sql === 'ROLLBACK') {
+            if (db.snapshot) Object.assign(db, JSON.parse(db.snapshot));
+            db.rolledBack = true;
+            return {};
+        }
+        if (sql.startsWith('INSERT INTO transactions')) {
+            const cols = sql.match(/\(([^)]+)\)/)[1].split(',').map(s => s.trim());
+            const row = { id: `tx-${db.txs.length + 1}`, transfer_group_id: null, personal_loan_id: null, goal_id: null };
+            cols.forEach((c, i) => { row[c] = params[i]; });
+            if (row.goal_id && !db.goals.some(g => g.id === row.goal_id))
+                throw new Error('violates foreign key constraint');
+            db.txs.push(row);
+            return { rows: [{ ...row }] };
+        }
+        if (sql.includes('FROM bank_accounts WHERE user_id')) return { rows: [] };
+        if (sql.startsWith('UPDATE savings_goals')) return goalUpdate(params);
+        if (sql.startsWith('DELETE FROM transactions WHERE id = $1')) {
+            const i = db.txs.findIndex(t => t.id === params[0] && t.user_id === params[1]);
+            if (i === -1) return { rows: [] };
+            const [row] = db.txs.splice(i, 1);
+            return { rows: [row] };
+        }
+        if (sql.startsWith('INSERT INTO transaction_deletions')) return {};
+        if (sql.startsWith('UPDATE transactions')) {
+            const t = db.txs.find(x => x.id === params[8] && x.user_id === params[9]);
+            if (params[1] !== undefined && params[1] !== null) t.amount = String(params[1]);
+            if (params[13]) t.goal_id = null;
+            else if (params[14]) t.goal_id = params[14];
+            return { rows: [{ ...t }] };
+        }
+        throw new Error(`Unexpected client query: ${sql}`);
+    }
+
+    function poolQuery(sql, params) {
+        if (sql.startsWith('SELECT id FROM savings_goals')) {
+            return { rows: db.goals.filter(g => g.id === params[0] && g.user_id === params[1]).map(g => ({ id: g.id })) };
+        }
+        if (sql.startsWith('SELECT * FROM transactions WHERE id = $1')) {
+            return { rows: db.txs.filter(t => t.id === params[0] && t.user_id === params[1]).map(t => ({ ...t })) };
+        }
+        return { rows: [] }; // fire-and-forget alert blocks
+    }
+
+    beforeEach(async () => {
+        await flush();
+        db = {
+            goals: [
+                { id: GOAL, user_id: 'user-123', name: 'Goa Trip', target_amount: 50000, saved_amount: 1000 },
+                { id: OTHER_USERS_GOAL, user_id: 'someone-else', name: 'Theirs', target_amount: 9000, saved_amount: 300 },
+            ],
+            txs: [],
+            snapshot: null,
+            rolledBack: false,
+            goalUpdates: 0,
+        };
+        pool.query.mockReset();
+        pool.connect.mockReset();
+        notifyOnce.mockReset();
+        entrySignals.assessAnomaly.mockReset();
+        pool.query.mockImplementation(async (sql, params) => poolQuery(sql, params));
+        pool.connect.mockImplementation(async () => ({
+            query: jest.fn(async (sql, params) => clientQuery(sql, params)),
+            release: jest.fn(),
+        }));
+    });
+    afterEach(async () => {
+        await flush();
+        pool.query.mockReset();
+        pool.connect.mockReset();
+    });
+
+    const saved = id => db.goals.find(g => g.id === id).saved_amount;
+    const contribute = (amount, goalId = GOAL) => request(buildApp())
+        .post('/api/transactions')
+        .send({ type: 'expense', amount, description: 'Goa trip savings', date: '2026-09-20', goal_id: goalId });
+
+    test('POST with goal_id stores it on the row and applies the contribution once', async () => {
+        const res = await contribute(2500);
+        await flush();
+
+        expect(res.status).toBe(201);
+        expect(res.body.transaction.goal_id).toBe(GOAL);
+        expect(db.txs).toHaveLength(1);
+        expect(db.txs[0].goal_id).toBe(GOAL);
+        expect(db.goalUpdates).toBe(1);
+        expect(saved(GOAL)).toBe(3500);
+        expect(res.body.goal).toMatchObject({ id: GOAL, saved_amount: 3500 });
+        // A goal contribution is never a "large charge". The alert now reads
+        // goal_id off the stored row, so the history lookup never runs.
+        expect(entrySignals.assessAnomaly).not.toHaveBeenCalled();
+    });
+
+    test('DELETE of a POSTed contribution reverses it on the goal', async () => {
+        const created = await contribute(2500);
+        expect(saved(GOAL)).toBe(3500);
+
+        const res = await request(buildApp()).delete(`/api/transactions/${created.body.transaction.id}`);
+
+        expect(res.status).toBe(200);
+        expect(db.txs).toHaveLength(0);
+        expect(saved(GOAL)).toBe(1000);
+    });
+
+    test('PUT changing the amount of a POSTed contribution moves the goal by the difference', async () => {
+        const created = await contribute(2500);
+        expect(saved(GOAL)).toBe(3500);
+
+        const res = await request(buildApp())
+            .put(`/api/transactions/${created.body.transaction.id}`)
+            .send({ amount: 4000 });
+
+        expect(res.status).toBe(200);
+        expect(db.txs[0].goal_id).toBe(GOAL);
+        expect(saved(GOAL)).toBe(5000); // net +1500 on top of the original 2500
+    });
+
+    test('POST with another user\'s goal_id is a 400: no row, no goal change', async () => {
+        const res = await contribute(2500, OTHER_USERS_GOAL);
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('Invalid goal_id.');
+        expect(db.txs).toHaveLength(0);
+        expect(saved(OTHER_USERS_GOAL)).toBe(300);
+        expect(saved(GOAL)).toBe(1000);
+        expect(db.goalUpdates).toBe(0);
+        expect(pool.connect).not.toHaveBeenCalled(); // rejected before any INSERT
+    });
+
+    test('a goal that stops being the user\'s after the check still rolls back with 400', async () => {
+        pool.query.mockImplementation(async (sql, params) => {
+            if (sql.startsWith('SELECT id FROM savings_goals')) return { rows: [{ id: GOAL }] };
+            return poolQuery(sql, params);
+        });
+        db.goals.find(g => g.id === GOAL).user_id = 'someone-else';
+
+        const res = await contribute(2500);
+
+        expect(res.status).toBe(400);
+        expect(db.rolledBack).toBe(true);
+        expect(db.txs).toHaveLength(0);
+        expect(saved(GOAL)).toBe(1000);
+    });
+});

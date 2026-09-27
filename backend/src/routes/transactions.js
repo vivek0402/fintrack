@@ -206,6 +206,18 @@ router.post('/', async (req, res) => {
             if (!accountCheck.length)
                 return res.status(400).json({ error: 'Invalid account_id.' });
         }
+        if (goal_id) {
+            // Same ownership check PUT runs. The goal_id FK only proves the goal
+            // exists, not that it's this user's, so check before the INSERT
+            // below stores it. applyGoalContribution's own user_id filter stays
+            // as a second guard (e.g. goal deleted between here and there).
+            const { rows: goalCheck } = await pool.query(
+                'SELECT id FROM savings_goals WHERE id = $1 AND user_id = $2',
+                [goal_id, req.user.id]
+            );
+            if (!goalCheck.length)
+                return res.status(400).json({ error: 'Invalid goal_id.' });
+        }
 
         // Only 'manual' and 'sms' may be claimed by this public endpoint —
         // 'cams_import'/'pdf_import' are stamped server-side by their own
@@ -260,10 +272,13 @@ router.post('/', async (req, res) => {
             try {
                 await client.query('BEGIN');
 
+                // goal_id must be stored on the row: DELETE and PUT reverse/move
+                // the contribution only when the row carries it, and the
+                // savings-rate exclusion keys off it.
                 const txResult = await client.query(
-                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource]
+                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, tags, date, account_id, credit_card_id, payment_method, source, goal_id)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+                    [req.user.id, category_id || null, type, amount, description, notes || null, tags || [], date, account_id || null, credit_card_id || null, payment_method || 'Cash', txSource, goal_id || null]
                 );
                 tx = txResult.rows[0];
 
@@ -471,10 +486,9 @@ router.post('/', async (req, res) => {
         setImmediate(async () => {
             try {
                 const alert = await checkLargeCharge(pool, req.user.id, {
-                    ...tx,
-                    // goal_id isn't stored on the row by this route, and the
-                    // investment flag comes from the category check above.
-                    goal_id: tx.goal_id || goal_id || null,
+                    ...tx, // goal_id comes from the INSERT's RETURNING *
+                    // The investment flag isn't a transactions column; it comes
+                    // from the category check above.
                     is_investment_category: isInvestmentCategory || !!investment_details,
                 });
                 if (!alert) return;
