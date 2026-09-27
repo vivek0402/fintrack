@@ -99,11 +99,14 @@ async function withStatementRemaining(pool, userId, cards) {
             return { ...card, statement_amount_due: null, statement_paid: null, statement_remaining: null };
         }
         const paid = await fetchCardPaymentsSince(pool, userId, card.id, card.last_statement_close_date);
+        // Remaining is derived from the rounded figures so due - paid = remaining exactly as shown.
+        const due2 = round2(amountDue);
+        const paid2 = round2(paid);
         return {
             ...card,
-            statement_amount_due: round2(amountDue),
-            statement_paid: round2(paid),
-            statement_remaining: Math.max(0, round2(amountDue - paid)),
+            statement_amount_due: due2,
+            statement_paid: paid2,
+            statement_remaining: Math.max(0, round2(due2 - paid2)),
         };
     }));
 }

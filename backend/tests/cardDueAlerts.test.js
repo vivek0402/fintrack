@@ -261,7 +261,8 @@ describe('withStatementRemaining', () => {
         );
         expect(c.statement_amount_due).toBe(8000.36);
         expect(c.statement_paid).toBe(1000.12);
-        expect(c.statement_remaining).toBe(7000.23);
+        // Remaining matches the two figures shown beside it: 8000.36 - 1000.12.
+        expect(c.statement_remaining).toBe(7000.24);
     });
 
     test('cards with no billing cycle get nulls and never hit the database', async () => {
