@@ -53,6 +53,25 @@ export default function RootLayout({
     `,
           }}
         />
+        {/* App lock, pre-hydration: hide app content before first paint when
+            the lock will engage, so a cold start never flashes balances.
+            Mirrors shouldLockOnPageLoad() in lib/appLock.ts (minus the native
+            check -- lock settings are only ever written in the Android app);
+            AppLockGate re-decides on mount and lifts it if needed. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+      try {
+        var l = JSON.parse(localStorage.getItem('fintrack-lock') || 'null');
+        var a = JSON.parse(localStorage.getItem('fintrack-auth') || 'null');
+        var reload = sessionStorage.getItem('fintrack-lock-session') === '1' && !localStorage.getItem('fintrack-lock-bg-at');
+        if (l && l.enabled === true && a && a.state && a.state.token && !reload) {
+          document.documentElement.setAttribute('data-app-locked', '');
+        }
+      } catch(e) {}
+    `,
+          }}
+        />
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

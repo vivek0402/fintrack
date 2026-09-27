@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/Input';
 import { useThemeStore } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
+import { SecuritySection } from '@/components/lock/SecuritySection';
 import {
     DEFAULT_NOTIF_PREFS, NotificationPrefs, cacheNotifPrefs, loadNotificationPrefs, mergeLoadedPrefs,
     readCachedNotifPrefs, revertPref, saveNotificationPref,
@@ -395,6 +396,9 @@ export default function ProfilePage() {
                         </div>
                     ))}
                 </div>
+
+                {/* ── SECURITY (Android app only — renders nothing on web) ── */}
+                <SecuritySection />
 
                 {/* ── SIGN OUT ── */}
                 <button
