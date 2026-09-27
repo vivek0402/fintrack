@@ -62,4 +62,31 @@ describe('authMiddleware', () => {
         expect(res.statusCode).toBe(401);
         expect(next).not.toHaveBeenCalled();
     });
+
+    // The long-lived Android widget token must never reach normal API routes:
+    // it only works on /api/widget/summary (middleware/widgetAuth.js).
+    test('rejects a widget-scoped token', () => {
+        const { signWidgetToken } = require('../src/utils/widgetToken');
+        const req = { headers: { authorization: `Bearer ${signWidgetToken('user-123', 0)}` } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        authMiddleware(req, res, next);
+
+        expect(res.statusCode).toBe(401);
+        expect(next).not.toHaveBeenCalled();
+        expect(req.user).toBeUndefined();
+    });
+
+    test('rejects any other scoped token too (default deny)', () => {
+        const token = jwt.sign({ id: 'user-123', scope: 'something-else' }, process.env.JWT_SECRET);
+        const req = { headers: { authorization: `Bearer ${token}` } };
+        const res = mockRes();
+        const next = jest.fn();
+
+        authMiddleware(req, res, next);
+
+        expect(res.statusCode).toBe(401);
+        expect(next).not.toHaveBeenCalled();
+    });
 });

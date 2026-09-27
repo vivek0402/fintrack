@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { isNonNegativeNumber } = require('../utils/validation');
+const { fetchBudgetsWithSpent } = require('../utils/budgetSpend');
 const router = express.Router();
 
 router.use(auth);
@@ -12,23 +13,8 @@ router.get('/', async (req, res) => {
         const m = month || new Date().getMonth() + 1;
         const y = year || new Date().getFullYear();
 
-        const result = await pool.query(
-            `SELECT b.*, c.name AS category_name, c.icon AS category_icon, c.color AS category_color,
-              c.is_investment_category,
-              COALESCE(SUM(t.amount), 0) AS spent
-       FROM budgets b
-       JOIN categories c ON b.category_id = c.id AND (c.user_id = b.user_id OR c.user_id IS NULL)
-       LEFT JOIN transactions t
-         ON t.category_id = b.category_id AND t.user_id = b.user_id
-         AND t.type = 'expense'
-         AND EXTRACT(MONTH FROM t.date) = $2
-         AND EXTRACT(YEAR  FROM t.date) = $3
-       WHERE b.user_id = $1 AND b.month = $2 AND b.year = $3
-       GROUP BY b.id, c.name, c.icon, c.color, c.is_investment_category
-       ORDER BY c.name ASC`,
-            [req.user.id, m, y]
-        );
-        res.json({ budgets: result.rows });
+        const budgets = await fetchBudgetsWithSpent(req.user.id, m, y);
+        res.json({ budgets });
     } catch (err) {
         res.status(500).json({ error: 'Server error.' });
     }
