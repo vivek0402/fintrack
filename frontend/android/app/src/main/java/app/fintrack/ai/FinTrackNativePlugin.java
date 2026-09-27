@@ -93,6 +93,52 @@ public class FinTrackNativePlugin extends Plugin {
         call.resolve();
     }
 
+    // ── Home-screen widgets ─────────────────────────────────────────────────
+    // The widgets use their own long-lived, widget-scoped token (issued by
+    // POST /api/widget/token), not the 15-minute access token above, so they
+    // keep refreshing in the background. It lives in WidgetStore's
+    // EncryptedSharedPreferences, excluded from backups.
+
+    @PluginMethod
+    public void hasWidgetToken(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("present", WidgetStore.getToken(getContext()) != null);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void saveWidgetToken(PluginCall call) {
+        String token = call.getString("token");
+        if (token == null || token.isEmpty()) {
+            call.reject("token is required");
+            return;
+        }
+        Context ctx = getContext();
+        if (!WidgetStore.saveToken(ctx, token)) {
+            call.reject("Could not save widget token");
+            return;
+        }
+        WidgetRenderer.updateAll(ctx);
+        WidgetRefresh.refreshNow(ctx);
+        call.resolve();
+    }
+
+    /** Sign-out: forget the widget token and cached numbers, show "Open FinTrack to set up". */
+    @PluginMethod
+    public void clearWidgetToken(PluginCall call) {
+        Context ctx = getContext();
+        WidgetStore.clearAll(ctx);
+        WidgetRenderer.updateAll(ctx);
+        call.resolve();
+    }
+
+    /** Fetch fresh numbers now (app start, after a transaction is saved/edited/deleted). */
+    @PluginMethod
+    public void refreshWidgets(PluginCall call) {
+        WidgetRefresh.refreshNow(getContext());
+        call.resolve();
+    }
+
     // ── App lock: biometrics ────────────────────────────────────────────────
 
     @PluginMethod
