@@ -193,6 +193,9 @@ export const notificationsAPI = {
     markRead: (id: string) => api.patch(`/api/notifications/${id}`),
     markAllRead: () => api.post('/api/notifications/read-all'),
     clearAll: () => api.delete('/api/notifications'),
+    getPrefs: () => api.get('/api/notifications/prefs'),
+    updatePrefs: (prefs: Partial<Record<'budgetAlerts' | 'billReminders' | 'goalAlerts' | 'weeklySummary', boolean>>) =>
+        api.put('/api/notifications/prefs', prefs),
 };
 
 export const goalsAPI = {

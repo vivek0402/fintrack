@@ -12,6 +12,9 @@ import { Input } from '@/components/ui/Input';
 import { useThemeStore } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
+import {
+    DEFAULT_NOTIF_PREFS, NotificationPrefs, loadNotificationPrefs, readCachedNotifPrefs, saveNotificationPrefs,
+} from '@/lib/notificationPrefs';
 
 const CURRENCIES = [
     { code: 'INR', label: 'Indian Rupee (₹)' },
@@ -55,12 +58,7 @@ export default function ProfilePage() {
     const [exporting, setExporting]     = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
     const [coachEnabled, setCoachEnabled]   = useState(true);
-    const [notifPrefs, setNotifPrefs] = useState({
-        budgetAlerts: true,
-        billReminders: true,
-        goalAlerts: true,
-        weeklySummary: true,
-    });
+    const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
 
     useEffect(() => {
         const val = localStorage.getItem('fintrack-coach-enabled');
@@ -68,12 +66,10 @@ export default function ProfilePage() {
     }, []);
 
     useEffect(() => {
-        try {
-            const stored = JSON.parse(localStorage.getItem('fintrack-notif-prefs') || '{}');
-            setNotifPrefs(prev => ({ ...prev, ...Object.fromEntries(
-                Object.keys(prev).map(k => [k, stored[k] !== false])
-            )}));
-        } catch {}
+        // Paint the cached toggles immediately, then settle on the server copy.
+        const cached = readCachedNotifPrefs();
+        if (cached) setNotifPrefs(cached);
+        loadNotificationPrefs().then(setNotifPrefs).catch(() => {});
     }, []);
 
     const toggleCoach = (enabled: boolean) => {
@@ -81,10 +77,15 @@ export default function ProfilePage() {
         localStorage.setItem('fintrack-coach-enabled', String(enabled));
     };
 
-    const toggleNotif = (key: keyof typeof notifPrefs) => {
-        const next = { ...notifPrefs, [key]: !notifPrefs[key] };
+    const toggleNotif = (key: keyof NotificationPrefs) => {
+        const prev = notifPrefs;
+        const next = { ...prev, [key]: !prev[key] };
         setNotifPrefs(next);
-        localStorage.setItem('fintrack-notif-prefs', JSON.stringify(next));
+        saveNotificationPrefs(next).catch(() => {
+            toast.error('Could not save notification settings');
+            setNotifPrefs(prev);
+            saveNotificationPrefs(prev).catch(() => {});
+        });
     };
 
     useEffect(() => { loadFromStorage(); }, []);
