@@ -20,7 +20,9 @@ jest.mock('../src/utils/txClassifierStore', () => ({
     relearnInBackground: jest.fn(),
 }));
 jest.mock('../src/utils/txEntrySignals', () => ({
+    ...jest.requireActual('../src/utils/txEntrySignals'),
     collectEntrySignals: jest.fn(),
+    assessAnomaly: jest.fn(),
 }));
 
 const express = require('express');
@@ -321,6 +323,75 @@ describe('POST /api/transactions', () => {
         const [, insertParams] = pool.query.mock.calls[2];
         expect(insertParams).toContain('cat-1');
         expect(insertParams).toContain(7);
+    });
+});
+
+describe('POST /api/transactions — large-charge alert', () => {
+    const { notifyOnce } = require('../src/utils/fcm');
+    const flush = async () => {
+        for (let i = 0; i < 5; i++) await new Promise(r => setImmediate(r));
+    };
+    const largeTxCalls = () => notifyOnce.mock.calls.filter(([, key]) => String(key).startsWith('large_tx:'));
+
+    // Earlier POST tests leave their fire-and-forget blocks queued; drain
+    // them so their calls don't land in this suite's mocks.
+    beforeEach(async () => {
+        await flush();
+        pool.query.mockReset();
+        notifyOnce.mockReset();
+        entrySignals.assessAnomaly.mockReset();
+    });
+    afterEach(async () => {
+        await flush();
+        pool.query.mockReset();
+    });
+
+    const postRent = (amount, categoryRow) => {
+        const tx = {
+            id: 'tx-rent', user_id: 'user-123', type: 'expense', amount: String(amount),
+            description: 'Rent', category_id: 'cat-rent', account_id: 7, tags: [], date: '2026-09-01',
+        };
+        pool.query
+            .mockResolvedValueOnce({ rows: [categoryRow] }) // category ownership check
+            .mockResolvedValueOnce({ rows: [{ id: 7 }] })  // account ownership check
+            .mockResolvedValueOnce({ rows: [tx] });        // INSERT transaction
+        return request(buildApp())
+            .post('/api/transactions')
+            .send({ type: 'expense', amount, description: 'Rent', date: '2026-09-01', category_id: 'cat-rent', account_id: 7 });
+    };
+
+    test('a normal ₹6,000 rent-like expense with history no longer pushes', async () => {
+        entrySignals.assessAnomaly.mockResolvedValue({ status: 'normal', basis: 'description', label: 'Rent', median: 6000, n: 12 });
+
+        const res = await postRent(6000, { id: 'cat-rent', is_investment_category: false });
+        await flush();
+
+        expect(res.status).toBe(201);
+        expect(entrySignals.assessAnomaly).toHaveBeenCalledTimes(1);
+        expect(entrySignals.assessAnomaly.mock.calls[0][2]).toMatchObject({ type: 'expense', amount: 6000, exclude_id: 'tx-rent' });
+        expect(largeTxCalls()).toHaveLength(0);
+    });
+
+    test('an anomalous expense pushes with the large_tx key', async () => {
+        entrySignals.assessAnomaly.mockResolvedValue({ status: 'anomaly', basis: 'description', label: 'Rent', median: 2000, n: 12 });
+
+        await postRent(6000, { id: 'cat-rent', is_investment_category: false });
+        await flush();
+
+        expect(largeTxCalls()).toHaveLength(1);
+        const [userId, key, payload] = largeTxCalls()[0];
+        expect(userId).toBe('user-123');
+        expect(key).toBe('large_tx:tx-rent');
+        expect(payload.body).toBe('₹6,000 on Rent is about 3× what you usually spend there (₹2,000). Worth a quick check.');
+        expect(payload.data).toMatchObject({ type: 'info', deepLink: '/transactions' });
+    });
+
+    test('investment-category expenses skip the history lookup entirely', async () => {
+        await postRent(50000, { id: 'cat-rent', is_investment_category: true });
+        await flush();
+
+        expect(entrySignals.assessAnomaly).not.toHaveBeenCalled();
+        expect(largeTxCalls()).toHaveLength(0);
     });
 });
 

@@ -50,7 +50,20 @@ async function detectDuplicate(pool, userId, { amount, description, date, exclud
     };
 }
 
-async function detectAnomaly(pool, userId, { type, amount, description, category_id, exclude_id }) {
+// Shared by the add-form warning (detectAnomaly) and the post-create push
+// (utils/largeChargeAlert.js), so both agree on what "unusual" means.
+const ANOMALY_MULTIPLE = 3;
+const MIN_DESCRIPTION_HISTORY = 3;
+const MIN_CATEGORY_HISTORY = 5;
+
+// Structured verdict behind detectAnomaly. Resolves to:
+//   null                                   -- not an expense, no opinion asked
+//   { status: 'insufficient' }             -- too little history to judge
+//   { status: 'anomaly' | 'normal', basis: 'description' | 'category',
+//     label, median, n }                   -- judged against that history
+// The description history wins when it has enough entries; otherwise the
+// category's, exactly as detectAnomaly always has.
+async function assessAnomaly(pool, userId, { type, amount, description, category_id, exclude_id }) {
     if (type !== 'expense') return null;
     const desc = (description || '').trim();
     if (desc) {
@@ -63,14 +76,14 @@ async function detectAnomaly(pool, userId, { type, amount, description, category
         );
         const n = rows[0]?.n || 0;
         const median = parseFloat(rows[0]?.median);
-        if (n >= 3) {
-            if (amount >= 3 * median) {
-                return { kind: 'anomaly', level: 'warn', text: `Higher than your usual ${inr(median)} for "${desc}" — double-check the amount?` };
-            }
-            return null;
+        if (n >= MIN_DESCRIPTION_HISTORY) {
+            return {
+                status: amount >= ANOMALY_MULTIPLE * median ? 'anomaly' : 'normal',
+                basis: 'description', label: desc, median, n,
+            };
         }
     }
-    if (!category_id) return null;
+    if (!category_id) return { status: 'insufficient' };
     const { rows } = await pool.query(
         `SELECT c.name, COUNT(t.id)::int AS n, percentile_cont(0.5) WITHIN GROUP (ORDER BY t.amount) AS median
          FROM categories c
@@ -80,10 +93,21 @@ async function detectAnomaly(pool, userId, { type, amount, description, category
          GROUP BY c.name`,
         [userId, category_id, exclude_id || null]
     );
-    if (!rows.length || rows[0].n < 5) return null;
+    if (!rows.length || rows[0].n < MIN_CATEGORY_HISTORY) return { status: 'insufficient' };
     const median = parseFloat(rows[0].median);
-    if (amount < 3 * median) return null;
-    return { kind: 'anomaly', level: 'warn', text: `About ${Math.round(amount / median)}× your typical ${rows[0].name} entry (${inr(median)}).` };
+    return {
+        status: amount >= ANOMALY_MULTIPLE * median ? 'anomaly' : 'normal',
+        basis: 'category', label: rows[0].name, median, n: rows[0].n,
+    };
+}
+
+async function detectAnomaly(pool, userId, input) {
+    const a = await assessAnomaly(pool, userId, input);
+    if (!a || a.status !== 'anomaly') return null;
+    if (a.basis === 'description') {
+        return { kind: 'anomaly', level: 'warn', text: `Higher than your usual ${inr(a.median)} for "${a.label}" — double-check the amount?` };
+    }
+    return { kind: 'anomaly', level: 'warn', text: `About ${Math.round(input.amount / a.median)}× your typical ${a.label} entry (${inr(a.median)}).` };
 }
 
 function localDate(dateStr) {
@@ -266,6 +290,7 @@ async function collectEntrySignals(pool, userId, input) {
 
 module.exports = {
     PRIORITY, inr, ordinal, istTimeLabel,
-    detectDuplicate, detectAnomaly, detectCard, detectCategoryPace, detectAccountProjection,
+    ANOMALY_MULTIPLE, MIN_DESCRIPTION_HISTORY, MIN_CATEGORY_HISTORY,
+    assessAnomaly, detectDuplicate, detectAnomaly, detectCard, detectCategoryPace, detectAccountProjection,
     detectGoalImpact, detectLateNight, detectSplitHint, collectEntrySignals,
 };

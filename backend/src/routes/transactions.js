@@ -8,6 +8,7 @@ const { applyGoalContribution, fireGoalMilestoneChecks } = require('../utils/goa
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const { suggest, learnInBackground, unlearnInBackground, relearnInBackground } = require('../utils/txClassifierStore');
 const { collectEntrySignals } = require('../utils/txEntrySignals');
+const { checkLargeCharge } = require('../utils/largeChargeAlert');
 const router = express.Router();
 
 router.use(auth);
@@ -168,6 +169,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidDateString(date))
             return res.status(400).json({ error: 'Date must be a valid date (YYYY-MM-DD).' });
+        let isInvestmentCategory = false; // set by the category check below; feeds the large-charge skip rules
         if (credit_card_id) {
             // credit_card_id is only meaningful for user-entered spend -- the
             // income-side leg of a bill payment is written directly by
@@ -189,11 +191,12 @@ router.post('/', async (req, res) => {
             // are all NOT NULL and must stay strict -- don't copy this OR-NULL
             // pattern onto them.
             const { rows: categoryCheck } = await pool.query(
-                `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
+                `SELECT id, is_investment_category FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
                 [category_id, req.user.id]
             );
             if (!categoryCheck.length)
                 return res.status(400).json({ error: 'Invalid category_id.' });
+            isInvestmentCategory = categoryCheck[0].is_investment_category === true;
         }
         if (account_id) {
             const { rows: accountCheck } = await pool.query(
@@ -458,18 +461,29 @@ router.post('/', async (req, res) => {
             } catch { /* silent — never delay response */ }
         });
 
-        // Large transaction alert (>₹5000 expenses)
+        // Large-charge alert: pushes only when this expense is unusual for its
+        // description/category history (same rule as the add-form warning),
+        // or, with too little history to judge, when it's ≥ ₹25,000. Income,
+        // transfers, goal/investment contributions and loan legs are skipped
+        // before any history query runs. See utils/largeChargeAlert.js.
+        // Recurring and card-EMI postings are inserted by their own crons,
+        // never through this route, so they never reach this check.
         setImmediate(async () => {
             try {
-                const txAmount = parseFloat(tx.amount);
-                if (txAmount < 5000 || tx.type !== 'expense') return;
-                const alertKey = `large_tx:${tx.id}`;
-                await notifyOnce(req.user.id, alertKey, {
-                    title: 'Big Spend Alert 💸',
-                    body: `You just logged ₹${txAmount.toLocaleString('en-IN')} for "${tx.description}". Hope it was totally worth it! 😊`,
-                    data: { type: 'large_transaction', tx_id: String(tx.id) },
+                const alert = await checkLargeCharge(pool, req.user.id, {
+                    ...tx,
+                    // goal_id isn't stored on the row by this route, and the
+                    // investment flag comes from the category check above.
+                    goal_id: tx.goal_id || goal_id || null,
+                    is_investment_category: isInvestmentCategory || !!investment_details,
                 });
-            } catch { }
+                if (!alert) return;
+                await notifyOnce(req.user.id, alert.alertKey, {
+                    title: alert.title,
+                    body: alert.body,
+                    data: alert.data,
+                });
+            } catch { /* silent — never delay response */ }
         });
 
         // Category spending spike vs same period last month (≥50% increase)
