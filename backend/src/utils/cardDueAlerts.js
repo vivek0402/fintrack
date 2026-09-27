@@ -34,6 +34,16 @@ function dueLabel(daysLeft) {
     return `in ${daysLeft} days`;
 }
 
+// What the bank actually bills on the last statement. statement_balance from
+// fetchCreditCardsWithCycleBreakdown also carries the card's full remaining
+// active-EMI principal (so it cancels out of new_charges_since_statement);
+// that blocked principal is not on any real statement, so strip it here.
+// Returns null when the card has no billing cycle.
+function amountDueOnStatement(card) {
+    if (card.statement_balance == null) return null;
+    return parseFloat(card.statement_balance) - (parseFloat(card.emi_blocked_principal) || 0);
+}
+
 function cardDisplayName(card) {
     return [card.bank_name, card.card_name].filter(Boolean).join(' ') || 'Credit card';
 }
@@ -53,9 +63,9 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
 
     const alerts = [];
     for (const card of cards || []) {
-        if (card.statement_balance == null || !card.statement_due_date) continue;
-        const statementBalance = parseFloat(card.statement_balance);
-        if (!(statementBalance > 0)) continue;
+        if (!card.statement_due_date) continue;
+        const statementBalance = amountDueOnStatement(card);
+        if (statementBalance == null || !(statementBalance > 0)) continue;
 
         const daysLeft = daysBetween(todayStr, card.statement_due_date);
         if (daysLeft < 0 || daysLeft > DUE_WINDOW_DAYS) continue;
@@ -91,4 +101,4 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
     return alerts;
 }
 
-module.exports = { buildCardDueAlerts, DUE_WINDOW_DAYS };
+module.exports = { buildCardDueAlerts, amountDueOnStatement, DUE_WINDOW_DAYS };

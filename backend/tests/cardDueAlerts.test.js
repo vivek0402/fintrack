@@ -1,4 +1,4 @@
-const { buildCardDueAlerts } = require('../src/utils/cardDueAlerts');
+const { buildCardDueAlerts, amountDueOnStatement } = require('../src/utils/cardDueAlerts');
 
 const TODAY = '2026-09-27';
 
@@ -102,8 +102,53 @@ describe('buildCardDueAlerts', () => {
         expect(alerts.map(a => a.cardId)).toEqual([1]);
     });
 
+    // statement_balance from fetchCreditCardsWithCycleBreakdown includes the
+    // card's full remaining active-EMI principal; the real bill does not.
+    describe('card with an active EMI', () => {
+        // Real bill 12,000 + 36,000 blocked EMI principal.
+        const emiCard = (over = {}) => card({ statement_balance: 48000, emi_blocked_principal: 36000, ...over });
+
+        test('real bill fully paid, EMI principal still outstanding -> no alert', () => {
+            expect(buildCardDueAlerts([emiCard()], new Map([[7, 12000]]), TODAY)).toEqual([]);
+        });
+
+        test('unpaid -> alert shows the bill amount without the EMI principal', () => {
+            const [alert] = buildCardDueAlerts([emiCard()], new Map(), TODAY);
+            expect(alert.body).toMatch(/^₹12,000 unpaid, due /);
+            expect(alert.body).not.toContain('48,000');
+        });
+
+        test('partially paid -> remaining and total both exclude the EMI principal', () => {
+            const [alert] = buildCardDueAlerts([emiCard()], new Map([[7, 5000]]), TODAY);
+            expect(alert.body).toMatch(/^₹7,000 of ₹12,000 still unpaid/);
+        });
+
+        test('statement is nothing but blocked EMI principal -> no alert', () => {
+            expect(buildCardDueAlerts([emiCard({ statement_balance: 36000 })], new Map(), TODAY)).toEqual([]);
+        });
+
+        test('accepts emi_blocked_principal as a numeric string', () => {
+            const [alert] = buildCardDueAlerts([emiCard({ emi_blocked_principal: '36000.00' })], new Map(), TODAY);
+            expect(alert.body).toMatch(/^₹12,000 unpaid/);
+        });
+    });
+
     test('rounds amounts to whole rupees, no decimals', () => {
         const [alert] = buildCardDueAlerts([card({ statement_balance: 1234567.89 })], new Map(), TODAY);
         expect(alert.body).toMatch(/^₹12,34,568 unpaid/);
+    });
+});
+
+describe('amountDueOnStatement', () => {
+    test('subtracts blocked EMI principal from statement_balance', () => {
+        expect(amountDueOnStatement({ statement_balance: 48000, emi_blocked_principal: 36000 })).toBe(12000);
+    });
+
+    test('treats a missing emi_blocked_principal as 0', () => {
+        expect(amountDueOnStatement({ statement_balance: 5000 })).toBe(5000);
+    });
+
+    test('null when the card has no billing cycle', () => {
+        expect(amountDueOnStatement({ statement_balance: null, emi_blocked_principal: 0 })).toBeNull();
     });
 });

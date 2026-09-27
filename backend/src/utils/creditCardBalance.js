@@ -176,8 +176,14 @@ async function fetchCreditCardsWithCycleBreakdown(pool, userId) {
     const emiByCard = new Map(emiPrincipals.map(e => [e.credit_card_id, e.remaining_principal]));
     return Promise.all(cards.map(async card => {
         const emiPrincipal = emiByCard.get(card.id) || 0;
+        // emi_blocked_principal (additive): the active-EMI principal that was
+        // just folded into statement_balance purely so it cancels out of
+        // new_charges_since_statement. It is NOT part of what the bank will
+        // bill, so any caller that needs "the amount actually due on the
+        // statement" (e.g. the card-due push in utils/cardDueAlerts.js) must
+        // use statement_balance - emi_blocked_principal.
         if (!card.billing_date) {
-            return { ...card, statement_balance: null, new_charges_since_statement: null, last_statement_close_date: null, statement_due_date: null };
+            return { ...card, statement_balance: null, new_charges_since_statement: null, last_statement_close_date: null, statement_due_date: null, emi_blocked_principal: emiPrincipal };
         }
         const closeDate = getLastStatementCloseDate(card.billing_date);
         const closeDateStr = toDateStr(closeDate);
@@ -196,6 +202,7 @@ async function fetchCreditCardsWithCycleBreakdown(pool, userId) {
             new_charges_since_statement: parseFloat((currentOutstanding - statementBalance).toFixed(2)),
             last_statement_close_date: closeDateStr,
             statement_due_date: toDateStr(dueDate),
+            emi_blocked_principal: emiPrincipal,
         };
     }));
 }

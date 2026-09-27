@@ -37,7 +37,7 @@ const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
-const { buildCardDueAlerts } = require('./utils/cardDueAlerts');
+const { buildCardDueAlerts, amountDueOnStatement } = require('./utils/cardDueAlerts');
 const { istDateStr } = require('./utils/istDate');
 const app = express();
 
@@ -746,7 +746,7 @@ cron.schedule('0 9 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
-                const dueCards = cards.filter(c => c.statement_due_date && parseFloat(c.statement_balance) > 0);
+                const dueCards = cards.filter(c => c.statement_due_date && amountDueOnStatement(c) > 0);
                 if (!dueCards.length) continue;
 
                 // Payments recorded via POST /api/credit-cards/:id/pay since each

@@ -161,6 +161,44 @@ describe('fetchCreditCardsWithCycleBreakdown', () => {
         expect(out.statement_balance).toBe(11000); // 8000 + 3000 EMI
         expect(out.new_charges_since_statement).toBe(1000);
     });
+
+    it('exposes the blocked EMI principal separately so callers can get the real bill amount', async () => {
+        const pool = fakePool(
+            { rows: [card({ current_outstanding_balance: '9000' })] },
+            { rows: [emiRow({ credit_card_id: 1, remaining_principal: '3000' })] },
+            { rows: [emiRow({ credit_card_id: 1, remaining_principal: '3000' })] },
+            { rows: [{ statement_balance: '8000' }] },
+        );
+        const [out] = await fetchCreditCardsWithCycleBreakdown(pool, 'u1');
+
+        expect(out.emi_blocked_principal).toBe(3000);
+        // statement_balance itself is unchanged (additive field only)...
+        expect(out.statement_balance).toBe(11000);
+        // ...and subtracting recovers the transaction-based statement.
+        expect(out.statement_balance - out.emi_blocked_principal).toBe(8000);
+    });
+
+    it('reports 0 blocked EMI principal for a card with no active EMI', async () => {
+        const pool = fakePool(
+            { rows: [card()] },
+            NO_EMIS,
+            NO_EMIS,
+            { rows: [{ statement_balance: '8000' }] },
+        );
+        const [out] = await fetchCreditCardsWithCycleBreakdown(pool, 'u1');
+        expect(out.emi_blocked_principal).toBe(0);
+    });
+
+    it('reports blocked EMI principal even when the card has no billing date', async () => {
+        const pool = fakePool(
+            { rows: [card({ billing_date: null, current_outstanding_balance: '9000' })] },
+            { rows: [emiRow({ credit_card_id: 1, remaining_principal: '3000' })] },
+            { rows: [emiRow({ credit_card_id: 1, remaining_principal: '3000' })] },
+        );
+        const [out] = await fetchCreditCardsWithCycleBreakdown(pool, 'u1');
+        expect(out.statement_balance).toBeNull();
+        expect(out.emi_blocked_principal).toBe(3000);
+    });
 });
 
 describe('getLastStatementCloseDate', () => {
