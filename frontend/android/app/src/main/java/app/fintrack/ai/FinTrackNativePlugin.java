@@ -99,6 +99,14 @@ public class FinTrackNativePlugin extends Plugin {
     // keep refreshing in the background. It lives in WidgetStore's
     // EncryptedSharedPreferences, excluded from backups.
 
+    /** Whether any FinTrack widget is on the home screen (no point minting a token otherwise). */
+    @PluginMethod
+    public void hasWidgets(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("present", WidgetRefresh.hasAnyWidgets(getContext()));
+        call.resolve(ret);
+    }
+
     @PluginMethod
     public void hasWidgetToken(PluginCall call) {
         JSObject ret = new JSObject();

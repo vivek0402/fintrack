@@ -51,6 +51,7 @@ final class WidgetRenderer {
         String monthSpent = DASH;
         String monthBudgetTotal = "";
         double monthBudgetTotalValue;
+        String budgetSpent = "";
         String budgetLeft = "";
         String budgetOver = "";
         boolean budgetIsOver;
@@ -84,6 +85,7 @@ final class WidgetRenderer {
             m.today = d.optString("today_spent", DASH);
             m.monthSpent = d.optString("month_spent", DASH);
             m.monthBudgetTotal = d.optString("month_budget_total", "");
+            m.budgetSpent = d.optString("budget_spent", "");
             m.monthBudgetTotalValue = s.optDouble("month_budget_total", 0);
             m.budgetLeft = d.optString("budget_left", "");
             m.budgetOver = d.optString("budget_over", "");
@@ -212,9 +214,16 @@ final class WidgetRenderer {
 
         v.setTextViewText(R.id.widget_today_amount, m.today);
         v.setTextViewText(R.id.widget_month_amount, m.monthSpent);
-        v.setTextViewText(R.id.widget_month_of, m.monthBudgetTotalValue > 0
-            ? "of " + m.monthBudgetTotal
-            : (m.loaded ? ctx.getString(R.string.widget_no_budget) : ""));
+        // Budgeted spend against the budget total, like for like. (month_spent
+        // above covers every category, so "of <budget total>" under it could
+        // read "26,600 of 18,000".) No budgets: no sub-line.
+        if (m.monthBudgetTotalValue > 0) {
+            v.setViewVisibility(R.id.widget_month_of, View.VISIBLE);
+            v.setTextViewText(R.id.widget_month_of,
+                m.budgetSpent + " of " + m.monthBudgetTotal + " budgeted");
+        } else {
+            v.setViewVisibility(R.id.widget_month_of, View.GONE);
+        }
 
         PendingIntent budgets = openScreen(ctx, "budgets", RC_BUDGETS);
         for (int i = 0; i < ROWS.length; i++) {
