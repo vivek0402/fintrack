@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_LOCK_SETTINGS, LockSettings, NO_ATTEMPTS, PBKDF2_ITERATIONS,
-    attemptsLeft, constantTimeEqual, cooldownRemainingMs, hashPin, parseAttempts, parseSettings,
+    attemptsLeft, constantTimeEqual, cooldownRemainingMs, hashPin, isUsablePinHash, parseAttempts, parseSettings,
     registerFailure, shouldLockOnColdStart, shouldLockOnPageLoad, shouldLockOnResume, verifyPin,
 } from './appLock';
 
@@ -55,6 +55,20 @@ describe('resume grace', () => {
     it('a resume with no recorded background (e.g. after the fingerprint dialog) never locks', () => {
         const s = { ...on, graceMs: 0 as const };
         expect(shouldLockOnResume({ ...ctx, settings: s, backgroundedAt: null, now: t0 })).toBe(false);
+    });
+    it('setting the clock back locks instead of extending the grace', () => {
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 - 1 })).toBe(true);
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 - 3_600_000 })).toBe(true);
+    });
+    it('the monotonic clock wins when the wall clock under-reports time away', () => {
+        // Away 5 min, but the wall clock was set back so it reads 10s.
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 + 10_000, bgElapsed: 50_000, nowElapsed: 350_000 })).toBe(true);
+        // Genuinely 10s away on both clocks.
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 + 10_000, bgElapsed: 50_000, nowElapsed: 60_000 })).toBe(false);
+        // elapsedRealtime went backwards (reboot) — lock.
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 + 10_000, bgElapsed: 50_000, nowElapsed: 1_000 })).toBe(true);
+        // No monotonic reading — wall clock alone decides.
+        expect(shouldLockOnResume({ ...ctx, backgroundedAt: t0, now: t0 + 10_000, bgElapsed: null, nowElapsed: 60_000 })).toBe(false);
     });
     it('never locks when lock is off or on web', () => {
         expect(shouldLockOnResume({ ...ctx, settings: DEFAULT_LOCK_SETTINGS, backgroundedAt: t0, now: t0 + 1e9 })).toBe(false);
@@ -112,7 +126,7 @@ describe('PIN hashing', () => {
     });
 
     it('rejects a wrong PIN', async () => {
-        const h = await hashPin('1234', fast);
+        const h = await hashPin('1234');
         expect(await verifyPin('1234', h)).toBe(true);
         expect(await verifyPin('1235', h)).toBe(false);
         expect(await verifyPin('1234', null)).toBe(false);
@@ -125,6 +139,15 @@ describe('PIN hashing', () => {
         expect(a).not.toEqual(b);
         const salt = new Uint8Array(16).fill(7);
         expect(await hashPin('0000', { ...fast, salt })).toEqual(await hashPin('0000', { ...fast, salt }));
+    });
+
+    it('refuses stored hashes below 100k iterations (treated as no PIN)', async () => {
+        const weak = await hashPin('1234', { iterations: 99_999 });
+        expect(isUsablePinHash(weak)).toBe(false);
+        expect(await verifyPin('1234', weak)).toBe(false);
+        expect(isUsablePinHash(await hashPin('1234', { iterations: 100_000 }))).toBe(true);
+        expect(isUsablePinHash(null)).toBe(false);
+        expect(isUsablePinHash('pbkdf2-sha256$150000$$')).toBe(false);
     });
 
     it('constant-time compare handles length mismatch', () => {

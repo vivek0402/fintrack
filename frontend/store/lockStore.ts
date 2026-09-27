@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import {
-    DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_SESSION_KEY, LockSettings,
+    DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
     clearLockStorage, readSettings, writeSettings,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
@@ -16,6 +16,10 @@ function session(): Storage | null {
 export function setContentHidden(hidden: boolean): void {
     if (typeof document === 'undefined') return;
     document.documentElement.toggleAttribute(LOCKED_ATTR, hidden);
+}
+
+export function isContentHidden(): boolean {
+    return typeof document !== 'undefined' && document.documentElement.hasAttribute(LOCKED_ATTR);
 }
 
 interface LockStore {
@@ -56,15 +60,20 @@ export const useLockStore = create<LockStore>((set, get) => ({
         try {
             session()?.setItem(LOCK_SESSION_KEY, '1');
             local()?.removeItem(LOCK_BG_AT_KEY);
+            local()?.removeItem(LOCK_BG_ELAPSED_KEY);
         } catch { /* ignore */ }
         setContentHidden(false);
         set({ locked: false });
     },
 
     // Logout / "Forgot PIN" / lockout: forget everything, native side included.
+    // If content is hidden right now (locked, or backgrounded), it stays
+    // hidden: the caller is about to navigate to /login, and revealing it here
+    // would paint the old page's balances for a frame first. AppLockGate
+    // reveals once a logged-out route has rendered; a full reload starts
+    // unhidden anyway since the head script finds no token.
     reset: () => {
         clearLockStorage(local(), session());
-        setContentHidden(false);
         set({ settings: { ...DEFAULT_LOCK_SETTINGS }, locked: false });
         FinTrackNative.clearLock().catch(() => {});
     },

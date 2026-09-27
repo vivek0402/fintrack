@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FingerprintPattern } from 'lucide-react';
 import {
-    AttemptState, NO_ATTEMPTS, PIN_LENGTH, attemptsLeft, cooldownRemainingMs, readAttempts,
+    AttemptState, NO_ATTEMPTS, PIN_LENGTH, attemptsLeft, cooldownRemainingMs, isUsablePinHash, readAttempts,
     registerFailure, verifyPin, writeAttempts,
 } from '@/lib/appLock';
 import { FinTrackNative, BiometricAvailability } from '@/plugins/FinTrackNativePlugin';
@@ -34,6 +34,11 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
     onCancel?: () => void;
 }) {
     const biometricOn = useLockStore(s => s.settings.biometric);
+    const setSettings = useLockStore(s => s.setSettings);
+    // 'missing' = there's no usable PIN hash on this phone (encrypted store was
+    // reset, or app data restored onto a new phone). Nothing can be checked,
+    // so no attempt is ever counted — the only way forward is to log in again.
+    const [hashState, setHashState] = useState<'unknown' | 'ok' | 'missing'>('unknown');
     const [view, setView] = useState<'fingerprint' | 'pin'>(biometricOn ? 'fingerprint' : 'pin');
     const [bio, setBio] = useState<BiometricAvailability | null>(null);
     const [pin, setPin] = useState('');
@@ -65,6 +70,13 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
                 negativeText: 'Use PIN',
             });
             if (r.result === 'success') succeed();
+            else if (r.result === 'invalidated') {
+                // Fingerprints were added/removed since fingerprint unlock was
+                // turned on. Stop offering it until re-enabled in Settings.
+                setSettings({ biometric: false });
+                setError('Fingerprints changed on this phone. Enter your PIN.');
+                setView('pin');
+            }
             else if (r.result === 'use_pin' || r.result === 'error') setView('pin');
             // 'cancel': stay put; the big fingerprint circle re-opens the prompt.
         } catch {
@@ -72,7 +84,16 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
         } finally {
             prompting.current = false;
         }
-    }, [mode, succeed]);
+    }, [mode, succeed, setSettings]);
+
+    // Is there a PIN to check against at all?
+    useEffect(() => {
+        let cancelled = false;
+        FinTrackNative.getPinHash()
+            .then(({ hash }) => { if (!cancelled) setHashState(isUsablePinHash(hash) ? 'ok' : 'missing'); })
+            .catch(() => { if (!cancelled) setHashState('unknown'); });
+        return () => { cancelled = true; };
+    }, []);
 
     // Probe the sensor; if it's usable, open the system prompt straight away.
     useEffect(() => {
@@ -106,6 +127,7 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
         setBusy(true);
         try {
             const { hash } = await FinTrackNative.getPinHash();
+            if (!isUsablePinHash(hash)) { setPin(''); setHashState('missing'); return; }
             if (await verifyPin(entered, hash)) { succeed(); return; }
             const t = Date.now();
             const r = registerFailure(readAttempts(storage()), t);
@@ -136,6 +158,21 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
     const cancel = mode === 'verify' && onCancel
         ? <button type="button" onClick={onCancel} style={{ ...lockLinkStyle, color: 'var(--text-secondary)' }}>Cancel</button>
         : undefined;
+
+    if (hashState === 'missing') {
+        return (
+            <LockShell cover={mode === 'verify'} topAction={cancel}
+                footer={<button type="button" onClick={onForgot} style={lockLinkStyle}>Log in again</button>}>
+                <div className="glass-surface" aria-hidden="true" style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34, color: 'var(--text-primary)' }}>F</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <h1 style={lockTitleStyle}>FinTrack is locked</h1>
+                    <p style={lockSubtitleStyle}>Your lock was reset on this phone. Log in again.</p>
+                </div>
+            </LockShell>
+        );
+    }
 
     if (view === 'fingerprint') {
         return (

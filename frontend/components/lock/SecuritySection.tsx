@@ -64,9 +64,16 @@ export function SecuritySection() {
     const bioAvailable = bio === 'available';
     const off = !settings.enabled;
 
+    // Fingerprint unlock is bound to a fresh Keystore key; if it can't be
+    // made, fingerprint stays off and the PIN still works.
+    const makeBiometricKey = async () => {
+        try { return (await FinTrackNative.enableBiometricKey()).ok; } catch { return false; }
+    };
+
     const finishEnable = async (hash: string) => {
         await FinTrackNative.setPinHash({ hash });
-        setSettings({ enabled: true, biometric: bioAvailable, hideRecents: true });
+        const biometric = bioAvailable && await makeBiometricKey();
+        setSettings({ enabled: true, biometric, hideRecents: true });
         await FinTrackNative.setSecureFlag({ enabled: true }).catch(() => {});
         try { writeAttempts(window.localStorage, NO_ATTEMPTS); } catch { /* ignore */ }
         // Counts as unlocked for this session, so an in-app reload won't prompt.
@@ -93,6 +100,16 @@ export function SecuritySection() {
         router.replace('/login');
     };
 
+    const setFingerprint = async (v: boolean) => {
+        if (!v) {
+            setSettings({ biometric: false });
+            FinTrackNative.deleteBiometricKey().catch(() => {});
+            return;
+        }
+        if (await makeBiometricKey()) setSettings({ biometric: true });
+        else toast.error('Couldn’t turn on fingerprint unlock');
+    };
+
     const setHideRecents = (v: boolean) => {
         setSettings({ hideRecents: v });
         FinTrackNative.setSecureFlag({ enabled: v }).catch(() => {});
@@ -113,7 +130,7 @@ export function SecuritySection() {
             <ToggleRow label="Use fingerprint"
                 sub={bio !== null && !bioAvailable ? 'No fingerprint set up on this phone' : 'PIN still works as a backup'}
                 checked={settings.enabled && settings.biometric && bioAvailable}
-                onChange={v => setSettings({ biometric: v })}
+                onChange={setFingerprint}
                 disabled={off || !bioAvailable} />
 
             <div style={divider} />
@@ -125,7 +142,7 @@ export function SecuritySection() {
 
             <div style={divider} />
             <div style={{ padding: '12px 0', opacity: off ? 0.6 : 1 }}>
-                <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Lock after leaving the app</p>
+                <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Lock after leaving the app</p>
                 <div role="radiogroup" aria-label="Lock after leaving the app" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)' }}>
                     {GRACE_OPTIONS.map(o => {
                         const selected = settings.graceMs === o.ms;

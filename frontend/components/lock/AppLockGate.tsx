@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
-    LOCK_BG_AT_KEY, LOCK_SESSION_KEY, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
+    LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { useAuthStore } from '@/store/authStore';
-import { setContentHidden, useLockStore } from '@/store/lockStore';
+import { isContentHidden, setContentHidden, useLockStore } from '@/store/lockStore';
 import { LockScreen } from './LockScreen';
 import { isNativeApp, useIsClient } from './useIsNative';
 
@@ -15,11 +15,32 @@ import { isNativeApp, useIsClient } from './useIsNative';
 // remounts (AppLayoutGate swaps branches between bare and chromed routes).
 let pageLoadHandled = false;
 
+// Routes a logged-out user lands on. Content hidden by a lock that was reset
+// (logout while locked) is revealed only once one of these has rendered.
+const LOGGED_OUT_ROUTES = ['/login', '/register', '/forgot-password'];
+
 function local(): Storage | null {
     try { return window.localStorage; } catch { return null; }
 }
 
-function decideOnPageLoad() {
+function removeBgKeys(storage: Storage | null) {
+    try {
+        storage?.removeItem(LOCK_BG_AT_KEY);
+        storage?.removeItem(LOCK_BG_ELAPSED_KEY);
+    } catch { /* ignore */ }
+}
+
+async function nativeElapsed(): Promise<number | null> {
+    try {
+        const { ms } = await FinTrackNative.elapsedRealtime();
+        return typeof ms === 'number' && Number.isFinite(ms) ? ms : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Runs once per page load, before the first hydrated paint. Exported for tests. */
+export function decideOnPageLoad(): void {
     const store = useLockStore.getState();
     const isNative = isNativeApp();
     let sessionUnlocked = false;
@@ -45,6 +66,62 @@ function decideOnPageLoad() {
 }
 
 /**
+ * Capacitor appStateChange handler. Exported for tests.
+ * Capacitor fires isActive=false from onStop (actually left the app), and
+ * isActive=true from every onResume — including the one after the
+ * fingerprint dialog, which has no matching stop and so never locks.
+ */
+export async function handleAppStateChange(isActive: boolean): Promise<void> {
+    const store = useLockStore.getState();
+    const loggedIn = !!useAuthStore.getState().token;
+    if (!store.settings.enabled || !loggedIn) return;
+    const storage = local();
+
+    if (!isActive) {
+        const at = Date.now();
+        try {
+            storage?.setItem(LOCK_BG_AT_KEY, String(at));
+            storage?.removeItem(LOCK_BG_ELAPSED_KEY);
+        } catch { /* ignore */ }
+        // Hide content now, while nobody is looking, so coming back past the
+        // grace period can't flash it before the resume handler runs.
+        setContentHidden(true);
+        const elapsed = await nativeElapsed();
+        if (elapsed !== null && readTimestamp(storage, LOCK_BG_AT_KEY) === at) {
+            try { storage?.setItem(LOCK_BG_ELAPSED_KEY, String(elapsed)); } catch { /* ignore */ }
+        }
+        return;
+    }
+
+    const backgroundedAt = readTimestamp(storage, LOCK_BG_AT_KEY);
+    if (store.locked) {
+        if (backgroundedAt !== null) {
+            removeBgKeys(storage);
+            store.requestPrompt();
+        }
+        return;
+    }
+    if (backgroundedAt === null) return; // e.g. resume after the fingerprint dialog
+
+    const bgElapsed = readTimestamp(storage, LOCK_BG_ELAPSED_KEY);
+    const nowElapsed = await nativeElapsed();
+    // Another background/resume raced past us while awaiting; it decides.
+    if (readTimestamp(storage, LOCK_BG_AT_KEY) !== backgroundedAt) return;
+    const current = useLockStore.getState();
+    if (current.locked) return;
+
+    if (shouldLockOnResume({
+        settings: current.settings, loggedIn: !!useAuthStore.getState().token, isNative: true,
+        backgroundedAt, now: Date.now(), bgElapsed, nowElapsed,
+    })) {
+        current.lock();
+    } else {
+        removeBgKeys(storage);
+        setContentHidden(false);
+    }
+}
+
+/**
  * Persistent app-lock controller. Mounted in AppLayoutGate (which, unlike
  * AppLayout, survives navigation). Decides the cold-start lock before the
  * first hydrated paint, watches background/foreground, and renders the lock
@@ -52,16 +129,27 @@ function decideOnPageLoad() {
  */
 export function AppLockGate() {
     const router = useRouter();
+    const pathname = usePathname();
     const isClient = useIsClient();
     const locked = useLockStore(s => s.locked);
     const promptNonce = useLockStore(s => s.promptNonce);
     const unlock = useLockStore(s => s.unlock);
+    const token = useAuthStore(s => s.token);
 
     useLayoutEffect(() => {
         if (pageLoadHandled) return;
         pageLoadHandled = true;
         decideOnPageLoad();
     }, []);
+
+    // A lock reset while content was hidden (Forgot PIN, 10th wrong PIN,
+    // failed token refresh) leaves it hidden until the logged-out screen is
+    // what's actually on screen.
+    useEffect(() => {
+        if (locked || token || !isContentHidden()) return;
+        const path = (pathname ?? '').replace(/\/+$/, '');
+        if (LOGGED_OUT_ROUTES.some(r => path === r || path.startsWith(r + '/'))) setContentHidden(false);
+    }, [pathname, locked, token]);
 
     useEffect(() => {
         if (!isNativeApp()) return;
@@ -72,39 +160,7 @@ export function AppLockGate() {
             try {
                 const { App } = await import('@capacitor/app');
                 if (cancelled) return;
-                // Capacitor fires isActive=false from onStop (actually left the
-                // app), and isActive=true from every onResume — including the
-                // one after the fingerprint dialog, which has no matching stop.
-                handle = await App.addListener('appStateChange', ({ isActive }) => {
-                    const store = useLockStore.getState();
-                    const loggedIn = !!useAuthStore.getState().token;
-                    if (!store.settings.enabled || !loggedIn) return;
-                    const storage = local();
-
-                    if (!isActive) {
-                        try { storage?.setItem(LOCK_BG_AT_KEY, String(Date.now())); } catch { /* ignore */ }
-                        // Hide content now, while nobody is looking, so coming
-                        // back past the grace period can't flash it before the
-                        // resume handler runs. Undone below if within grace.
-                        setContentHidden(true);
-                        return;
-                    }
-
-                    const backgroundedAt = readTimestamp(storage, LOCK_BG_AT_KEY);
-                    if (store.locked) {
-                        if (backgroundedAt !== null) {
-                            try { storage?.removeItem(LOCK_BG_AT_KEY); } catch { /* ignore */ }
-                            store.requestPrompt();
-                        }
-                        return;
-                    }
-                    if (shouldLockOnResume({ settings: store.settings, loggedIn, isNative: true, backgroundedAt, now: Date.now() })) {
-                        store.lock();
-                    } else {
-                        try { storage?.removeItem(LOCK_BG_AT_KEY); } catch { /* ignore */ }
-                        setContentHidden(false);
-                    }
-                });
+                handle = await App.addListener('appStateChange', ({ isActive }) => { handleAppStateChange(isActive); });
                 if (cancelled) handle.remove();
             } catch { /* not in Capacitor */ }
         })();
@@ -116,11 +172,17 @@ export function AppLockGate() {
     }, []);
 
     const onForgot = useCallback(() => {
-        // logout() also resets the lock (settings, PIN hash, FLAG_SECURE).
+        // logout() also resets the lock (settings, PIN hash, key, FLAG_SECURE)
+        // but keeps content hidden until /login renders.
         useAuthStore.getState().logout();
         router.replace('/login');
     }, [router]);
 
     if (!isClient || !locked) return null;
     return <LockScreen mode="unlock" promptKey={promptNonce} onSuccess={unlock} onForgot={onForgot} />;
+}
+
+/** Test hook: let decideOnPageLoad run again as if on a fresh document. */
+export function __resetPageLoadForTests() {
+    pageLoadHandled = false;
 }

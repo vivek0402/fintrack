@@ -34,6 +34,10 @@ export const LOCK_SETTINGS_KEY = 'fintrack-lock';
 export const LOCK_ATTEMPTS_KEY = 'fintrack-lock-attempts';
 export const LOCK_BG_AT_KEY = 'fintrack-lock-bg-at';
 export const LOCK_SESSION_KEY = 'fintrack-lock-session';
+// SystemClock.elapsedRealtime() at the moment we went to the background.
+// Unlike Date.now() the user can't set it back, and it keeps counting while
+// the phone sleeps.
+export const LOCK_BG_ELAPSED_KEY = 'fintrack-lock-bg-elapsed';
 // Set on <html> while app content must not be visible (globals.css hides it).
 export const LOCKED_ATTR = 'data-app-locked';
 export const COVER_ATTR = 'data-lock-cover';
@@ -72,6 +76,7 @@ export function clearLockStorage(storage: RWStore | null, session?: RWStore | nu
         storage?.removeItem(LOCK_SETTINGS_KEY);
         storage?.removeItem(LOCK_ATTEMPTS_KEY);
         storage?.removeItem(LOCK_BG_AT_KEY);
+        storage?.removeItem(LOCK_BG_ELAPSED_KEY);
         session?.removeItem(LOCK_SESSION_KEY);
     } catch { /* storage unavailable */ }
 }
@@ -109,10 +114,29 @@ export function shouldLockOnPageLoad(ctx: LockContext & { sessionUnlocked: boole
     return !(ctx.sessionUnlocked && ctx.backgroundedAt === null);
 }
 
-/** Returning from the background: lock once the chosen grace has elapsed. */
-export function shouldLockOnResume(ctx: LockContext & { backgroundedAt: number | null; now: number }): boolean {
+/**
+ * Returning from the background: lock once the chosen grace has elapsed.
+ * Time away is judged on the wall clock AND, when the native side reported
+ * it, the monotonic elapsedRealtime clock — either one saying "long enough"
+ * locks. Any clock running backwards (the user set the time back; a reboot
+ * reset elapsedRealtime) locks too, so a clock trick can only ever lock
+ * sooner, never later.
+ */
+export function shouldLockOnResume(ctx: LockContext & {
+    backgroundedAt: number | null;
+    now: number;
+    bgElapsed?: number | null;
+    nowElapsed?: number | null;
+}): boolean {
     if (!shouldLockOnColdStart(ctx) || ctx.backgroundedAt === null) return false;
-    return ctx.now - ctx.backgroundedAt >= ctx.settings.graceMs;
+    const grace = ctx.settings.graceMs;
+    const wall = ctx.now - ctx.backgroundedAt;
+    if (wall < 0 || wall >= grace) return true;
+    if (ctx.bgElapsed != null && ctx.nowElapsed != null) {
+        const mono = ctx.nowElapsed - ctx.bgElapsed;
+        if (mono < 0 || mono >= grace) return true;
+    }
+    return false;
 }
 
 // ── Wrong-PIN attempts ───────────────────────────────────────────────────────
@@ -178,6 +202,8 @@ export function writeAttempts(storage: RWStore | null, state: AttemptState): voi
 
 export const PIN_LENGTH = 4;
 export const PBKDF2_ITERATIONS = 150_000;
+// Stored hashes weaker than this are treated as no PIN at all.
+export const MIN_PBKDF2_ITERATIONS = 100_000;
 const SALT_BYTES = 16;
 const HASH_BITS = 256;
 const SCHEME = 'pbkdf2-sha256';
@@ -230,15 +256,31 @@ export function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
     return diff === 0;
 }
 
-export async function verifyPin(pin: string, stored: string | null | undefined): Promise<boolean> {
-    if (!stored) return false;
+function parseStoredHash(stored: string | null | undefined): { iterations: number; salt: string; hash: string } | null {
+    if (!stored) return null;
     const parts = stored.split('$');
-    if (parts.length !== 4 || parts[0] !== SCHEME) return false;
+    if (parts.length !== 4 || parts[0] !== SCHEME) return null;
     const iterations = Number(parts[1]);
-    if (!Number.isInteger(iterations) || iterations < 1) return false;
+    if (!Number.isInteger(iterations) || iterations < MIN_PBKDF2_ITERATIONS) return null;
+    if (!parts[2] || !parts[3]) return null;
+    return { iterations, salt: parts[2], hash: parts[3] };
+}
+
+/**
+ * False when there is nothing a PIN could be checked against: no hash (the
+ * encrypted store was reset, or a backup was restored onto a new phone),
+ * a malformed one, or one below MIN_PBKDF2_ITERATIONS.
+ */
+export function isUsablePinHash(stored: string | null | undefined): boolean {
+    return parseStoredHash(stored) !== null;
+}
+
+export async function verifyPin(pin: string, stored: string | null | undefined): Promise<boolean> {
+    const parsed = parseStoredHash(stored);
+    if (!parsed) return false;
     try {
-        const expected = fromB64(parts[3]);
-        const actual = await derive(pin, fromB64(parts[2]), iterations);
+        const expected = fromB64(parsed.hash);
+        const actual = await derive(pin, fromB64(parsed.salt), parsed.iterations);
         return constantTimeEqual(actual, expected);
     } catch {
         return false;
