@@ -195,6 +195,35 @@ export default function PlanningPage() {
         }
     };
 
+    // ── Delete plan ─────────────────────────────────────────────────────────
+
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeletePlan = async () => {
+        setDeleting(true);
+        try {
+            await planningAPI.deletePlan();
+        } catch (err: any) {
+            // A 404 means the plan is already gone, so fall through and show the wizard.
+            if (err?.response?.status !== 404) {
+                toast.error('Failed to delete your financial plan');
+                setDeleting(false);
+                return;
+            }
+        }
+        if (user?.id) localStorage.removeItem(`fintrack-planning-has-credit-card-${user.id}`);
+        setDeleteOpen(false);
+        setDeleting(false);
+        setNarrative(null);
+        setForm(EMPTY_FORM);
+        setStep(0);
+        setStepError('');
+        setActiveTab('monthly');
+        setPlanData({ exists: false });
+        toast.success('Financial plan deleted');
+    };
+
     // ── Wizard helpers ──────────────────────────────────────────────────────
 
     const updateExpense = (i: number, field: 'name' | 'amount' | 'category_id', value: string) => {
@@ -585,6 +614,9 @@ export default function PlanningPage() {
                     <Button variant="secondary" size="sm" onClick={handleRecalculateClick} isLoading={recalcLoading}>
                         Recalculate from recent spending
                     </Button>
+                    <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
+                        <Trash2 size={14} /> Delete Plan
+                    </Button>
                 </div>
             </div>
 
@@ -650,6 +682,19 @@ export default function PlanningPage() {
                         ))}
                     </div>
                 )}
+            </Modal>
+
+            <Modal isOpen={deleteOpen} onClose={() => !deleting && setDeleteOpen(false)} title="Delete Financial Plan"
+                footer={
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting} style={{ flex: 1 }}>Cancel</Button>
+                        <Button variant="danger" onClick={handleDeletePlan} isLoading={deleting} style={{ flex: 1 }}>Delete</Button>
+                    </div>
+                }
+            >
+                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
+                    This removes your plan, its expenses and projections. Your transactions and goals are not affected. You can build a new plan afterwards.
+                </p>
             </Modal>
         </div>
     );
