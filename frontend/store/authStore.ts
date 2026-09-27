@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { resetAppLock } from '@/store/lockStore';
+import { signOutWidgets } from '@/lib/widgets';
 
 interface User {
     id: string;
@@ -50,8 +51,13 @@ export const useAuthStore = create<AuthStore>()(
             },
 
             logout: () => {
+                const previousToken = get().token;
                 set({ user: null, token: null, refreshToken: null, isLoading: false });
                 FinTrackNative.clearToken().catch(() => {});
+                // Home-screen widgets: revoke their token (best effort) and
+                // switch them to "Open FinTrack to set up", never leaving the
+                // last user's numbers on the home screen.
+                signOutWidgets(previousToken);
                 // Every logout path (Sign Out, failed token refresh, "Forgot PIN")
                 // also drops the app lock: its PIN hash, settings and FLAG_SECURE.
                 resetAppLock();

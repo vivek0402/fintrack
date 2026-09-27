@@ -15,6 +15,16 @@ export interface FinTrackNativePlugin {
   clearToken(): Promise<void>;
   getFCMToken(): Promise<{ token: string }>;
 
+  // ── Home-screen widgets ──
+  /** Whether a widget-scoped token (POST /api/widget/token) is stored natively. */
+  hasWidgetToken(): Promise<{ present: boolean }>;
+  /** Stores the widget token in EncryptedSharedPreferences and refreshes the widgets. */
+  saveWidgetToken(options: { token: string }): Promise<void>;
+  /** Sign-out: forgets the widget token + cached numbers; widgets show "Open FinTrack to set up". */
+  clearWidgetToken(): Promise<void>;
+  /** Asks the widgets to fetch fresh numbers now (no-op when none are placed). */
+  refreshWidgets(): Promise<void>;
+
   // ── App lock ──
   biometricStatus(): Promise<{ status: BiometricAvailability }>;
   /** BiometricPrompt bound to a Keystore CryptoObject; success requires the authenticated cipher. */
@@ -40,6 +50,10 @@ export const FinTrackNative = registerPlugin<FinTrackNativePlugin>('FinTrackNati
     saveToken: async () => {},
     clearToken: async () => {},
     getFCMToken: async () => ({ token: '' }),
+    hasWidgetToken: async () => ({ present: false }),
+    saveWidgetToken: async () => {},
+    clearWidgetToken: async () => {},
+    refreshWidgets: async () => {},
     biometricStatus: async () => ({ status: 'no_hardware' as const }),
     authenticate: async () => ({ result: 'error' as const }),
     enableBiometricKey: async () => ({ ok: false }),

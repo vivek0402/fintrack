@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -49,7 +50,12 @@ function refreshAccessToken(): Promise<string> {
 }
 
 api.interceptors.response.use(
-    res => res,
+    res => {
+        // The one place every transaction create/edit/delete succeeds through,
+        // so the Android widgets never lag behind what was just saved.
+        if (isTransactionWrite(res.config?.method, res.config?.url)) refreshWidgets();
+        return res;
+    },
     async (err) => {
         const originalRequest = err.config;
         if (err.response?.status === 401 && originalRequest && !originalRequest._retried) {
@@ -101,6 +107,13 @@ export const transactionsAPI = {
     update: (id: string, data: object) => api.put(`/api/transactions/${id}`, data),
     delete: (id: string) => api.delete(`/api/transactions/${id}`),
     earliest: () => api.get('/api/transactions/earliest'),
+};
+
+// Android home-screen widgets: issue the long-lived widget-scoped token.
+// (Revoke on logout lives in lib/widgets.ts: it must work from authStore,
+// which this module imports.)
+export const widgetAPI = {
+    issueToken: () => api.post<{ token: string; expires_in_days: number }>('/api/widget/token'),
 };
 
 export const categoriesAPI = {

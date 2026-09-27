@@ -145,6 +145,15 @@ function TransactionsPageInner() {
             setModalOpen(true);
             router.replace('/transactions');
         }
+        // ?quickAdd=1: the Android widgets' "+". Opens the natural-language
+        // quick-add sheet directly, same as tapping the page's FAB.
+        if (searchParams.get('quickAdd') === '1') {
+            setQuickAddText('');
+            setQuickAddError('');
+            setQuickAddFailed(false);
+            setQuickAddOpen(true);
+            router.replace('/transactions');
+        }
         const ccId = searchParams.get('credit_card_id');
         if (ccId) {
             setFilterCreditCardId(Number(ccId));
