@@ -1,74 +1,139 @@
 // One-off repair: link past goal contributions to their savings goal.
 //
-// From goal linking shipping (9ce4a77, 2026-08-16) until the fix in
-// routes/transactions.js, POST /api/transactions applied a goal contribution
-// to savings_goals.saved_amount but never stored goal_id on the transaction
-// row. So deleting/editing those rows never reversed the contribution, and
-// savings-rate treated them as spending. The row records nothing about which
-// goal it was, so the only signal left is the description text. This script
-// matches it conservatively and only ever sets transactions.goal_id. It never
-// touches saved_amount: those contributions were already applied at creation.
+// From goal linking shipping (9ce4a77, 2026-08-16 15:40:22 UTC) until the
+// goal_id fix in routes/transactions.js was deployed, POST /api/transactions
+// applied a goal contribution to savings_goals.saved_amount but never stored
+// goal_id on the transaction row. So deleting/editing those rows never
+// reversed the contribution, and savings-rate treated them as spending. The
+// row records nothing about which goal it was, so the only signal left is the
+// description text. This script matches it conservatively and only ever sets
+// transactions.goal_id. It never touches saved_amount: those contributions
+// were already applied at creation.
 //
 // Run from backend/, pointed at PRODUCTION via DATABASE_URL (e.g. from a
 // Render shell, where DATABASE_URL is already set). The local DB is not prod.
 //
-//   node scripts/backfill-goal-links.js                 # dry run, writes nothing
-//   node scripts/backfill-goal-links.js --json          # dry run as JSON
-//   node scripts/backfill-goal-links.js --user <uuid>   # limit to one user
-//   node scripts/backfill-goal-links.js --apply         # write the planned links
+//   node scripts/backfill-goal-links.js --before <ISO>            # dry run, writes nothing
+//   node scripts/backfill-goal-links.js --before <ISO> --json     # dry run as JSON
+//   node scripts/backfill-goal-links.js --before <ISO> --user <uuid>
+//   node scripts/backfill-goal-links.js --before <ISO> --apply    # write "Will link"
+//   node scripts/backfill-goal-links.js --before <ISO> --apply --include <txid,txid>
 //
-// Always read the dry run first. --apply writes every planned link in ONE DB
-// transaction and rolls back if any UPDATE doesn't hit exactly one row.
-// Idempotent: linked rows have goal_id set, so a re-run won't pick them up.
+// --before is REQUIRED: the time the goal_id fix was deployed to Render, with
+// an explicit zone (e.g. 2026-09-27T10:15:00Z or 2026-09-27T15:45:00+05:30).
+// After that deploy every POSTed contribution stores goal_id, so a later
+// unlinked row that names a goal was never a contribution.
+// --after is optional and defaults to the feature commit, 2026-08-16T15:40:22Z.
 //
-// A row is linked only when ALL of these hold:
-//   - type = 'expense', goal_id IS NULL, created_at on/after 2026-08-16
+// Time zones: transactions.created_at is TIMESTAMP WITHOUT TIME ZONE written
+// by the DB's NOW(), i.e. wall-clock time in the DB session's TimeZone. This
+// script assumes that is UTC (as it is on Supabase), passes the window to SQL
+// as UTC-naive timestamps, and refuses to run if the session TimeZone isn't UTC.
+//
+// Always read the dry run first. --apply writes "Will link" plus any
+// --include ids that are in "Needs review", in ONE DB transaction, and rolls
+// back if any UPDATE doesn't hit exactly one row. Idempotent: linked rows have
+// goal_id set, so a re-run won't pick them up.
+//
+// Candidate rows (anything else is skipped, counted by reason):
+//   - type = 'expense', goal_id IS NULL, after <= created_at < before
+//   - tags IS NOT NULL: POST /api/transactions always writes at least '{}'
 //   - source = 'manual'. The goal picker lives only in TransactionModal, which
 //     never sends `source`, so the route stamps 'manual'. 'sms' rows come from
 //     SmsImporter's direct POST (no goal picker); 'pdf_import'/'cams_import'
 //     come from their own import routes.
-//   - not produced by a server-side writer that also defaults to 'manual':
-//     recurring cron (same user + description + amount as a recurring rule),
-//     card-EMI installments/purchase/fee rows, one-time-expense items,
-//     expense splits, group splits
-//   - not a transfer (tags transfer/credit_card_payment, or transfer_group_id),
-//     not an investment-category row, not a personal-loan leg
-//   - the trimmed, lower-cased description contains the lower-cased name of
-//     EXACTLY ONE of that user's goals (names under 3 chars are ignored).
-//     Two or more matches = ambiguous, listed and never touched.
-//   - amount <= the goal's current saved_amount (else "skipped: exceeds goal")
+//   - not produced by a server-side writer that also defaults to 'manual'
+//     (recurring cron, card-EMI rows, one-time-expense items, splits, group
+//     splits), not a transfer, investment-category or personal-loan row.
+//
+// Matching (text normalized: lower-case, punctuation stripped, whitespace
+// collapsed; goal names under 3 chars ignored):
+//   - Will link: the description minus filler words (to, for, savings, fund,
+//     ...) EXACTLY equals the goal name minus filler words, and that goal-name
+//     core is non-empty. "Transfer to Emergency Fund" -> goal "Emergency Fund".
+//   - Needs review: the goal name appears as a whole word/phrase but isn't an
+//     exact match, or the row was edited after creation, or its amount (or the
+//     goal's total of Will-link rows) exceeds the goal's saved_amount.
+//   - Ambiguous: 2+ goals match in either tier. Never applied.
 
-const GOAL_LINKING_SHIPPED = '2026-08-16';
+const GOAL_LINKING_SHIPPED_UTC = '2026-08-16T15:40:22Z'; // 9ce4a77, 21:10:22 +05:30
 const MIN_GOAL_NAME_LENGTH = 3;
+const EDIT_GRACE_MS = 5000;
 const ADD_FORM_SOURCES = ['manual'];
 const TRANSFER_TAGS = ['transfer', 'credit_card_payment'];
+const FILLER_WORDS = new Set([
+    'to', 'for', 'towards', 'transfer', 'transferred', 'save', 'saved', 'saving', 'savings',
+    'deposit', 'contribution', 'add', 'added', 'goal', 'fund', 'sip', 'into',
+]);
+const UTC_ZONES = new Set(['utc', 'etc/utc', 'gmt', 'etc/gmt', 'zulu', 'universal', 'etc/universal', 'etc/zulu']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ZONED_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})$/i;
 
 const SKIP_REASONS = {
     not_expense: 'not an expense',
     already_linked: 'already linked to a goal',
-    before_cutoff: `created before ${GOAL_LINKING_SHIPPED}`,
+    outside_window: 'created outside the window',
+    tags_null: 'tags NULL (not written by POST /api/transactions)',
     transfer: 'transfer / card payment',
     investment: 'investment category',
     personal_loan: 'personal-loan leg',
     source: 'source not the add-transaction form',
     system_generated: 'posted by a server-side writer (recurring/EMI/split/one-time)',
     no_match: 'no goal name in description',
-    ambiguous: 'ambiguous (2+ goal names match)',
-    exceeds_goal: "amount exceeds goal's saved_amount",
 };
 
-// 'YYYY-MM-DD' from a date/timestamp string (as CANDIDATE_SQL returns them) or a Date.
+const REVIEW_REASONS = {
+    name_match_not_exact: 'name appears but description has other words',
+    edited_after_create: 'edited after creation',
+    exceeds_goal: "amount > goal's saved_amount",
+    exceeds_goal_total: "goal's Will-link total > saved_amount",
+};
+
+function normalize(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function withoutFiller(normalized) {
+    return normalized.split(' ').filter(w => w && !FILLER_WORDS.has(w)).join(' ');
+}
+
+function escapeRegExp(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 'exact' | 'name' | null for one normalized description vs one goal name.
+function matchTier(normDescription, goalName) {
+    const normGoal = normalize(goalName);
+    if (normGoal.length < MIN_GOAL_NAME_LENGTH) return null;
+    const goalCore = withoutFiller(normGoal);
+    if (goalCore && withoutFiller(normDescription) === goalCore) return 'exact';
+    const wholeWord = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(normGoal)}(?![\\p{L}\\p{N}])`, 'iu');
+    return wholeWord.test(normDescription) ? 'name' : null;
+}
+
+// Milliseconds since epoch. Naive strings (as CANDIDATE_SQL returns them) are UTC.
+function toMs(value) {
+    if (value instanceof Date) return value.getTime();
+    const s = String(value || '');
+    return Date.parse(/(Z|[+-]\d{2}:?\d{2})$/i.test(s) ? s : `${s}Z`);
+}
+
 function ymd(value) {
     if (value instanceof Date) return value.toISOString().slice(0, 10);
     return String(value || '').slice(0, 10);
 }
 
 // Why a row can't be a goal contribution made through the add form, or null.
-function exclusionReason(tx, cutoff) {
+function exclusionReason(tx, afterMs, beforeMs) {
     if (tx.type !== 'expense') return 'not_expense';
     if (tx.goal_id) return 'already_linked';
-    if (!(ymd(tx.created_at) >= cutoff)) return 'before_cutoff';
+    const created = toMs(tx.created_at);
+    if (!(created >= afterMs && created < beforeMs)) return 'outside_window';
+    if (tx.tags === null || tx.tags === undefined) return 'tags_null';
     const tags = Array.isArray(tx.tags) ? tx.tags : [];
     if (tx.transfer_group_id || tags.some(t => TRANSFER_TAGS.includes(t))) return 'transfer';
     if (tx.is_investment_category) return 'investment';
@@ -82,28 +147,30 @@ function exclusionReason(tx, cutoff) {
 /**
  * Pure matcher: decides which transactions to link to which goal.
  * @param transactions rows with id, user_id, type, amount, description, date,
- *   created_at, goal_id, tags, transfer_group_id, personal_loan_id, group_id,
- *   source, is_investment_category, system_origin
+ *   created_at, updated_at, goal_id, tags, transfer_group_id,
+ *   personal_loan_id, group_id, source, is_investment_category, system_origin
  * @param goalsByUser  { [userId]: [{ id, name, saved_amount }] } (or a Map)
- * @param opts         { cutoff: 'YYYY-MM-DD' }
- * @returns {{ links, ambiguous, exceedsGoal, skipped, scanned }}
+ * @param opts         { after, before } ISO strings or Dates; before required
+ * @returns {{ links, review, ambiguous, skipped, scanned }}
  */
 function planGoalLinks(transactions, goalsByUser, opts = {}) {
-    const cutoff = opts.cutoff || GOAL_LINKING_SHIPPED;
+    const afterMs = toMs(opts.after || GOAL_LINKING_SHIPPED_UTC);
+    const beforeMs = toMs(opts.before);
+    if (!Number.isFinite(beforeMs)) throw new Error('planGoalLinks needs opts.before.');
     const goalsFor = userId => (goalsByUser instanceof Map ? goalsByUser.get(userId) : goalsByUser[userId]) || [];
-    const plan = { links: [], ambiguous: [], exceedsGoal: [], skipped: {}, scanned: 0 };
+    const plan = { links: [], review: [], ambiguous: [], skipped: {}, scanned: 0 };
     const skip = reason => { plan.skipped[reason] = (plan.skipped[reason] || 0) + 1; };
+    const matched = [];
 
     for (const tx of transactions) {
         plan.scanned++;
-        const reason = exclusionReason(tx, cutoff);
+        const reason = exclusionReason(tx, afterMs, beforeMs);
         if (reason) { skip(reason); continue; }
 
-        const description = String(tx.description || '').trim().toLowerCase();
-        const matches = goalsFor(tx.user_id).filter(g => {
-            const name = String(g.name || '').trim().toLowerCase();
-            return name.length >= MIN_GOAL_NAME_LENGTH && description.includes(name);
-        });
+        const normDescription = normalize(tx.description);
+        const hits = goalsFor(tx.user_id)
+            .map(goal => ({ goal, tier: matchTier(normDescription, goal.name) }))
+            .filter(h => h.tier);
         const base = {
             tx_id: tx.id,
             user_id: tx.user_id,
@@ -112,22 +179,46 @@ function planGoalLinks(transactions, goalsByUser, opts = {}) {
             description: tx.description,
         };
 
-        if (matches.length === 0) { skip('no_match'); continue; }
-        if (matches.length > 1) {
-            skip('ambiguous');
-            plan.ambiguous.push({ ...base, goal_names: matches.map(g => g.name) });
+        if (hits.length === 0) { skip('no_match'); continue; }
+        if (hits.length > 1) {
+            plan.ambiguous.push({ ...base, goal_names: hits.map(h => h.goal.name) });
             continue;
         }
-        const goal = matches[0];
-        const link = { ...base, goal_id: goal.id, goal_name: goal.name };
-        if (base.amount > parseFloat(goal.saved_amount)) {
-            skip('exceeds_goal');
-            plan.exceedsGoal.push({ ...link, goal_saved_amount: parseFloat(goal.saved_amount) });
-            continue;
+        const { goal, tier } = hits[0];
+        const reasons = [];
+        if (tier !== 'exact') reasons.push('name_match_not_exact');
+        if (tx.updated_at && toMs(tx.updated_at) > toMs(tx.created_at) + EDIT_GRACE_MS) reasons.push('edited_after_create');
+        if (base.amount > parseFloat(goal.saved_amount)) reasons.push('exceeds_goal');
+        matched.push({ ...base, goal_id: goal.id, goal_name: goal.name, goal_saved_amount: parseFloat(goal.saved_amount), reasons });
+    }
+
+    // Cumulative cap: a goal can't have received more than it now holds.
+    const autoTotals = new Map();
+    for (const m of matched) {
+        if (m.reasons.length === 0) autoTotals.set(m.goal_id, (autoTotals.get(m.goal_id) || 0) + m.amount);
+    }
+    for (const m of matched) {
+        if (m.reasons.length === 0 && autoTotals.get(m.goal_id) > m.goal_saved_amount + 1e-9) m.reasons.push('exceeds_goal_total');
+        if (m.reasons.length === 0) {
+            const link = { ...m };
+            delete link.reasons;
+            plan.links.push(link);
+        } else {
+            plan.review.push(m);
         }
-        plan.links.push(link);
     }
     return plan;
+}
+
+// The rows --apply writes: every "Will link" row plus the named review rows.
+// Throws (so nothing is written) if an --include id isn't in "Needs review".
+function selectLinksToApply(plan, includeIds = []) {
+    const reviewById = new Map(plan.review.map(r => [r.tx_id, r]));
+    const bad = includeIds.filter(id => !reviewById.has(id));
+    if (bad.length)
+        throw new Error(`--include ids not in "Needs review": ${bad.join(', ')}. Nothing written.`);
+    const included = [...new Set(includeIds)].map(id => reviewById.get(id));
+    return [...plan.links, ...included].map(r => ({ tx_id: r.tx_id, user_id: r.user_id, goal_id: r.goal_id }));
 }
 
 function formatInr(n) {
@@ -141,12 +232,11 @@ function table(rows, columns) {
     return [line(columns.map(c => c.label)), line(widths.map(w => '-'.repeat(w))), ...rows.map(r => line(columns.map(c => c.get(r))))].join('\n');
 }
 
-const LINK_COLUMNS = [
+const TX_COLUMNS = [
     { label: 'tx id', get: r => r.tx_id },
     { label: 'date', get: r => r.date },
     { label: 'amount', get: r => formatInr(r.amount) },
     { label: 'description', get: r => r.description },
-    { label: 'goal', get: r => r.goal_name },
 ];
 
 function groupByUser(rows) {
@@ -158,53 +248,79 @@ function groupByUser(rows) {
     return byUser;
 }
 
-// JSON-friendly view of a plan; `emails` is { [userId]: email }.
-function planToJson(plan, emails = {}, extra = {}) {
+function isoWindow(window) {
     return {
-        ...extra,
-        totals: {
-            scanned: plan.scanned,
-            candidates: plan.links.length,
-            ambiguous: plan.ambiguous.length,
-            skipped: plan.skipped,
-        },
-        users: [...groupByUser(plan.links)].map(([userId, links]) => ({ user_id: userId, email: emails[userId] || null, links })),
-        ambiguous: plan.ambiguous,
-        exceeds_goal: plan.exceedsGoal,
+        after: new Date(toMs(window.after || GOAL_LINKING_SHIPPED_UTC)).toISOString(),
+        before: new Date(toMs(window.before)).toISOString(),
     };
 }
 
-function formatPlan(plan, emails = {}) {
-    const out = [];
-    out.push(`Scanned ${plan.scanned} unlinked expense row(s).`);
-    out.push(`Candidates: ${plan.links.length}`);
-    out.push(`Ambiguous:  ${plan.ambiguous.length}`);
-    const skippedEntries = Object.entries(plan.skipped);
-    out.push(`Skipped:    ${skippedEntries.reduce((s, [, n]) => s + n, 0)}`);
-    for (const [reason, n] of skippedEntries) out.push(`  ${String(n).padStart(4)}  ${SKIP_REASONS[reason] || reason}`);
+// JSON-friendly view of a plan; `emails` is { [userId]: email }.
+function planToJson(plan, emails = {}, window = {}, extra = {}) {
+    return {
+        ...extra,
+        window: isoWindow(window),
+        totals: {
+            scanned: plan.scanned,
+            will_link: plan.links.length,
+            needs_review: plan.review.length,
+            ambiguous: plan.ambiguous.length,
+            skipped: plan.skipped,
+        },
+        will_link: [...groupByUser(plan.links)].map(([userId, links]) => ({ user_id: userId, email: emails[userId] || null, links })),
+        needs_review: plan.review.map(r => ({ ...r, email: emails[r.user_id] || null })),
+        ambiguous: plan.ambiguous.map(r => ({ ...r, email: emails[r.user_id] || null })),
+    };
+}
 
+function formatPlan(plan, emails = {}, window = {}) {
+    const w = isoWindow(window);
+    const who = r => emails[r.user_id] || r.user_id;
+    const out = [];
+    out.push(`Window (created_at, UTC): ${w.after} <= created_at < ${w.before}`);
+    if (window.timezone) out.push(`DB session TimeZone: ${window.timezone}`);
+    out.push(`Scanned ${plan.scanned} unlinked expense row(s): ${plan.links.length} will link, `
+        + `${plan.review.length} need review, ${plan.ambiguous.length} ambiguous, `
+        + `${Object.values(plan.skipped).reduce((s, n) => s + n, 0)} skipped.`);
+
+    out.push('', `== Will link (${plan.links.length}) ==`);
+    if (!plan.links.length) out.push('(none)');
     for (const [userId, links] of groupByUser(plan.links)) {
-        out.push('', `User ${userId} (${emails[userId] || 'unknown email'}): ${links.length} link(s)`, table(links, LINK_COLUMNS));
+        out.push(`User ${userId} (${emails[userId] || 'unknown email'})`,
+            table(links, [...TX_COLUMNS, { label: 'goal', get: r => r.goal_name }]));
     }
-    if (plan.ambiguous.length) {
-        out.push('', 'Ambiguous, NOT touched:', table(plan.ambiguous, [
-            { label: 'user', get: r => emails[r.user_id] || r.user_id },
-            ...LINK_COLUMNS.slice(0, 4),
-            { label: 'matching goals', get: r => r.goal_names.join(' | ') },
-        ]));
-    }
-    if (plan.exceedsGoal.length) {
-        out.push('', "Skipped: exceeds goal (amount > goal's current saved_amount), NOT touched:", table(plan.exceedsGoal, [
-            { label: 'user', get: r => emails[r.user_id] || r.user_id },
-            ...LINK_COLUMNS,
-            { label: 'goal saved', get: r => formatInr(r.goal_saved_amount) },
-        ]));
-    }
+
+    out.push('', `== Needs review, not applied unless --include (${plan.review.length}) ==`);
+    out.push(plan.review.length ? table(plan.review, [
+        { label: 'user', get: who }, ...TX_COLUMNS,
+        { label: 'goal', get: r => r.goal_name },
+        { label: 'goal saved', get: r => formatInr(r.goal_saved_amount) },
+        { label: 'why', get: r => r.reasons.map(x => REVIEW_REASONS[x] || x).join('; ') },
+    ]) : '(none)');
+
+    out.push('', `== Ambiguous, never applied (${plan.ambiguous.length}) ==`);
+    out.push(plan.ambiguous.length ? table(plan.ambiguous, [
+        { label: 'user', get: who }, ...TX_COLUMNS,
+        { label: 'matching goals', get: r => r.goal_names.join(' | ') },
+    ]) : '(none)');
+
+    out.push('', '== Skipped (counts by reason) ==');
+    const skipped = Object.entries(plan.skipped);
+    if (!skipped.length) out.push('(none)');
+    for (const [reason, n] of skipped) out.push(`${String(n).padStart(5)}  ${SKIP_REASONS[reason] || reason}`);
     return out.join('\n');
 }
 
+function parseTimestamp(flag, value) {
+    if (!value || !ZONED_ISO_RE.test(value) || !Number.isFinite(Date.parse(value)))
+        throw new Error(`${flag} needs an ISO timestamp with a zone, e.g. 2026-09-27T10:15:00Z or 2026-09-27T15:45:00+05:30.`);
+    return new Date(value);
+}
+
+const USAGE = 'Usage: node scripts/backfill-goal-links.js --before <ISO> [--after <ISO>] [--user <uuid>] [--json] [--apply [--include <txid,...>]]';
+
 function parseArgs(argv) {
-    const args = { apply: false, json: false, user: null };
+    const args = { apply: false, json: false, user: null, include: [], after: new Date(GOAL_LINKING_SHIPPED_UTC), before: null };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === '--apply') args.apply = true;
@@ -212,16 +328,37 @@ function parseArgs(argv) {
         else if (a === '--user') {
             args.user = argv[++i];
             if (!UUID_RE.test(args.user || '')) throw new Error('--user needs a user id (uuid).');
-        } else throw new Error(`Unknown argument: ${a}. Usage: node scripts/backfill-goal-links.js [--user <uuid>] [--json] [--apply]`);
+        } else if (a === '--before') args.before = parseTimestamp('--before', argv[++i]);
+        else if (a === '--after') args.after = parseTimestamp('--after', argv[++i]);
+        else if (a === '--include') {
+            args.include = String(argv[++i] || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (!args.include.length) throw new Error('--include needs a comma-separated list of transaction ids.');
+        } else throw new Error(`Unknown argument: ${a}. ${USAGE}`);
     }
+    if (!args.before)
+        throw new Error('--before is required: pass the time the goal_id fix was deployed to Render '
+            + '(ISO with zone, e.g. --before 2026-09-27T10:15:00Z). Rows after that deploy were never unlinked contributions.');
+    if (args.after >= args.before) throw new Error('--after must be earlier than --before.');
+    if (args.include.length && !args.apply) throw new Error('--include only makes sense with --apply.');
     return args;
+}
+
+// UTC-naive 'YYYY-MM-DD HH:MM:SS.mmm' for comparing against created_at.
+function utcNaive(date) {
+    return date.toISOString().replace('T', ' ').replace('Z', '');
 }
 
 // Every column planGoalLinks needs, plus a system_origin flag for rows a
 // server-side writer inserted with the default source 'manual'.
+// `tags IS NOT NULL` is belt-and-braces on top of the system_generated checks:
+// POST /api/transactions always writes tags (at least '{}'), while the
+// recurring cron, expense splits, one-time expenses, card-EMI installments,
+// personal-loan legs and PDF import leave it NULL. (Card payments, EMI fees and
+// group splits do set tags, but those are excluded by their tags/columns.)
 const CANDIDATE_SQL = `
     SELECT t.id, t.user_id, t.type, t.amount, t.description, t.date::text AS date,
-           to_char(t.created_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS created_at,
+           to_char(t.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS created_at,
+           to_char(t.updated_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS') AS updated_at,
            t.goal_id, t.tags, t.transfer_group_id, t.personal_loan_id, t.group_id, t.source,
            COALESCE(c.is_investment_category, false) AS is_investment_category,
            CASE
@@ -237,8 +374,10 @@ const CANDIDATE_SQL = `
     LEFT JOIN categories c ON c.id = t.category_id
     WHERE t.type = 'expense'
       AND t.goal_id IS NULL
-      AND t.created_at >= $1::date
-      AND ($2::uuid IS NULL OR t.user_id = $2::uuid)
+      AND t.tags IS NOT NULL
+      AND t.created_at >= $1::timestamp
+      AND t.created_at < $2::timestamp
+      AND ($3::uuid IS NULL OR t.user_id = $3::uuid)
     ORDER BY t.user_id, t.created_at, t.id`;
 
 async function applyLinks(pool, links) {
@@ -273,7 +412,12 @@ async function main() {
     // without touching the database module.
     const pool = require('../src/db/pool');
     try {
-        const { rows: transactions } = await pool.query(CANDIDATE_SQL, [GOAL_LINKING_SHIPPED, args.user]);
+        const { rows: [{ tz }] } = await pool.query(`SELECT current_setting('TimeZone') AS tz`);
+        if (!UTC_ZONES.has(String(tz).toLowerCase()))
+            throw new Error(`DB session TimeZone is ${tz}, not UTC. created_at can't be compared to the window safely. Nothing done.`);
+
+        const window = { after: args.after, before: args.before, timezone: tz };
+        const { rows: transactions } = await pool.query(CANDIDATE_SQL, [utcNaive(args.after), utcNaive(args.before), args.user]);
         const userIds = [...new Set(transactions.map(t => t.user_id))];
 
         const goalsByUser = {};
@@ -288,23 +432,26 @@ async function main() {
             for (const u of users) emails[u.id] = u.email;
         }
 
-        const plan = planGoalLinks(transactions, goalsByUser, { cutoff: GOAL_LINKING_SHIPPED });
+        const plan = planGoalLinks(transactions, goalsByUser, window);
         let updated = null;
-        if (args.apply && plan.links.length) updated = await applyLinks(pool, plan.links);
-        else if (args.apply) updated = 0;
+        if (args.apply) {
+            const toApply = selectLinksToApply(plan, args.include);
+            updated = toApply.length ? await applyLinks(pool, toApply) : 0;
+        }
 
         if (args.json) {
-            console.log(JSON.stringify(planToJson(plan, emails, {
+            console.log(JSON.stringify(planToJson(plan, emails, window, {
                 mode: args.apply ? 'apply' : 'dry-run',
-                cutoff: GOAL_LINKING_SHIPPED,
+                timezone: tz,
                 user: args.user,
+                include: args.include,
                 ...(updated !== null ? { updated } : {}),
             }), null, 2));
         } else {
             console.log(`\n=== Goal-link backfill (${args.apply ? 'APPLY' : 'DRY RUN, nothing written'}) ===\n`);
-            console.log(formatPlan(plan, emails));
+            console.log(formatPlan(plan, emails, window));
             if (updated !== null) console.log(`\nUpdated ${updated} transaction(s). savings_goals was not touched.`);
-            else if (plan.links.length) console.log('\nRe-run with --apply to write these links.');
+            else console.log('\nRe-run with --apply (plus --include <txid,...> for reviewed rows) to write links.');
             console.log('');
         }
     } finally {
@@ -319,4 +466,7 @@ if (require.main === module) {
     });
 }
 
-module.exports = { planGoalLinks, formatPlan, planToJson, parseArgs, applyLinks, CANDIDATE_SQL, GOAL_LINKING_SHIPPED };
+module.exports = {
+    planGoalLinks, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
+    normalize, matchTier, utcNaive, CANDIDATE_SQL, GOAL_LINKING_SHIPPED_UTC,
+};

@@ -1,68 +1,110 @@
 const {
-    planGoalLinks, formatPlan, planToJson, parseArgs, applyLinks, CANDIDATE_SQL,
+    planGoalLinks, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
+    normalize, matchTier, utcNaive, CANDIDATE_SQL, GOAL_LINKING_SHIPPED_UTC,
 } = require('../scripts/backfill-goal-links');
 
 const U1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const U2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const GOA = { id: 'g-goa', name: 'Goa Trip', saved_amount: '12000.00' };
-const LAPTOP = { id: 'g-laptop', name: 'Laptop', saved_amount: '50000.00' };
-const CAR = { id: 'g-car', name: 'Car', saved_amount: '90000.00' };
-const CAR_SERVICE = { id: 'g-car-svc', name: 'Car Service', saved_amount: '9000.00' };
-const TV = { id: 'g-tv', name: 'TV', saved_amount: '30000.00' };
-const goalsByUser = { [U1]: [GOA, LAPTOP, CAR, CAR_SERVICE, TV], [U2]: [{ id: 'g-u2', name: 'Goa Trip', saved_amount: '500.00' }] };
+const BEFORE = '2026-09-27T10:00:00Z';
+const WINDOW = { before: BEFORE };
+
+const goal = (id, name, saved = '100000.00') => ({ id, name, saved_amount: saved });
 
 let seq = 0;
 function tx(overrides = {}) {
     seq++;
     return {
         id: `tx-${seq}`, user_id: U1, type: 'expense', amount: '2500.00',
-        description: 'Goa trip savings', date: '2026-09-01', created_at: '2026-09-01T10:00:00',
+        description: 'Goa Trip', date: '2026-09-01',
+        created_at: '2026-09-01T10:00:00.000',
         goal_id: null, tags: [], transfer_group_id: null, personal_loan_id: null, group_id: null,
         source: 'manual', is_investment_category: false, system_origin: null,
         ...overrides,
+        updated_at: overrides.updated_at || overrides.created_at || '2026-09-01T10:00:00.000',
     };
 }
-const plan = rows => planGoalLinks(rows, goalsByUser, { cutoff: '2026-08-16' });
+const planFor = (goals, rows, window = WINDOW) => planGoalLinks(rows, { [U1]: goals }, window);
+// Where a single description lands against a single goal set.
+function classify(goals, description, overrides = {}) {
+    const p = planFor(goals, [tx({ description, ...overrides })]);
+    if (p.links.length) return { tier: 'link', goal: p.links[0].goal_name };
+    if (p.review.length) return { tier: 'review', goal: p.review[0].goal_name, reasons: p.review[0].reasons };
+    if (p.ambiguous.length) return { tier: 'ambiguous', goals: p.ambiguous[0].goal_names };
+    return { tier: 'skipped', skipped: p.skipped };
+}
 
-describe('planGoalLinks', () => {
-    test('links a row whose description names exactly one goal', () => {
-        const row = tx();
-        const p = plan([row]);
-        expect(p.links).toEqual([{
-            tx_id: row.id, user_id: U1, date: '2026-09-01', amount: 2500,
-            description: 'Goa trip savings', goal_id: 'g-goa', goal_name: 'Goa Trip',
-        }]);
-        expect(p.ambiguous).toEqual([]);
-        expect(p.skipped).toEqual({});
+describe('normalize / matchTier', () => {
+    test('normalize lower-cases, strips punctuation and collapses whitespace', () => {
+        expect(normalize('  Paid EMI,   emergency-fund!! ')).toBe('paid emi emergency fund');
+    });
+    test('exact after filler removal on both sides; whole-word otherwise', () => {
+        expect(matchTier('transfer to emergency fund', 'Emergency Fund')).toBe('exact');
+        expect(matchTier('car service', 'Car')).toBe('name');
+        expect(matchTier('carpool', 'Car')).toBeNull();
+    });
+});
+
+describe('planGoalLinks: tiers', () => {
+    const CAR = goal('g-car', 'Car');
+    const TRIP = goal('g-trip', 'Trip');
+    const GOA = goal('g-goa', 'Goa Trip');
+    const EMERGENCY = goal('g-em', 'Emergency Fund');
+    const SAVINGS = goal('g-sav', 'Savings');
+    const HOUSE = goal('g-house', 'House Down Payment Fund');
+
+    test.each([
+        ['Transfer to Emergency Fund', EMERGENCY],
+        ['emergency fund', EMERGENCY],
+        ['Emergency', EMERGENCY],
+        ['Savings for Goa trip', GOA],
+        ['Goa Trip', GOA],
+        ['  GOA   trip!  ', GOA],
+        ['Savings for house down payment', HOUSE],
+        ['House Down Payment Fund SIP', HOUSE],
+        ['Car', CAR],
+        ['Transferred to car fund', CAR],
+    ])('true positive auto-links: %p', (description, g) => {
+        expect(classify([g], description)).toEqual({ tier: 'link', goal: g.name });
     });
 
-    test('matches only against the same user\'s goals', () => {
-        const p = plan([tx({ user_id: U2, amount: '400' })]);
-        expect(p.links[0]).toMatchObject({ user_id: U2, goal_id: 'g-u2' });
+    test.each([
+        ['Car service', CAR],
+        ['Trip to office by Uber', TRIP],
+        ['Paid EMI, emergency fund untouched', EMERGENCY],
+        ['Savings', SAVINGS],                 // goal core is all filler -> never exact
+        ['Transfer to savings', SAVINGS],
+        ['House down payment fund for mom', HOUSE],
+    ])('name appears but not exact goes to review, never auto: %p', (description, g) => {
+        expect(classify([g], description)).toEqual({ tier: 'review', goal: g.name, reasons: ['name_match_not_exact'] });
     });
 
-    test('two matching goal names is ambiguous and never linked', () => {
-        const p = plan([tx({ description: 'Car service fund' })]);
-        expect(p.links).toEqual([]);
-        expect(p.ambiguous).toHaveLength(1);
-        expect(p.ambiguous[0].goal_names).toEqual(['Car', 'Car Service']);
-        expect(p.skipped).toEqual({ ambiguous: 1 });
+    test.each([
+        ['Carpool', CAR],
+        ['scarf', CAR],
+        ['Tripadvisor booking', TRIP],
+        ['Swiggy', GOA],
+    ])('no whole-word match is skipped: %p', (description, g) => {
+        expect(classify([g], description)).toEqual({ tier: 'skipped', skipped: { no_match: 1 } });
     });
 
     test('goal names shorter than 3 characters are ignored', () => {
-        // "TV" would match "tv stand" but is too short to trust.
-        const p = plan([tx({ description: 'TV stand' })]);
-        expect(p.links).toEqual([]);
-        expect(p.skipped).toEqual({ no_match: 1 });
-        // ...and it doesn't turn a single real match into an ambiguous one.
-        const p2 = plan([tx({ description: 'Laptop for tv room', amount: '100' })]);
-        expect(p2.links[0].goal_id).toBe('g-laptop');
+        expect(classify([goal('g-tv', 'TV')], 'TV')).toEqual({ tier: 'skipped', skipped: { no_match: 1 } });
     });
 
-    test('matching is case-insensitive and trims the description', () => {
-        const p = plan([tx({ description: '   LAPTOP fund  ' })]);
-        expect(p.links[0].goal_id).toBe('g-laptop');
+    test('matches only against the same user\'s goals', () => {
+        const p = planGoalLinks([tx({ user_id: U2 })], { [U1]: [GOA], [U2]: [] }, WINDOW);
+        expect(p.skipped).toEqual({ no_match: 1 });
     });
+
+    test('2+ goals matching in either tier is ambiguous and never applied', () => {
+        expect(classify([CAR, goal('g-cs', 'Car Service')], 'Car service'))
+            .toEqual({ tier: 'ambiguous', goals: ['Car', 'Car Service'] });
+        expect(classify([GOA, TRIP], 'Goa trip')).toEqual({ tier: 'ambiguous', goals: ['Goa Trip', 'Trip'] });
+    });
+});
+
+describe('planGoalLinks: exclusions and window', () => {
+    const GOA = goal('g-goa', 'Goa Trip');
 
     test.each([
         ['tag transfer', { tags: ['transfer'] }, 'transfer'],
@@ -77,108 +119,180 @@ describe('planGoalLinks', () => {
         ['card EMI installment', { system_origin: 'card_emi_installment' }, 'system_generated'],
         ['card EMI fee', { tags: ['credit_card_emi_fee'] }, 'system_generated'],
         ['group split', { group_id: 4, tags: ['group-split'] }, 'system_generated'],
+        ['tags NULL', { tags: null }, 'tags_null'],
         ['not an expense', { type: 'income' }, 'not_expense'],
+        ['already linked', { goal_id: 'g-goa' }, 'already_linked'],
     ])('excludes %s', (_label, overrides, reason) => {
-        const p = plan([tx(overrides)]);
+        const p = planFor([GOA], [tx(overrides)]);
         expect(p.links).toEqual([]);
-        expect(p.ambiguous).toEqual([]);
+        expect(p.review).toEqual([]);
         expect(p.skipped).toEqual({ [reason]: 1 });
     });
 
-    test('rows created before the cutoff are skipped (created_at, not date)', () => {
-        const p = plan([
-            tx({ created_at: '2026-08-15T23:59:59', date: '2026-09-01' }),
-            tx({ created_at: '2026-08-16T00:00:00', date: '2026-08-01' }),
+    test('default lower bound is the feature commit instant, inclusive (UTC-naive created_at)', () => {
+        expect(GOAL_LINKING_SHIPPED_UTC).toBe('2026-08-16T15:40:22Z');
+        const p = planFor([GOA], [
+            tx({ id: 'early', created_at: '2026-08-16T15:40:21.999' }),
+            tx({ id: 'at', created_at: '2026-08-16T15:40:22.000' }),
         ]);
-        expect(p.skipped).toEqual({ before_cutoff: 1 });
-        expect(p.links).toHaveLength(1);
-        expect(p.links[0].date).toBe('2026-08-01');
+        expect(p.skipped).toEqual({ outside_window: 1 });
+        expect(p.links.map(l => l.tx_id)).toEqual(['at']);
     });
 
-    test('rows already linked to a goal are skipped (idempotent re-run)', () => {
-        const p = plan([tx({ goal_id: 'g-goa' })]);
+    test('upper bound (--before) is exclusive', () => {
+        const p = planFor([GOA], [
+            tx({ id: 'last', created_at: '2026-09-27T09:59:59.999' }),
+            tx({ id: 'at', created_at: '2026-09-27T10:00:00.000' }),
+            tx({ id: 'after-fix', created_at: '2026-09-30T08:00:00.000' }),
+        ], { before: BEFORE });
+        expect(p.links.map(l => l.tx_id)).toEqual(['last']);
+        expect(p.skipped).toEqual({ outside_window: 2 });
+    });
+
+    test('an explicit --after overrides the default and zoned inputs compare in UTC', () => {
+        const p = planFor([GOA], [tx({ id: 'a', created_at: '2026-09-01T04:29:59.000' }), tx({ id: 'b', created_at: '2026-09-01T04:30:00.000' })],
+            { after: '2026-09-01T10:00:00+05:30', before: BEFORE });
+        expect(p.links.map(l => l.tx_id)).toEqual(['b']);
+    });
+
+    test('requires opts.before', () => {
+        expect(() => planGoalLinks([], {}, {})).toThrow(/before/);
+    });
+});
+
+describe('planGoalLinks: review reasons', () => {
+    test('rows edited more than 5 seconds after creation go to review', () => {
+        const GOA = goal('g-goa', 'Goa Trip');
+        const p = planFor([GOA], [
+            tx({ id: 'quick', updated_at: '2026-09-01T10:00:05.000' }),
+            tx({ id: 'edited', updated_at: '2026-09-01T10:00:05.001' }),
+        ]);
+        expect(p.links.map(l => l.tx_id)).toEqual(['quick']);
+        expect(p.review).toEqual([expect.objectContaining({ tx_id: 'edited', reasons: ['edited_after_create'] })]);
+    });
+
+    test('a single row above the goal\'s saved_amount goes to review (per-row check)', () => {
+        const p = planFor([goal('g-goa', 'Goa Trip', '2000.00')], [tx({ amount: '2000.01' })]);
         expect(p.links).toEqual([]);
-        expect(p.skipped).toEqual({ already_linked: 1 });
+        expect(p.review[0].reasons).toEqual(['exceeds_goal']);
     });
 
-    test('an amount above the goal\'s current saved_amount is skipped and listed as exceeds-goal', () => {
-        const p = plan([tx({ amount: '12000.01' }), tx({ amount: '12000.00' })]);
-        expect(p.links).toHaveLength(1);
-        expect(p.exceedsGoal).toEqual([expect.objectContaining({ amount: 12000.01, goal_id: 'g-goa', goal_saved_amount: 12000 })]);
-        expect(p.skipped).toEqual({ exceeds_goal: 1 });
+    test('cumulative cap: if a goal\'s Will-link rows sum above saved_amount, all of them move to review', () => {
+        const GOA = goal('g-goa', 'Goa Trip', '5000.00');
+        const LAPTOP = goal('g-lap', 'Laptop', '5000.00');
+        const p = planFor([GOA, LAPTOP], [
+            tx({ id: 'g1', amount: '3000' }),
+            tx({ id: 'g2', amount: '2500' }),     // 5500 > 5000
+            tx({ id: 'l1', description: 'Laptop', amount: '2500' }),
+            tx({ id: 'l2', description: 'Laptop', amount: '2500' }), // exactly 5000, fine
+        ]);
+        expect(p.links.map(l => l.tx_id)).toEqual(['l1', 'l2']);
+        expect(p.review.map(r => [r.tx_id, r.reasons])).toEqual([
+            ['g1', ['exceeds_goal_total']],
+            ['g2', ['exceeds_goal_total']],
+        ]);
     });
+});
 
-    test('accepts goals as a Map too', () => {
-        const p = planGoalLinks([tx()], new Map(Object.entries(goalsByUser)), { cutoff: '2026-08-16' });
-        expect(p.links).toHaveLength(1);
+describe('selectLinksToApply (--include)', () => {
+    const GOA = goal('g-goa', 'Goa Trip');
+    const CAR = goal('g-car', 'Car');
+    const plan = () => planFor([GOA, CAR, goal('g-cs', 'Car Service')], [
+        tx({ id: 'auto' }),
+        tx({ id: 'rev', description: 'Goa trip hotel' }),
+        tx({ id: 'amb', description: 'Car service' }),
+    ]);
+
+    test('applies Will link only by default', () => {
+        expect(selectLinksToApply(plan())).toEqual([{ tx_id: 'auto', user_id: U1, goal_id: 'g-goa' }]);
+    });
+    test('adds review rows named in --include', () => {
+        expect(selectLinksToApply(plan(), ['rev']).map(l => l.tx_id)).toEqual(['auto', 'rev']);
+    });
+    test('rejects ids that are not in Needs review (ambiguous, already Will link, unknown)', () => {
+        expect(() => selectLinksToApply(plan(), ['amb'])).toThrow(/not in "Needs review": amb/);
+        expect(() => selectLinksToApply(plan(), ['auto'])).toThrow(/auto/);
+        expect(() => selectLinksToApply(plan(), ['rev', 'nope'])).toThrow(/nope/);
     });
 });
 
 describe('report output', () => {
-    const fixture = () => plan([
-        tx({ id: 'tx-a', description: 'Goa trip savings', amount: '2500.00', date: '2026-08-20' }),
-        tx({ id: 'tx-b', description: 'laptop fund', amount: '10000.50', date: '2026-09-03' }),
-        tx({ id: 'tx-c', description: 'Car service fund', amount: '1500.00', date: '2026-09-05' }),
-        tx({ id: 'tx-d', description: 'Goa trip savings', amount: '15000.00', date: '2026-09-10' }),
+    const goals = [goal('g-em', 'Emergency Fund', '20000.00'), goal('g-goa', 'Goa Trip', '12000.00'), goal('g-car', 'Car'), goal('g-cs', 'Car Service')];
+    const fixture = () => planFor(goals, [
+        tx({ id: 'tx-a', description: 'Transfer to Emergency Fund', amount: '5000', date: '2026-08-20' }),
+        tx({ id: 'tx-b', description: 'Savings for Goa trip', amount: '2500.50', date: '2026-09-03' }),
+        tx({ id: 'tx-c', description: 'Paid EMI, emergency fund untouched', amount: '1500', date: '2026-09-05' }),
+        tx({ id: 'tx-d', description: 'Car service', amount: '800', date: '2026-09-06' }),
         tx({ id: 'tx-e', description: 'Goa trip', source: 'sms' }),
-        tx({ id: 'tx-f', description: 'Swiggy' }),
+        tx({ id: 'tx-f', description: 'Carpool' }),
     ]);
     const emails = { [U1]: 'asha@example.com' };
 
-    test('dry-run text: totals, skipped reasons, per-user table, ambiguous and exceeds lists', () => {
-        const text = formatPlan(fixture(), emails);
+    test('dry-run text has the window header and the four sections', () => {
+        const text = formatPlan(fixture(), emails, { ...WINDOW, timezone: 'UTC' });
         expect(text).toMatchInlineSnapshot(`
-"Scanned 6 unlinked expense row(s).
-Candidates: 2
-Ambiguous:  1
-Skipped:    4
-     1  ambiguous (2+ goal names match)
-     1  amount exceeds goal's saved_amount
-     1  source not the add-transaction form
-     1  no goal name in description
+"Window (created_at, UTC): 2026-08-16T15:40:22.000Z <= created_at < 2026-09-27T10:00:00.000Z
+DB session TimeZone: UTC
+Scanned 6 unlinked expense row(s): 2 will link, 1 need review, 1 ambiguous, 2 skipped.
 
-User aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (asha@example.com): 2 link(s)
-tx id  date        amount      description       goal
------  ----------  ----------  ----------------  --------
-tx-a   2026-08-20  ₹2,500      Goa trip savings  Goa Trip
-tx-b   2026-09-03  ₹10,000.50  laptop fund       Laptop
+== Will link (2) ==
+User aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (asha@example.com)
+tx id  date        amount     description                 goal
+-----  ----------  ---------  --------------------------  --------------
+tx-a   2026-08-20  ₹5,000     Transfer to Emergency Fund  Emergency Fund
+tx-b   2026-09-03  ₹2,500.50  Savings for Goa trip        Goa Trip
 
-Ambiguous, NOT touched:
-user              tx id  date        amount  description       matching goals
-----------------  -----  ----------  ------  ----------------  -----------------
-asha@example.com  tx-c   2026-09-05  ₹1,500  Car service fund  Car | Car Service
+== Needs review, not applied unless --include (1) ==
+user              tx id  date        amount  description                         goal            goal saved  why
+----------------  -----  ----------  ------  ----------------------------------  --------------  ----------  --------------------------------------------
+asha@example.com  tx-c   2026-09-05  ₹1,500  Paid EMI, emergency fund untouched  Emergency Fund  ₹20,000     name appears but description has other words
 
-Skipped: exceeds goal (amount > goal's current saved_amount), NOT touched:
-user              tx id  date        amount   description       goal      goal saved
-----------------  -----  ----------  -------  ----------------  --------  ----------
-asha@example.com  tx-d   2026-09-10  ₹15,000  Goa trip savings  Goa Trip  ₹12,000"
+== Ambiguous, never applied (1) ==
+user              tx id  date        amount  description  matching goals
+----------------  -----  ----------  ------  -----------  -----------------
+asha@example.com  tx-d   2026-09-06  ₹800    Car service  Car | Car Service
+
+== Skipped (counts by reason) ==
+    1  source not the add-transaction form
+    1  no goal name in description"
 `);
     });
 
-    test('--json shape carries the same data', () => {
-        const json = planToJson(fixture(), emails, { mode: 'dry-run' });
-        expect(json.mode).toBe('dry-run');
+    test('--json carries the same data and the window', () => {
+        const json = planToJson(fixture(), emails, WINDOW, { mode: 'dry-run' });
+        expect(json.window).toEqual({ after: '2026-08-16T15:40:22.000Z', before: '2026-09-27T10:00:00.000Z' });
         expect(json.totals).toEqual({
-            scanned: 6, candidates: 2, ambiguous: 1,
-            skipped: { ambiguous: 1, exceeds_goal: 1, source: 1, no_match: 1 },
+            scanned: 6, will_link: 2, needs_review: 1, ambiguous: 1,
+            skipped: { source: 1, no_match: 1 },
         });
-        expect(json.users).toEqual([{ user_id: U1, email: 'asha@example.com', links: expect.any(Array) }]);
-        expect(json.users[0].links.map(l => l.tx_id)).toEqual(['tx-a', 'tx-b']);
-        expect(json.ambiguous[0].tx_id).toBe('tx-c');
-        expect(json.exceeds_goal[0].tx_id).toBe('tx-d');
+        expect(json.will_link[0].links.map(l => l.tx_id)).toEqual(['tx-a', 'tx-b']);
+        expect(json.needs_review[0]).toMatchObject({ tx_id: 'tx-c', reasons: ['name_match_not_exact'], email: 'asha@example.com' });
+        expect(json.ambiguous[0].tx_id).toBe('tx-d');
     });
 });
 
 describe('parseArgs', () => {
-    test('defaults to a dry run', () => {
-        expect(parseArgs([])).toEqual({ apply: false, json: false, user: null });
+    test('refuses to run without --before and says what to pass', () => {
+        expect(() => parseArgs([])).toThrow(/--before is required.*goal_id fix was deployed to Render/);
     });
-    test('reads --apply, --json and --user', () => {
-        expect(parseArgs(['--json', '--user', U1, '--apply'])).toEqual({ apply: true, json: true, user: U1 });
+    test('requires a zoned ISO timestamp', () => {
+        expect(() => parseArgs(['--before', '2026-09-27 10:00'])).toThrow(/ISO timestamp with a zone/);
+        expect(() => parseArgs(['--before', '2026-09-27T10:00:00'])).toThrow(/zone/);
     });
-    test('rejects a non-uuid --user and unknown flags', () => {
-        expect(() => parseArgs(['--user', '42'])).toThrow(/uuid/);
-        expect(() => parseArgs(['--force'])).toThrow(/Unknown argument/);
+    test('defaults --after to the feature commit and reads the rest', () => {
+        const args = parseArgs(['--before', '2026-09-27T15:30:00+05:30', '--json', '--user', U1, '--apply', '--include', 'a, b']);
+        expect(args.before.toISOString()).toBe('2026-09-27T10:00:00.000Z');
+        expect(args.after.toISOString()).toBe('2026-08-16T15:40:22.000Z');
+        expect(args).toMatchObject({ apply: true, json: true, user: U1, include: ['a', 'b'] });
+    });
+    test('rejects --after not before --before, --include without --apply, bad --user, unknown flags', () => {
+        expect(() => parseArgs(['--before', BEFORE, '--after', BEFORE])).toThrow(/earlier/);
+        expect(() => parseArgs(['--before', BEFORE, '--include', 'a'])).toThrow(/--apply/);
+        expect(() => parseArgs(['--before', BEFORE, '--user', '42'])).toThrow(/uuid/);
+        expect(() => parseArgs(['--before', BEFORE, '--force'])).toThrow(/Unknown argument/);
+    });
+    test('utcNaive renders the UTC wall-clock time without a zone', () => {
+        expect(utcNaive(new Date('2026-08-16T21:10:22+05:30'))).toBe('2026-08-16 15:40:22.000');
     });
 });
 
@@ -215,7 +329,7 @@ describe('applyLinks', () => {
     });
 
     test('rolls back everything when any row count differs from the plan', async () => {
-        const { pool, calls } = fakePool([1, 0]); // t2 was linked/changed since the plan
+        const { pool, calls } = fakePool([1, 0]);
         await expect(applyLinks(pool, links)).rejects.toThrow(/Rolled back/);
         expect(calls.map(([sql]) => sql)).toContain('ROLLBACK');
         expect(calls.map(([sql]) => sql)).not.toContain('COMMIT');
@@ -223,10 +337,13 @@ describe('applyLinks', () => {
 });
 
 describe('CANDIDATE_SQL', () => {
-    test('prefilters on the cutoff/unlinked expense rows and stays parameterized', () => {
+    test('prefilters on a half-open timestamp window, non-NULL tags, and stays parameterized', () => {
         expect(CANDIDATE_SQL).toMatch(/t\.type = 'expense'/);
         expect(CANDIDATE_SQL).toMatch(/t\.goal_id IS NULL/);
-        expect(CANDIDATE_SQL).toMatch(/t\.created_at >= \$1::date/);
-        expect(CANDIDATE_SQL).toMatch(/\$2::uuid IS NULL OR t\.user_id = \$2::uuid/);
+        expect(CANDIDATE_SQL).toMatch(/t\.tags IS NOT NULL/);
+        expect(CANDIDATE_SQL).toMatch(/t\.created_at >= \$1::timestamp/);
+        expect(CANDIDATE_SQL).toMatch(/t\.created_at < \$2::timestamp/);
+        expect(CANDIDATE_SQL).toMatch(/\$3::uuid IS NULL OR t\.user_id = \$3::uuid/);
+        expect(CANDIDATE_SQL).toMatch(/t\.updated_at/);
     });
 });
