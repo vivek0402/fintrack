@@ -36,6 +36,9 @@ const { getLatestNav } = require('./utils/marketData');
 const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
+const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
+const { buildCardDueAlerts } = require('./utils/cardDueAlerts');
+const { istDateStr } = require('./utils/istDate');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -729,6 +732,51 @@ cron.schedule('0 9 * * *', async () => {
         }
     } catch (err) {
         console.error('[Cron:PersonalLoanDue] fatal:', err.message);
+    }
+}, { timezone: 'Asia/Kolkata' });
+
+// ─── Cron: credit card bill due within 3 days and unpaid — daily 9am IST ─────
+cron.schedule('0 9 * * *', async () => {
+    try {
+        const today = istDateStr();
+        const { rows: users } = await pool.query(
+            `SELECT DISTINCT user_id FROM user_fcm_tokens`
+        );
+
+        for (const { user_id } of users) {
+            try {
+                const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
+                const dueCards = cards.filter(c => c.statement_due_date && parseFloat(c.statement_balance) > 0);
+                if (!dueCards.length) continue;
+
+                // Payments recorded via POST /api/credit-cards/:id/pay since each
+                // card's last statement closed (the card-side income leg).
+                const paidByCard = new Map();
+                for (const card of dueCards) {
+                    const { rows } = await pool.query(
+                        `SELECT COALESCE(SUM(amount), 0) AS paid
+                         FROM transactions
+                         WHERE user_id = $1 AND credit_card_id = $2 AND type = 'income'
+                           AND 'credit_card_payment' = ANY(tags)
+                           AND date > $3`,
+                        [user_id, card.id, card.last_statement_close_date]
+                    );
+                    paidByCard.set(card.id, parseFloat(rows[0]?.paid || 0));
+                }
+
+                for (const alert of buildCardDueAlerts(dueCards, paidByCard, today)) {
+                    await notifyOnce(user_id, alert.alertKey, {
+                        title: alert.title,
+                        body: alert.body,
+                        data: alert.data,
+                    });
+                }
+            } catch (err) {
+                console.error(`[Cron:CardDue] user ${user_id} failed:`, err.message);
+            }
+        }
+    } catch (err) {
+        console.error('[Cron:CardDue] fatal:', err.message);
     }
 }, { timezone: 'Asia/Kolkata' });
 
