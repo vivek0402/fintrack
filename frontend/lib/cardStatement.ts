@@ -31,7 +31,10 @@ function hasStatementRemaining(card: StatementFields | null | undefined): card i
 // as it is.
 export function cycleSuggestedAmount(cycle: PayCycle, idx: number, card: StatementFields | null | undefined): string | null {
     if (idx === LATEST_CLOSED_IDX && !cycle.is_current && hasStatementRemaining(card)) {
-        return card.statement_remaining > 0 ? String(card.statement_remaining) : null;
+        // Exact to the paisa (the API sends 2dp), never rounded to rupees:
+        // paying 8,000 on an 8,000.40 statement leaves it not paid in full.
+        const remaining = Math.round(card.statement_remaining * 100) / 100;
+        return remaining > 0 ? String(remaining) : null;
     }
     return Number(cycle.total) > 0 ? String(cycle.total) : null;
 }

@@ -85,8 +85,13 @@ async function fetchCardPaymentsSince(pool, userId, cardId, sinceDate) {
 // payments query per card. Cards with no billing cycle get nulls.
 //   statement_amount_due  what the bank billed (EMI principal stripped)
 //   statement_paid        bill payments dated after last_statement_close_date
-//   statement_remaining   max(0, due - paid), rounded to whole rupees like
-//                         the alert's "still unpaid" check
+//   statement_remaining   max(0, due - paid), exact to the paisa -- NOT
+//                         rounded to whole rupees like the alert: it's the
+//                         Pay Bill pre-fill, and paying ₹8,000 on an
+//                         ₹8,000.40 statement leaves it not paid in full.
+// All three are numbers at 2dp; anything within half a paisa of 0 is 0.
+const round2 = (x) => Math.round(x * 100) / 100;
+
 async function withStatementRemaining(pool, userId, cards) {
     return Promise.all((cards || []).map(async (card) => {
         const amountDue = amountDueOnStatement(card);
@@ -96,9 +101,9 @@ async function withStatementRemaining(pool, userId, cards) {
         const paid = await fetchCardPaymentsSince(pool, userId, card.id, card.last_statement_close_date);
         return {
             ...card,
-            statement_amount_due: amountDue,
-            statement_paid: paid,
-            statement_remaining: Math.max(0, Math.round(amountDue - paid)),
+            statement_amount_due: round2(amountDue),
+            statement_paid: round2(paid),
+            statement_remaining: Math.max(0, round2(amountDue - paid)),
         };
     }));
 }

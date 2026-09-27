@@ -26,6 +26,13 @@ describe('cycleSuggestedAmount', () => {
         expect(cycleSuggestedAmount(negative, 1, { ...owed, statement_remaining: 4000 })).toBe('4000');
     });
 
+    it('prefills the exact paise remaining, not a rupee-rounded amount', () => {
+        const paise = { statement_due_date: '2026-10-24', statement_amount_due: 8000.4, statement_remaining: 8000.4 };
+        expect(cycleSuggestedAmount(cycles[1], 1, paise)).toBe('8000.4');
+        expect(cycleSuggestedAmount(cycles[1], 1, { ...paise, statement_remaining: 0.4 })).toBe('0.4');
+        expect(cycleSuggestedAmount(cycles[1], 1, { ...paise, statement_remaining: 0 })).toBeNull();
+    });
+
     it('keeps the cycle-total behaviour for other cycles and when statement_remaining is missing', () => {
         expect(cycleSuggestedAmount(cycles[0], 0, owed)).toBe('500.00');
         expect(cycleSuggestedAmount(cycles[2], 2, owed)).toBe('10000.00');
@@ -65,6 +72,13 @@ describe('cycleStatusLabel', () => {
         expect(cycleStatusLabel(cycles[1], 1, { ...owed, statement_remaining: 0 }, fmtDate)).toBe('Paid in full');
         expect(cycleStatusLabel(cycles[1], 1, { ...owed, statement_amount_due: 0, statement_remaining: 0 }, fmtDate)).toBe('Closed');
         expect(cycleStatusLabel(cycles[1], 1, { ...owed, statement_amount_due: -200, statement_remaining: 0 }, fmtDate)).toBe('Overpaid · credit');
+    });
+
+    it('paid in full to the paisa -> Paid in full; 40 paise short is still due', () => {
+        const paise = { statement_due_date: '2026-10-24', statement_amount_due: 8000.4 };
+        expect(cycleStatusLabel(cycles[1], 1, { ...paise, statement_remaining: 0 }, fmtDate)).toBe('Paid in full');
+        expect(cycleStatusLabel(cycles[1], 1, { ...paise, statement_remaining: 0.4 }, fmtDate)).toBe('Due <2026-10-24>');
+        expect(defaultPayCycleIdx(cycles, { ...paise, statement_remaining: 0.4 })).toBe(1);
     });
 
     it('does not call a zero-total latest cycle Paid in full while money is still owed', () => {

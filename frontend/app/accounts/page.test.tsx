@@ -105,6 +105,18 @@ describe('Accounts page — Pay Bill modal', () => {
         await waitFor(() => expect(screen.getByDisplayValue('12000')).toBeInTheDocument());
     });
 
+    it('prefills the exact paise owed (8000.4), not a rupee-rounded 8000', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [{
+            ...cardWithStatement, statement_balance: 8000.4, statement_amount_due: 8000.4, statement_paid: 0, statement_remaining: 8000.4,
+        }] } });
+        (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles } });
+        render(<AccountsPage />);
+        await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+
+        fireEvent.click(screen.getByText('Pay Bill'));
+        await waitFor(() => expect(screen.getByDisplayValue('8000.4')).toBeInTheDocument());
+    });
+
     it('shows the statement amount due (EMI principal excluded) on the card and in the modal', async () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [{
             ...cardWithStatement, statement_balance: 11000, emi_blocked_principal: 3000,

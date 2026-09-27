@@ -232,14 +232,36 @@ describe('withStatementRemaining', () => {
         expect(c.statement_remaining).toBe(8000);
     });
 
-    test('subtracts payments since the close, clamps at 0 and rounds like the alert', async () => {
-        const [partial, over, paise] = await withStatementRemaining(
-            paymentsPool({ 1: 2500, 2: 9000, 3: 7999.7 }), 'u1',
-            [billedCard({ id: 1, statement_balance: 8000 }), billedCard({ id: 2, statement_balance: 8000 }), billedCard({ id: 3, statement_balance: 8000 })],
+    test('subtracts payments since the close and clamps at 0', async () => {
+        const [partial, over] = await withStatementRemaining(
+            paymentsPool({ 1: 2500, 2: 9000 }), 'u1',
+            [billedCard({ id: 1, statement_balance: 8000 }), billedCard({ id: 2, statement_balance: 8000 })],
         );
         expect(partial).toMatchObject({ statement_paid: 2500, statement_remaining: 5500 });
         expect(over).toMatchObject({ statement_paid: 9000, statement_remaining: 0 });
-        expect(paise.statement_remaining).toBe(0);
+    });
+
+    test('is exact to the paisa, not rounded to whole rupees', async () => {
+        const [unpaid, shortByPaise, paidExactly, halfPaisa] = await withStatementRemaining(
+            paymentsPool({ 1: 0, 2: 8000, 3: 8000.4, 4: 8000.396 }), 'u1',
+            [1, 2, 3, 4].map(id => billedCard({ id, statement_balance: 8000.4 })),
+        );
+        expect(unpaid).toMatchObject({ statement_amount_due: 8000.4, statement_paid: 0, statement_remaining: 8000.4 });
+        expect(typeof unpaid.statement_remaining).toBe('number');
+        expect(shortByPaise.statement_remaining).toBe(0.4);
+        expect(paidExactly.statement_remaining).toBe(0);
+        // within half a paisa of 0 -> 0
+        expect(halfPaisa.statement_remaining).toBe(0);
+    });
+
+    test('amount due and paid come back as numbers at 2dp, with EMI principal stripped', async () => {
+        const [c] = await withStatementRemaining(
+            paymentsPool({ 1: '1000.123' }), 'u1',
+            [billedCard({ statement_balance: 11000.456, emi_blocked_principal: 3000.1 })],
+        );
+        expect(c.statement_amount_due).toBe(8000.36);
+        expect(c.statement_paid).toBe(1000.12);
+        expect(c.statement_remaining).toBe(7000.23);
     });
 
     test('cards with no billing cycle get nulls and never hit the database', async () => {
