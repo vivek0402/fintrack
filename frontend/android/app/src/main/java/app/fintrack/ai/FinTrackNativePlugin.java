@@ -3,6 +3,10 @@ package app.fintrack.ai;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.SystemClock;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
+import android.security.keystore.KeyProperties;
 import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
@@ -20,7 +24,12 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.security.KeyStore;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 @CapacitorPlugin(name = "FinTrackNative")
 public class FinTrackNativePlugin extends Plugin {
@@ -36,6 +45,13 @@ public class FinTrackNativePlugin extends Plugin {
     private static final String SECURE_PREFS_NAME = "fintrack_lock_secure";
     private static final String KEY_PIN_HASH = "pin_hash";
     private static final int AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG;
+    // Keystore key the fingerprint prompt is bound to. It can only be used
+    // right after a successful BIOMETRIC_STRONG match, and Android destroys it
+    // when a fingerprint is added or removed, so a finger enrolled later by
+    // someone who knows the phone's screen-lock PIN can't open FinTrack.
+    private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
+    private static final String BIOMETRIC_KEY_ALIAS = "fintrack_app_lock_biometric";
+    private static final String CIPHER_TRANSFORMATION = "AES/GCM/NoPadding";
 
     @PluginMethod
     public void saveToken(PluginCall call) {
@@ -108,6 +124,28 @@ public class FinTrackNativePlugin extends Plugin {
             return;
         }
 
+        // Bind the prompt to the Keystore key. A missing key, or one Android
+        // invalidated because fingerprints changed, is reported as
+        // "invalidated": JS turns fingerprint off and asks for the PIN, and
+        // re-enabling fingerprint in Settings makes a fresh key.
+        final Cipher boundCipher;
+        try {
+            boundCipher = initBiometricCipher();
+        } catch (KeyPermanentlyInvalidatedException e) {
+            deleteKeyQuietly();
+            resolveAuth(call, "invalidated", -1, "Fingerprints changed");
+            return;
+        } catch (Exception e) {
+            Logger.error("FinTrackNative", "Biometric key unusable", e);
+            deleteKeyQuietly();
+            resolveAuth(call, "invalidated", -1, e.getMessage());
+            return;
+        }
+        if (boundCipher == null) {
+            resolveAuth(call, "invalidated", -1, "No biometric key");
+            return;
+        }
+
         activity.runOnUiThread(() -> {
             AtomicBoolean settled = new AtomicBoolean(false);
             try {
@@ -117,7 +155,22 @@ public class FinTrackNativePlugin extends Plugin {
                     new BiometricPrompt.AuthenticationCallback() {
                         @Override
                         public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
-                            if (settled.compareAndSet(false, true)) resolveAuth(call, "success", 0, null);
+                            if (!settled.compareAndSet(false, true)) return;
+                            // Success means the Keystore released the key: the
+                            // authenticated cipher has to actually work.
+                            BiometricPrompt.CryptoObject crypto = result.getCryptoObject();
+                            Cipher authed = crypto != null ? crypto.getCipher() : null;
+                            if (authed == null) {
+                                resolveAuth(call, "error", -1, "No authenticated cipher");
+                                return;
+                            }
+                            try {
+                                authed.doFinal(new byte[] { 1 });
+                                resolveAuth(call, "success", 0, null);
+                            } catch (Exception e) {
+                                Logger.error("FinTrackNative", "Authenticated cipher failed", e);
+                                resolveAuth(call, "error", -1, e.getMessage());
+                            }
                         }
 
                         @Override
@@ -148,12 +201,80 @@ public class FinTrackNativePlugin extends Plugin {
                     .setConfirmationRequired(false);
                 if (subtitle != null && !subtitle.isEmpty()) info.setSubtitle(subtitle);
 
-                prompt.authenticate(info.build());
+                prompt.authenticate(info.build(), new BiometricPrompt.CryptoObject(boundCipher));
             } catch (Exception e) {
                 Logger.error("FinTrackNative", "BiometricPrompt failed", e);
                 if (settled.compareAndSet(false, true)) resolveAuth(call, "error", -1, e.getMessage());
             }
         });
+    }
+
+    /** (Re)creates the biometric-bound key. Called whenever the user turns fingerprint on. */
+    @PluginMethod
+    public void enableBiometricKey(PluginCall call) {
+        JSObject ret = new JSObject();
+        try {
+            deleteKeyQuietly();
+            KeyGenParameterSpec.Builder spec = new KeyGenParameterSpec.Builder(
+                BIOMETRIC_KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
+                .setUserAuthenticationRequired(true)
+                .setInvalidatedByBiometricEnrollment(true);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                // Every use needs a fresh strong-biometric match (no validity window).
+                spec.setUserAuthenticationParameters(0, KeyProperties.AUTH_BIOMETRIC_STRONG);
+            }
+            KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+            generator.init(spec.build());
+            generator.generateKey();
+            ret.put("ok", true);
+        } catch (Exception e) {
+            Logger.error("FinTrackNative", "Could not create biometric key", e);
+            ret.put("ok", false);
+            ret.put("message", e.getMessage());
+        }
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void deleteBiometricKey(PluginCall call) {
+        deleteKeyQuietly();
+        call.resolve();
+    }
+
+    /** Null when no key exists; throws KeyPermanentlyInvalidatedException once Android revoked it. */
+    private Cipher initBiometricCipher() throws Exception {
+        KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+        keyStore.load(null);
+        SecretKey key = (SecretKey) keyStore.getKey(BIOMETRIC_KEY_ALIAS, null);
+        if (key == null) return null;
+        Cipher cipher = Cipher.getInstance(CIPHER_TRANSFORMATION);
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        return cipher;
+    }
+
+    private void deleteKeyQuietly() {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            if (keyStore.containsAlias(BIOMETRIC_KEY_ALIAS)) keyStore.deleteEntry(BIOMETRIC_KEY_ALIAS);
+        } catch (Exception e) {
+            Logger.error("FinTrackNative", "Could not delete biometric key", e);
+        }
+    }
+
+    // ── App lock: monotonic clock ───────────────────────────────────────────
+
+    /** Milliseconds since boot, deep sleep included. The user can't set it back. */
+    @PluginMethod
+    public void elapsedRealtime(PluginCall call) {
+        JSObject ret = new JSObject();
+        ret.put("ms", SystemClock.elapsedRealtime());
+        call.resolve(ret);
     }
 
     private void resolveAuth(PluginCall call, String result, int code, String message) {
@@ -259,6 +380,7 @@ public class FinTrackNativePlugin extends Plugin {
 
     @PluginMethod
     public void clearLock(PluginCall call) {
+        deleteKeyQuietly();
         try {
             securePrefs().edit().remove(KEY_PIN_HASH).commit();
         } catch (Exception e) {

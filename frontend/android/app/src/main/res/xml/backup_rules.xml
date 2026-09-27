@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below (android:fullBackupContent). App lock state is tied
+     to this phone: the PIN hash is encrypted with an Android Keystore key
+     that never leaves the device, so a restored copy could not be read on a
+     new phone anyway. Keep it out of backups. Everything else is backed up as
+     before. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="fintrack_lock_secure.xml" />
+    <exclude domain="sharedpref" path="fintrack_lock.xml" />
+</full-backup-content>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (android:dataExtractionRules). Same exclusions as
+     backup_rules.xml, for both cloud backup and device-to-device transfer. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="fintrack_lock_secure.xml" />
+        <exclude domain="sharedpref" path="fintrack_lock.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="fintrack_lock_secure.xml" />
+        <exclude domain="sharedpref" path="fintrack_lock.xml" />
+    </device-transfer>
+</data-extraction-rules>
