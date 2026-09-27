@@ -3,12 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, ChevronRight } from 'lucide-react';
-import { calculateHealthScore, HealthScoreResult } from '@/lib/healthScore';
+import { calculateHealthScore, monthlySeriesFromTrends, HealthScoreResult } from '@/lib/healthScore';
 import { useCountUp } from '@/hooks/useCountUp';
-
-const R = 42;
-const CIRC = 2 * Math.PI * R;
-const GAUGE = CIRC * 0.75;
+import { ScoreRing } from '@/components/analytics/health/ScoreRing';
 
 interface Props {
   summary: { total_income: number | string; total_expenses: number | string } | null;
@@ -19,33 +16,6 @@ interface Props {
   investmentRatio: { invested_this_month: number; income_this_month: number; ratio_pct: number } | null;
   dti: { dti_ratio: number } | null;
   creditUtilization: { aggregate: { overall_utilization_pct: number } } | null;
-}
-
-function ScoreArc({ score, color }: { score: number; color: string }) {
-  const [animPct, setAnimPct] = useState(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setAnimPct(score), 120);
-    return () => clearTimeout(t);
-  }, [score]);
-
-  const fill = GAUGE * (animPct / 100);
-
-  return (
-    <svg viewBox="0 0 100 100" width="110" height="110" style={{ display: 'block' }}>
-      <circle cx="50" cy="50" r={R}
-        fill="none" stroke="var(--border-subtle)" strokeWidth="8" strokeLinecap="round"
-        strokeDasharray={`${GAUGE} ${CIRC - GAUGE}`}
-        transform="rotate(135 50 50)"
-      />
-      <circle cx="50" cy="50" r={R}
-        fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-        strokeDasharray={`${fill} ${CIRC - fill}`}
-        transform="rotate(135 50 50)"
-        style={{ transition: 'stroke-dasharray 1.2s ease' }}
-      />
-    </svg>
-  );
 }
 
 export function HealthScoreWidget({ summary, budgets, goals, trends, loading, investmentRatio, dti, creditUtilization }: Props) {
@@ -60,27 +30,12 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
   useEffect(() => {
     if (loading || !summary || !hasData) return;
 
-    // Build paired monthly income/expense arrays from trends
-    const monthMap: Record<string, { income: number; expenses: number }> = {};
-    trends.forEach((row: any) => {
-      const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-      if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
-      if (row.type === 'income')  monthMap[key].income   = parseFloat(row.total);
-      if (row.type === 'expense') monthMap[key].expenses = parseFloat(row.total);
-    });
-    const sorted = Object.entries(monthMap)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-6);
-    const monthlyIncome   = sorted.map(([, v]) => v.income);
-    const monthlyExpenses = sorted.map(([, v]) => v.expenses);
-
     setResult(calculateHealthScore({
       income,
       expenses,
       budgets,
       goals,
-      monthlyIncome,
-      monthlyExpenses,
+      ...monthlySeriesFromTrends(trends),
       investedThisMonth:  investmentRatio?.invested_this_month ?? 0,
       dtiRatio:           dti?.dti_ratio ?? 0,
       ccUtilizationPct:   creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
@@ -93,7 +48,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
     ? [...result.breakdown].sort((a, b) => (a.score / a.max) - (b.score / b.max)).slice(0, 3)
     : [];
 
-  const handleClick = () => router.push('/health-score');
+  const handleClick = () => router.push('/analytics?tab=health');
 
   if (loading) {
     return (
@@ -122,7 +77,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
     >
       {/* Gauge + score */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
-        <ScoreArc score={result.score} color={result.color} />
+        <ScoreRing score={result.score} color={result.color} />
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 800, color: result.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
             {displayScore}

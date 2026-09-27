@@ -243,7 +243,14 @@ export const aiAPI = {
         api.post('/api/ai/life-event', data),
     forecastCalendar: (force?: boolean) => api.get(`/api/ai/forecast-calendar${force ? '?force=true' : ''}`),
     clearCache: (key: string) => api.delete(`/api/ai/cache/${key}`),
-    healthReport: (data?: { month?: number; year?: number }) => api.post('/api/ai/health-report', data || {}),
+    // Explains the calculateHealthScore result; the server never returns a score of its own.
+    // peek: cached report or null, no AI call. force: regenerate even if cached.
+    healthReport: (data: {
+        score: number;
+        factors: { id: string; score: number; max: number }[];
+        peek?: boolean;
+        force?: boolean;
+    }) => api.post('/api/ai/health-report', data),
     quickAdd: (text: string) => api.post('/api/ai/quick-add', { text }),
 };
 

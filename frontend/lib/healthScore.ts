@@ -5,6 +5,8 @@ export interface ScoreFactor {
   max: number;
   pct: number;
   tip: string;
+  /** Short human-readable measurement behind the points (e.g. "18%", "3 of 5 kept"), when one exists. */
+  value?: string;
 }
 
 export interface HealthScoreResult {
@@ -24,6 +26,29 @@ export interface HealthInput {
   investedThisMonth: number;
   dtiRatio: number;             // 0–100 (percentage)
   ccUtilizationPct: number;     // 0–100 (percentage)
+}
+
+/**
+ * Pairs the `analyticsAPI.trends()` rows into chronological monthly
+ * income/expense arrays (last 6 months) -- the shape calculateHealthScore's
+ * momentum and stability factors expect. Shared by every score call site so
+ * they cannot drift apart.
+ */
+export function monthlySeriesFromTrends(
+  trends: { year: number | string; month: number | string; type: string; total: number | string }[],
+): { monthlyIncome: number[]; monthlyExpenses: number[] } {
+  const monthMap: Record<string, { income: number; expenses: number }> = {};
+  trends.forEach(row => {
+    const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+    if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
+    if (row.type === 'income')  monthMap[key].income   = parseFloat(String(row.total));
+    if (row.type === 'expense') monthMap[key].expenses = parseFloat(String(row.total));
+  });
+  const sorted = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b)).slice(-6);
+  return {
+    monthlyIncome:   sorted.map(([, v]) => v.income),
+    monthlyExpenses: sorted.map(([, v]) => v.expenses),
+  };
 }
 
 function mean(vals: number[]): number {
@@ -198,11 +223,13 @@ export function calculateHealthScore(input: HealthInput): HealthScoreResult {
   // ── 8. Budget Adherence (5pts) ──────────────────────────────────────────
   let budgetScore: number;
   let budgetTip: string;
+  let budgetsKept = 0;
   if (budgets.length === 0) {
     budgetScore = 2;
     budgetTip = 'Set monthly budgets to track your spending against a plan.';
   } else {
     const within = budgets.filter(b => Number(b.spent) <= Number(b.amount)).length;
+    budgetsKept  = within;
     const ratio  = within / budgets.length;
     const over   = budgets.length - within;
     budgetScore  = ratio >= 1 ? 5 : ratio >= 0.85 ? 4 : ratio >= 0.70 ? 3 : ratio >= 0.50 ? 2 : 1;
@@ -214,15 +241,27 @@ export function calculateHealthScore(input: HealthInput): HealthScoreResult {
   // ── Total ────────────────────────────────────────────────────────────────
   const score = savingsScore + momentumScore + stabilityScore + efficiencyScore + investScore + debtScore + goalScore + budgetScore;
 
+  // Short measurements for display (the Health tab's factor pills). Only set
+  // where there is a real number behind the factor; momentum, stability and
+  // goals are judgements over several inputs and fall back to their points.
+  const pctOf = (n: number) => `${Math.round(n * 100)}%`;
+  const savingsValue    = income > 0 ? rateStr : undefined;
+  const efficiencyValue = income > 0 ? `${pctOf(expenses / income)} spent` : undefined;
+  const investValue     = income > 0 ? `${pctOf(investedThisMonth / income)} invested` : undefined;
+  const debtValue       = ccUtilizationPct > 0
+    ? `${Math.round(dtiRatio)}% DTI · ${Math.round(ccUtilizationPct)}% card`
+    : `${Math.round(dtiRatio)}% DTI`;
+  const budgetValue     = budgets.length > 0 ? `${budgetsKept} of ${budgets.length} kept` : undefined;
+
   const breakdown: ScoreFactor[] = [
-    { id: 'savings',    name: 'Savings Rate',          score: savingsScore,    max: 20, pct: (savingsScore    / 20) * 100, tip: savingsTip    },
+    { id: 'savings',    name: 'Savings Rate',          score: savingsScore,    max: 20, pct: (savingsScore    / 20) * 100, tip: savingsTip,    value: savingsValue    },
     { id: 'momentum',   name: 'Savings Momentum',      score: momentumScore,   max: 10, pct: (momentumScore   / 10) * 100, tip: momentumTip   },
     { id: 'stability',  name: 'Income Stability',      score: stabilityScore,  max: 10, pct: (stabilityScore  / 10) * 100, tip: stabilityTip  },
-    { id: 'efficiency', name: 'Spending Efficiency',   score: efficiencyScore, max: 15, pct: (efficiencyScore / 15) * 100, tip: efficiencyTip },
-    { id: 'investment', name: 'Investment Discipline', score: investScore,     max: 15, pct: (investScore     / 15) * 100, tip: investTip     },
-    { id: 'debt',       name: 'Debt Health',           score: debtScore,       max: 15, pct: (debtScore       / 15) * 100, tip: debtTip       },
+    { id: 'efficiency', name: 'Spending Efficiency',   score: efficiencyScore, max: 15, pct: (efficiencyScore / 15) * 100, tip: efficiencyTip, value: efficiencyValue },
+    { id: 'investment', name: 'Investment Discipline', score: investScore,     max: 15, pct: (investScore     / 15) * 100, tip: investTip,     value: investValue     },
+    { id: 'debt',       name: 'Debt Health',           score: debtScore,       max: 15, pct: (debtScore       / 15) * 100, tip: debtTip,       value: debtValue       },
     { id: 'goals',      name: 'Goal Progress',         score: goalScore,       max: 10, pct: (goalScore       / 10) * 100, tip: goalTip       },
-    { id: 'budgets',    name: 'Budget Adherence',      score: budgetScore,     max: 5,  pct: (budgetScore     /  5) * 100, tip: budgetTip     },
+    { id: 'budgets',    name: 'Budget Adherence',      score: budgetScore,     max: 5,  pct: (budgetScore     /  5) * 100, tip: budgetTip,     value: budgetValue     },
   ];
 
   const label: HealthScoreResult['label'] =
