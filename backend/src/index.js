@@ -188,7 +188,10 @@ const aiLimiter = rateLimit({
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.path.startsWith('/agent'),
+    // Health-report peeks only read the cache and never call the model, so they
+    // shouldn't spend a slot every time the Health tab opens.
+    skip: (req) => req.path.startsWith('/agent')
+        || (req.path === '/health-report' && req.body?.peek === true),
     keyGenerator: (req) => {
         // Try to use authenticated user id; fall back to IP
         const auth = req.headers['authorization'];
