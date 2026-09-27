@@ -1,10 +1,18 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const pool = require('../db/pool');
 
 let _initialized = false;
+let _messaging = null;
 
 function initFirebase() {
     if (_initialized) return;
+    if (getApps().length) {
+        // Already initialized elsewhere (e.g. hot reload) — reuse it.
+        _messaging = getMessaging();
+        _initialized = true;
+        return;
+    }
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!raw) {
         console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT_JSON not set — push notifications disabled');
@@ -12,7 +20,8 @@ function initFirebase() {
     }
     try {
         const serviceAccount = JSON.parse(raw);
-        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+        const app = initializeApp({ credential: cert(serviceAccount) });
+        _messaging = getMessaging(app);
         _initialized = true;
         console.log('[FCM] Firebase Admin initialized ✅');
     } catch (err) {
@@ -48,7 +57,7 @@ async function sendToUser(userId, { title, body, data = {} }) {
             tokens,
         };
 
-        const response = await admin.messaging().sendEachForMulticast(message);
+        const response = await _messaging.sendEachForMulticast(message);
 
         // Remove tokens that are no longer valid (uninstalled app, etc.)
         const staleTokens = [];
