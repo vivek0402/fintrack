@@ -33,7 +33,7 @@ describe('prefKeyForAlert', () => {
         expect(prefKeyForAlert(key)).toBe(pref);
     });
 
-    test.each(['daily_reminder:2026-10-01', 'inactivity:2026-10-01', 'salary_missing:2026-10', 'streak:7:2026-10', 'unknown:1', '', null, undefined])(
+    test.each(['daily_reminder:2026-10-01', 'inactivity:2026-10-01', 'salary_missing:2026-10', 'streak:7:2026-10', 'unknown:1', 'constructor:1', '__proto__:1', 'toString', 'hasOwnProperty:x', '', null, undefined])(
         '%s is unmapped', (key) => {
             expect(prefKeyForAlert(key)).toBeNull();
         }
@@ -98,5 +98,7 @@ describe('bellTypeFor', () => {
         expect(bellTypeFor('weekly_briefing:x', { type: 'weekly_briefing' })).toBe('summary');
         expect(bellTypeFor('streak:7:x', { type: 'streak' })).toBe('info');
         expect(bellTypeFor(null, undefined)).toBe('info');
+        expect(bellTypeFor('constructor:1', {})).toBe('info');
+        expect(shouldPush({ budgetAlerts: false }, 'constructor:1')).toBe(true);
     });
 });

@@ -2,7 +2,7 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const { randomUUID } = require('crypto');
 const pool = require('../db/pool');
-const { shouldPush, bellTypeFor } = require('./notificationPrefs');
+const { shouldPush, bellTypeFor, prefKeyForAlert } = require('./notificationPrefs');
 
 let _initialized = false;
 let _messaging = null;
@@ -83,7 +83,8 @@ async function recordInBell(userId, alertKey, { title, body, data }) {
  */
 async function sendToUser(userId, { title, body, data = {} }, { alertKey = null } = {}) {
     try {
-        const prefs = await loadPrefs(userId);
+        // Unkeyed / unmapped pushes can't be muted, so skip the prefs query.
+        const prefs = prefKeyForAlert(alertKey) ? await loadPrefs(userId) : null;
         // Bell row first, so a foreground push's refresh already sees it.
         await recordInBell(userId, alertKey, { title, body, data });
         if (!shouldPush(prefs, alertKey)) return;

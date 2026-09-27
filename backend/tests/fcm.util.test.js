@@ -287,6 +287,31 @@ describe('sendToUser: notification settings', () => {
         expect(again).toBe(false);
     });
 
+    test.each([
+        ['unkeyed', undefined],
+        ['unmapped', 'streak:7:2026-10'],
+        ['prototype-named', 'constructor:1'],
+    ])('%s pushes skip the prefs query and still push', async (_label, alertKey) => {
+        const fcm = loadFcmModule();
+        routeQueries({ tokens: ['tok-1'], prefs: { budgetAlerts: false, billReminders: false, goalAlerts: false, weeklySummary: false } });
+        mockSendEachForMulticast.mockResolvedValueOnce({ responses: [{ success: true }] });
+
+        await fcm.sendToUser('user-1', { title: 't', body: 'b' }, { alertKey });
+
+        expect(callsMatching(/FROM users/)).toHaveLength(0);
+        expect(callsMatching(/INSERT INTO notifications/)).toHaveLength(1);
+        expect(mockSendEachForMulticast).toHaveBeenCalledTimes(1);
+    });
+
+    test('mapped pushes query prefs exactly once', async () => {
+        const fcm = loadFcmModule();
+        routeQueries({ tokens: [] });
+
+        await fcm.sendToUser('user-1', { title: 't', body: 'b' }, { alertKey: 'cc_due:c1:2026-10-05' });
+
+        expect(callsMatching(/FROM users/)).toHaveLength(1);
+    });
+
     test('a prefs lookup failure defaults to sending', async () => {
         const fcm = loadFcmModule();
         routeQueries({ tokens: ['tok-1'], prefsError: new Error('boom') });

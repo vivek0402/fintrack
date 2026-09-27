@@ -1,21 +1,12 @@
 import { analyticsAPI, budgetsAPI, goalsAPI, recurringAPI } from './api';
 import { addInAppNotification } from './notifications';
+import { loadNotificationPrefs, NotificationPrefs } from './notificationPrefs';
 
 interface Budget { category_id: string; name: string; amount: number; spent: number; }
 interface RecurringItem { id: string; description: string; amount: number; next_due: string; is_active: boolean; }
 interface Goal { id: string; name: string; target_amount: number; current_amount: number; }
 
-const PREFS_KEY = 'fintrack-notif-prefs';
 const LAST_CHECK_KEY = 'fintrack-notif-last-check';
-
-function getPrefs() {
-  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch { return {}; }
-}
-
-function pref(key: string): boolean {
-  const prefs = getPrefs();
-  return prefs[key] !== false;
-}
 
 export async function runNotificationCheck(): Promise<void> {
   const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
@@ -27,6 +18,13 @@ export async function runNotificationCheck(): Promise<void> {
   // below is a deterministic key per alert (category+month, bill+due-date,
   // goal+milestone, week-of).
   try {
+    // Refresh the toggles from the server first (also refreshes the
+    // localStorage cache and runs the one-time local->server upload), so a
+    // category muted on another device is honoured here. Falls back to the
+    // cached copy offline; never throws.
+    const prefs = await loadNotificationPrefs();
+    const pref = (key: keyof NotificationPrefs): boolean => prefs[key] !== false;
+
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();

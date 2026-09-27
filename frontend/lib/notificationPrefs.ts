@@ -35,9 +35,10 @@ export function readCachedNotifPrefs(): NotificationPrefs | null {
     } catch { return null; }
 }
 
-function writeCache(prefs: NotificationPrefs): void {
+export function cacheNotifPrefs(prefs: NotificationPrefs): void {
     try { localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
+const writeCache = cacheNotifPrefs;
 
 /**
  * Loads prefs from the server and refreshes the cache. When the server has
@@ -66,4 +67,36 @@ export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
 export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<void> {
     writeCache(prefs);
     await notificationsAPI.updatePrefs(prefs);
+}
+
+/**
+ * Saves one toggle: caches the caller's full state, then PUTs only that key
+ * (the server merges it atomically, so concurrent toggles can't overwrite
+ * each other's keys).
+ */
+export async function saveNotificationPref(
+    key: keyof NotificationPrefs, value: boolean, full: NotificationPrefs,
+): Promise<void> {
+    writeCache(full);
+    await notificationsAPI.updatePrefs({ [key]: value });
+}
+
+/**
+ * After a failed save of key=attempted: flip it back, but only if it still
+ * holds the value that failed (a newer toggle of the same key wins).
+ * Returns `current` unchanged when there is nothing to revert.
+ */
+export function revertPref(
+    current: NotificationPrefs, key: keyof NotificationPrefs, attempted: boolean,
+): NotificationPrefs {
+    return current[key] === attempted ? { ...current, [key]: !attempted } : current;
+}
+
+/** Server-loaded prefs, except keys the user toggled while the load was in flight. */
+export function mergeLoadedPrefs(
+    loaded: NotificationPrefs, current: NotificationPrefs, touched: ReadonlySet<keyof NotificationPrefs>,
+): NotificationPrefs {
+    const merged = { ...loaded };
+    touched.forEach(k => { merged[k] = current[k]; });
+    return merged;
 }

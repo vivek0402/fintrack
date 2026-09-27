@@ -60,7 +60,8 @@ function alertPrefix(alertKey) {
 /** Profile toggle governing this alert key, or null when none does. */
 function prefKeyForAlert(alertKey) {
     const prefix = alertPrefix(alertKey);
-    return (prefix && PREFIX_TO_PREF[prefix]) || null;
+    // Own-property check so "constructor:" / "__proto__:" can't hit Object.prototype.
+    return prefix && Object.hasOwn(PREFIX_TO_PREF, prefix) ? PREFIX_TO_PREF[prefix] : null;
 }
 
 /**
@@ -99,7 +100,8 @@ function validatePrefsPayload(body) {
 /** Bell row type: the push's own data.type when it is a bell type, else by toggle. */
 function bellTypeFor(alertKey, data = {}) {
     if (data && BELL_TYPES.has(data.type)) return data.type;
-    return PREF_TO_BELL_TYPE[prefKeyForAlert(alertKey)] || 'info';
+    const prefKey = prefKeyForAlert(alertKey);
+    return prefKey ? PREF_TO_BELL_TYPE[prefKey] : 'info';
 }
 
 module.exports = {

@@ -9,7 +9,8 @@ vi.mock('./api', () => ({
 
 import { notificationsAPI } from './api';
 import {
-    DEFAULT_NOTIF_PREFS, NOTIF_PREFS_KEY, loadNotificationPrefs, saveNotificationPrefs,
+    DEFAULT_NOTIF_PREFS, NOTIF_PREFS_KEY, loadNotificationPrefs, mergeLoadedPrefs, revertPref,
+    saveNotificationPref, saveNotificationPrefs,
 } from './notificationPrefs';
 
 const getPrefs = vi.mocked(notificationsAPI.getPrefs);
@@ -79,5 +80,45 @@ describe('saveNotificationPrefs', () => {
     it('rejects when the API save fails so the caller can revert', async () => {
         updatePrefs.mockRejectedValue(new Error('500'));
         await expect(saveNotificationPrefs(DEFAULT_NOTIF_PREFS)).rejects.toThrow('500');
+    });
+});
+
+describe('saveNotificationPref', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        localStorage.clear();
+    });
+
+    it('PUTs only the toggled key and caches the full state', async () => {
+        updatePrefs.mockResolvedValue({ data: {} } as never);
+        const full = { ...DEFAULT_NOTIF_PREFS, goalAlerts: false };
+
+        await saveNotificationPref('goalAlerts', false, full);
+
+        expect(updatePrefs).toHaveBeenCalledWith({ goalAlerts: false });
+        expect(cache()).toEqual(full);
+    });
+});
+
+describe('revertPref', () => {
+    it('flips back only the failed key', () => {
+        const current = { ...DEFAULT_NOTIF_PREFS, goalAlerts: false, billReminders: false };
+        expect(revertPref(current, 'goalAlerts', false)).toEqual({ ...current, goalAlerts: true });
+    });
+
+    it('leaves the key alone when a newer toggle already changed it', () => {
+        const current = { ...DEFAULT_NOTIF_PREFS, goalAlerts: true };
+        expect(revertPref(current, 'goalAlerts', false)).toBe(current);
+    });
+});
+
+describe('mergeLoadedPrefs', () => {
+    it('keeps keys toggled during the load, takes the server copy for the rest', () => {
+        const loaded = { ...DEFAULT_NOTIF_PREFS, billReminders: false, goalAlerts: true };
+        const current = { ...DEFAULT_NOTIF_PREFS, goalAlerts: false };
+        expect(mergeLoadedPrefs(loaded, current, new Set(['goalAlerts'] as const))).toEqual({
+            ...DEFAULT_NOTIF_PREFS, billReminders: false, goalAlerts: false,
+        });
+        expect(mergeLoadedPrefs(loaded, current, new Set())).toEqual(loaded);
     });
 });

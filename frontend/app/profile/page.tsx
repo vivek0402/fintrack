@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Lock, Globe, Palette, ChevronRight, Download, Trash2, Bell, Zap } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -13,7 +13,8 @@ import { useThemeStore } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
 import {
-    DEFAULT_NOTIF_PREFS, NotificationPrefs, loadNotificationPrefs, readCachedNotifPrefs, saveNotificationPrefs,
+    DEFAULT_NOTIF_PREFS, NotificationPrefs, cacheNotifPrefs, loadNotificationPrefs, mergeLoadedPrefs,
+    readCachedNotifPrefs, revertPref, saveNotificationPref,
 } from '@/lib/notificationPrefs';
 
 const CURRENCIES = [
@@ -58,7 +59,16 @@ export default function ProfilePage() {
     const [exporting, setExporting]     = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
     const [coachEnabled, setCoachEnabled]   = useState(true);
-    const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
+    const [notifPrefs, setNotifPrefsState] = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
+    // Ref mirror so async load/save callbacks see the latest toggles, plus the
+    // keys the user has toggled this visit (the initial load must not undo them).
+    const notifPrefsRef = useRef<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
+    const touchedNotifKeys = useRef<Set<keyof NotificationPrefs>>(new Set());
+    const notifToggleSeq = useRef<Partial<Record<keyof NotificationPrefs, number>>>({});
+    const setNotifPrefs = (next: NotificationPrefs) => {
+        notifPrefsRef.current = next;
+        setNotifPrefsState(next);
+    };
 
     useEffect(() => {
         const val = localStorage.getItem('fintrack-coach-enabled');
@@ -69,7 +79,13 @@ export default function ProfilePage() {
         // Paint the cached toggles immediately, then settle on the server copy.
         const cached = readCachedNotifPrefs();
         if (cached) setNotifPrefs(cached);
-        loadNotificationPrefs().then(setNotifPrefs).catch(() => {});
+        loadNotificationPrefs().then(loaded => {
+            const touched = touchedNotifKeys.current;
+            const merged = mergeLoadedPrefs(loaded, notifPrefsRef.current, touched);
+            setNotifPrefs(merged);
+            // The load re-cached the server copy; keep in-flight toggles cached too.
+            if (touched.size) cacheNotifPrefs(merged);
+        }).catch(() => {});
     }, []);
 
     const toggleCoach = (enabled: boolean) => {
@@ -78,13 +94,21 @@ export default function ProfilePage() {
     };
 
     const toggleNotif = (key: keyof NotificationPrefs) => {
-        const prev = notifPrefs;
-        const next = { ...prev, [key]: !prev[key] };
+        const value = !notifPrefsRef.current[key];
+        touchedNotifKeys.current.add(key);
+        const seq = (notifToggleSeq.current[key] ?? 0) + 1;
+        notifToggleSeq.current[key] = seq;
+        const next = { ...notifPrefsRef.current, [key]: value };
         setNotifPrefs(next);
-        saveNotificationPrefs(next).catch(() => {
+        saveNotificationPref(key, value, next).catch(() => {
             toast.error('Could not save notification settings');
-            setNotifPrefs(prev);
-            saveNotificationPrefs(prev).catch(() => {});
+            // A newer toggle of this key supersedes this failed save.
+            if (notifToggleSeq.current[key] !== seq) return;
+            const reverted = revertPref(notifPrefsRef.current, key, value);
+            if (reverted !== notifPrefsRef.current) {
+                setNotifPrefs(reverted);
+                cacheNotifPrefs(reverted);
+            }
         });
     };
 
