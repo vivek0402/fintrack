@@ -1,7 +1,9 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const pool = require('../db/pool');
 
 let _initialized = false;
+let _messaging = null;
 
 function initFirebase() {
     if (_initialized) return;
@@ -12,7 +14,8 @@ function initFirebase() {
     }
     try {
         const serviceAccount = JSON.parse(raw);
-        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+        const app = initializeApp({ credential: cert(serviceAccount) });
+        _messaging = getMessaging(app);
         _initialized = true;
         console.log('[FCM] Firebase Admin initialized ✅');
     } catch (err) {
@@ -48,7 +51,7 @@ async function sendToUser(userId, { title, body, data = {} }) {
             tokens,
         };
 
-        const response = await admin.messaging().sendEachForMulticast(message);
+        const response = await _messaging.sendEachForMulticast(message);
 
         // Remove tokens that are no longer valid (uninstalled app, etc.)
         const staleTokens = [];
