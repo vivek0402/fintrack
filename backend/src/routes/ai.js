@@ -1379,14 +1379,17 @@ ${points.map(p => `${p.label}: ${p.value} — ${p.insight}`).join('\n')}`;
 
     const briefing = rows[0];
 
+    // sendToUser records the brief in the bell even without tokens (and when
+    // the weeklySummary toggle mutes the push); push_sent_at still tracks only
+    // users with a device to push to.
+    const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
+    await sendToUser(userId, {
+        title: 'Your Weekly Money Brief',
+        body: firstSentence,
+        data: { type: 'weekly_briefing', briefing_id: briefing.id },
+    }, { alertKey: `weekly_briefing:${weekOf}` });
     const hasTokens = await userHasTokens(userId);
     if (hasTokens) {
-        const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
-        await sendToUser(userId, {
-            title: 'Your Weekly Money Brief',
-            body: firstSentence,
-            data: { type: 'weekly_briefing', briefing_id: briefing.id },
-        });
         await pool.query(`UPDATE briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
         briefing.push_sent_at = new Date().toISOString();
     }
@@ -1897,14 +1900,17 @@ Reminder: keep your reply to ${NARRATIVE_WORD_LIMIT} words or fewer, at most one
 
     const briefing = rows[0];
 
-    const hasTokens = sendPush && await userHasTokens(userId);
-    if (hasTokens) {
+    // See generateWeeklyBriefing: bell row regardless of tokens/mute.
+    if (sendPush) {
         const firstSentence = narrative.split(/(?<=[.!?])\s/)[0] || narrative;
         await sendToUser(userId, {
             title: 'Your Daily Money Brief',
             body: firstSentence,
             data: { type: 'daily_briefing', briefing_id: briefing.id },
-        });
+        }, { alertKey: `daily_briefing:${briefDate}` });
+    }
+    const hasTokens = sendPush && await userHasTokens(userId);
+    if (hasTokens) {
         await db.query(`UPDATE daily_briefings SET push_sent_at=NOW() WHERE id=$1`, [briefing.id]);
         briefing.push_sent_at = new Date().toISOString();
     }

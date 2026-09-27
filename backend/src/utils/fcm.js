@@ -1,6 +1,8 @@
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
+const { randomUUID } = require('crypto');
 const pool = require('../db/pool');
+const { shouldPush, bellTypeFor } = require('./notificationPrefs');
 
 let _initialized = false;
 let _messaging = null;
@@ -25,13 +27,68 @@ function initFirebase() {
 
 initFirebase();
 
-/**
- * Send a push notification to all registered devices for a user.
- * Silent fail — never throws, never breaks callers.
- */
-async function sendToUser(userId, { title, body, data = {} }) {
-    if (!_initialized) return;
+// Bell row id for a server push. Prefixed "srv:" so it can never equal a
+// client-created id (numeric Date.now() strings or "budget-"/"bill-"/"goal-"/
+// "weekly-summary-" keys). Keyed pushes reuse their alert key, so a repeat of
+// the same alert is a no-op via ON CONFLICT; unkeyed ones get a random UUID,
+// so concurrent inserts can't clash on the (user_id, id) primary key.
+function bellIdFor(alertKey) {
+    return `srv:${alertKey || randomUUID()}`;
+}
+
+// Stored notification_prefs for the user, or null (no prefs / lookup failed,
+// both of which mean "push everything").
+async function loadPrefs(userId) {
     try {
+        const { rows } = await pool.query(
+            'SELECT notification_prefs FROM users WHERE id = $1',
+            [userId]
+        );
+        return rows[0]?.notification_prefs || null;
+    } catch (err) {
+        console.error('[FCM] loading notification prefs failed:', err.message);
+        return null;
+    }
+}
+
+// Records the push in the in-app bell (notifications table). Logs, never throws.
+async function recordInBell(userId, alertKey, { title, body, data }) {
+    try {
+        await pool.query(
+            `INSERT INTO notifications (id, user_id, title, body, type, deep_link)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (user_id, id) DO NOTHING`,
+            [
+                bellIdFor(alertKey),
+                userId,
+                title || 'FinTrack',
+                body || null,
+                bellTypeFor(alertKey, data),
+                data?.deepLink ? String(data.deepLink) : null,
+            ]
+        );
+    } catch (err) {
+        console.error('[FCM] bell insert failed:', err.message);
+    }
+}
+
+/**
+ * Deliver a server notification: always record it in the in-app bell, then
+ * push it to all the user's devices unless the toggle that governs alertKey
+ * (see utils/notificationPrefs.js) is off. A muted push still lands in the
+ * bell as quiet history.
+ * Silent fail — never throws, never breaks callers.
+ * @param opts.alertKey  e.g. "bill_due:<id>:<date>"; selects the pref toggle
+ *                       and makes the bell row idempotent.
+ */
+async function sendToUser(userId, { title, body, data = {} }, { alertKey = null } = {}) {
+    try {
+        const prefs = await loadPrefs(userId);
+        // Bell row first, so a foreground push's refresh already sees it.
+        await recordInBell(userId, alertKey, { title, body, data });
+        if (!shouldPush(prefs, alertKey)) return;
+        if (!_initialized) return;
+
         const { rows } = await pool.query(
             'SELECT token FROM user_fcm_tokens WHERE user_id = $1',
             [userId]
@@ -93,7 +150,10 @@ async function userHasTokens(userId) {
  * Relies on the UNIQUE(user_id, alert_key) constraint on notification_log —
  * the INSERT only succeeds the first time, so concurrent callers can't
  * both pass the check (no separate SELECT-then-INSERT race).
- * Returns true if the notification was sent, false if already sent before.
+ * The log row is written even when the user has muted this alert's category,
+ * so turning the category back on doesn't replay old alerts.
+ * Returns true if the notification was delivered (pushed or, when muted,
+ * recorded in the bell), false if already sent before.
  */
 async function notifyOnce(userId, alertKey, { title, body, data = {} }) {
     const { rowCount } = await pool.query(
@@ -102,8 +162,8 @@ async function notifyOnce(userId, alertKey, { title, body, data = {} }) {
         [userId, alertKey]
     );
     if (!rowCount) return false;
-    await sendToUser(userId, { title, body, data });
+    await sendToUser(userId, { title, body, data }, { alertKey });
     return true;
 }
 
-module.exports = { sendToUser, userHasTokens, notifyOnce };
+module.exports = { sendToUser, userHasTokens, notifyOnce, bellIdFor };
