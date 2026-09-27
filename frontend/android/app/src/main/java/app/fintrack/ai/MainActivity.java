@@ -1,11 +1,13 @@
 package app.fintrack.ai;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowManager;
 import android.webkit.WebView;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -13,7 +15,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FinTrackNativePlugin.class);
-        applyHideInRecents();
+        applyHideInRecents(this);
         super.onCreate(savedInstanceState);
 
         // Cold start from a widget: redirect the WebView directly to the
@@ -25,7 +27,7 @@ public class MainActivity extends BridgeActivity {
             if (targetPath != null) {
                 WebView wv = getBridge().getWebView();
                 if (wv != null) {
-                    String base = appBaseUrl();
+                    String base = appBaseUrl(getBridge());
                     wv.post(() -> wv.loadUrl(base + targetPath));
                 }
                 // launchMode="singleTask" means Android can persist this exact
@@ -61,13 +63,14 @@ public class MainActivity extends BridgeActivity {
     // of a cold start, before the WebView (and so the JS that owns the
     // setting) even exists. FinTrackNativePlugin.setSecureFlag keeps the
     // stored value in step whenever the user changes it; logout clears it.
-    private void applyHideInRecents() {
-        boolean hide = getSharedPreferences(FinTrackNativePlugin.LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+    // QuickAddActivity (the widgets' add sheet) applies it too.
+    static void applyHideInRecents(Activity activity) {
+        boolean hide = activity.getSharedPreferences(FinTrackNativePlugin.LOCK_PREFS_NAME, Context.MODE_PRIVATE)
             .getBoolean(FinTrackNativePlugin.KEY_HIDE_RECENTS, false);
         if (!hide) return;
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            setRecentsScreenshotEnabled(false);
+            activity.setRecentsScreenshotEnabled(false);
         }
     }
 
@@ -84,15 +87,16 @@ public class MainActivity extends BridgeActivity {
     // The origin the WebView is serving (capacitor.config.ts server.url, which
     // CAP_SERVER_URL can point at a local build), so a cold-start deep link
     // stays on the same site. Falls back to the prod URL baked into the build.
-    private String appBaseUrl() {
-        String url = getBridge() != null ? getBridge().getServerUrl() : null;
+    static String appBaseUrl(Bridge bridge) {
+        String url = bridge != null ? bridge.getServerUrl() : null;
         if (url == null || url.isEmpty()) url = BuildConfig.APP_URL;
         return url.replaceAll("/+$", "");
     }
 
-    // OPEN_QUICK_ADD: the widgets' "+" — straight into the natural-language
-    // quick-add sheet. OPEN_ADD (the full Add Transaction form) still works
-    // for any launcher that kept a PendingIntent from the old widgets.
+    // The widgets' "+" now opens QuickAddActivity (the Add Transaction form
+    // over the home screen). OPEN_ADD is also its fallback when that sheet
+    // can't load. OPEN_QUICK_ADD (the natural-language quick-add sheet) still
+    // works for any launcher that kept a PendingIntent from older widgets.
     private String extractTargetPath(Intent intent) {
         if (intent == null) return null;
         if (intent.getBooleanExtra("OPEN_QUICK_ADD", false)) return "/transactions?quickAdd=1";
