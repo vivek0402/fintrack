@@ -48,6 +48,8 @@ describe('isTransactionWrite', () => {
             ['delete', '/api/personal-loans/l1'],
             ['patch', '/api/accounts/3/set-default'],
             ['delete', '/api/accounts/3'],
+            ['post', '/api/budgets'],
+            ['delete', '/api/budgets/b1'],
         ];
         for (const [method, url] of writes) {
             expect([method, url, isTransactionWrite(method, url)]).toEqual([method, url, true]);
@@ -70,7 +72,7 @@ describe('isTransactionWrite', () => {
         expect(isTransactionWrite('get', '/api/transactions')).toBe(false);
         expect(isTransactionWrite('get', '/api/transactions/suggest')).toBe(false);
         expect(isTransactionWrite('post', '/api/transactions-archive')).toBe(false);
-        expect(isTransactionWrite('post', '/api/budgets')).toBe(false);
+        expect(isTransactionWrite('post', '/api/categories')).toBe(false);
         expect(isTransactionWrite(undefined, '/api/transactions')).toBe(false);
     });
 });
@@ -102,6 +104,31 @@ describe('ensureWidgetToken', () => {
         const issue = vi.fn(async () => { throw new Error('401'); });
         await expect(ensureWidgetToken(issue)).resolves.toBeUndefined();
         expect(plugin.saveWidgetToken).not.toHaveBeenCalled();
+    });
+
+    it('discards the minted token if the user logged out while it was in flight', async () => {
+        let auth: string | null = 'user-1';
+        let finishMint: (t: string) => void = () => {};
+        const issue = vi.fn(() => new Promise<string>(r => { finishMint = r; }));
+        const pending = ensureWidgetToken(issue, () => auth);
+        await vi.waitFor(() => expect(issue).toHaveBeenCalled());
+        auth = null; // logout (which already cleared the native widget token)
+        finishMint('widget-jwt-for-user-1');
+        await pending;
+        expect(plugin.saveWidgetToken).not.toHaveBeenCalled();
+    });
+
+    it('discards it too if a different user signed in meanwhile', async () => {
+        let auth: string | null = 'user-1';
+        const issue = vi.fn(async () => { auth = 'user-2'; return 'widget-jwt-for-user-1'; });
+        await ensureWidgetToken(issue, () => auth);
+        expect(plugin.saveWidgetToken).not.toHaveBeenCalled();
+    });
+
+    it('saves it when the same user is still signed in', async () => {
+        const issue = vi.fn(async () => 'widget-jwt');
+        await ensureWidgetToken(issue, () => 'user-1');
+        expect(plugin.saveWidgetToken).toHaveBeenCalledWith({ token: 'widget-jwt' });
     });
 
     it('mints nothing when no widget is on the home screen', async () => {

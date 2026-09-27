@@ -43,7 +43,14 @@ export function refreshWidgets(): void {
  * (POST /api/widget/token) only if none is stored, then refresh. With no
  * widget placed, nothing is minted. Never throws.
  */
-export async function ensureWidgetToken(issueToken: () => Promise<string | null | undefined>): Promise<void> {
+export async function ensureWidgetToken(
+    issueToken: () => Promise<string | null | undefined>,
+    // The auth identity (e.g. the current access token or user id). Checked
+    // again once the mint resolves: if the user logged out (or switched) in
+    // the meantime, the new token is discarded instead of re-arming the
+    // widgets with the previous user's credentials.
+    currentAuth: () => string | null | undefined = () => null,
+): Promise<void> {
     if (!isNative()) return;
     try {
         const widgets = await FinTrackNative.hasWidgets();
@@ -53,9 +60,11 @@ export async function ensureWidgetToken(issueToken: () => Promise<string | null 
             await FinTrackNative.refreshWidgets();
             return;
         }
+        const authBefore = currentAuth();
         const token = await issueToken();
+        if (!token || currentAuth() !== authBefore) return;
         // saveWidgetToken also triggers the first refresh natively.
-        if (token) await FinTrackNative.saveWidgetToken({ token });
+        await FinTrackNative.saveWidgetToken({ token });
     } catch {
         /* best effort — the next app start tries again */
     }
@@ -109,6 +118,8 @@ const TX_WRITE_PATHS: RegExp[] = [
     /^\/api\/one-time-expenses(?:[/?]|$)/,                              // one-time expense items
     /^\/api\/personal-loans(?:[/?]|$)/,                                 // loan disbursal/repayment
     /^\/api\/accounts(?:[/?]|$)/,                                       // account (re)assignment
+    // Not a transaction write, but the widgets show budget totals and rows.
+    /^\/api\/budgets(?:[/?]|$)/,
 ];
 const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 

@@ -7,6 +7,14 @@ import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { widgetAPI } from '@/lib/api';
 import { ensureWidgetToken } from '@/lib/widgets';
 
+const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
+// Identity check for ensureWidgetToken's logout race: the signed-in user's id
+// (stable across the 15-minute access-token rotation, null once logged out).
+const currentUserId = () => {
+  const { token, user } = useAuthStore.getState();
+  return token ? (user?.id ?? token) : null;
+};
+
 export default function CapacitorBridge() {
   const router = useRouter();
   const pathname = usePathname();
@@ -74,7 +82,7 @@ export default function CapacitorBridge() {
     }
     if (widgetsReadyRef.current) return;
     widgetsReadyRef.current = true;
-    ensureWidgetToken(async () => (await widgetAPI.issueToken()).data.token);
+    ensureWidgetToken(issueWidgetToken, currentUserId);
   }, [isLoading, token]);
 
   // ...and on every resume, so a widget placed while the app was running gets
@@ -91,7 +99,7 @@ export default function CapacitorBridge() {
         if (cancelled) return;
         handle = await App.addListener('resume', () => {
           if (!useAuthStore.getState().token) return;
-          ensureWidgetToken(async () => (await widgetAPI.issueToken()).data.token);
+          ensureWidgetToken(issueWidgetToken, currentUserId);
         });
         if (cancelled) handle.remove();
       } catch { /* not in Capacitor environment */ }

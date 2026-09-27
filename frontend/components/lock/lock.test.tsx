@@ -204,7 +204,7 @@ describe('SecuritySection', () => {
     it('shows the lock controls in the Android app', async () => {
         native.value = true;
         render(<SecuritySection />);
-        expect(screen.getByText('Security')).toBeInTheDocument();
+        expect(await screen.findByText('Security')).toBeInTheDocument();
         expect(screen.getByRole('switch', { name: 'App lock' })).toHaveAttribute('aria-checked', 'true');
         expect(screen.getByRole('radio', { name: '1 min' })).toHaveAttribute('aria-checked', 'true');
         await waitFor(() => expect(screen.getByRole('switch', { name: 'Use fingerprint' })).not.toBeDisabled());
@@ -216,7 +216,7 @@ describe('SecuritySection', () => {
         useLockStore.setState({ settings });
         localStorage.setItem(LOCK_SETTINGS_KEY, JSON.stringify(settings));
         render(<SecuritySection />);
-        fireEvent.click(screen.getByRole('switch', { name: 'App lock' }));
+        fireEvent.click(await screen.findByRole('switch', { name: 'App lock' }));
         expect(await screen.findByText('Enter your current PIN')).toBeInTheDocument();
         expect(useLockStore.getState().settings.enabled).toBe(true);
         typePin('2580');
@@ -229,7 +229,7 @@ describe('SecuritySection', () => {
         native.value = true;
         useLockStore.setState({ settings: { ...DEFAULT_LOCK_SETTINGS, enabled: true, biometric: false } });
         render(<SecuritySection />);
-        fireEvent.click(screen.getByRole('switch', { name: 'App lock' }));
+        fireEvent.click(await screen.findByRole('switch', { name: 'App lock' }));
         typePin('1111');
         expect(await screen.findByText('Wrong PIN. 4 tries left')).toBeInTheDocument();
         expect(useLockStore.getState().settings.enabled).toBe(true);
@@ -240,11 +240,30 @@ describe('SecuritySection', () => {
         native.value = true;
         useLockStore.setState({ settings: { ...DEFAULT_LOCK_SETTINGS, enabled: true, biometric: false } });
         render(<SecuritySection />);
-        const sw = screen.getByRole('switch', { name: 'Use fingerprint' });
+        const sw = await screen.findByRole('switch', { name: 'Use fingerprint' });
         await waitFor(() => expect(sw).not.toBeDisabled());
         fireEvent.click(sw);
         await waitFor(() => expect(useLockStore.getState().settings.biometric).toBe(true));
         expect(plugin.enableBiometricKey).toHaveBeenCalledTimes(1);
+    });
+
+    it('is hidden in an older APK whose plugin lacks the app-lock methods', async () => {
+        native.value = true;
+        plugin.biometricStatus.mockRejectedValueOnce(
+            Object.assign(new Error('"FinTrackNative.biometricStatus()" is not implemented on android'), { code: 'UNIMPLEMENTED' }));
+        const { container } = render(<SecuritySection />);
+        await waitFor(() => expect(plugin.biometricStatus).toHaveBeenCalled());
+        await new Promise(r => setTimeout(r, 20));
+        expect(container).toBeEmptyDOMElement();
+        expect(screen.queryByText('App lock')).not.toBeInTheDocument();
+    });
+
+    it('still shows (fingerprint unavailable) when the probe fails for another reason', async () => {
+        native.value = true;
+        plugin.biometricStatus.mockRejectedValueOnce(new Error('sensor busy'));
+        render(<SecuritySection />);
+        expect(await screen.findByRole('switch', { name: 'App lock' })).toBeInTheDocument();
+        expect(screen.getByRole('switch', { name: 'Use fingerprint' })).toBeDisabled();
     });
 
     it('says so when the phone has no fingerprint', async () => {

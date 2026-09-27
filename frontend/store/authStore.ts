@@ -4,6 +4,11 @@ import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { resetAppLock } from '@/store/lockStore';
 import { signOutWidgets } from '@/lib/widgets';
 
+// lib/notificationPrefs.ts's NOTIF_PREFS_KEY. Not imported: that module
+// imports lib/api.ts, which imports this store (authStore.test.ts pins the
+// two together).
+const NOTIF_PREFS_KEY = 'fintrack-notif-prefs';
+
 interface User {
     id: string;
     full_name: string;
@@ -61,6 +66,9 @@ export const useAuthStore = create<AuthStore>()(
                 // Every logout path (Sign Out, failed token refresh, "Forgot PIN")
                 // also drops the app lock: its PIN hash, settings and FLAG_SECURE.
                 resetAppLock();
+                // Cached notification toggles belong to this user; don't hand
+                // them to the next one on a shared device.
+                try { localStorage.removeItem(NOTIF_PREFS_KEY); } catch { /* storage unavailable */ }
             },
         }),
         {

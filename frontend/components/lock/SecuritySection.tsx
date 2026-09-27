@@ -10,7 +10,7 @@ import { useLockStore } from '@/store/lockStore';
 import { toast } from '@/store/toastStore';
 import { LockScreen } from './LockScreen';
 import { PinSetup } from './PinSetup';
-import { useIsNative } from './useIsNative';
+import { isUnimplementedError, useIsNative } from './useIsNative';
 
 type Flow = null | 'enable' | 'disable' | 'change-verify' | 'change-set';
 
@@ -43,23 +43,37 @@ function ToggleRow({ label, sub, checked, onChange, disabled }: { label: string;
     );
 }
 
-/** Profile → Security. Android app only; renders nothing on web/PWA. */
+/**
+ * Profile → Security. Android app only; renders nothing on web/PWA, nor in
+ * an older installed APK that predates the app-lock plugin methods (the web
+ * code is loaded remotely, so it can be newer than the app): there, setting a
+ * PIN could never be saved.
+ */
 export function SecuritySection() {
     const isNative = useIsNative();
     const router = useRouter();
     const settings = useLockStore(s => s.settings);
     const setSettings = useLockStore(s => s.setSettings);
     const [bio, setBio] = useState<BiometricAvailability | null>(null);
+    // null = still probing; false = this APK has no app-lock support.
+    const [supported, setSupported] = useState<boolean | null>(null);
     const [flow, setFlow] = useState<Flow>(null);
 
     useEffect(() => {
         if (!isNative) return;
+        let cancelled = false;
         FinTrackNative.biometricStatus()
-            .then(r => setBio(r.status))
-            .catch(() => setBio('no_hardware'));
+            .then(r => { if (!cancelled) { setBio(r.status); setSupported(true); } })
+            .catch(err => {
+                if (cancelled) return;
+                if (isUnimplementedError(err)) { setSupported(false); return; }
+                setBio('no_hardware');
+                setSupported(true);
+            });
+        return () => { cancelled = true; };
     }, [isNative]);
 
-    if (!isNative) return null;
+    if (!isNative || supported !== true) return null;
 
     const bioAvailable = bio === 'available';
     const off = !settings.enabled;
