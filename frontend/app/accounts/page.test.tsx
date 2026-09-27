@@ -91,6 +91,31 @@ describe('Accounts page — Pay Bill modal', () => {
         expect(screen.getByDisplayValue('4500.00')).toBeInTheDocument();
     });
 
+    it('prefills what is still owed on the last statement, not the cycle net total', async () => {
+        // Previous bill paid mid-cycle: the closed cycle nets to 2,000 but
+        // 12,000 was billed and nothing has been paid since the close.
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [{
+            ...cardWithStatement, statement_balance: 12000, statement_amount_due: 12000, statement_paid: 0, statement_remaining: 12000,
+        }] } });
+        (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: [cycles[0], { ...cycles[1], total: '2000.00' }, cycles[2]] } });
+        render(<AccountsPage />);
+        await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+
+        fireEvent.click(screen.getByText('Pay Bill'));
+        await waitFor(() => expect(screen.getByDisplayValue('12000')).toBeInTheDocument());
+    });
+
+    it('shows the statement amount due (EMI principal excluded) on the card and in the modal', async () => {
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [{
+            ...cardWithStatement, statement_balance: 11000, emi_blocked_principal: 3000,
+            statement_amount_due: 8000, statement_paid: 0, statement_remaining: 8000,
+        }] } });
+        render(<AccountsPage />);
+        await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+        expect(screen.getAllByText(/8,000/).length).toBeGreaterThan(0);
+        expect(screen.queryByText(/11,000/)).not.toBeInTheDocument();
+    });
+
     it('does not render a Cycle field for a card with no billing date (no cycles)', async () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [cardWithoutStatement] } });
         (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: [] } });
