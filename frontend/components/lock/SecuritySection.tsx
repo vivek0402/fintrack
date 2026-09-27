@@ -168,10 +168,10 @@ export function SecuritySection() {
                 checked={settings.enabled && settings.hideRecents} onChange={setHideRecents} disabled={off} />
 
             {flow === 'enable' && (
-                <PinSetup onDone={finishEnable} onCancel={() => setFlow(null)} />
+                <PinSetup onDone={finishEnable} onCancel={() => setFlow(null)} biometricAvailable={bioAvailable} />
             )}
             {flow === 'change-set' && (
-                <PinSetup onDone={finishChange} onCancel={() => setFlow(null)} />
+                <PinSetup onDone={finishChange} onCancel={() => setFlow(null)} biometricAvailable={bioAvailable} />
             )}
             {(flow === 'disable' || flow === 'change-verify') && (
                 <LockScreen mode="verify"

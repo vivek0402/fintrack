@@ -110,11 +110,13 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
     }, [biometricOn]);
 
     // Auto-prompt when the lock appears, and again when the gate asks (the
-    // user came back to the app while it was still locked).
+    // user came back to the app while it was still locked). Only once the PIN
+    // hash is confirmed usable, so the prompt's "Use PIN" always has a PIN
+    // to fall back to.
     useEffect(() => {
-        if (canUseFingerprint && view === 'fingerprint') promptFingerprint();
+        if (canUseFingerprint && view === 'fingerprint' && hashState === 'ok') promptFingerprint();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [canUseFingerprint, promptKey]);
+    }, [canUseFingerprint, promptKey, hashState]);
 
     // Tick the cooldown countdown.
     useEffect(() => {

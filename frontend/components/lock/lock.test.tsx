@@ -56,6 +56,25 @@ beforeEach(() => {
 });
 
 describe('LockScreen', () => {
+    it('does not auto-open the fingerprint prompt until the PIN hash is confirmed', async () => {
+        let resolveHash: (v: { hash: string | null }) => void = () => {};
+        plugin.getPinHash.mockReturnValueOnce(new Promise(r => { resolveHash = r; }));
+        render(<LockScreen onSuccess={vi.fn()} onForgot={vi.fn()} />);
+        await waitFor(() => expect(plugin.biometricStatus).toHaveBeenCalled());
+        await new Promise(r => setTimeout(r, 20));
+        expect(plugin.authenticate).not.toHaveBeenCalled();
+        resolveHash({ hash: PIN_2580 });
+        await waitFor(() => expect(plugin.authenticate).toHaveBeenCalledTimes(1));
+    });
+
+    it('never auto-opens the fingerprint prompt when there is no usable PIN', async () => {
+        plugin.getPinHash.mockResolvedValue({ hash: null });
+        render(<LockScreen onSuccess={vi.fn()} onForgot={vi.fn()} />);
+        await waitFor(() => expect(plugin.biometricStatus).toHaveBeenCalled());
+        await new Promise(r => setTimeout(r, 20));
+        expect(plugin.authenticate).not.toHaveBeenCalled();
+    });
+
     it('shows the fingerprint lock and opens the system prompt by itself', async () => {
         render(<LockScreen onSuccess={vi.fn()} onForgot={vi.fn()} />);
         expect(screen.getByText('FinTrack is locked')).toBeInTheDocument();
@@ -153,6 +172,15 @@ describe('LockScreen', () => {
 });
 
 describe('PinSetup', () => {
+    it('explains the PIN as the fingerprint fallback only when a fingerprint exists', () => {
+        const { unmount } = render(<PinSetup onDone={vi.fn()} onCancel={vi.fn()} biometricAvailable />);
+        expect(screen.getByText('You’ll use this when your fingerprint isn’t available')).toBeInTheDocument();
+        unmount();
+        render(<PinSetup onDone={vi.fn()} onCancel={vi.fn()} />);
+        expect(screen.getByText('You’ll use this to unlock FinTrack')).toBeInTheDocument();
+        expect(screen.queryByText(/fingerprint/i)).not.toBeInTheDocument();
+    });
+
     it('asks to confirm, and flags a mismatch', async () => {
         const onDone = vi.fn();
         render(<PinSetup onDone={onDone} onCancel={vi.fn()} />);

@@ -190,9 +190,11 @@ public class FinTrackNativePlugin extends Plugin {
             resolveAuth(call, "invalidated", -1, "Fingerprints changed");
             return;
         } catch (Exception e) {
-            Logger.error("FinTrackNative", "Biometric key unusable", e);
-            deleteKeyQuietly();
-            resolveAuth(call, "invalidated", -1, e.getMessage());
+            // Anything else (Keystore busy, a one-off cipher-init failure) may
+            // be transient: keep the key, so one hiccup can't permanently turn
+            // fingerprint off. JS falls back to the PIN for this unlock only.
+            Logger.error("FinTrackNative", "Biometric cipher init failed", e);
+            resolveAuth(call, "error", -1, e.getMessage());
             return;
         }
         if (boundCipher == null) {
