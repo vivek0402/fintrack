@@ -1,4 +1,4 @@
-const { buildCardDueAlerts, amountDueOnStatement } = require('../src/utils/cardDueAlerts');
+const { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince } = require('../src/utils/cardDueAlerts');
 
 const TODAY = '2026-09-27';
 
@@ -8,6 +8,7 @@ function card(overrides = {}) {
         bank_name: 'HDFC',
         card_name: 'Regalia',
         statement_balance: 45250,
+        due_days: 20,
         last_statement_close_date: '2026-09-10',
         statement_due_date: '2026-09-30',
         ...overrides,
@@ -21,7 +22,7 @@ describe('buildCardDueAlerts', () => {
         expect(alerts[0].title).toBe('💳 HDFC Regalia bill due in 3 days');
         // ICU renders en-IN short September as "Sep" or "Sept" depending on
         // the Node/ICU version, so allow either.
-        expect(alerts[0].body).toMatch(/^₹45,250 unpaid, due 30 Sept?\. Pay it and mark it as paid in FinTrack to avoid late fees\.$/);
+        expect(alerts[0].body).toMatch(/^₹45,250 unpaid, due 30 Sept?\. Pay and record it in FinTrack to avoid late fees\.$/);
     });
 
     test('due in 4 days -> no alert', () => {
@@ -133,6 +134,15 @@ describe('buildCardDueAlerts', () => {
         });
     });
 
+    test('no configured due period (due_days null or <= 0) -> no alert', () => {
+        // Without due_days the computed due date is just the close date,
+        // which would read as a misleading "due today".
+        const onCloseDay = { statement_due_date: TODAY, last_statement_close_date: TODAY };
+        expect(buildCardDueAlerts([card({ ...onCloseDay, due_days: null })], new Map(), TODAY)).toEqual([]);
+        expect(buildCardDueAlerts([card({ ...onCloseDay, due_days: 0 })], new Map(), TODAY)).toEqual([]);
+        expect(buildCardDueAlerts([card({ ...onCloseDay, due_days: -5 })], new Map(), TODAY)).toEqual([]);
+    });
+
     test('rounds amounts to whole rupees, no decimals', () => {
         const [alert] = buildCardDueAlerts([card({ statement_balance: 1234567.89 })], new Map(), TODAY);
         expect(alert.body).toMatch(/^₹12,34,568 unpaid/);
@@ -150,5 +160,48 @@ describe('amountDueOnStatement', () => {
 
     test('null when the card has no billing cycle', () => {
         expect(amountDueOnStatement({ statement_balance: null, emi_blocked_principal: 0 })).toBeNull();
+    });
+});
+
+describe('isCardInDueWindow', () => {
+    test('true only for a positive bill due within [today, today+3] with a due period', () => {
+        expect(isCardInDueWindow(card(), TODAY)).toBe(true);
+        expect(isCardInDueWindow(card({ statement_due_date: '2026-10-01' }), TODAY)).toBe(false);
+        expect(isCardInDueWindow(card({ statement_due_date: '2026-09-26' }), TODAY)).toBe(false);
+        expect(isCardInDueWindow(card({ statement_balance: 0 }), TODAY)).toBe(false);
+        expect(isCardInDueWindow(card({ statement_balance: 5000, emi_blocked_principal: 5000 }), TODAY)).toBe(false);
+        expect(isCardInDueWindow(card({ due_days: null }), TODAY)).toBe(false);
+        expect(isCardInDueWindow(card({ statement_due_date: null, statement_balance: null }), TODAY)).toBe(false);
+    });
+});
+
+describe('fetchCardPaymentsSince', () => {
+    const fakePool = (result) => ({ query: jest.fn().mockResolvedValue(result) });
+
+    test('queries only tagged card-side payments strictly after the close date', async () => {
+        const pool = fakePool({ rows: [{ paid: '0' }] });
+        await fetchCardPaymentsSince(pool, 'u1', 7, '2026-09-10');
+
+        const [sql, params] = pool.query.mock.calls[0];
+        const norm = sql.replace(/\s+/g, ' ');
+        expect(norm).toMatch(/user_id = \$1/);
+        expect(norm).toMatch(/credit_card_id = \$2/);
+        expect(norm).toMatch(/type = 'income'/);
+        expect(norm).toMatch(/'credit_card_payment' = ANY\(tags\)/);
+        // Strictly greater: statement_balance already nets anything dated on
+        // or before the close date, so >= would double-count a close-day payment.
+        expect(norm).toMatch(/date > \$3/);
+        expect(norm).not.toMatch(/date >= /);
+        expect(params).toEqual(['u1', 7, '2026-09-10']);
+    });
+
+    test('converts a numeric-string SUM from pg into a number', async () => {
+        await expect(fetchCardPaymentsSince(fakePool({ rows: [{ paid: '12500.50' }] }), 'u1', 7, '2026-09-10'))
+            .resolves.toBe(12500.5);
+    });
+
+    test('null or missing result -> 0', async () => {
+        await expect(fetchCardPaymentsSince(fakePool({ rows: [{ paid: null }] }), 'u1', 7, '2026-09-10')).resolves.toBe(0);
+        await expect(fetchCardPaymentsSince(fakePool({ rows: [] }), 'u1', 7, '2026-09-10')).resolves.toBe(0);
     });
 });

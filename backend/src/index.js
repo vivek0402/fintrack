@@ -37,7 +37,7 @@ const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
-const { buildCardDueAlerts, amountDueOnStatement } = require('./utils/cardDueAlerts');
+const { buildCardDueAlerts, isCardInDueWindow, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
 const { istDateStr } = require('./utils/istDate');
 const app = express();
 
@@ -746,22 +746,14 @@ cron.schedule('0 9 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
-                const dueCards = cards.filter(c => c.statement_due_date && amountDueOnStatement(c) > 0);
+                // Due-window filter first, so the payments query only runs for
+                // the few days each cycle a card is actually about to be due.
+                const dueCards = cards.filter(c => isCardInDueWindow(c, today));
                 if (!dueCards.length) continue;
 
-                // Payments recorded via POST /api/credit-cards/:id/pay since each
-                // card's last statement closed (the card-side income leg).
                 const paidByCard = new Map();
                 for (const card of dueCards) {
-                    const { rows } = await pool.query(
-                        `SELECT COALESCE(SUM(amount), 0) AS paid
-                         FROM transactions
-                         WHERE user_id = $1 AND credit_card_id = $2 AND type = 'income'
-                           AND 'credit_card_payment' = ANY(tags)
-                           AND date > $3`,
-                        [user_id, card.id, card.last_statement_close_date]
-                    );
-                    paidByCard.set(card.id, parseFloat(rows[0]?.paid || 0));
+                    paidByCard.set(card.id, await fetchCardPaymentsSince(pool, user_id, card.id, card.last_statement_close_date));
                 }
 
                 for (const alert of buildCardDueAlerts(dueCards, paidByCard, today)) {

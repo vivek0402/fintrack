@@ -1,7 +1,8 @@
-// Pure decision logic for the "credit card bill due soon and unpaid" push
-// (the [Cron:CardDue] job in index.js). Kept free of DB/FCM access so it can
-// be unit tested directly -- the cron just wires
-// fetchCreditCardsWithCycleBreakdown + a payments query -> this -> notifyOnce.
+// Decision logic for the "credit card bill due soon and unpaid" push (the
+// [Cron:CardDue] job in index.js). Everything except fetchCardPaymentsSince is
+// pure (no DB/FCM access) so it can be unit tested directly -- the cron just
+// wires fetchCreditCardsWithCycleBreakdown -> isCardInDueWindow ->
+// fetchCardPaymentsSince -> buildCardDueAlerts -> notifyOnce.
 //
 // All dates are 'YYYY-MM-DD' strings. `todayStr` must already be the IST
 // calendar date (istDateStr()); nothing in here reads the server clock.
@@ -44,6 +45,37 @@ function amountDueOnStatement(card) {
     return parseFloat(card.statement_balance) - (parseFloat(card.emi_blocked_principal) || 0);
 }
 
+// True when the card has a real bill (amount due > 0) whose due date falls in
+// [today, today + DUE_WINDOW_DAYS]. Cards with no configured due period
+// (due_days null/<=0) are skipped: their computed "due date" is just the
+// statement close date, which would produce a misleading "due today" alert.
+function isCardInDueWindow(card, todayStr) {
+    if (!card.statement_due_date) return false;
+    if (card.due_days == null || !(Number(card.due_days) > 0)) return false;
+    const amountDue = amountDueOnStatement(card);
+    if (amountDue == null || !(amountDue > 0)) return false;
+    const daysLeft = daysBetween(todayStr, card.statement_due_date);
+    return daysLeft >= 0 && daysLeft <= DUE_WINDOW_DAYS;
+}
+
+// Bill payments recorded via POST /api/credit-cards/:id/pay (the card-side
+// income leg tagged 'credit_card_payment') dated strictly AFTER sinceDate.
+// Strictly after, not >=: statement_balance already nets every transaction
+// dated on or before the close date, so a close-day payment counted here too
+// would be double-counted.
+const CARD_PAYMENTS_SINCE_QUERY = `
+    SELECT COALESCE(SUM(amount), 0) AS paid
+    FROM transactions
+    WHERE user_id = $1 AND credit_card_id = $2 AND type = 'income'
+      AND 'credit_card_payment' = ANY(tags)
+      AND date > $3
+`;
+
+async function fetchCardPaymentsSince(pool, userId, cardId, sinceDate) {
+    const { rows } = await pool.query(CARD_PAYMENTS_SINCE_QUERY, [userId, cardId, sinceDate]);
+    return parseFloat(rows[0]?.paid) || 0;
+}
+
 function cardDisplayName(card) {
     return [card.bank_name, card.card_name].filter(Boolean).join(' ') || 'Credit card';
 }
@@ -63,12 +95,9 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
 
     const alerts = [];
     for (const card of cards || []) {
-        if (!card.statement_due_date) continue;
+        if (!isCardInDueWindow(card, todayStr)) continue;
         const statementBalance = amountDueOnStatement(card);
-        if (statementBalance == null || !(statementBalance > 0)) continue;
-
         const daysLeft = daysBetween(todayStr, card.statement_due_date);
-        if (daysLeft < 0 || daysLeft > DUE_WINDOW_DAYS) continue;
 
         const paid = getPaid(card.id);
         const remaining = statementBalance - paid;
@@ -86,7 +115,7 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
             cardId: card.id,
             alertKey: `cc_due:${card.id}:${card.statement_due_date}`,
             title: `💳 ${name} bill due ${dueLabel(daysLeft)}`,
-            body: `${amountText}, due ${dueOn}. Pay it and mark it as paid in FinTrack to avoid late fees.`,
+            body: `${amountText}, due ${dueOn}. Pay and record it in FinTrack to avoid late fees.`,
             // type/deepLink follow the frontend's push contract
             // (frontend/lib/notifications.ts: data.type is a
             // NotificationType, data.deepLink is navigated to on tap).
@@ -101,4 +130,4 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
     return alerts;
 }
 
-module.exports = { buildCardDueAlerts, amountDueOnStatement, DUE_WINDOW_DAYS };
+module.exports = { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, DUE_WINDOW_DAYS };
