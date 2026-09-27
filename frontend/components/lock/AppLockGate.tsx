@@ -6,7 +6,8 @@ import {
     LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
-import { useAuthStore } from '@/store/authStore';
+import { onWidgetAddPage, openMainApp } from '@/lib/widgetAdd';
+import { signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isContentHidden, setContentHidden, useLockStore } from '@/store/lockStore';
 import { LockScreen } from './LockScreen';
 import { isNativeApp, useIsClient } from './useIsNative';
@@ -71,10 +72,33 @@ export function decideOnPageLoad(): void {
  * isActive=true from every onResume — including the one after the
  * fingerprint dialog, which has no matching stop and so never locks.
  */
-export async function handleAppStateChange(isActive: boolean): Promise<void> {
+export async function handleAppStateChange(
+    isActive: boolean,
+    goTo: (path: string) => void = (path) => window.location.replace(path),
+): Promise<void> {
+    // The widget add sheet (a second WebView on the same storage) logged out
+    // while we sat in the background ("Forgot PIN" or a lockout there): follow
+    // suit before anything is revealed. Content stays hidden until /login.
+    if (isActive && !onWidgetAddPage() && signedOutElsewhere()) {
+        useAuthStore.getState().logout();
+        goTo('/login');
+        return;
+    }
+
     const store = useLockStore.getState();
     const loggedIn = !!useAuthStore.getState().token;
     if (!store.settings.enabled || !loggedIn) return;
+
+    // The widget add sheet is finished natively as soon as it stops, so this
+    // is only a backstop. It never touches the background timestamps: those
+    // are the full app's, and writing them here would restart its grace
+    // period without an unlock.
+    if (onWidgetAddPage()) {
+        if (!isActive) store.lock();
+        else if (store.locked) store.requestPrompt();
+        return;
+    }
+
     const storage = local();
 
     if (!isActive) {
@@ -175,7 +199,10 @@ export function AppLockGate() {
         // logout() also resets the lock (settings, PIN hash, key, FLAG_SECURE)
         // but keeps content hidden until /login renders.
         useAuthStore.getState().logout();
-        router.replace('/login');
+        // The widget add sheet has no login screen: the full app shows it
+        // (and, if it was running, notices the logout on resume).
+        if (onWidgetAddPage()) openMainApp();
+        else router.replace('/login');
     }, [router]);
 
     if (!isClient || !locked) return null;

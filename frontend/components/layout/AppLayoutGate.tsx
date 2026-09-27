@@ -6,7 +6,9 @@ import { AmbientLighting } from './AmbientLighting';
 import { AppLockGate } from '@/components/lock/AppLockGate';
 
 // Routes that render their own full-bleed UI with no sidebar/bottom-nav/FAB chrome.
-const noChromeRoutes = ['/', '/login', '/register', '/forgot-password', '/onboarding'];
+// /widget-add: the Android widgets' add sheet over the home screen (it hides
+// the ambient backdrop itself unless the lock screen is up).
+const noChromeRoutes = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/widget-add'];
 
 // AppLockGate sits at the same position in both branches, so React keeps the
 // one instance alive when navigating between bare and chromed routes.

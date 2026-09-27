@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuthStore } from '@/store/authStore';
+import { readPersistedTokens, useAuthStore } from '@/store/authStore';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -33,7 +33,15 @@ let refreshPromise: Promise<string> | null = null;
 
 function refreshAccessToken(): Promise<string> {
     if (!refreshPromise) {
-        const { refreshToken } = useAuthStore.getState();
+        // Prefer the saved pair when it differs from ours: the Android widget
+        // add sheet runs in a second WebView on the same storage and may have
+        // rotated the refresh token since this document read it. Refreshing
+        // with our stale copy would present a revoked token and log out.
+        const persisted = readPersistedTokens();
+        let { refreshToken } = useAuthStore.getState();
+        if (persisted?.refreshToken && persisted.refreshToken !== refreshToken) {
+            refreshToken = persisted.refreshToken;
+        }
         refreshPromise = (refreshToken
             ? refreshClient.post('/api/auth/refresh', { refresh_token: refreshToken })
             : Promise.reject(new Error('No refresh token available')))

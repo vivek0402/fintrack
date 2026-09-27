@@ -31,3 +31,26 @@ describe('authStore.logout', () => {
         expect(useAuthStore.getState().token).toBeNull();
     });
 });
+
+describe('readPersistedTokens / signedOutElsewhere', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        useAuthStore.setState({ token: 't', refreshToken: 'r', isLoading: false });
+    });
+
+    it('reads the saved pair, which another WebView may have rotated', async () => {
+        const { readPersistedTokens } = await import('./authStore');
+        localStorage.setItem('fintrack-auth', JSON.stringify({ state: { token: 't2', refreshToken: 'r2' }, version: 0 }));
+        expect(readPersistedTokens()).toEqual({ token: 't2', refreshToken: 'r2' });
+    });
+
+    it('is signed out elsewhere only when storage lost the token this document still has', async () => {
+        const { signedOutElsewhere } = await import('./authStore');
+        expect(signedOutElsewhere()).toBe(false);
+        localStorage.removeItem('fintrack-auth');
+        expect(signedOutElsewhere()).toBe(true);
+        useAuthStore.setState({ token: null });
+        localStorage.removeItem('fintrack-auth');
+        expect(signedOutElsewhere()).toBe(false);
+    });
+});

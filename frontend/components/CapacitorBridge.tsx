@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { widgetAPI } from '@/lib/api';
 import { ensureWidgetToken } from '@/lib/widgets';
+import { closeQuickAdd, isWidgetAddPath, onWidgetAddPage } from '@/lib/widgetAdd';
 
 const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
 // Identity check for ensureWidgetToken's logout race: the signed-in user's id
@@ -42,7 +43,10 @@ export default function CapacitorBridge() {
         const { App } = await import('@capacitor/app');
         if (cancelled) return;
         handle = await App.addListener('backButton', () => {
-          if (pathnameRef.current === '/dashboard') {
+          // The widget add sheet over the home screen: Back closes it.
+          if (isWidgetAddPath(pathnameRef.current)) {
+            closeQuickAdd();
+          } else if (pathnameRef.current === '/dashboard') {
             App.exitApp();
           } else {
             router.replace('/dashboard');
@@ -73,9 +77,11 @@ export default function CapacitorBridge() {
   // refresh). Re-arms after logout so the next sign-in sets them up again.
   // Not re-run on every silent token refresh (the access token rotates every
   // 15 minutes).
+  // Not from the widget add sheet: a few-second WebView the app's own session
+  // already keeps the widgets set up for (it asks for a refresh on save).
   const widgetsReadyRef = useRef(false);
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || onWidgetAddPage()) return;
     if (!token) {
       widgetsReadyRef.current = false;
       return;
@@ -98,7 +104,7 @@ export default function CapacitorBridge() {
         const { App } = await import('@capacitor/app');
         if (cancelled) return;
         handle = await App.addListener('resume', () => {
-          if (!useAuthStore.getState().token) return;
+          if (!useAuthStore.getState().token || onWidgetAddPage()) return;
           ensureWidgetToken(issueWidgetToken, currentUserId);
         });
         if (cancelled) handle.remove();

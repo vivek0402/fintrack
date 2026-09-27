@@ -9,6 +9,37 @@ import { signOutWidgets } from '@/lib/widgets';
 // two together).
 const NOTIF_PREFS_KEY = 'fintrack-notif-prefs';
 
+// zustand persist key; lib/lockHeadScript.ts reads it too.
+const AUTH_STORAGE_KEY = 'fintrack-auth';
+
+/**
+ * The tokens as currently saved in localStorage, which can be newer than
+ * this document's in-memory copy: the Android widget add sheet
+ * (/widget-add/) is a second WebView on the same storage, and can rotate the
+ * refresh token or log out while the app sits in the background.
+ * Null when storage is unreadable.
+ */
+export function readPersistedTokens(): { token: string | null; refreshToken: string | null } | null {
+    try {
+        if (typeof window === 'undefined') return null;
+        const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+        const state = raw ? (JSON.parse(raw) as { state?: { token?: unknown; refreshToken?: unknown } })?.state : null;
+        return {
+            token: typeof state?.token === 'string' ? state.token : null,
+            refreshToken: typeof state?.refreshToken === 'string' ? state.refreshToken : null,
+        };
+    } catch {
+        return null;
+    }
+}
+
+/** Logged in here, but another WebView (the widget add sheet) has since logged out. */
+export function signedOutElsewhere(): boolean {
+    if (!useAuthStore.getState().token) return false;
+    const persisted = readPersistedTokens();
+    return persisted !== null && persisted.token === null;
+}
+
 interface User {
     id: string;
     full_name: string;
@@ -72,7 +103,7 @@ export const useAuthStore = create<AuthStore>()(
             },
         }),
         {
-            name: 'fintrack-auth',
+            name: AUTH_STORAGE_KEY,
             storage: createJSONStorage(() =>
                 typeof window !== 'undefined' ? localStorage : ({
                     getItem: () => null,

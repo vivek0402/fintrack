@@ -4,6 +4,7 @@ import {
     clearLockStorage, readSettings, writeSettings,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
+import { onWidgetAddPage } from '@/lib/widgetAdd';
 
 function local(): Storage | null {
     try { return typeof window !== 'undefined' ? window.localStorage : null; } catch { return null; }
@@ -59,8 +60,13 @@ export const useLockStore = create<LockStore>((set, get) => ({
     unlock: () => {
         try {
             session()?.setItem(LOCK_SESSION_KEY, '1');
-            local()?.removeItem(LOCK_BG_AT_KEY);
-            local()?.removeItem(LOCK_BG_ELAPSED_KEY);
+            // The background timestamp is the full app's (shared localStorage).
+            // Unlocking the widget add sheet must not clear it, or the app,
+            // still unlocked in memory behind it, would skip its own lock.
+            if (!onWidgetAddPage()) {
+                local()?.removeItem(LOCK_BG_AT_KEY);
+                local()?.removeItem(LOCK_BG_ELAPSED_KEY);
+            }
         } catch { /* ignore */ }
         setContentHidden(false);
         set({ locked: false });

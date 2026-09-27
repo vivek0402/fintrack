@@ -74,11 +74,16 @@ interface Props {
     transaction?: any;
     prefill?: any;
     defaultDate?: string;
+    // The Android widget add sheet (app/widget-add): no dimming layer (its
+    // window dims the home screen), and a small loading state in the sheet
+    // until categories and accounts are in, instead of an empty form.
+    scrim?: boolean;
+    holdUntilReady?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate }: Props) {
+export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate, scrim = true, holdUntilReady = false }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
     const isMobile = useIsMobile();
@@ -107,8 +112,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         },
     });
     const [tagInput, setTagInput] = useState('');
-    const { categories, refresh: refreshCategories, addLocal: addLocalCategory } = useCategories();
+    const { categories, loading: categoriesLoading, refresh: refreshCategories, addLocal: addLocalCategory } = useCategories();
     const [accounts, setAccounts]     = useState<any[]>([]);
+    const [accountsLoaded, setAccountsLoaded] = useState(false);
     const [cards, setCards]           = useState<any[]>([]);
     const [goals, setGoals]           = useState<any[]>([]);
     const [paymentUsage, setPaymentUsage] = useState<Record<string, number>>({});
@@ -152,7 +158,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     useEffect(() => {
         if (!isOpen) return;
-        accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
+        accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]))
+            .finally(() => setAccountsLoaded(true));
     }, [isOpen]);
 
     useEffect(() => {
@@ -742,6 +749,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             ? `Transfer${form.amount ? ` ₹${Number(form.amount).toLocaleString('en-IN')}` : ''}`
             : `Add${form.amount ? ` ₹${Number(form.amount).toLocaleString('en-IN')}` : ''} ${isIncome ? 'income' : 'expense'}`;
 
+    const waitingForData = holdUntilReady && (categoriesLoading || !accountsLoaded);
+
     return (
       <>
         {dateSheet}
@@ -751,8 +760,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         <Modal
             isOpen={isOpen}
             onClose={onClose}
+            scrim={scrim}
             title={isEditing ? 'Edit Transaction' : isTransfer ? 'Transfer Between Accounts' : 'Add Transaction'}
-            footer={
+            footer={waitingForData ? undefined :
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {/* ── More details — pinned here instead of the scrolling form body, so
                         it's reachable in one tap regardless of how tall the fields above
@@ -783,6 +793,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 </div>
             }
         >
+            {waitingForData ? (
+                <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-3)', padding: 'var(--space-8) 0 var(--space-6)', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
+                    <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border-visible)', borderTopColor: 'var(--accent)', animation: 'spin 0.7s linear infinite' }} />
+                    Loading your categories…
+                </div>
+            ) : (<>
             {/* AI new-category prompt */}
             {showNewCategoryPrompt && (
                 <div style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1135,6 +1151,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
             </form>
+            </>)}
         </Modal>
       </>
     );

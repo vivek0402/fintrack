@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
     DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
 } from '@/lib/appLock';
@@ -10,6 +10,7 @@ import { AppLockGate, __resetPageLoadForTests, decideOnPageLoad, handleAppStateC
 
 const native = vi.hoisted(() => ({ value: true }));
 const nav = vi.hoisted(() => ({ path: '/dashboard' }));
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 vi.mock('@capacitor/core', async (orig) => {
     const actual = await orig<typeof import('@capacitor/core')>();
@@ -21,7 +22,7 @@ vi.mock('@capacitor/app', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+    useRouter: () => router,
     usePathname: () => nav.path,
 }));
 
@@ -38,6 +39,8 @@ vi.mock('@/plugins/FinTrackNativePlugin', () => ({
         setPinHash: vi.fn(async () => {}),
         getPinHash: vi.fn(async () => ({ hash: null })),
         clearLock: vi.fn(async () => {}),
+        clearWidgetToken: vi.fn(async () => {}),
+        openMainApp: vi.fn(async () => {}),
     },
 }));
 
@@ -73,7 +76,10 @@ beforeEach(() => {
     __resetPageLoadForTests();
 });
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, '', '/');
+});
 
 describe('decideOnPageLoad', () => {
     it('locks a cold start when lock is on and someone is logged in', () => {
@@ -201,5 +207,63 @@ describe('logout while locked', () => {
         expect(hidden()).toBe(false);
         useAuthStore.getState().logout();
         expect(hidden()).toBe(false);
+    });
+});
+
+// The widget add sheet (/widget-add/, QuickAddActivity) is a second WebView
+// next to the app's, sharing localStorage but not memory.
+describe('widget add sheet', () => {
+    const onSheet = () => {
+        window.history.replaceState({}, '', '/widget-add/');
+        nav.path = '/widget-add';
+    };
+
+    it('locks on load like any cold start, even right after the app was used', () => {
+        onSheet();
+        localStorage.setItem(LOCK_BG_AT_KEY, String(Date.now() - 1_000));
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it("unlocking the sheet leaves the app's background timestamp alone", () => {
+        onSheet();
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
+        localStorage.setItem(LOCK_BG_ELAPSED_KEY, '5');
+        useLockStore.getState().lock();
+        useLockStore.getState().unlock();
+        expect(hidden()).toBe(false);
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
+        expect(localStorage.getItem(LOCK_BG_ELAPSED_KEY)).toBe('5');
+    });
+
+    it("leaving the sheet locks it without restarting the app's grace period", async () => {
+        onSheet();
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
+        await handleAppStateChange(false);
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
+        expect(plugin.elapsedRealtime).not.toHaveBeenCalled();
+    });
+
+    it('"Forgot PIN" on the sheet logs out and hands over to the app', async () => {
+        onSheet();
+        useLockStore.getState().lock();
+        render(<AppLockGate />);
+        // No usable PIN hash (mock) -> the "Log in again" state, which calls onForgot.
+        const button = await screen.findByText('Log in again');
+        await act(async () => { fireEvent.click(button); });
+        expect(useAuthStore.getState().token).toBeNull();
+        expect(plugin.openMainApp).toHaveBeenCalledTimes(1);
+        expect(router.replace).not.toHaveBeenCalled();
+    });
+
+    it('the app, resumed after the sheet logged out, logs out too before revealing anything', async () => {
+        const goTo = vi.fn();
+        // The sheet's logout cleared the shared storage; this WebView still holds a token.
+        localStorage.removeItem('fintrack-auth');
+        localStorage.removeItem(LOCK_BG_AT_KEY);
+        await handleAppStateChange(true, goTo);
+        expect(useAuthStore.getState().token).toBeNull();
+        expect(goTo).toHaveBeenCalledWith('/login');
     });
 });
