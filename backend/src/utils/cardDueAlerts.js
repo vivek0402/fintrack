@@ -76,6 +76,33 @@ async function fetchCardPaymentsSince(pool, userId, cardId, sinceDate) {
     return parseFloat(rows[0]?.paid) || 0;
 }
 
+// Additive per-card "what's still owed on the last statement" fields for
+// GET /api/credit-cards. Same math the card-due alert uses
+// (amountDueOnStatement - payments recorded after the close), kept out of
+// fetchCreditCardsWithCycleBreakdown on purpose: that helper is shared with
+// the card-due cron (which only queries payments for the few cards inside
+// the due window) and routes/debt.js, neither of which should pay for one
+// payments query per card. Cards with no billing cycle get nulls.
+//   statement_amount_due  what the bank billed (EMI principal stripped)
+//   statement_paid        bill payments dated after last_statement_close_date
+//   statement_remaining   max(0, due - paid), rounded to whole rupees like
+//                         the alert's "still unpaid" check
+async function withStatementRemaining(pool, userId, cards) {
+    return Promise.all((cards || []).map(async (card) => {
+        const amountDue = amountDueOnStatement(card);
+        if (amountDue == null || !card.last_statement_close_date) {
+            return { ...card, statement_amount_due: null, statement_paid: null, statement_remaining: null };
+        }
+        const paid = await fetchCardPaymentsSince(pool, userId, card.id, card.last_statement_close_date);
+        return {
+            ...card,
+            statement_amount_due: amountDue,
+            statement_paid: paid,
+            statement_remaining: Math.max(0, Math.round(amountDue - paid)),
+        };
+    }));
+}
+
 function cardDisplayName(card) {
     return [card.bank_name, card.card_name].filter(Boolean).join(' ') || 'Credit card';
 }
@@ -130,4 +157,4 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
     return alerts;
 }
 
-module.exports = { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, DUE_WINDOW_DAYS };
+module.exports = { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, withStatementRemaining, DUE_WINDOW_DAYS };

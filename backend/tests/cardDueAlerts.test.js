@@ -1,4 +1,4 @@
-const { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince } = require('../src/utils/cardDueAlerts');
+const { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, withStatementRemaining } = require('../src/utils/cardDueAlerts');
 
 const TODAY = '2026-09-27';
 
@@ -203,5 +203,49 @@ describe('fetchCardPaymentsSince', () => {
     test('null or missing result -> 0', async () => {
         await expect(fetchCardPaymentsSince(fakePool({ rows: [{ paid: null }] }), 'u1', 7, '2026-09-10')).resolves.toBe(0);
         await expect(fetchCardPaymentsSince(fakePool({ rows: [] }), 'u1', 7, '2026-09-10')).resolves.toBe(0);
+    });
+});
+
+describe('withStatementRemaining', () => {
+    // Pool whose payments query answers from a card-id -> paid map.
+    const paymentsPool = (paidByCard) => ({
+        query: jest.fn(async (_sql, [, cardId]) => ({ rows: [{ paid: String(paidByCard[cardId] ?? 0) }] })),
+    });
+    const billedCard = (over = {}) => ({
+        id: 1, statement_balance: 10000, emi_blocked_principal: 0,
+        last_statement_close_date: '2026-10-04', statement_due_date: '2026-10-24', ...over,
+    });
+
+    test('pays the previous bill mid-cycle: remaining is the new statement, not charges minus that payment', async () => {
+        // Aug bill 10,000 paid 20 Sep, 12,000 spent Sep 5 - Oct 4. The running
+        // balance at the Oct 4 close is 12,000 and nothing has been paid since.
+        const pool = paymentsPool({ 1: 0 });
+        const [c] = await withStatementRemaining(pool, 'u1', [billedCard({ statement_balance: 12000 })]);
+        expect(c).toMatchObject({ statement_amount_due: 12000, statement_paid: 0, statement_remaining: 12000 });
+        expect(pool.query.mock.calls[0][1]).toEqual(['u1', 1, '2026-10-04']);
+    });
+
+    test('strips blocked EMI principal from the amount due', async () => {
+        const [c] = await withStatementRemaining(paymentsPool({}), 'u1', [billedCard({ statement_balance: 11000, emi_blocked_principal: 3000 })]);
+        expect(c.statement_balance).toBe(11000); // unchanged meaning
+        expect(c.statement_amount_due).toBe(8000);
+        expect(c.statement_remaining).toBe(8000);
+    });
+
+    test('subtracts payments since the close, clamps at 0 and rounds like the alert', async () => {
+        const [partial, over, paise] = await withStatementRemaining(
+            paymentsPool({ 1: 2500, 2: 9000, 3: 7999.7 }), 'u1',
+            [billedCard({ id: 1, statement_balance: 8000 }), billedCard({ id: 2, statement_balance: 8000 }), billedCard({ id: 3, statement_balance: 8000 })],
+        );
+        expect(partial).toMatchObject({ statement_paid: 2500, statement_remaining: 5500 });
+        expect(over).toMatchObject({ statement_paid: 9000, statement_remaining: 0 });
+        expect(paise.statement_remaining).toBe(0);
+    });
+
+    test('cards with no billing cycle get nulls and never hit the database', async () => {
+        const pool = paymentsPool({});
+        const [c] = await withStatementRemaining(pool, 'u1', [{ id: 9, statement_balance: null, last_statement_close_date: null }]);
+        expect(c).toMatchObject({ statement_amount_due: null, statement_paid: null, statement_remaining: null });
+        expect(pool.query).not.toHaveBeenCalled();
     });
 });
