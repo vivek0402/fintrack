@@ -1,22 +1,17 @@
 // Exercises fcm.js's own logic (init guard, message shape, stale-token detection)
-// against the real firebase-admin/app + firebase-admin/messaging modular API.
-// Only the SDK boundary (getMessaging's returned messaging instance) is mocked —
-// fcm.js's initialization, request-building, and response-interpretation code
-// all run for real. This is the safety net that would have caught the v13 -> v14
-// namespaced-API removal (admin.credential / admin.messaging going undefined).
+// against mocks of the firebase-admin v14 modular API boundary
+// (firebase-admin/app, firebase-admin/messaging) and the db pool.
 
 const mockSendEachForMulticast = jest.fn();
 const mockMessagingInstance = { sendEachForMulticast: mockSendEachForMulticast };
 
 const mockCert = jest.fn((serviceAccount) => ({ __cert: serviceAccount }));
 const mockInitializeApp = jest.fn((config) => ({ __app: config }));
-const mockGetApps = jest.fn(() => []);
 const mockGetMessaging = jest.fn(() => mockMessagingInstance);
 
 jest.mock('firebase-admin/app', () => ({
     initializeApp: (...args) => mockInitializeApp(...args),
     cert: (...args) => mockCert(...args),
-    getApps: (...args) => mockGetApps(...args),
 }));
 
 jest.mock('firebase-admin/messaging', () => ({
@@ -38,13 +33,12 @@ const SERVICE_ACCOUNT_JSON = JSON.stringify({
  * fcm.js calls initFirebase() at module load time, so each test that needs a
  * fresh init must reset the module registry and re-require it.
  */
-function loadFcmModule({ withServiceAccount = true, existingApps = [] } = {}) {
+function loadFcmModule({ withServiceAccount = true } = {}) {
     jest.resetModules();
     mockSendEachForMulticast.mockReset();
     mockCert.mockClear();
     mockInitializeApp.mockClear();
     mockGetMessaging.mockClear();
-    mockGetApps.mockReset().mockReturnValue(existingApps);
     mockQuery.mockReset();
 
     if (withServiceAccount) {
@@ -63,8 +57,8 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
         delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     });
 
-    test('initializes via modular cert()/initializeApp()/getMessaging() when no app exists yet', () => {
-        loadFcmModule({ existingApps: [] });
+    test('initializes via modular cert()/initializeApp()/getMessaging()', () => {
+        loadFcmModule();
 
         expect(mockCert).toHaveBeenCalledWith(
             expect.objectContaining({ project_id: 'test-project' })
@@ -77,17 +71,8 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
         );
     });
 
-    test('reuses an already-initialized app via getApps() guard instead of re-initializing', () => {
-        loadFcmModule({ existingApps: [{ name: '[DEFAULT]' }] });
-
-        expect(mockInitializeApp).not.toHaveBeenCalled();
-        expect(mockCert).not.toHaveBeenCalled();
-        // Reuses the default app's messaging instance.
-        expect(mockGetMessaging).toHaveBeenCalledWith();
-    });
-
     test('does not initialize and sendToUser is a silent no-op when service account env var is missing', async () => {
-        const fcm = loadFcmModule({ withServiceAccount: false, existingApps: [] });
+        const fcm = loadFcmModule({ withServiceAccount: false });
 
         expect(mockInitializeApp).not.toHaveBeenCalled();
 
@@ -98,7 +83,7 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
     });
 
     test('sendToUser calls sendEachForMulticast with the tokens/notification/data/android shape', async () => {
-        const fcm = loadFcmModule({ existingApps: [] });
+        const fcm = loadFcmModule();
         mockQuery.mockResolvedValueOnce({ rows: [{ token: 'tok-1' }, { token: 'tok-2' }] });
         mockSendEachForMulticast.mockResolvedValueOnce({
             responses: [{ success: true }, { success: true }],
@@ -118,7 +103,7 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
     });
 
     test('deletes only tokens with registration-token-not-registered or invalid-registration-token errors', async () => {
-        const fcm = loadFcmModule({ existingApps: [] });
+        const fcm = loadFcmModule();
         mockQuery
             .mockResolvedValueOnce({
                 rows: [{ token: 'tok-good' }, { token: 'tok-unregistered' }, { token: 'tok-invalid' }, { token: 'tok-other-error' }],
@@ -143,7 +128,7 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
     });
 
     test('does not issue a DELETE when all sends succeed', async () => {
-        const fcm = loadFcmModule({ existingApps: [] });
+        const fcm = loadFcmModule();
         mockQuery.mockResolvedValueOnce({ rows: [{ token: 'tok-1' }] });
         mockSendEachForMulticast.mockResolvedValueOnce({ responses: [{ success: true }] });
 
@@ -153,7 +138,7 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
     });
 
     test('sendToUser never throws even if sendEachForMulticast rejects', async () => {
-        const fcm = loadFcmModule({ existingApps: [] });
+        const fcm = loadFcmModule();
         mockQuery.mockResolvedValueOnce({ rows: [{ token: 'tok-1' }] });
         mockSendEachForMulticast.mockRejectedValueOnce(new Error('network down'));
 
@@ -163,7 +148,7 @@ describe('fcm.js (firebase-admin v14 modular API)', () => {
     });
 
     test('notifyOnce sends only on first call for a given (user, alertKey) pair', async () => {
-        const fcm = loadFcmModule({ existingApps: [] });
+        const fcm = loadFcmModule();
         mockQuery
             .mockResolvedValueOnce({ rowCount: 1 }) // INSERT succeeds
             .mockResolvedValueOnce({ rows: [{ token: 'tok-1' }] }) // sendToUser's SELECT

@@ -1,4 +1,4 @@
-const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { initializeApp, cert } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const pool = require('../db/pool');
 
@@ -7,12 +7,6 @@ let _messaging = null;
 
 function initFirebase() {
     if (_initialized) return;
-    if (getApps().length) {
-        // Already initialized elsewhere (e.g. hot reload) — reuse it.
-        _messaging = getMessaging();
-        _initialized = true;
-        return;
-    }
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!raw) {
         console.warn('[FCM] FIREBASE_SERVICE_ACCOUNT_JSON not set — push notifications disabled');
