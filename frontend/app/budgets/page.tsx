@@ -27,6 +27,7 @@ import { toast } from '@/store/toastStore';
 import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
 import { Tabs } from '@/components/ui/Tabs';
 import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
+import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -653,6 +654,14 @@ function BudgetsPageInner() {
         return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
     }, []);
 
+    // One-time expense writes go through plain fetch (not lib/api.ts), so they
+    // miss its interceptor: nudge the Android widgets here instead.
+    const otWrite = useCallback(async (url: string, init: RequestInit) => {
+        const res = await fetch(url, init);
+        if (res.ok && isTransactionWrite(init.method, url)) refreshWidgets();
+        return res;
+    }, []);
+
     const otFetchAll = useCallback(async () => {
         try {
             const [eRes, aRes, cRes] = await Promise.all([
@@ -717,14 +726,14 @@ function BudgetsPageInner() {
             };
 
             if (otEditingExp) {
-                const res  = await fetch(`${OT_API}/api/one-time-expenses/${otEditingExp.id}`, {
+                const res  = await otWrite(`${OT_API}/api/one-time-expenses/${otEditingExp.id}`, {
                     method: 'PUT', headers: otGetHeaders(), body: JSON.stringify(body),
                 });
                 const data = await res.json();
                 setOtExpenses(prev => prev.map(ex => ex.id === otEditingExp.id ? { ...ex, ...data.expense } : ex));
                 otShowToast('Expense updated');
             } else {
-                const res  = await fetch(`${OT_API}/api/one-time-expenses`, {
+                const res  = await otWrite(`${OT_API}/api/one-time-expenses`, {
                     method: 'POST', headers: otGetHeaders(), body: JSON.stringify(body),
                 });
                 const data = await res.json();
@@ -745,7 +754,7 @@ function BudgetsPageInner() {
 
     const otHandleDeleteExpense = async (exp: OtExpense) => {
         try {
-            await fetch(`${OT_API}/api/one-time-expenses/${exp.id}`, {
+            await otWrite(`${OT_API}/api/one-time-expenses/${exp.id}`, {
                 method: 'DELETE', headers: otGetHeaders(),
             });
             setOtExpenses(prev => prev.filter(e => e.id !== exp.id));
@@ -766,7 +775,7 @@ function BudgetsPageInner() {
         if (!otItemForm.description || !otItemForm.amount || !otItemForm.date) return;
         setOtAddingItem(true);
         try {
-            const res  = await fetch(`${OT_API}/api/one-time-expenses/${expenseId}/items`, {
+            const res  = await otWrite(`${OT_API}/api/one-time-expenses/${expenseId}/items`, {
                 method: 'POST',
                 headers: otGetHeaders(),
                 body: JSON.stringify({
@@ -810,7 +819,7 @@ function BudgetsPageInner() {
         if (!otItemForm.description || !otItemForm.amount || !otItemForm.date) return;
         setOtAddingItem(true);
         try {
-            const res = await fetch(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
+            const res = await otWrite(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
                 method: 'PUT',
                 headers: otGetHeaders(),
                 body: JSON.stringify({
@@ -841,7 +850,7 @@ function BudgetsPageInner() {
 
     const otHandleDeleteItem = async (expenseId: string, itemId: string) => {
         try {
-            await fetch(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
+            await otWrite(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
                 method: 'DELETE', headers: otGetHeaders(),
             });
             setOtExpenses(prev => prev.map(ex => {

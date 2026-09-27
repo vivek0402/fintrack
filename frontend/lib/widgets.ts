@@ -38,13 +38,16 @@ export function refreshWidgets(): void {
 }
 
 /**
- * On app start (native + logged in): make sure the widgets have a token,
- * issuing one via `issueToken` (POST /api/widget/token) only if none is
- * stored, then refresh them. Never throws.
+ * On app start and resume (native + logged in): if a FinTrack widget is on
+ * the home screen, make sure it has a token, issuing one via `issueToken`
+ * (POST /api/widget/token) only if none is stored, then refresh. With no
+ * widget placed, nothing is minted. Never throws.
  */
 export async function ensureWidgetToken(issueToken: () => Promise<string | null | undefined>): Promise<void> {
     if (!isNative()) return;
     try {
+        const widgets = await FinTrackNative.hasWidgets();
+        if (!widgets.present) return;
         const { present } = await FinTrackNative.hasWidgetToken();
         if (present) {
             await FinTrackNative.refreshWidgets();
@@ -92,11 +95,29 @@ export function signOutWidgets(accessToken: string | null): void {
     }
 }
 
-// Transaction writes change every number the widgets show.
-const TX_PATH = /^\/api\/transactions(?:[/?]|$)/;
+// Every API route that creates, edits or deletes transactions (backend
+// routes with INSERT INTO / UPDATE / DELETE FROM transactions), since those
+// change the numbers the widgets show. Broad prefixes are fine: a spurious
+// refresh is one debounced background fetch.
+const TX_WRITE_PATHS: RegExp[] = [
+    /^\/api\/transactions(?:[/?]|$)/,                                   // add/edit/delete
+    /^\/api\/import\/bank-statement\/[^/?]+\/confirm(?:[?]|$)/,          // statement import
+    /^\/api\/recurring\/process(?:[?]|$)/,                               // post due recurring
+    /^\/api\/splits(?:[/?]|$)/,                                         // splits
+    /^\/api\/groups(?:[/?]|$)/,                                         // group splits, (un)link
+    /^\/api\/credit-cards\/[^/?]+\/(?:pay|convert-to-emi)(?:[?]|$)/,     // card payment, EMI
+    /^\/api\/one-time-expenses(?:[/?]|$)/,                              // one-time expense items
+    /^\/api\/personal-loans(?:[/?]|$)/,                                 // loan disbursal/repayment
+    /^\/api\/accounts(?:[/?]|$)/,                                       // account (re)assignment
+];
 const WRITE_METHODS = new Set(['post', 'put', 'patch', 'delete']);
 
-/** True for a successful create/edit/delete under /api/transactions. */
+/**
+ * True for a create/edit/delete on any route that writes transactions.
+ * Accepts a path ('/api/...') or an absolute URL (plain fetch() callers).
+ */
 export function isTransactionWrite(method: string | undefined, url: string | undefined): boolean {
-    return !!method && !!url && WRITE_METHODS.has(method.toLowerCase()) && TX_PATH.test(url);
+    if (!method || !url || !WRITE_METHODS.has(method.toLowerCase())) return false;
+    const path = url.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '');
+    return TX_WRITE_PATHS.some(re => re.test(path));
 }

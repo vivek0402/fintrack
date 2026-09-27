@@ -7,6 +7,7 @@ vi.mock('@capacitor/core', () => ({
 
 vi.mock('@/plugins/FinTrackNativePlugin', () => ({
     FinTrackNative: {
+        hasWidgets: vi.fn(async () => ({ present: true })),
         hasWidgetToken: vi.fn(async () => ({ present: false })),
         saveWidgetToken: vi.fn(async () => {}),
         clearWidgetToken: vi.fn(async () => {}),
@@ -24,6 +25,45 @@ describe('isTransactionWrite', () => {
         expect(isTransactionWrite('post', '/api/transactions')).toBe(true);
         expect(isTransactionWrite('put', '/api/transactions/abc')).toBe(true);
         expect(isTransactionWrite('DELETE', '/api/transactions/abc')).toBe(true);
+    });
+
+    it('matches every route that writes transactions', () => {
+        const writes: [string, string][] = [
+            ['post', '/api/import/bank-statement/job-1/confirm'],
+            ['post', '/api/recurring/process'],
+            ['post', '/api/splits'],
+            ['put', '/api/splits/s1'],
+            ['delete', '/api/splits/s1'],
+            ['post', '/api/groups/g1/splits'],
+            ['put', '/api/groups/g1/splits/s1'],
+            ['post', '/api/groups/g1/transactions/t1'],
+            ['delete', '/api/groups/g1'],
+            ['post', '/api/credit-cards/7/pay'],
+            ['post', '/api/credit-cards/7/convert-to-emi'],
+            ['post', '/api/one-time-expenses/e1/items'],
+            ['put', '/api/one-time-expenses/e1/items/i1'],
+            ['delete', '/api/one-time-expenses/e1'],
+            ['post', '/api/personal-loans'],
+            ['post', '/api/personal-loans/l1/repayments'],
+            ['delete', '/api/personal-loans/l1'],
+            ['patch', '/api/accounts/3/set-default'],
+            ['delete', '/api/accounts/3'],
+        ];
+        for (const [method, url] of writes) {
+            expect([method, url, isTransactionWrite(method, url)]).toEqual([method, url, true]);
+        }
+    });
+
+    it('accepts absolute URLs from plain fetch() callers', () => {
+        expect(isTransactionWrite('DELETE', 'https://api.example/api/one-time-expenses/e1/items/i1')).toBe(true);
+        expect(isTransactionWrite('GET', 'https://api.example/api/one-time-expenses')).toBe(false);
+    });
+
+    it('ignores routes that do not touch transactions', () => {
+        expect(isTransactionWrite('post', '/api/import/bank-statement')).toBe(false);      // upload only
+        expect(isTransactionWrite('post', '/api/recurring')).toBe(false);                  // schedule only
+        expect(isTransactionWrite('put', '/api/credit-cards/7')).toBe(false);              // card details
+        expect(isTransactionWrite('post', '/api/goals')).toBe(false);
     });
 
     it('ignores reads and other resources', () => {
@@ -62,6 +102,23 @@ describe('ensureWidgetToken', () => {
         const issue = vi.fn(async () => { throw new Error('401'); });
         await expect(ensureWidgetToken(issue)).resolves.toBeUndefined();
         expect(plugin.saveWidgetToken).not.toHaveBeenCalled();
+    });
+
+    it('mints nothing when no widget is on the home screen', async () => {
+        plugin.hasWidgets.mockResolvedValueOnce({ present: false });
+        const issue = vi.fn(async () => 'widget-jwt');
+        await ensureWidgetToken(issue);
+        expect(issue).not.toHaveBeenCalled();
+        expect(plugin.hasWidgetToken).not.toHaveBeenCalled();
+        expect(plugin.saveWidgetToken).not.toHaveBeenCalled();
+        expect(plugin.refreshWidgets).not.toHaveBeenCalled();
+    });
+
+    it('mints nothing against an older APK without hasWidgets', async () => {
+        plugin.hasWidgets.mockRejectedValueOnce(new Error('not implemented'));
+        const issue = vi.fn(async () => 'widget-jwt');
+        await ensureWidgetToken(issue);
+        expect(issue).not.toHaveBeenCalled();
     });
 
     it('does nothing on the web', async () => {

@@ -77,6 +77,33 @@ export default function CapacitorBridge() {
     ensureWidgetToken(async () => (await widgetAPI.issueToken()).data.token);
   }, [isLoading, token]);
 
+  // ...and on every resume, so a widget placed while the app was running gets
+  // its token the next time the app is opened (and existing ones refresh).
+  useEffect(() => {
+    let cancelled = false;
+    let handle: { remove: () => void } | null = null;
+
+    const setup = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform() || cancelled) return;
+        const { App } = await import('@capacitor/app');
+        if (cancelled) return;
+        handle = await App.addListener('resume', () => {
+          if (!useAuthStore.getState().token) return;
+          ensureWidgetToken(async () => (await widgetAPI.issueToken()).data.token);
+        });
+        if (cancelled) handle.remove();
+      } catch { /* not in Capacitor environment */ }
+    };
+
+    setup();
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
+  }, []);
+
   // Handle widget→app navigation when the app is already running (onNewIntent).
   // Cold-start navigation is handled natively: MainActivity.onCreate redirects
   // the WebView directly to the target URL, so no event is needed there.

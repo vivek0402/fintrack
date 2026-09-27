@@ -16,6 +16,8 @@ export interface FinTrackNativePlugin {
   getFCMToken(): Promise<{ token: string }>;
 
   // ── Home-screen widgets ──
+  /** Whether any FinTrack widget is placed on the home screen. */
+  hasWidgets(): Promise<{ present: boolean }>;
   /** Whether a widget-scoped token (POST /api/widget/token) is stored natively. */
   hasWidgetToken(): Promise<{ present: boolean }>;
   /** Stores the widget token in EncryptedSharedPreferences and refreshes the widgets. */
@@ -50,6 +52,7 @@ export const FinTrackNative = registerPlugin<FinTrackNativePlugin>('FinTrackNati
     saveToken: async () => {},
     clearToken: async () => {},
     getFCMToken: async () => ({ token: '' }),
+    hasWidgets: async () => ({ present: false }),
     hasWidgetToken: async () => ({ present: false }),
     saveWidgetToken: async () => {},
     clearWidgetToken: async () => {},
