@@ -369,6 +369,19 @@ aside, aside nav {
   height: 100%;
 }
 
+/* App lock (Android). While <html> carries data-app-locked (lock screen up,
+   or app backgrounded with lock on) or data-lock-cover (PIN setup/verify),
+   every body child except the ambient backdrop and the lock UI is hidden, so
+   the lock sits over the backdrop, never over money. This has to be a real
+   stylesheet rule, not an inline style: app/layout.tsx sets the attribute in
+   a pre-hydration script, before React exists, so a cold start never paints
+   app content first. Portals (sheets, modals) are body children too, which is
+   why this targets body > * rather than one wrapper. */
+html[data-app-locked] body > *:not(.ambient-lighting):not([data-lock-root]),
+html[data-lock-cover] body > *:not(.ambient-lighting):not([data-lock-root]) {
+  visibility: hidden !important;
+}
+
 /* Light theme keeps the glow, dialled right down — on a pale ground the
    same opacities read as smeared paint rather than light. */
 [data-theme="light"] .ambient-lighting {

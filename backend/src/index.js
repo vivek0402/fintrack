@@ -188,7 +188,10 @@ const aiLimiter = rateLimit({
     max: 30,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => req.path.startsWith('/agent'),
+    // Health-report peeks only read the cache and never call the model, so they
+    // shouldn't spend a slot every time the Health tab opens.
+    skip: (req) => req.path.startsWith('/agent')
+        || (req.path === '/health-report' && req.body?.peek === true),
     keyGenerator: (req) => {
         // Try to use authenticated user id; fall back to IP
         const auth = req.headers['authorization'];
@@ -321,6 +324,9 @@ app.use('/api/documents',        require('./routes/documents'));
 app.use('/api/ai/agent',         require('./routes/agents'));
 app.use('/api/ai/opportunities', opportunitiesRoutes);
 app.use('/api/insights',     require('./routes/insights'));
+// Android home-screen widgets: token issue/revoke (normal auth) and the
+// summary they poll (widget-scoped token only). See routes/widget.js.
+app.use('/api/widget',       require('./routes/widget'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
 app.use((err, req, res, next) => {

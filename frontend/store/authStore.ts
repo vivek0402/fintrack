@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
+import { resetAppLock } from '@/store/lockStore';
+import { signOutWidgets } from '@/lib/widgets';
+
+// lib/notificationPrefs.ts's NOTIF_PREFS_KEY. Not imported: that module
+// imports lib/api.ts, which imports this store (authStore.test.ts pins the
+// two together).
+const NOTIF_PREFS_KEY = 'fintrack-notif-prefs';
 
 interface User {
     id: string;
@@ -49,8 +56,19 @@ export const useAuthStore = create<AuthStore>()(
             },
 
             logout: () => {
+                const previousToken = get().token;
                 set({ user: null, token: null, refreshToken: null, isLoading: false });
                 FinTrackNative.clearToken().catch(() => {});
+                // Home-screen widgets: revoke their token (best effort) and
+                // switch them to "Open FinTrack to set up", never leaving the
+                // last user's numbers on the home screen.
+                signOutWidgets(previousToken);
+                // Every logout path (Sign Out, failed token refresh, "Forgot PIN")
+                // also drops the app lock: its PIN hash, settings and FLAG_SECURE.
+                resetAppLock();
+                // Cached notification toggles belong to this user; don't hand
+                // them to the next one on a shared device.
+                try { localStorage.removeItem(NOTIF_PREFS_KEY); } catch { /* storage unavailable */ }
             },
         }),
         {

@@ -19,7 +19,7 @@ import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
-import { calculateHealthScore } from '@/lib/healthScore';
+import { calculateHealthScore, monthlySeriesFromTrends } from '@/lib/healthScore';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
 
@@ -303,26 +303,16 @@ export default function DashboardPage() {
     const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
 
-    // ── Health Score teaser — reuses the same scoring engine as /health-score ──
+    // ── Health Score teaser — same engine as the Insights → Health tab ──
     const healthScoreTeaser = useMemo(() => {
         const income   = Number(summary?.total_income   ?? 0);
         const expenses = Number(summary?.total_expenses ?? 0);
         const hasData = income > 0 || expenses > 0 || budgets.length > 0 || goals.length > 0 || trends.length > 0;
         if (!hasData) return null;
 
-        const monthMap: Record<string, { income: number; expenses: number }> = {};
-        trends.forEach((row: any) => {
-            const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
-            if (!monthMap[key]) monthMap[key] = { income: 0, expenses: 0 };
-            if (row.type === 'income')  monthMap[key].income   = parseFloat(row.total);
-            if (row.type === 'expense') monthMap[key].expenses = parseFloat(row.total);
-        });
-        const sorted = Object.entries(monthMap).sort(([a], [b]) => a.localeCompare(b)).slice(-6);
-
         return calculateHealthScore({
             income, expenses, budgets, goals,
-            monthlyIncome:   sorted.map(([, v]) => v.income),
-            monthlyExpenses: sorted.map(([, v]) => v.expenses),
+            ...monthlySeriesFromTrends(trends),
             investedThisMonth: investmentRatio?.invested_this_month ?? 0,
             dtiRatio:          dti?.dti_ratio ?? 0,
             ccUtilizationPct:  creditUtilization?.aggregate?.overall_utilization_pct ?? 0,
@@ -760,7 +750,7 @@ export default function DashboardPage() {
                                 value: !healthScoreTeaser ? 'N/A' : `${healthScoreTeaser.score}/100`,
                                 sub: !healthScoreTeaser ? 'Add transactions to see your score' : healthScoreTeaser.label,
                                 color: healthScoreTeaser?.color ?? 'var(--text-muted)', Icon: Heart,
-                                onClick: () => router.push('/health-score'),
+                                onClick: () => router.push('/analytics?tab=health'),
                             },
                         ];
 

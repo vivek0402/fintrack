@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget palette: the DESIGN.md dark-theme tokens. Widgets
+     can't do glass/blur, so they use the flat surface-1 card instead. -->
+<resources>
+    <color name="widget_bg">#FF111111</color>          <!-- bg-surface-1 -->
+    <color name="widget_border">#14FFFFFF</color>      <!-- white 8% -->
+    <color name="widget_track">#14FFFFFF</color>       <!-- white 8% -->
+    <color name="widget_text">#FFF5F5F5</color>        <!-- text-primary -->
+    <color name="widget_label">#FF808080</color>       <!-- text-muted -->
+    <color name="widget_accent">#FF2563EB</color>      <!-- accent -->
+    <color name="widget_ok">#FF16A34A</color>          <!-- color-inc -->
+    <color name="widget_warn">#FFD97706</color>        <!-- color-warn -->
+    <color name="widget_over">#FFDC2626</color>        <!-- color-exp -->
+    <color name="widget_on_accent">#FFFFFFFF</color>
+</resources>

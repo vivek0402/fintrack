@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import CapacitorBridge from '@/components/CapacitorBridge';
 import { AppLayoutGate } from '@/components/layout/AppLayoutGate';
+import { LOCK_HEAD_SCRIPT } from '@/lib/lockHeadScript';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -53,6 +54,9 @@ export default function RootLayout({
     `,
           }}
         />
+        {/* App lock, pre-hydration: hides app content before first paint when
+            the lock will engage. See lib/lockHeadScript.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: LOCK_HEAD_SCRIPT }} />
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

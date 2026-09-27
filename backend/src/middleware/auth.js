@@ -12,6 +12,13 @@ module.exports = function authMiddleware(req, res, next) {
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        // Normal access tokens carry no `scope`. Any scoped token -- today the
+        // long-lived Android widget token (utils/widgetToken.js) -- is refused
+        // here, so it can only ever reach the routes that opt into it
+        // (middleware/widgetAuth.js), never the rest of the API.
+        if (decoded.scope !== undefined) {
+            return res.status(401).json({ error: 'Invalid or expired token.' });
+        }
         req.user = decoded;
         next();
     } catch (err) {

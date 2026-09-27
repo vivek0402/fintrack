@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { fetchTotalCreditCardOutstanding } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const { fetchPersonalLoanTotals } = require('../utils/personalLoans');
+const { fetchMonthExpenseTotal } = require('../utils/spendTotals');
 const router = express.Router();
 
 router.use(auth);
@@ -21,13 +22,8 @@ router.get('/summary', async (req, res) => {
        AND ${nonSpendingExclusionSQL('transactions')}`,
             [req.user.id, m, y]
         );
-        const expenseRes = await pool.query(
-            `SELECT COALESCE(SUM(amount),0) AS total FROM transactions
-       WHERE user_id=$1 AND type='expense'
-       AND EXTRACT(MONTH FROM date)=$2 AND EXTRACT(YEAR FROM date)=$3
-       AND ${nonSpendingExclusionSQL('transactions')}`,
-            [req.user.id, m, y]
-        );
+        // Shared with the Android widgets' month total (utils/spendTotals.js).
+        const totalExpense = await fetchMonthExpenseTotal(req.user.id, m, y);
         const categoryRes = await pool.query(
             `SELECT c.name, c.color, c.icon, COALESCE(SUM(t.amount),0) AS total
        FROM transactions t JOIN categories c ON t.category_id = c.id
@@ -38,7 +34,6 @@ router.get('/summary', async (req, res) => {
         );
 
         const totalIncome = parseFloat(incomeRes.rows[0].total);
-        const totalExpense = parseFloat(expenseRes.rows[0].total);
         const balance = totalIncome - totalExpense;
         const savingsRate = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0;
 

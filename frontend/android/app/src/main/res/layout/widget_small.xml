@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A) Small 2x2. Default texts are sample values: this file is also the
+     widget picker's previewLayout. WidgetRenderer overwrites every one. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            style="@style/WidgetLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/widget_label_today" />
+
+        <FrameLayout
+            android:id="@+id/widget_plus"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:background="@drawable/widget_plus_circle"
+            android:contentDescription="@string/widget_add_transaction">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_widget_plus" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:id="@+id/widget_content"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_today_amount"
+                style="@style/WidgetMono"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:autoSizeMaxTextSize="28sp"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeTextType="uniform"
+                android:text="₹1,240"
+                android:textSize="26sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="true"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/widget_budget_label"
+                    style="@style/WidgetMeta"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widget_budget_left" />
+
+                <TextView
+                    android:id="@+id/widget_budget_amount"
+                    style="@style/WidgetMono"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:text="₹18,400"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/widget_bar"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="6dp">
+
+                <ProgressBar
+                    android:id="@+id/widget_bar_ok"
+                    style="@style/WidgetBar"
+                    android:progress="59"
+                    android:progressDrawable="@drawable/widget_bar_ok" />
+
+                <ProgressBar
+                    android:id="@+id/widget_bar_warn"
+                    style="@style/WidgetBar"
+                    android:progressDrawable="@drawable/widget_bar_warn"
+                    android:visibility="gone" />
+
+                <ProgressBar
+                    android:id="@+id/widget_bar_over"
+                    style="@style/WidgetBar"
+                    android:progressDrawable="@drawable/widget_bar_over"
+                    android:visibility="gone" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_widget_refresh" />
+
+                <TextView
+                    android:id="@+id/widget_stamp"
+                    style="@style/WidgetMeta"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="9:32 am"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_signed_out"
+            style="@style/WidgetMeta"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:maxLines="3"
+            android:text="@string/widget_signed_out"
+            android:textColor="@color/widget_text"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

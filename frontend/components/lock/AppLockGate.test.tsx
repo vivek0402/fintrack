@@ -1,0 +1,205 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render } from '@testing-library/react';
+import {
+    DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
+} from '@/lib/appLock';
+import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
+import { useAuthStore } from '@/store/authStore';
+import { useLockStore } from '@/store/lockStore';
+import { AppLockGate, __resetPageLoadForTests, decideOnPageLoad, handleAppStateChange } from './AppLockGate';
+
+const native = vi.hoisted(() => ({ value: true }));
+const nav = vi.hoisted(() => ({ path: '/dashboard' }));
+
+vi.mock('@capacitor/core', async (orig) => {
+    const actual = await orig<typeof import('@capacitor/core')>();
+    return { ...actual, Capacitor: { ...actual.Capacitor, isNativePlatform: () => native.value } };
+});
+
+vi.mock('@capacitor/app', () => ({
+    App: { addListener: vi.fn(async () => ({ remove: vi.fn() })) },
+}));
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+    usePathname: () => nav.path,
+}));
+
+vi.mock('@/plugins/FinTrackNativePlugin', () => ({
+    FinTrackNative: {
+        saveToken: vi.fn(async () => {}),
+        clearToken: vi.fn(async () => {}),
+        biometricStatus: vi.fn(async () => ({ status: 'available' })),
+        authenticate: vi.fn(async () => ({ result: 'cancel' })),
+        enableBiometricKey: vi.fn(async () => ({ ok: true })),
+        deleteBiometricKey: vi.fn(async () => {}),
+        elapsedRealtime: vi.fn(async () => ({ ms: 0 })),
+        setSecureFlag: vi.fn(async () => {}),
+        setPinHash: vi.fn(async () => {}),
+        getPinHash: vi.fn(async () => ({ hash: null })),
+        clearLock: vi.fn(async () => {}),
+    },
+}));
+
+const plugin = vi.mocked(FinTrackNative);
+const html = document.documentElement;
+const hidden = () => html.hasAttribute(LOCKED_ATTR);
+const T0 = 1_700_000_000_000;
+
+function setLock(patch: Partial<LockSettings> = {}) {
+    useLockStore.setState({ settings: { ...DEFAULT_LOCK_SETTINGS, enabled: true, ...patch }, locked: false, promptNonce: 0 });
+}
+
+/** Background at T0 (elapsedRealtime `bgMs`), then resume at wall `now` (elapsedRealtime `nowMs`). */
+async function awayAndBack(now: number, bgMs = 10_000, nowMs = bgMs + (now - T0)) {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(T0);
+    plugin.elapsedRealtime.mockResolvedValueOnce({ ms: bgMs });
+    await handleAppStateChange(false);
+    expect(hidden()).toBe(true);
+    clock.mockReturnValue(now);
+    plugin.elapsedRealtime.mockResolvedValueOnce({ ms: nowMs });
+    await handleAppStateChange(true);
+}
+
+beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    html.removeAttribute(LOCKED_ATTR);
+    native.value = true;
+    nav.path = '/dashboard';
+    useAuthStore.setState({ token: 't', user: { id: 'u', full_name: 'A', email: 'a@x', currency: 'INR' } });
+    setLock();
+    __resetPageLoadForTests();
+});
+
+afterEach(() => { vi.restoreAllMocks(); });
+
+describe('decideOnPageLoad', () => {
+    it('locks a cold start when lock is on and someone is logged in', () => {
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(hidden()).toBe(true);
+    });
+
+    it('does not re-prompt on an in-app reload of an unlocked session', () => {
+        html.setAttribute(LOCKED_ATTR, '');
+        useLockStore.setState({ locked: true });
+        sessionStorage.setItem(LOCK_SESSION_KEY, '1');
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(hidden()).toBe(false);
+    });
+
+    it('locks a reload that happened after leaving the app', () => {
+        sessionStorage.setItem(LOCK_SESSION_KEY, '1');
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('never locks on web, and lifts a stray pre-hydration hide', () => {
+        native.value = false;
+        html.setAttribute(LOCKED_ATTR, '');
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(hidden()).toBe(false);
+    });
+
+    it('never locks when logged out', () => {
+        useAuthStore.setState({ token: null });
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(false);
+    });
+
+    it('keeps FLAG_SECURE in step with "Hide in recent apps"', () => {
+        setLock({ hideRecents: true });
+        decideOnPageLoad();
+        expect(plugin.setSecureFlag).toHaveBeenCalledWith({ enabled: true });
+    });
+});
+
+describe('appStateChange', () => {
+    it('resuming within the grace period reveals the app without locking', async () => {
+        await awayAndBack(T0 + 30_000);
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(hidden()).toBe(false);
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBeNull();
+        expect(localStorage.getItem(LOCK_BG_ELAPSED_KEY)).toBeNull();
+    });
+
+    it('resuming past the grace period locks', async () => {
+        await awayAndBack(T0 + 60_000);
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(hidden()).toBe(true);
+    });
+
+    it('"Immediately" locks on any return', async () => {
+        setLock({ graceMs: 0 });
+        await awayAndBack(T0);
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('a wall clock set backwards locks', async () => {
+        await awayAndBack(T0 - 5_000, 10_000, 15_000);
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('the monotonic clock catches a wall clock set back within the grace', async () => {
+        // 10 minutes really passed; the wall clock claims 20 seconds.
+        await awayAndBack(T0 + 20_000, 10_000, 610_000);
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('a resume with no background before it (fingerprint dialog) does nothing', async () => {
+        await handleAppStateChange(true);
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(hidden()).toBe(false);
+    });
+
+    it('coming back while still locked re-opens the fingerprint prompt', async () => {
+        useLockStore.getState().lock();
+        await handleAppStateChange(false);
+        await handleAppStateChange(true);
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(useLockStore.getState().promptNonce).toBe(1);
+        // A later resume with no background in between doesn't re-prompt.
+        await handleAppStateChange(true);
+        expect(useLockStore.getState().promptNonce).toBe(1);
+    });
+
+    it('does nothing when lock is off', async () => {
+        setLock({ enabled: false });
+        await handleAppStateChange(false);
+        expect(hidden()).toBe(false);
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBeNull();
+    });
+});
+
+describe('logout while locked', () => {
+    it('keeps content hidden until the login screen renders', () => {
+        const { rerender } = render(<AppLockGate />);
+        useLockStore.getState().lock();
+        expect(hidden()).toBe(true);
+
+        // "Forgot PIN" / 10th wrong PIN / failed token refresh all go through logout().
+        useAuthStore.getState().logout();
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(useLockStore.getState().settings.enabled).toBe(false);
+        expect(plugin.clearLock).toHaveBeenCalled();
+        rerender(<AppLockGate />);
+        expect(hidden()).toBe(true); // still on the old page — balances must not paint
+
+        nav.path = '/login/';
+        rerender(<AppLockGate />);
+        expect(hidden()).toBe(false);
+    });
+
+    it('a plain Sign Out from an unlocked app never hides anything', () => {
+        sessionStorage.setItem(LOCK_SESSION_KEY, '1'); // this session was already unlocked
+        render(<AppLockGate />);
+        expect(hidden()).toBe(false);
+        useAuthStore.getState().logout();
+        expect(hidden()).toBe(false);
+    });
+});

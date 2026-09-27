@@ -4,6 +4,16 @@ import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
+import { widgetAPI } from '@/lib/api';
+import { ensureWidgetToken } from '@/lib/widgets';
+
+const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
+// Identity check for ensureWidgetToken's logout race: the signed-in user's id
+// (stable across the 15-minute access-token rotation, null once logged out).
+const currentUserId = () => {
+  const { token, user } = useAuthStore.getState();
+  return token ? (user?.id ?? token) : null;
+};
 
 export default function CapacitorBridge() {
   const router = useRouter();
@@ -58,19 +68,69 @@ export default function CapacitorBridge() {
     }
   }, [isLoading, token]);
 
+  // Home-screen widgets, once per signed-in app session: hand them a
+  // widget-scoped token if they have none, and refresh them (the app-start
+  // refresh). Re-arms after logout so the next sign-in sets them up again.
+  // Not re-run on every silent token refresh (the access token rotates every
+  // 15 minutes).
+  const widgetsReadyRef = useRef(false);
+  useEffect(() => {
+    if (isLoading) return;
+    if (!token) {
+      widgetsReadyRef.current = false;
+      return;
+    }
+    if (widgetsReadyRef.current) return;
+    widgetsReadyRef.current = true;
+    ensureWidgetToken(issueWidgetToken, currentUserId);
+  }, [isLoading, token]);
+
+  // ...and on every resume, so a widget placed while the app was running gets
+  // its token the next time the app is opened (and existing ones refresh).
+  useEffect(() => {
+    let cancelled = false;
+    let handle: { remove: () => void } | null = null;
+
+    const setup = async () => {
+      try {
+        const { Capacitor } = await import('@capacitor/core');
+        if (!Capacitor.isNativePlatform() || cancelled) return;
+        const { App } = await import('@capacitor/app');
+        if (cancelled) return;
+        handle = await App.addListener('resume', () => {
+          if (!useAuthStore.getState().token) return;
+          ensureWidgetToken(issueWidgetToken, currentUserId);
+        });
+        if (cancelled) handle.remove();
+      } catch { /* not in Capacitor environment */ }
+    };
+
+    setup();
+    return () => {
+      cancelled = true;
+      handle?.remove();
+    };
+  }, []);
+
   // Handle widget→app navigation when the app is already running (onNewIntent).
   // Cold-start navigation is handled natively: MainActivity.onCreate redirects
   // the WebView directly to the target URL, so no event is needed there.
   useEffect(() => {
     const handleOpenAdd = () => router.push('/transactions?add=true');
+    const handleOpenQuickAdd = () => router.push('/transactions?quickAdd=1');
     const handleOpenBudgets = () => router.push('/budgets');
+    const handleOpenDashboard = () => router.push('/dashboard');
 
     window.addEventListener('fintrack:openAdd', handleOpenAdd);
+    window.addEventListener('fintrack:openQuickAdd', handleOpenQuickAdd);
     window.addEventListener('fintrack:openBudgets', handleOpenBudgets);
+    window.addEventListener('fintrack:openDashboard', handleOpenDashboard);
 
     return () => {
       window.removeEventListener('fintrack:openAdd', handleOpenAdd);
+      window.removeEventListener('fintrack:openQuickAdd', handleOpenQuickAdd);
       window.removeEventListener('fintrack:openBudgets', handleOpenBudgets);
+      window.removeEventListener('fintrack:openDashboard', handleOpenDashboard);
     };
   }, [router]);
 
