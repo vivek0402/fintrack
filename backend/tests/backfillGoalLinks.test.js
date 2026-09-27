@@ -1,5 +1,9 @@
+// Only main() requires the pool; the mock stands in for it there, including
+// db/pool.js's habit of printing "Connected to PostgreSQL" via console.log.
+jest.mock('../src/db/pool', () => ({ query: jest.fn(), end: jest.fn(), connect: jest.fn() }));
+
 const {
-    planGoalLinks, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
+    main, planGoalLinks, excludeFromPlan, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
     normalize, matchTier, utcNaive, CANDIDATE_SQL, GOAL_LINKING_SHIPPED_UTC,
 } = require('../scripts/backfill-goal-links');
 
@@ -15,7 +19,7 @@ function tx(overrides = {}) {
     seq++;
     return {
         id: `tx-${seq}`, user_id: U1, type: 'expense', amount: '2500.00',
-        description: 'Goa Trip', date: '2026-09-01',
+        description: 'Savings for Goa trip', date: '2026-09-01',
         created_at: '2026-09-01T10:00:00.000',
         goal_id: null, tags: [], transfer_group_id: null, personal_loan_id: null, group_id: null,
         source: 'manual', is_investment_category: false, system_origin: null,
@@ -37,8 +41,12 @@ describe('normalize / matchTier', () => {
     test('normalize lower-cases, strips punctuation and collapses whitespace', () => {
         expect(normalize('  Paid EMI,   emergency-fund!! ')).toBe('paid emi emergency fund');
     });
-    test('exact after filler removal on both sides; whole-word otherwise', () => {
+    test('exact after filler removal on both sides; bare when no extra filler; whole-word otherwise', () => {
         expect(matchTier('transfer to emergency fund', 'Emergency Fund')).toBe('exact');
+        expect(matchTier('laptop fund', 'Laptop')).toBe('exact');
+        expect(matchTier('laptop', 'Laptop')).toBe('bare');
+        expect(matchTier('emergency fund', 'Emergency Fund')).toBe('bare');
+        expect(matchTier('fund emergency', 'Emergency Fund')).toBe('bare');
         expect(matchTier('car service', 'Car')).toBe('name');
         expect(matchTier('carpool', 'Car')).toBeNull();
     });
@@ -52,19 +60,29 @@ describe('planGoalLinks: tiers', () => {
     const SAVINGS = goal('g-sav', 'Savings');
     const HOUSE = goal('g-house', 'House Down Payment Fund');
 
+    const LAPTOP = goal('g-lap', 'Laptop');
+
     test.each([
         ['Transfer to Emergency Fund', EMERGENCY],
-        ['emergency fund', EMERGENCY],
-        ['Emergency', EMERGENCY],
         ['Savings for Goa trip', GOA],
-        ['Goa Trip', GOA],
-        ['  GOA   trip!  ', GOA],
+        ['  savings -- GOA   trip!  ', GOA],
+        ['Laptop fund', LAPTOP],
         ['Savings for house down payment', HOUSE],
         ['House Down Payment Fund SIP', HOUSE],
-        ['Car', CAR],
         ['Transferred to car fund', CAR],
     ])('true positive auto-links: %p', (description, g) => {
         expect(classify([g], description)).toEqual({ tier: 'link', goal: g.name });
+    });
+
+    test.each([
+        ['Laptop', LAPTOP],                   // probably the ₹78k purchase itself
+        ['Emergency Fund', EMERGENCY],        // just the goal name, filler and all
+        ['Emergency', EMERGENCY],
+        ['Goa Trip', GOA],
+        ['Car', CAR],
+        ['House Down Payment Fund', HOUSE],
+    ])('a description that is just the goal\'s own words goes to review as bare_goal_name: %p', (description, g) => {
+        expect(classify([g], description)).toEqual({ tier: 'review', goal: g.name, reasons: ['bare_goal_name'] });
     });
 
     test.each([
@@ -183,8 +201,8 @@ describe('planGoalLinks: review reasons', () => {
         const p = planFor([GOA, LAPTOP], [
             tx({ id: 'g1', amount: '3000' }),
             tx({ id: 'g2', amount: '2500' }),     // 5500 > 5000
-            tx({ id: 'l1', description: 'Laptop', amount: '2500' }),
-            tx({ id: 'l2', description: 'Laptop', amount: '2500' }), // exactly 5000, fine
+            tx({ id: 'l1', description: 'Laptop fund', amount: '2500' }),
+            tx({ id: 'l2', description: 'Laptop fund', amount: '2500' }), // exactly 5000, fine
         ]);
         expect(p.links.map(l => l.tx_id)).toEqual(['l1', 'l2']);
         expect(p.review.map(r => [r.tx_id, r.reasons])).toEqual([
@@ -214,43 +232,78 @@ describe('selectLinksToApply (--include)', () => {
         expect(() => selectLinksToApply(plan(), ['auto'])).toThrow(/auto/);
         expect(() => selectLinksToApply(plan(), ['rev', 'nope'])).toThrow(/nope/);
     });
+
+    describe('excludeFromPlan (--exclude)', () => {
+        test('removes ids from Will link and Needs review and lists them as excluded', () => {
+            const p = excludeFromPlan(plan(), ['auto', 'rev']);
+            expect(p.links).toEqual([]);
+            expect(p.review).toEqual([]);
+            expect(p.excluded.map(r => r.tx_id)).toEqual(['auto', 'rev']);
+            expect(selectLinksToApply(p)).toEqual([]);
+        });
+        test('an excluded review row can no longer be --include\'d', () => {
+            expect(() => selectLinksToApply(excludeFromPlan(plan(), ['rev']), ['rev'])).toThrow(/rev/);
+        });
+        test('no --exclude leaves the plan as is, with an empty excluded list', () => {
+            const p = excludeFromPlan(plan(), []);
+            expect(p.links.map(l => l.tx_id)).toEqual(['auto']);
+            expect(p.excluded).toEqual([]);
+        });
+        test('errors on ids in neither Will link nor Needs review (ambiguous, unknown)', () => {
+            expect(() => excludeFromPlan(plan(), ['amb'])).toThrow(/not in "Will link" or "Needs review": amb/);
+            expect(() => excludeFromPlan(plan(), ['auto', 'nope'])).toThrow(/nope/);
+        });
+    });
 });
 
 describe('report output', () => {
-    const goals = [goal('g-em', 'Emergency Fund', '20000.00'), goal('g-goa', 'Goa Trip', '12000.00'), goal('g-car', 'Car'), goal('g-cs', 'Car Service')];
-    const fixture = () => planFor(goals, [
+    const goals = [
+        goal('g-em', 'Emergency Fund', '20000.00'), goal('g-goa', 'Goa Trip', '12000.00'),
+        goal('g-lap', 'Laptop', '90000.00'), goal('g-car', 'Car'), goal('g-cs', 'Car Service'),
+    ];
+    const rows = () => [
         tx({ id: 'tx-a', description: 'Transfer to Emergency Fund', amount: '5000', date: '2026-08-20' }),
         tx({ id: 'tx-b', description: 'Savings for Goa trip', amount: '2500.50', date: '2026-09-03' }),
         tx({ id: 'tx-c', description: 'Paid EMI, emergency fund untouched', amount: '1500', date: '2026-09-05' }),
         tx({ id: 'tx-d', description: 'Car service', amount: '800', date: '2026-09-06' }),
         tx({ id: 'tx-e', description: 'Goa trip', source: 'sms' }),
         tx({ id: 'tx-f', description: 'Carpool' }),
-    ]);
+        tx({ id: 'tx-g', description: 'Laptop', amount: '78000', date: '2026-09-12' }),
+        tx({ id: 'tx-h', description: 'Laptop fund', amount: '4000', date: '2026-09-14' }),
+    ];
+    const fixture = () => excludeFromPlan(planFor(goals, rows()), ['tx-b']);
     const emails = { [U1]: 'asha@example.com' };
 
-    test('dry-run text has the window header and the four sections', () => {
-        const text = formatPlan(fixture(), emails, { ...WINDOW, timezone: 'UTC' });
+    test('dry-run text: window header, Will link / Needs review / Ambiguous / Excluded / Skipped', () => {
+        const text = formatPlan(fixture(), emails, { ...WINDOW, timezone: 'UTC' }, { include: ['tx-c'] });
         expect(text).toMatchInlineSnapshot(`
 "Window (created_at, UTC): 2026-08-16T15:40:22.000Z <= created_at < 2026-09-27T10:00:00.000Z
 DB session TimeZone: UTC
-Scanned 6 unlinked expense row(s): 2 will link, 1 need review, 1 ambiguous, 2 skipped.
+Scanned 8 unlinked expense row(s): 2 will link, 2 need review, 1 ambiguous, 2 skipped.
+Will apply 3 row(s): 2 Will link + 1 --include, 1 excluded.
 
 == Will link (2) ==
 User aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (asha@example.com)
-tx id  date        amount     description                 goal
------  ----------  ---------  --------------------------  --------------
-tx-a   2026-08-20  ₹5,000     Transfer to Emergency Fund  Emergency Fund
-tx-b   2026-09-03  ₹2,500.50  Savings for Goa trip        Goa Trip
+tx id  date        amount  description                 goal
+-----  ----------  ------  --------------------------  --------------
+tx-a   2026-08-20  ₹5,000  Transfer to Emergency Fund  Emergency Fund
+tx-h   2026-09-14  ₹4,000  Laptop fund                 Laptop
 
-== Needs review, not applied unless --include (1) ==
-user              tx id  date        amount  description                         goal            goal saved  why
-----------------  -----  ----------  ------  ----------------------------------  --------------  ----------  --------------------------------------------
-asha@example.com  tx-c   2026-09-05  ₹1,500  Paid EMI, emergency fund untouched  Emergency Fund  ₹20,000     name appears but description has other words
+== Needs review, not applied unless --include (2) ==
+incl  user              tx id  date        amount   description                         goal            goal saved  why
+----  ----------------  -----  ----------  -------  ----------------------------------  --------------  ----------  ------------------------------------------------------
+yes   asha@example.com  tx-c   2026-09-05  ₹1,500   Paid EMI, emergency fund untouched  Emergency Fund  ₹20,000     name appears but description has other words
+      asha@example.com  tx-g   2026-09-12  ₹78,000  Laptop                              Laptop          ₹90,000     description is just the goal name (maybe the purchase)
 
 == Ambiguous, never applied (1) ==
 user              tx id  date        amount  description  matching goals
 ----------------  -----  ----------  ------  -----------  -----------------
 asha@example.com  tx-d   2026-09-06  ₹800    Car service  Car | Car Service
+
+== Excluded by --exclude, never applied (1) ==
+user              tx id  date        amount     description           goal
+----------------  -----  ----------  ---------  --------------------  --------
+asha@example.com  tx-b   2026-09-03  ₹2,500.50  Savings for Goa trip  Goa Trip
 
 == Skipped (counts by reason) ==
     1  source not the add-transaction form
@@ -258,16 +311,66 @@ asha@example.com  tx-d   2026-09-06  ₹800    Car service  Car | Car Service
 `);
     });
 
-    test('--json carries the same data and the window', () => {
+    test('--json carries the same data, the window and the excluded rows', () => {
         const json = planToJson(fixture(), emails, WINDOW, { mode: 'dry-run' });
         expect(json.window).toEqual({ after: '2026-08-16T15:40:22.000Z', before: '2026-09-27T10:00:00.000Z' });
         expect(json.totals).toEqual({
-            scanned: 6, will_link: 2, needs_review: 1, ambiguous: 1,
+            scanned: 8, will_link: 2, needs_review: 2, ambiguous: 1,
             skipped: { source: 1, no_match: 1 },
         });
-        expect(json.will_link[0].links.map(l => l.tx_id)).toEqual(['tx-a', 'tx-b']);
-        expect(json.needs_review[0]).toMatchObject({ tx_id: 'tx-c', reasons: ['name_match_not_exact'], email: 'asha@example.com' });
+        expect(json.will_link[0].links.map(l => l.tx_id)).toEqual(['tx-a', 'tx-h']);
+        expect(json.needs_review.map(r => [r.tx_id, r.reasons])).toEqual([
+            ['tx-c', ['name_match_not_exact']],
+            ['tx-g', ['bare_goal_name']],
+        ]);
         expect(json.ambiguous[0].tx_id).toBe('tx-d');
+        expect(json.excluded.map(r => r.tx_id)).toEqual(['tx-b']);
+    });
+
+    describe('main --json', () => {
+        const pool = require('../src/db/pool');
+        let stdoutSpy, errorSpy, originalLog;
+
+        beforeEach(() => {
+            originalLog = console.log;
+            let connected = false;
+            pool.query.mockReset();
+            pool.end.mockReset();
+            pool.query.mockImplementation(async (sql) => {
+                if (!connected) { connected = true; console.log('✅ Connected to PostgreSQL'); }
+                if (sql.includes("current_setting('TimeZone')")) return { rows: [{ tz: 'UTC' }] };
+                if (sql.includes('FROM transactions t')) return { rows: rows() };
+                if (sql.includes('FROM savings_goals')) return { rows: goals.map(g => ({ ...g, user_id: U1 })) };
+                if (sql.includes('FROM users')) return { rows: [{ id: U1, email: 'asha@example.com' }] };
+                throw new Error(`unexpected query ${sql}`);
+            });
+            stdoutSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+            errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        });
+        afterEach(() => {
+            stdoutSpy.mockRestore();
+            errorSpy.mockRestore();
+            console.log = originalLog;
+        });
+
+        test('stdout gets only the JSON; the pool\'s connect message goes to stderr', async () => {
+            await main(['--before', BEFORE, '--json', '--exclude', 'tx-b', '--include', 'tx-c']);
+
+            expect(stdoutSpy).toHaveBeenCalledTimes(1);
+            const out = JSON.parse(stdoutSpy.mock.calls[0][0]);
+            expect(out).toMatchObject({ mode: 'dry-run', will_apply: 3, exclude: ['tx-b'], include: ['tx-c'] });
+            expect(errorSpy).toHaveBeenCalledWith('✅ Connected to PostgreSQL');
+            expect(console.log).toBe(originalLog); // restored afterwards
+            expect(pool.end).toHaveBeenCalled();
+            expect(pool.connect).not.toHaveBeenCalled(); // dry run: no write transaction
+        });
+
+        test('a bad --exclude id errors before anything is written', async () => {
+            await expect(main(['--before', BEFORE, '--json', '--apply', '--exclude', 'tx-d'])).rejects.toThrow(/tx-d/);
+            expect(pool.connect).not.toHaveBeenCalled();
+            expect(stdoutSpy).not.toHaveBeenCalled();
+            expect(console.log).toBe(originalLog);
+        });
     });
 });
 
@@ -285,9 +388,17 @@ describe('parseArgs', () => {
         expect(args.after.toISOString()).toBe('2026-08-16T15:40:22.000Z');
         expect(args).toMatchObject({ apply: true, json: true, user: U1, include: ['a', 'b'] });
     });
-    test('rejects --after not before --before, --include without --apply, bad --user, unknown flags', () => {
+    test('reads --exclude, and allows --include/--exclude on a dry run (workflow step 3)', () => {
+        const args = parseArgs(['--before', BEFORE, '--exclude', 'x,y', '--include', 'a']);
+        expect(args).toMatchObject({ apply: false, exclude: ['x', 'y'], include: ['a'] });
+        expect(parseArgs(['--before', BEFORE]).exclude).toEqual([]);
+    });
+    test('rejects an id in both --include and --exclude, and empty id lists', () => {
+        expect(() => parseArgs(['--before', BEFORE, '--include', 'a,b', '--exclude', 'b'])).toThrow(/both --include and --exclude: b/);
+        expect(() => parseArgs(['--before', BEFORE, '--exclude', ' , '])).toThrow(/--exclude needs/);
+    });
+    test('rejects --after not before --before, bad --user, unknown flags', () => {
         expect(() => parseArgs(['--before', BEFORE, '--after', BEFORE])).toThrow(/earlier/);
-        expect(() => parseArgs(['--before', BEFORE, '--include', 'a'])).toThrow(/--apply/);
         expect(() => parseArgs(['--before', BEFORE, '--user', '42'])).toThrow(/uuid/);
         expect(() => parseArgs(['--before', BEFORE, '--force'])).toThrow(/Unknown argument/);
     });

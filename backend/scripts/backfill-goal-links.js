@@ -13,11 +13,18 @@
 // Run from backend/, pointed at PRODUCTION via DATABASE_URL (e.g. from a
 // Render shell, where DATABASE_URL is already set). The local DB is not prod.
 //
-//   node scripts/backfill-goal-links.js --before <ISO>            # dry run, writes nothing
-//   node scripts/backfill-goal-links.js --before <ISO> --json     # dry run as JSON
-//   node scripts/backfill-goal-links.js --before <ISO> --user <uuid>
-//   node scripts/backfill-goal-links.js --before <ISO> --apply    # write "Will link"
-//   node scripts/backfill-goal-links.js --before <ISO> --apply --include <txid,txid>
+// Recommended workflow:
+//   1. Dry run:   node scripts/backfill-goal-links.js --before <deploy time>
+//   2. Read the "Will link" list (and "Needs review") row by row.
+//   3. Dry-run again with --exclude <txid,...> for any Will-link row that
+//      looks wrong and --include <txid,...> for review rows you're sure of.
+//      Check the "Excluded" section and the "Will apply" count.
+//   4. Only then add --apply, with exactly the same flags:
+//      node scripts/backfill-goal-links.js --before <deploy time> \
+//          --exclude <txid,...> --include <txid,...> --apply
+//
+// Other flags: --json (pure JSON on stdout; logs go to stderr),
+// --user <uuid> (one user only), --after <ISO> (see below).
 //
 // --before is REQUIRED: the time the goal_id fix was deployed to Render, with
 // an explicit zone (e.g. 2026-09-27T10:15:00Z or 2026-09-27T15:45:00+05:30).
@@ -30,8 +37,8 @@
 // script assumes that is UTC (as it is on Supabase), passes the window to SQL
 // as UTC-naive timestamps, and refuses to run if the session TimeZone isn't UTC.
 //
-// Always read the dry run first. --apply writes "Will link" plus any
-// --include ids that are in "Needs review", in ONE DB transaction, and rolls
+// --apply writes "Will link" (minus --exclude ids) plus any --include ids
+// that are in "Needs review", in ONE DB transaction, and rolls
 // back if any UPDATE doesn't hit exactly one row. Idempotent: linked rows have
 // goal_id set, so a re-run won't pick them up.
 //
@@ -49,11 +56,15 @@
 // Matching (text normalized: lower-case, punctuation stripped, whitespace
 // collapsed; goal names under 3 chars ignored):
 //   - Will link: the description minus filler words (to, for, savings, fund,
-//     ...) EXACTLY equals the goal name minus filler words, and that goal-name
-//     core is non-empty. "Transfer to Emergency Fund" -> goal "Emergency Fund".
-//   - Needs review: the goal name appears as a whole word/phrase but isn't an
-//     exact match, or the row was edited after creation, or its amount (or the
-//     goal's total of Will-link rows) exceeds the goal's saved_amount.
+//     ...) EXACTLY equals the goal name minus filler words, that goal-name
+//     core is non-empty, AND the description adds contribution wording (more
+//     filler words than the goal name has). "Transfer to Emergency Fund" and
+//     "Laptop fund" link; a bare "Laptop" is probably the purchase itself,
+//     since the goal picker never fills in the description.
+//   - Needs review: the description is just the goal's own words
+//     (bare_goal_name), or the goal name appears as a whole word/phrase but
+//     isn't an exact match, or the row was edited after creation, or its
+//     amount (or the goal's total of Will-link rows) exceeds saved_amount.
 //   - Ambiguous: 2+ goals match in either tier. Never applied.
 
 const GOAL_LINKING_SHIPPED_UTC = '2026-08-16T15:40:22Z'; // 9ce4a77, 21:10:22 +05:30
@@ -83,6 +94,7 @@ const SKIP_REASONS = {
 };
 
 const REVIEW_REASONS = {
+    bare_goal_name: 'description is just the goal name (maybe the purchase)',
     name_match_not_exact: 'name appears but description has other words',
     edited_after_create: 'edited after creation',
     exceeds_goal: "amount > goal's saved_amount",
@@ -101,16 +113,28 @@ function withoutFiller(normalized) {
     return normalized.split(' ').filter(w => w && !FILLER_WORDS.has(w)).join(' ');
 }
 
+function fillerCount(normalized) {
+    return normalized.split(' ').filter(w => FILLER_WORDS.has(w)).length;
+}
+
 function escapeRegExp(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// 'exact' | 'name' | null for one normalized description vs one goal name.
+// One normalized description vs one goal name:
+//   'exact' - same non-filler words AND extra contribution wording
+//             ("laptop fund" vs "Laptop")
+//   'bare'  - same non-filler words and no filler beyond the goal name's own
+//             ("laptop" vs "Laptop", "emergency fund" vs "Emergency Fund"):
+//             as likely to be the purchase as a contribution
+//   'name'  - goal name appears as a whole word/phrase, other words differ
+//   null    - no match
 function matchTier(normDescription, goalName) {
     const normGoal = normalize(goalName);
     if (normGoal.length < MIN_GOAL_NAME_LENGTH) return null;
     const goalCore = withoutFiller(normGoal);
-    if (goalCore && withoutFiller(normDescription) === goalCore) return 'exact';
+    if (goalCore && withoutFiller(normDescription) === goalCore)
+        return fillerCount(normDescription) > fillerCount(normGoal) ? 'exact' : 'bare';
     const wholeWord = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(normGoal)}(?![\\p{L}\\p{N}])`, 'iu');
     return wholeWord.test(normDescription) ? 'name' : null;
 }
@@ -186,7 +210,8 @@ function planGoalLinks(transactions, goalsByUser, opts = {}) {
         }
         const { goal, tier } = hits[0];
         const reasons = [];
-        if (tier !== 'exact') reasons.push('name_match_not_exact');
+        if (tier === 'bare') reasons.push('bare_goal_name');
+        else if (tier !== 'exact') reasons.push('name_match_not_exact');
         if (tx.updated_at && toMs(tx.updated_at) > toMs(tx.created_at) + EDIT_GRACE_MS) reasons.push('edited_after_create');
         if (base.amount > parseFloat(goal.saved_amount)) reasons.push('exceeds_goal');
         matched.push({ ...base, goal_id: goal.id, goal_name: goal.name, goal_saved_amount: parseFloat(goal.saved_amount), reasons });
@@ -208,6 +233,22 @@ function planGoalLinks(transactions, goalsByUser, opts = {}) {
         }
     }
     return plan;
+}
+
+// Removes --exclude ids from "Will link" / "Needs review" and lists them
+// under plan.excluded. Throws (so nothing is written) if an id is in neither.
+function excludeFromPlan(plan, excludeIds = []) {
+    const ids = new Set(excludeIds);
+    const known = new Set([...plan.links, ...plan.review].map(r => r.tx_id));
+    const bad = [...ids].filter(id => !known.has(id));
+    if (bad.length)
+        throw new Error(`--exclude ids not in "Will link" or "Needs review": ${bad.join(', ')}. Nothing written.`);
+    return {
+        ...plan,
+        links: plan.links.filter(r => !ids.has(r.tx_id)),
+        review: plan.review.filter(r => !ids.has(r.tx_id)),
+        excluded: [...plan.links, ...plan.review].filter(r => ids.has(r.tx_id)),
+    };
 }
 
 // The rows --apply writes: every "Will link" row plus the named review rows.
@@ -270,10 +311,14 @@ function planToJson(plan, emails = {}, window = {}, extra = {}) {
         will_link: [...groupByUser(plan.links)].map(([userId, links]) => ({ user_id: userId, email: emails[userId] || null, links })),
         needs_review: plan.review.map(r => ({ ...r, email: emails[r.user_id] || null })),
         ambiguous: plan.ambiguous.map(r => ({ ...r, email: emails[r.user_id] || null })),
+        excluded: (plan.excluded || []).map(r => ({ ...r, email: emails[r.user_id] || null })),
     };
 }
 
-function formatPlan(plan, emails = {}, window = {}) {
+// opts.include: --include ids (marked in the review table and counted in
+// the "Will apply" line; call selectLinksToApply first to validate them).
+function formatPlan(plan, emails = {}, window = {}, opts = {}) {
+    const include = new Set(opts.include || []);
     const w = isoWindow(window);
     const who = r => emails[r.user_id] || r.user_id;
     const out = [];
@@ -282,6 +327,8 @@ function formatPlan(plan, emails = {}, window = {}) {
     out.push(`Scanned ${plan.scanned} unlinked expense row(s): ${plan.links.length} will link, `
         + `${plan.review.length} need review, ${plan.ambiguous.length} ambiguous, `
         + `${Object.values(plan.skipped).reduce((s, n) => s + n, 0)} skipped.`);
+    out.push(`Will apply ${plan.links.length + include.size} row(s): ${plan.links.length} Will link + ${include.size} --include`
+        + `${plan.excluded ? `, ${plan.excluded.length} excluded` : ''}.`);
 
     out.push('', `== Will link (${plan.links.length}) ==`);
     if (!plan.links.length) out.push('(none)');
@@ -292,6 +339,7 @@ function formatPlan(plan, emails = {}, window = {}) {
 
     out.push('', `== Needs review, not applied unless --include (${plan.review.length}) ==`);
     out.push(plan.review.length ? table(plan.review, [
+        { label: 'incl', get: r => (include.has(r.tx_id) ? 'yes' : '') },
         { label: 'user', get: who }, ...TX_COLUMNS,
         { label: 'goal', get: r => r.goal_name },
         { label: 'goal saved', get: r => formatInr(r.goal_saved_amount) },
@@ -303,6 +351,14 @@ function formatPlan(plan, emails = {}, window = {}) {
         { label: 'user', get: who }, ...TX_COLUMNS,
         { label: 'matching goals', get: r => r.goal_names.join(' | ') },
     ]) : '(none)');
+
+    if (plan.excluded) {
+        out.push('', `== Excluded by --exclude, never applied (${plan.excluded.length}) ==`);
+        out.push(plan.excluded.length ? table(plan.excluded, [
+            { label: 'user', get: who }, ...TX_COLUMNS,
+            { label: 'goal', get: r => r.goal_name },
+        ]) : '(none)');
+    }
 
     out.push('', '== Skipped (counts by reason) ==');
     const skipped = Object.entries(plan.skipped);
@@ -317,10 +373,17 @@ function parseTimestamp(flag, value) {
     return new Date(value);
 }
 
-const USAGE = 'Usage: node scripts/backfill-goal-links.js --before <ISO> [--after <ISO>] [--user <uuid>] [--json] [--apply [--include <txid,...>]]';
+const USAGE = 'Usage: node scripts/backfill-goal-links.js --before <ISO> [--after <ISO>] [--user <uuid>] '
+    + '[--exclude <txid,...>] [--include <txid,...>] [--json] [--apply]';
+
+function parseIdList(flag, value) {
+    const ids = String(value || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (!ids.length) throw new Error(`${flag} needs a comma-separated list of transaction ids.`);
+    return ids;
+}
 
 function parseArgs(argv) {
-    const args = { apply: false, json: false, user: null, include: [], after: new Date(GOAL_LINKING_SHIPPED_UTC), before: null };
+    const args = { apply: false, json: false, user: null, include: [], exclude: [], after: new Date(GOAL_LINKING_SHIPPED_UTC), before: null };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === '--apply') args.apply = true;
@@ -330,16 +393,16 @@ function parseArgs(argv) {
             if (!UUID_RE.test(args.user || '')) throw new Error('--user needs a user id (uuid).');
         } else if (a === '--before') args.before = parseTimestamp('--before', argv[++i]);
         else if (a === '--after') args.after = parseTimestamp('--after', argv[++i]);
-        else if (a === '--include') {
-            args.include = String(argv[++i] || '').split(',').map(s => s.trim()).filter(Boolean);
-            if (!args.include.length) throw new Error('--include needs a comma-separated list of transaction ids.');
-        } else throw new Error(`Unknown argument: ${a}. ${USAGE}`);
+        else if (a === '--include') args.include = parseIdList('--include', argv[++i]);
+        else if (a === '--exclude') args.exclude = parseIdList('--exclude', argv[++i]);
+        else throw new Error(`Unknown argument: ${a}. ${USAGE}`);
     }
     if (!args.before)
         throw new Error('--before is required: pass the time the goal_id fix was deployed to Render '
             + '(ISO with zone, e.g. --before 2026-09-27T10:15:00Z). Rows after that deploy were never unlinked contributions.');
     if (args.after >= args.before) throw new Error('--after must be earlier than --before.');
-    if (args.include.length && !args.apply) throw new Error('--include only makes sense with --apply.');
+    const both = args.include.filter(id => args.exclude.includes(id));
+    if (both.length) throw new Error(`ids in both --include and --exclude: ${both.join(', ')}.`);
     return args;
 }
 
@@ -406,8 +469,12 @@ async function applyLinks(pool, links) {
     }
 }
 
-async function main() {
-    const args = parseArgs(process.argv.slice(2));
+async function main(argv = process.argv.slice(2)) {
+    const args = parseArgs(argv);
+    // --json: stdout carries ONLY the final JSON. Anything else that logs to
+    // stdout (e.g. db/pool.js's "Connected to PostgreSQL") goes to stderr.
+    const originalLog = console.log;
+    if (args.json) console.log = console.error;
     // Required here, not at the top, so tests can import the pure helpers
     // without touching the database module.
     const pool = require('../src/db/pool');
@@ -432,30 +499,33 @@ async function main() {
             for (const u of users) emails[u.id] = u.email;
         }
 
-        const plan = planGoalLinks(transactions, goalsByUser, window);
+        const plan = excludeFromPlan(planGoalLinks(transactions, goalsByUser, window), args.exclude);
+        // Validates --include even on a dry run, so step 3 of the workflow
+        // catches a bad id before --apply.
+        const toApply = selectLinksToApply(plan, args.include);
         let updated = null;
-        if (args.apply) {
-            const toApply = selectLinksToApply(plan, args.include);
-            updated = toApply.length ? await applyLinks(pool, toApply) : 0;
-        }
+        if (args.apply) updated = toApply.length ? await applyLinks(pool, toApply) : 0;
 
         if (args.json) {
-            console.log(JSON.stringify(planToJson(plan, emails, window, {
+            process.stdout.write(`${JSON.stringify(planToJson(plan, emails, window, {
                 mode: args.apply ? 'apply' : 'dry-run',
                 timezone: tz,
                 user: args.user,
                 include: args.include,
+                exclude: args.exclude,
+                will_apply: toApply.length,
                 ...(updated !== null ? { updated } : {}),
-            }), null, 2));
+            }), null, 2)}\n`);
         } else {
             console.log(`\n=== Goal-link backfill (${args.apply ? 'APPLY' : 'DRY RUN, nothing written'}) ===\n`);
-            console.log(formatPlan(plan, emails, window));
+            console.log(formatPlan(plan, emails, window, { include: args.include }));
             if (updated !== null) console.log(`\nUpdated ${updated} transaction(s). savings_goals was not touched.`);
-            else console.log('\nRe-run with --apply (plus --include <txid,...> for reviewed rows) to write links.');
+            else console.log('\nNothing written. When the lists look right, re-run with the same flags plus --apply.');
             console.log('');
         }
     } finally {
         await pool.end();
+        console.log = originalLog;
     }
 }
 
@@ -467,6 +537,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-    planGoalLinks, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
+    main, planGoalLinks, excludeFromPlan, selectLinksToApply, formatPlan, planToJson, parseArgs, applyLinks,
     normalize, matchTier, utcNaive, CANDIDATE_SQL, GOAL_LINKING_SHIPPED_UTC,
 };
