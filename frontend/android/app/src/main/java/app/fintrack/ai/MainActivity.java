@@ -1,7 +1,10 @@
 package app.fintrack.ai;
 
+import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
+import android.view.WindowManager;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 
@@ -10,6 +13,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FinTrackNativePlugin.class);
+        applyHideInRecents();
         super.onCreate(savedInstanceState);
 
         // Cold start from a widget: redirect the WebView directly to the
@@ -49,6 +53,20 @@ public class MainActivity extends BridgeActivity {
             // going forward, so it needs the same one-time-extra cleanup as
             // the onCreate path above, for the same reason.
             consumeOneTimeExtras(intent);
+        }
+    }
+
+    // App lock's "Hide in recent apps": FLAG_SECURE from the very first frame
+    // of a cold start, before the WebView (and so the JS that owns the
+    // setting) even exists. FinTrackNativePlugin.setSecureFlag keeps the
+    // stored value in step whenever the user changes it; logout clears it.
+    private void applyHideInRecents() {
+        boolean hide = getSharedPreferences(FinTrackNativePlugin.LOCK_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(FinTrackNativePlugin.KEY_HIDE_RECENTS, false);
+        if (!hide) return;
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            setRecentsScreenshotEnabled(false);
         }
     }
 
