@@ -17,8 +17,9 @@ const { calendarDateStr } = require('./istDate');
 const CLAIM_SQL = `UPDATE recurring_transactions SET next_due_date=$1
                    WHERE id=$2 AND user_id=$3 AND next_due_date=$4`;
 
-const INSERT_SQL = `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7)`;
+// recurring_id records which item posted the row (migration 077).
+const INSERT_SQL = `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date, recurring_id)
+                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`;
 
 /**
  * Posts one occurrence of recurring row `r`.
@@ -37,7 +38,7 @@ async function postRecurringOccurrence(pool, r) {
             await client.query('ROLLBACK');
             return 'skipped';
         }
-        await client.query(INSERT_SQL, [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, dueStr]);
+        await client.query(INSERT_SQL, [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, dueStr, r.id]);
         await client.query('COMMIT');
         return 'posted';
     } catch (err) {

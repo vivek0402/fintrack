@@ -33,7 +33,7 @@ function useCountUp(target: number, duration = 900) {
     return value;
 }
 
-export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, currency = 'INR', month = new Date().getMonth() + 1, year = new Date().getFullYear() }: Props) {
+export function StatsCards({ totalIncome, totalExpenses, balance, savingsRate, month = new Date().getMonth() + 1, year = new Date().getFullYear() }: Props) {
     const isMobile = useIsMobile();
     const animIncome = useCountUp(totalIncome);
     const animExpenses = useCountUp(totalExpenses);

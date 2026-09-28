@@ -51,7 +51,6 @@ function mockBenchmarks({ threeMonthIncome = 300000, catRows = [], monthIncome =
 }
 
 const get = () => request(app).get('/api/insights/peer-benchmarks');
-const groupOf = (body, key) => body.benchmark_groups.find(g => g.group === key);
 
 describe('GET /peer-benchmarks — income bracket', () => {
     it('places a low earner in the lowest bracket', async () => {

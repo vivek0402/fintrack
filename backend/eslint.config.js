@@ -45,7 +45,7 @@ module.exports = [
       globals: nodeGlobals,
     },
     rules: {
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "no-undef": "warn",
       "no-const-assign": "error",
       "no-dupe-keys": "error",

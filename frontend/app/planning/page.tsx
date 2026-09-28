@@ -396,7 +396,7 @@ export default function PlanningPage() {
                     {/* Step 0: Monthly income */}
                     {step === 0 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What's your monthly income?</h2>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What&apos;s your monthly income?</h2>
                             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>After-tax, take-home pay each month.</p>
                             <label style={labelSt}>Monthly Income</label>
                             <div style={{ position: 'relative' }}>
@@ -448,7 +448,7 @@ export default function PlanningPage() {
                     {step === 2 && (
                         <div>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>Do you use a credit card?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>We'll use this later to show you relevant tips.</p>
+                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>We&apos;ll use this later to show you relevant tips.</p>
                             <ToggleRow checked={form.has_credit_card} onChange={v => setForm(f => ({ ...f, has_credit_card: v }))} label="I have a credit card" />
                         </div>
                     )}
@@ -553,7 +553,7 @@ export default function PlanningPage() {
                     {/* Step 6: Risk profile */}
                     {step === 6 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What's your risk profile?</h2>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What&apos;s your risk profile?</h2>
                             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>This decides how your surplus splits between your emergency fund and investments.</p>
                             <div className="glass-field" style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 'var(--radius-md)', width: '100%' }}>
                                 {RISK_OPTIONS.map(opt => {
@@ -719,7 +719,7 @@ function DriftRow({ label, oldAmount, newAmount, percentDifference, isIncome }: 
                 </span>
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                Averaged {fmt(newAmount)} over the last 3 months, you'd declared {fmt(oldAmount)}.
+                Averaged {fmt(newAmount)} over the last 3 months, you&apos;d declared {fmt(oldAmount)}.
             </p>
         </div>
     );
@@ -832,7 +832,7 @@ function MonthlyTab({ plan, expenses, projection }: { plan: any; expenses: any[]
                     </span>
                 ) : month1.deficit ? (
                     <span style={{ color: 'var(--color-warn)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600 }}>
-                        ⚠ This month's fixed costs exceed income — there's no surplus to allocate.
+                        ⚠ This month&apos;s fixed costs exceed income — there&apos;s no surplus to allocate.
                     </span>
                 ) : (
                     <span style={{ color: 'var(--color-exp)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600 }}>
@@ -881,7 +881,7 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
                 </div>
                 <ProgressBar pct={efPct} color="var(--color-info)" height={6} />
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 12px', fontFamily: 'var(--font-body)' }}>
-                    This month's contribution: {fmt(month1.emergencyFundContribution)}
+                    This month&apos;s contribution: {fmt(month1.emergencyFundContribution)}
                     {emergencyFundReachedMonth != null && ` · On track to reach target by month ${emergencyFundReachedMonth}`}
                 </p>
                 {efFund && <FundCard fund={efFund} />}

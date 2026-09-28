@@ -55,7 +55,7 @@ describe('postRecurringOccurrence', () => {
 
         await expect(postRecurringOccurrence(db.pool, row())).resolves.toBe('posted');
 
-        expect(db.transactions).toEqual([['u1', 'c1', 'expense', '500', 'Netflix', null, '2026-01-15']]);
+        expect(db.transactions).toEqual([['u1', 'c1', 'expense', '500', 'Netflix', null, '2026-01-15', 'r1']]); // last: recurring_id links the posting to its item
         expect(db.recurring.get('r1').next_due_date).toBe('2026-02-15');
     });
 

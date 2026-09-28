@@ -41,21 +41,20 @@ export function SankeyFlow({ transactions }: Props) {
         const totalExp = expEntries.reduce((s, [, v]) => s + v, 0);
 
         const H = 280, GAP = 6, PAD = 12;
-        let yInc = PAD;
-        const incNodes: SNode[] = incEntries.map(([id, amount], i) => {
-            const h = Math.max(24, (amount / totalInc) * (H - PAD * 2) - GAP);
-            const n: SNode = { id, label: id, amount, y: yInc, h, color: INC_COLORS[i % INC_COLORS.length] };
-            yInc += h + GAP;
-            return n;
-        });
-
-        let yExp = PAD;
-        const expNodes: SNode[] = expEntries.map(([id, amount], i) => {
-            const h = Math.max(24, (amount / totalExp) * (H - PAD * 2) - GAP);
-            const n: SNode = { id, label: id, amount, y: yExp, h, color: EXP_COLORS[i % EXP_COLORS.length] };
-            yExp += h + GAP;
-            return n;
-        });
+        // Nodes stacked top to bottom, each sized by its share of the column.
+        const stack = (entries: [string, number][], total: number, colors: string[]): SNode[] => {
+            const nodes: SNode[] = [];
+            let y = PAD;
+            for (let i = 0; i < entries.length; i++) {
+                const [id, amount] = entries[i];
+                const h = Math.max(24, (amount / total) * (H - PAD * 2) - GAP);
+                nodes.push({ id, label: id, amount, y, h, color: colors[i % colors.length] });
+                y += h + GAP;
+            }
+            return nodes;
+        };
+        const incNodes = stack(incEntries, totalInc, INC_COLORS);
+        const expNodes = stack(expEntries, totalExp, EXP_COLORS);
 
         // Bezier bands: for each income node, flow proportionally to each expense node
         const W = 380, NW = 14, x1 = NW, x2 = W - NW, cx = W / 2;
@@ -81,7 +80,9 @@ export function SankeyFlow({ transactions }: Props) {
             }
         }
 
-        const svgH = Math.max(yInc, yExp) + PAD;
+        // Where the next node would start, as before: last node's bottom + GAP.
+        const stackEnd = (nodes: SNode[]) => { const last = nodes[nodes.length - 1]; return last.y + last.h + GAP; };
+        const svgH = Math.max(stackEnd(incNodes), stackEnd(expNodes)) + PAD;
         return { incNodes, expNodes, bands, svgH };
     }, [transactions]);
 

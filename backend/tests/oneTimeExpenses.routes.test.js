@@ -121,7 +121,7 @@ describe('GET /api/one-time-expenses', () => {
 describe('PUT /api/one-time-expenses/:id', () => {
     test('rejects a bank_account_id that does not belong to the user (IDOR), and rolls back', async () => {
         const calls = [];
-        const client = mockClient(async (sql, params) => {
+        const client = mockClient(async (sql) => {
             calls.push(sql);
             if (sql === 'BEGIN' || sql === 'ROLLBACK' || sql === 'COMMIT') return {};
             if (sql.includes('SELECT * FROM one_time_expenses')) {
@@ -148,7 +148,7 @@ describe('PUT /api/one-time-expenses/:id', () => {
 
     test('accepts a bank_account_id that DOES belong to the user and proceeds with the update', async () => {
         const calls = [];
-        const client = mockClient(async (sql, params) => {
+        const client = mockClient(async (sql) => {
             calls.push(sql);
             if (sql === 'BEGIN' || sql === 'COMMIT') return {};
             if (sql.includes('SELECT * FROM one_time_expenses')) {
@@ -182,7 +182,7 @@ describe('PUT /api/one-time-expenses/:id', () => {
 describe('POST /api/one-time-expenses/:id/items', () => {
     test('adding an item recomputes the parent total via the SUM subquery', async () => {
         const calls = [];
-        const client = mockClient(async (sql, params) => {
+        const client = mockClient(async (sql) => {
             calls.push(sql);
             if (sql === 'BEGIN' || sql === 'COMMIT') return {};
             if (sql.includes('SELECT * FROM one_time_expenses')) return { rows: [{ id: 'exp-1', title: 'Trip', bank_account_id: null }] };

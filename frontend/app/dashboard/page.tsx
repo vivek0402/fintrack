@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, aiAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
-import { getCurrentMonthYear, fmt, getSmartIcon } from '@/lib/utils';
+import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
+import { fmt, getSmartIcon } from '@/lib/utils';
 import { getCached, setCached } from '@/lib/apiCache';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -247,8 +247,6 @@ export default function DashboardPage() {
     const [dailyBriefCooldown, setDailyBriefCooldown] = useState(0);
     const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dailyBriefRefreshTimesRef = useRef<number[]>([]);
-    const [salaryData, setSalaryData]   = useState<any>(null);
-    const [salaryDismissed, setSalaryDismissed] = useState(false);
     const [coachEnabled, setCoachEnabled] = useState(true);
     const [accounts, setAccounts]       = useState<any[]>([]);
     const [investments, setInvestments] = useState<any[]>([]);
@@ -330,7 +328,6 @@ export default function DashboardPage() {
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
     useEffect(() => {
-        setSalaryDismissed(localStorage.getItem(`salary-banner-dismissed-${month}-${year}`) === 'true');
         const val = localStorage.getItem('fintrack-coach-enabled');
         setCoachEnabled(val === null ? true : val === 'true');
     }, [month, year]);
@@ -403,7 +400,6 @@ export default function DashboardPage() {
 
         const TEN_MIN = 10 * 60 * 1000;
         const FIFTEEN_MIN = 15 * 60 * 1000;
-        const THIRTY_MIN = 30 * 60 * 1000;
 
         fetchCached(`accounts-cache-${user.id}`, TEN_MIN, () => accountsAPI.getAll(), data => setAccounts(data.accounts ?? data ?? []));
         fetchCached(`investments-cache-${user.id}`, TEN_MIN, () => investmentAPI.getAll(), data => setInvestments(data.investments ?? []));
@@ -411,7 +407,6 @@ export default function DashboardPage() {
         fetchCached(`credit-utilization-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getCreditUtilization(), data => setCreditUtilization(data));
         fetchCached(`dti-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getDti(), data => setDti(data));
         fetchCached(`active-loan-count-cache-${user.id}`, FIFTEEN_MIN, () => loanAPI.getAll(true), data => setActiveLoanCount((data.loans || []).length));
-        fetchCached(`salary-intel-cache-${user.id}`, THIRTY_MIN, () => aiAPI.salaryIntelligence(), data => { if (data?.detected) setSalaryData(data); });
 
         opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
@@ -620,7 +615,7 @@ export default function DashboardPage() {
             ) : dailyBriefError && !dailyBrief ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Couldn't load today's brief.
+                        Couldn&apos;t load today&apos;s brief.
                     </p>
                     <button type="button" onClick={() => fetchDailyBrief({ skipCache: true })}
                         style={{ padding: '6px 14px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>

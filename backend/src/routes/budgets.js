@@ -16,6 +16,7 @@ router.get('/', async (req, res) => {
         const budgets = await fetchBudgetsWithSpent(req.user.id, m, y);
         res.json({ budgets });
     } catch (err) {
+        console.error('[Budgets]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -45,6 +46,7 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json({ budget: result.rows[0] });
     } catch (err) {
+        console.error('[Budgets]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -59,6 +61,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Budget not found.' });
         res.json({ message: 'Deleted.' });
     } catch (err) {
+        console.error('[Budgets]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

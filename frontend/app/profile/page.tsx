@@ -6,7 +6,7 @@ import { User, Mail, Lock, Globe, Palette, ChevronRight, Download, Trash2, Bell,
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useThemeStore } from '@/store/themeStore';
@@ -375,7 +375,7 @@ export default function ProfilePage() {
                         { key: 'billReminders' as const, label: 'Bill due reminders',      sub: '3 days before a recurring bill is due' },
                         { key: 'goalAlerts' as const,    label: 'Goal milestone alerts',   sub: 'At 25%, 50%, 75%, and 100% funded' },
                         { key: 'weeklySummary' as const, label: 'Weekly spending summary', sub: 'Every Sunday with your week\'s totals' },
-                    ]).map(({ key, label, sub }, i, arr) => (
+                    ]).map(({ key, label, sub }) => (
                         <div key={key}>
                             <div style={divider} />
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>

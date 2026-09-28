@@ -40,6 +40,7 @@ router.delete('/register-token', async (req, res) => {
         );
         res.json({ ok: true });
     } catch (err) {
+        console.error('[Notifications]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

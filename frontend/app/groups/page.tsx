@@ -7,15 +7,13 @@ import { useAuthStore } from '@/store/authStore';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
 import {
     Plus, Users, X, Check, ChevronRight,
-    ArrowLeft, Trash2, PlusCircle, SplitSquareHorizontal,
-    Wallet, TrendingDown,
-} from 'lucide-react';
+    ArrowLeft, Trash2, PlusCircle, } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Member  { id?: number; name: string; email?: string }
@@ -222,7 +220,6 @@ export default function GroupsPage() {
 
     // ── DETAIL VIEW ───────────────────────────────────────────────────────────
     const allMemberNames = [...members.map(m => m.name), 'Me'];
-    const totalSplits  = splits.reduce((s, sp) => s + parseFloat(String(sp.total_amount)), 0);
     const unsettledCount = splits.reduce((s, sp) => s + sp.shares.filter(sh => !sh.settled).length, 0);
     const youOwe = splits.reduce((sum, sp) => {
         const myShare = sp.shares.find(sh => sh.member === 'Me');

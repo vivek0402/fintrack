@@ -35,7 +35,7 @@ afterEach(() => {
 describe('POST /api/accounts', () => {
     test('is_default:true unsets the prior default and backfills orphaned transactions', async () => {
         const calls = [];
-        const client = mockClient(async (sql, params) => {
+        const client = mockClient(async (sql) => {
             calls.push(sql);
             if (sql === 'BEGIN' || sql === 'COMMIT') return {};
             if (sql.includes('UPDATE bank_accounts SET is_default = FALSE')) return { rows: [] };

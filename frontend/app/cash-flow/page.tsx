@@ -241,7 +241,7 @@ export default function CashFlowPage() {
                                 <strong style={{ color: 'var(--text-primary)' }}>Expenses:</strong> {fmt(data.average_monthly_expenses)}/month, the average of your last 3 months of recorded expense transactions, plus {fmt(data.fixed_monthly_outflows + data.recurring_outflows)}/month in fixed loan EMIs and recurring expenses.
                             </p>
                             <p style={{ margin: 0 }}>
-                                This projection assumes flat income and expenses for the next 12 months. If you've had a salary change, a new loan, or a major recurring expense change, update those records so this projection stays accurate.
+                                This projection assumes flat income and expenses for the next 12 months. If you&apos;ve had a salary change, a new loan, or a major recurring expense change, update those records so this projection stays accurate.
                             </p>
                         </div>
                     )}

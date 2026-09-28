@@ -68,12 +68,6 @@ const OT_FALLBACK_CATEGORIES: CategoryOption[] = OT_CATEGORIES.map(name => ({
     id: name, name, icon: OT_CATEGORY_EMOJI[name],
 }));
 
-const OT_CATEGORY_COLORS: Record<string, string> = {
-    Travel: '#6366f1', Event: '#f59e0b', Electronics: '#8b5cf6', Medical: '#ef4444',
-    Education: '#06b6d4', Home: '#00e5a0', Vehicle: '#f97316', Gift: '#ec4899',
-    Investment: '#22c55e', Other: '#a855f7',
-};
-
 const OT_PAYMENT_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Other'];
 
 const otFmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -1344,7 +1338,7 @@ function BudgetsPageInner() {
                                                 </span>
                                             </div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {visiblePatterns.map((p, i) => {
+                                                {visiblePatterns.map((p) => {
                                                     const realIdx = patterns.indexOf(p);
                                                     return (
                                                         <div key={realIdx} className="glass-field" style={{ borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>

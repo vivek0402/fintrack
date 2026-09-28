@@ -116,7 +116,7 @@ export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
                 </Button>
 
                 <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', alignSelf: 'center' }}>
-                    Skip — I'll add it manually
+                    Skip — I&apos;ll add it manually
                 </button>
             </div>
         );

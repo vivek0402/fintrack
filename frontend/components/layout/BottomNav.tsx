@@ -68,7 +68,6 @@ const moreGroups = [
     },
 ];
 
-const moreItems = moreGroups.flatMap(g => g.items);
 
 export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const pathname  = usePathname();

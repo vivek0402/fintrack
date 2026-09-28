@@ -81,7 +81,6 @@ function tightestBudgets(rows, n = 3) {
             || (a._leftRatio - b._leftRatio)
             || String(a.name).localeCompare(String(b.name)))
         .slice(0, n)
-        // eslint-disable-next-line no-unused-vars
         .map(({ _leftRatio, ...rest }) => rest);
 }
 

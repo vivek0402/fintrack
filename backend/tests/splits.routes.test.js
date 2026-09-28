@@ -109,7 +109,7 @@ describe('PATCH /api/splits/:id/settle/:index', () => {
 describe('DELETE /api/splits/:id', () => {
     test('deletes the split row and its linked transaction in the same transaction', async () => {
         const calls = [];
-        const client = mockClient(async (sql, params) => {
+        const client = mockClient(async (sql) => {
             calls.push(sql);
             if (sql === 'BEGIN' || sql === 'COMMIT') return {};
             if (sql.includes('SELECT transaction_id FROM expense_splits')) return { rows: [{ transaction_id: 'tx-1' }] };

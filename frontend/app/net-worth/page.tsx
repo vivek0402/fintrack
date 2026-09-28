@@ -163,7 +163,7 @@ function NetWorthPageInner() {
                         Net Worth
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Where you stand, how fast it's growing, and how it's allocated
+                        Where you stand, how fast it&apos;s growing, and how it&apos;s allocated
                     </p>
                 </div>
 
