@@ -136,7 +136,8 @@ public class QuickAddActivity extends BridgeActivity {
 
     private static boolean isSheetUrl(Uri uri) {
         String path = uri != null ? uri.getPath() : null;
-        return path != null && (path.equals("/widget-add") || path.startsWith("/widget-add/"));
+        // Exact match, same as isLockExemptRoute in lib/appLock.ts.
+        return path != null && (path.equals("/widget-add") || path.equals("/widget-add/"));
     }
 
     private final class SheetWebViewClient extends BridgeWebViewClient {

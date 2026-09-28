@@ -195,8 +195,9 @@ export function AppLockGate() {
 
     // Defence in depth: a client-side move off the exempt route carries no
     // unlocked state with it. Re-decide exactly as on a page load.
+    // Layout effect so the re-lock lands before the new route's first paint.
     const prevPath = useRef(pathname);
-    useEffect(() => {
+    useLayoutEffect(() => {
         const prev = prevPath.current;
         prevPath.current = pathname;
         if (prev === pathname) return;
