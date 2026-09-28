@@ -137,6 +137,8 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 tabIndex={-1}
                 className={`glass-surface glass-sheet${opaque ? ' glass-solid' : ''}`}
                 style={{
+                    // Focused programmatically on open; its children keep their own focus rings.
+                    outline: 'none',
                     position: 'relative',
                     width: '90%',
                     maxWidth,

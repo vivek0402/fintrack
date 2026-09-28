@@ -260,9 +260,9 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 More panel, and it expands to full width as the button folds away. */}
             <div style={{
                 position: 'fixed', zIndex: 999,
-                left: 'calc(12px + env(safe-area-inset-left, 0px))',
-                right: 'calc(12px + env(safe-area-inset-right, 0px))',
-                bottom: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+                left: 'calc(12px + var(--sa-left))',
+                right: 'calc(12px + var(--sa-right))',
+                bottom: 'calc(14px + var(--sa-bottom))',
                 display: 'flex', alignItems: 'flex-end', gap: '10px',
             }}>
             <nav className="glass-surface glass-nav" style={{ flex: 1, minWidth: 0, borderRadius: moreOpen ? 'var(--radius-xl)' : 'var(--radius-full)', overflow: 'hidden', transition: 'border-radius 320ms cubic-bezier(0.4,0,0.2,1)' }}>

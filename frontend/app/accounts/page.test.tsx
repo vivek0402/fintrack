@@ -166,3 +166,83 @@ describe('Accounts page — Pay Bill modal', () => {
         expect(screen.queryByText('change')).not.toBeInTheDocument();
     });
 });
+
+describe('Accounts page — Which cycle? picker (honest amounts)', () => {
+    const owedCard = {
+        ...cardWithStatement, statement_balance: 12000, statement_amount_due: 12000,
+        statement_paid: 4000, statement_remaining: 8000, new_charges_since_statement: -2800,
+    };
+    const billedCycles = [
+        cycles[0],
+        { ...cycles[1], total: '2000.00', statement_close_date: '2026-09-06', statement_balance: 12000 },
+        { ...cycles[2], total: '0.00', statement_close_date: '2026-08-06', statement_balance: 9500 },
+    ];
+
+    beforeEach(() => {
+        (accountsAPI.getAll as any).mockResolvedValue({ data: { accounts: [bank] } });
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [owedCard] } });
+        (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: billedCycles } });
+    });
+
+    async function openPicker() {
+        render(<AccountsPage />);
+        await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+        fireEvent.click(screen.getByText('Pay Bill'));
+        await waitFor(() => expect(screen.getByDisplayValue('8000')).toBeInTheDocument());
+    }
+
+    it('the Cycle trigger shows the selected row\'s amount and caption, not the cycle net total', async () => {
+        await openPicker();
+        const trigger = screen.getByTestId('cycle-trigger-amount');
+        expect(trigger).toHaveTextContent('₹8,000');
+        expect(trigger).toHaveTextContent('of ₹12,000 left');
+        expect(trigger).not.toHaveTextContent('2,000left');
+    });
+
+    it('renders current / latest / older rows with their own figure, caption and status', async () => {
+        await openPicker();
+        fireEvent.click(screen.getByText('Aug 6 – Sep 5'));
+        await waitFor(() => expect(screen.getByText('Which cycle?')).toBeInTheDocument());
+
+        const current = screen.getByTestId('cycle-row-0');
+        expect(current).toHaveTextContent('Not billed yet');
+        expect(current).toHaveTextContent('₹1,200'); // -2,800 net + 4,000 paid
+        expect(current).toHaveTextContent('new charges');
+        expect(current).not.toBeDisabled();
+
+        const latest = screen.getByTestId('cycle-row-1');
+        expect(latest).toHaveTextContent('₹8,000');
+        expect(latest).toHaveTextContent('of ₹12,000 left');
+        expect(latest).toHaveTextContent(/^.*Due/);
+
+        const older = screen.getByTestId('cycle-row-2');
+        expect(older).toHaveTextContent('₹9,500');
+        expect(older).toHaveTextContent('billed');
+        expect(older).toHaveTextContent('Carried into the next statement');
+        expect(older).toBeDisabled();
+
+        expect(screen.getByText(/Older statements can't be paid separately/)).toBeInTheDocument();
+    });
+
+    it('picking the current cycle pre-fills its new charges and the trigger follows', async () => {
+        await openPicker();
+        fireEvent.click(screen.getByText('Aug 6 – Sep 5'));
+        await waitFor(() => expect(screen.getByTestId('cycle-row-0')).toBeInTheDocument());
+        fireEvent.click(screen.getByTestId('cycle-row-0'));
+
+        await waitFor(() => expect(screen.getByDisplayValue('1200')).toBeInTheDocument());
+        const trigger = screen.getByTestId('cycle-trigger-amount');
+        expect(trigger).toHaveTextContent('₹1,200');
+        expect(trigger).toHaveTextContent('new charges');
+    });
+
+    it('an older statement cannot be picked: amount and selection stay on the latest statement', async () => {
+        await openPicker();
+        fireEvent.click(screen.getByText('Aug 6 – Sep 5'));
+        await waitFor(() => expect(screen.getByTestId('cycle-row-2')).toBeInTheDocument());
+        fireEvent.click(screen.getByTestId('cycle-row-2'));
+
+        expect(screen.getByDisplayValue('8000')).toBeInTheDocument();
+        expect(screen.getByTestId('cycle-trigger-amount')).toHaveTextContent('of ₹12,000 left');
+    });
+});

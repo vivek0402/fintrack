@@ -115,7 +115,7 @@ export function ToastContainer() {
         <div style={{
             position: 'fixed',
             ...(isMobile
-                ? { bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 12px)', left: '50%', transform: 'translateX(-50%)' }
+                ? { bottom: 'calc(72px + var(--sa-bottom) + 12px)', left: '50%', transform: 'translateX(-50%)' }
                 : { bottom: '28px', right: '28px', left: 'auto', transform: 'none' }
             ),
             zIndex: 9998,

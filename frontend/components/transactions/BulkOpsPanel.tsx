@@ -199,7 +199,7 @@ export function BulkOpsPanel({
 
     if (typeof document === 'undefined') return null;
 
-    const barBottom = isMobile ? 'calc(60px + env(safe-area-inset-bottom, 0px))' : '24px';
+    const barBottom = isMobile ? 'calc(60px + var(--sa-bottom))' : '24px';
 
     return createPortal(
         <>

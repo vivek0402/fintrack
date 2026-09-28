@@ -8,8 +8,9 @@ export function AuthPanel({ children }: { children: React.ReactNode }) {
     const isMobile = useIsMobile();
 
     if (isMobile) {
+        // body already pads the safe-area insets; subtract them so the panel fits the screen exactly
         return (
-            <div style={{ height: '100dvh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ height: 'calc(100dvh - var(--sa-top) - var(--sa-bottom))', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {/* Fixed header — never scrolls away */}
                 <div style={{ flexShrink: 0, padding: '20px 24px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>

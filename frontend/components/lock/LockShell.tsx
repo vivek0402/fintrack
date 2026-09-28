@@ -34,7 +34,7 @@ export function LockShell({ children, footer, topAction, cover }: {
             style={{
                 position: 'fixed', inset: 0, zIndex: 100000,
                 display: 'flex', flexDirection: 'column', alignItems: 'center',
-                padding: 'calc(env(safe-area-inset-top) + var(--space-4)) var(--space-6) calc(env(safe-area-inset-bottom) + var(--space-6))',
+                padding: 'calc(var(--sa-top) + var(--space-4)) var(--space-6) calc(var(--sa-bottom) + var(--space-6))',
                 overflowY: 'auto', boxSizing: 'border-box',
                 animation: 'fadeUp 200ms cubic-bezier(0.16, 1, 0.3, 1) both',
             }}

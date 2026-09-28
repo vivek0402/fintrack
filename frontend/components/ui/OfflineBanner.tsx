@@ -32,7 +32,7 @@ export function OfflineBanner() {
 
     return (
         <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+            position: 'fixed', top: 'var(--sa-top)', left: 0, right: 0, zIndex: 9999,
             height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             gap: '8px',
             background: showReconnect ? 'var(--accent)' : 'var(--color-warn, #f59e0b)',
