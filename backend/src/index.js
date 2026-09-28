@@ -38,7 +38,7 @@ const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
 const { buildCardDueAlerts, buildCardOverdueAlerts, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
-const { istDateStr } = require('./utils/istDate');
+const { istDateStr, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istAddMonths, istAddDays, istDaysBetween, calendarDateStr } = require('./utils/istDate');
 const { fetchAlertableUserIds, ALERTABLE_USER_IDS_SQL } = require('./utils/alertableUsers');
 const app = express();
 
@@ -428,8 +428,8 @@ cron.schedule('0 8 * * *', async () => {
 
         for (const user_id of userIds) {
             try {
-                const today = new Date().toISOString().split('T')[0];
-                const in3 = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
+                const today = istDateStr();
+                const in3 = istAddDays(today, 3);
 
                 const { rows: bills } = await pool.query(
                     `SELECT id, description, next_due_date FROM recurring_transactions
@@ -463,8 +463,8 @@ cron.schedule('0 8 * * *', async () => {
 cron.schedule('0 9 * * 0', async () => {
     console.log('[Cron] Sending weekly spending summaries...');
     try {
-        const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-        const today = new Date().toISOString().split('T')[0];
+        const today = istDateStr();
+        const weekStart = istAddDays(today, -7);
 
         const userIds = await fetchAlertableUserIds(pool);
 
@@ -497,7 +497,7 @@ cron.schedule('0 9 * * 0', async () => {
 cron.schedule('0 20 * * *', async () => {
     console.log('[Cron] Sending 8pm transaction reminders...');
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = istDateStr();
         // Push-only nudge (a bell entry seen only once the user is already
         // in the app is noise), so this stays limited to users with tokens.
         const { rows: users } = await pool.query(
@@ -533,7 +533,7 @@ cron.schedule('0 20 * * *', async () => {
 cron.schedule('0 12 * * *', async () => {
     console.log('[Cron] Checking inactivity...');
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = istDateStr();
         // Push-only nudge (a bell entry seen only once the user is already
         // in the app is noise), so this stays limited to users with tokens.
         const { rows: users } = await pool.query(
@@ -551,9 +551,7 @@ cron.schedule('0 12 * * *', async () => {
                 const lastDate = rows[0]?.last_date;
                 if (!lastDate) continue;
 
-                const daysSince = Math.floor(
-                    (Date.now() - new Date(lastDate).getTime()) / 86400000
-                );
+                const daysSince = istDaysBetween(calendarDateStr(lastDate), today);
                 if (daysSince < 2) continue;
 
                 await notifyOnce(user_id, alertKey, {
@@ -573,12 +571,10 @@ cron.schedule('0 12 * * *', async () => {
 // ─── Cron: month-end budget check — daily 8am, last 5 days of month ──────────
 cron.schedule('30 8 * * *', async () => {
     try {
-        const now = new Date();
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const daysLeft = lastDay - now.getDate();
+        const daysLeft = istDaysInMonth() - istDayOfMonth();
         if (daysLeft > 5) return;
 
-        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const thisMonth = istDateStr().slice(0, 7);
         const userIds = await fetchAlertableUserIds(pool);
 
         for (const user_id of userIds) {
@@ -618,14 +614,11 @@ cron.schedule('30 8 * * *', async () => {
 cron.schedule('0 10 15 * *', async () => {
     console.log('[Cron] Sending mid-month spending comparison...');
     try {
-        const now = new Date();
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        const today = now.toISOString().split('T')[0];
-        const lastMonthDate = new Date(now);
-        lastMonthDate.setMonth(now.getMonth() - 1);
-        const lastMonthStart = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
-        const lastMonthSameDay = lastMonthDate.toISOString().split('T')[0];
-        const monthLabel = now.toLocaleDateString('en-IN', { month: 'long' });
+        const today = istDateStr();
+        const monthStart = istMonthStart();
+        const lastMonthStart = istPriorMonthStart();
+        const lastMonthSameDay = istAddMonths(today, -1);
+        const monthLabel = new Date().toLocaleDateString('en-IN', { month: 'long', timeZone: 'Asia/Kolkata' });
 
         const userIds = await fetchAlertableUserIds(pool);
 
@@ -675,6 +668,7 @@ cron.schedule('0 10 15 * *', async () => {
 // ─── Cron: goal deadline approaching — daily 9am ─────────────────────────────
 cron.schedule('0 9 * * *', async () => {
     try {
+        const today = istDateStr();
         const { rows: goals } = await pool.query(
             `SELECT g.*, u.id AS uid
              FROM savings_goals g
@@ -682,12 +676,13 @@ cron.schedule('0 9 * * *', async () => {
              WHERE g.user_id IN (${ALERTABLE_USER_IDS_SQL})
                AND g.deadline IS NOT NULL
                AND g.saved_amount < g.target_amount
-               AND g.deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`
+               AND g.deadline BETWEEN $1 AND $2`,
+            [today, istAddDays(today, 7)]
         );
 
         for (const g of goals) {
             try {
-                const daysLeft = Math.ceil((new Date(g.deadline) - new Date()) / 86400000);
+                const daysLeft = istDaysBetween(today, calendarDateStr(g.deadline));
                 const remaining = parseFloat(g.target_amount) - parseFloat(g.saved_amount);
                 const alertKey = `goal_deadline:${g.id}:${g.deadline}`;
                 await notifyOnce(g.user_id, alertKey, {
@@ -707,6 +702,7 @@ cron.schedule('0 9 * * *', async () => {
 // ─── Cron: personal loan due date approaching — daily 9am ───────────────────
 cron.schedule('0 9 * * *', async () => {
     try {
+        const today = istDateStr();
         const { rows: loans } = await pool.query(
             `SELECT pl.*, COALESCE(r.repaid_amount, 0) AS repaid_amount,
                     pl.principal_amount - COALESCE(r.repaid_amount, 0) AS outstanding_amount
@@ -718,14 +714,15 @@ cron.schedule('0 9 * * *', async () => {
              WHERE pl.user_id IN (${ALERTABLE_USER_IDS_SQL})
                AND pl.due_date IS NOT NULL
                AND pl.written_off_at IS NULL
-               AND pl.due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '3 days'`
+               AND pl.due_date BETWEEN $1 AND $2`,
+            [today, istAddDays(today, 3)]
         );
 
         for (const loan of loans) {
             try {
                 const outstanding = parseFloat(loan.outstanding_amount);
                 if (outstanding <= 0) continue;
-                const daysLeft = Math.ceil((new Date(loan.due_date) - new Date()) / 86400000);
+                const daysLeft = istDaysBetween(today, calendarDateStr(loan.due_date));
                 const alertKey = `personal_loan_due:${loan.id}:${loan.due_date}`;
                 const verb = loan.direction === 'lent' ? 'owes you' : 'you owe';
                 await notifyOnce(loan.user_id, alertKey, {
@@ -797,7 +794,7 @@ cron.schedule('0 10 * * *', async () => {
 
         for (const g of goals) {
             try {
-                const alertKey = `goal_inactive:${g.id}:${new Date().toISOString().slice(0, 7)}`;
+                const alertKey = `goal_inactive:${g.id}:${istDateStr().slice(0, 7)}`;
                 await notifyOnce(g.user_id, alertKey, {
                     title: "Your Goal Misses You! 🌱",
                     body: `Your "${g.name}" goal hasn't had any love in a while. Even a small top-up keeps the momentum going — every rupee counts! 😊`,
@@ -815,12 +812,11 @@ cron.schedule('0 10 * * *', async () => {
 // ─── Cron: salary not received check — daily 9am, sends only 3rd–8th ─────────
 cron.schedule('30 9 * * *', async () => {
     try {
-        const now = new Date();
-        const dayOfMonth = now.getDate();
+        const dayOfMonth = istDayOfMonth();
         if (dayOfMonth < 3 || dayOfMonth > 8) return;
 
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-        const today = now.toISOString().split('T')[0];
+        const monthStart = istMonthStart();
+        const today = istDateStr();
         const userIds = await fetchAlertableUserIds(pool);
 
         for (const user_id of userIds) {
@@ -853,8 +849,8 @@ cron.schedule('30 9 * * *', async () => {
 cron.schedule('0 9 * * 1', async () => {
     console.log('[Cron] Sending upcoming bills weekly total...');
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+        const today = istDateStr();
+        const in7 = istAddDays(today, 7);
         const userIds = await fetchAlertableUserIds(pool);
 
         for (const user_id of userIds) {
@@ -1079,10 +1075,9 @@ cron.schedule('30 21 * * *', async () => {
 cron.schedule('0 20 * * 0', async () => {
     console.log('[Cron] Checking weekend spending spike...');
     try {
-        const now = new Date();
-        const sunday = now.toISOString().split('T')[0];
-        const saturday = new Date(now - 86400000).toISOString().split('T')[0];
-        const monday = new Date(now - 6 * 86400000).toISOString().split('T')[0];
+        const sunday = istDateStr();
+        const saturday = istAddDays(sunday, -1);
+        const monday = istAddDays(sunday, -6);
         const userIds = await fetchAlertableUserIds(pool);
 
         for (const user_id of userIds) {
@@ -1130,7 +1125,7 @@ cron.schedule('0 7 * * 0', async () => {
 
         for (const user_id of userIds) {
             try {
-                const today = new Date().toISOString().split('T')[0];
+                const today = istDateStr();
                 const alertKey = `day_pattern:${today.slice(0, 7)}`;
 
                 const { rows } = await pool.query(
@@ -1140,12 +1135,12 @@ cron.schedule('0 7 * * 0', async () => {
                        SELECT date, SUM(amount) AS daily_total
                        FROM transactions
                        WHERE user_id=$1 AND type='expense'
-                         AND date >= CURRENT_DATE - INTERVAL '56 days'
+                         AND date >= $2
                        GROUP BY date
                      ) daily
                      GROUP BY dow
                      ORDER BY avg_spend DESC`,
-                    [user_id]
+                    [user_id, istAddDays(today, -56)]
                 );
 
                 if (rows.length < 4) continue; // not enough data

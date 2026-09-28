@@ -120,4 +120,35 @@ function istMostRecentDayOfMonth(day, todayStr = istDateStr()) {
     return result;
 }
 
-module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf, istAddMonths, istMostRecentDayOfMonth };
+// 'YYYY-MM-DD' for the calendar date `n` days after `dateStr` ('YYYY-MM-DD';
+// negative n goes back). Pure calendar arithmetic on a UTC-midnight anchor,
+// so it never depends on the server timezone. Pair with istDateStr() for
+// "today + n" in IST: istAddDays(istDateStr(), 3).
+function istAddDays(dateStr, n) {
+    const d = new Date(`${dateStr}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().split('T')[0];
+}
+
+// Whole calendar days from `fromStr` to `toStr` (both 'YYYY-MM-DD'); negative
+// when `toStr` is earlier. With fromStr = istDateStr() this is "days left
+// until toStr" by the IST calendar, not by elapsed milliseconds.
+function istDaysBetween(fromStr, toStr) {
+    const from = Date.parse(`${fromStr}T00:00:00.000Z`);
+    const to = Date.parse(`${toStr}T00:00:00.000Z`);
+    return Math.round((to - from) / 86400000);
+}
+
+// 'YYYY-MM-DD' for a calendar-date value as it comes back from pg: a DATE
+// column is parsed by node-postgres into a JS Date at LOCAL midnight of that
+// date, so its calendar day must be read with the local getters (reading it
+// in UTC or IST would shift it a day on a server east/west of UTC). Strings
+// ('YYYY-MM-DD' or ISO timestamps) are cut to their date part.
+function calendarDateStr(value) {
+    if (value instanceof Date) {
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+    }
+    return String(value).slice(0, 10);
+}
+
+module.exports = { istDateStr, istMonthYear, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istNextMonthStart, istMonthsAgoStart, mondayOf, istAddMonths, istMostRecentDayOfMonth, istAddDays, istDaysBetween, calendarDateStr };
