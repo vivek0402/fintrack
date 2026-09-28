@@ -7,12 +7,13 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { useIsClient, useIsNative } from '@/components/lock/useIsNative';
 import { closeQuickAdd, openMainApp } from '@/lib/widgetAdd';
+import { inQuickAddActivity } from '@/lib/appLock';
 import { useAuthStore } from '@/store/authStore';
 
 // The page is drawn over the Android home screen (QuickAddActivity: a
 // translucent window that already dims the launcher), so it paints no
 // background, no ambient backdrop and no scrim of its own. The app lock never
-// covers this route (lib/appLock.ts LOCK_EXEMPT_ROUTES).
+// covers it there (lib/appLock.ts isLockExemptRoute).
 //
 // Glass needs something real behind it (DESIGN.md), and a native home screen
 // isn't something the WebView can sample: a translucent sheet just shows the
@@ -41,9 +42,13 @@ export default function WidgetAddPage() {
     const saved = useRef(false);
     const closing = useRef(false);
 
+    // Only QuickAddActivity shows the sheet. Anywhere else (browser, PWA, or
+    // the full app's own WebView, where this route is NOT lock-exempt) it
+    // forwards to the in-app form, under the normal lock.
+    const inSheet = isClient && native && inQuickAddActivity();
     useEffect(() => {
-        if (isClient && !native) router.replace('/transactions?add=true');
-    }, [isClient, native, router]);
+        if (isClient && !inSheet) router.replace('/transactions?add=true');
+    }, [isClient, inSheet, router]);
 
     // TransactionModal calls onSuccess then onClose once the POST resolves
     // (and only onClose after an offline save or a cancel).
@@ -55,7 +60,7 @@ export default function WidgetAddPage() {
     }, []);
 
     let sheet: React.ReactNode = null;
-    if (isClient && native) {
+    if (inSheet) {
         sheet = token
             ? <TransactionModal isOpen onClose={close} onSuccess={onSuccess} scrim={false} holdUntilReady />
             : <LoggedOutSheet onClose={close} />;

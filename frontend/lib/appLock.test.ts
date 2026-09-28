@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_LOCK_SETTINGS, LockSettings, NO_ATTEMPTS, PBKDF2_ITERATIONS,
     attemptsLeft, constantTimeEqual, cooldownRemainingMs, hashPin, isUsablePinHash, parseAttempts, parseSettings,
-    isLockExemptRoute, registerFailure, shouldLockOnColdStart, shouldLockOnPageLoad, shouldLockOnResume, verifyPin,
+    QUICK_ADD_UA_MARKER, isLockExemptRoute, registerFailure, shouldLockOnColdStart, shouldLockOnPageLoad, shouldLockOnResume, verifyPin,
 } from './appLock';
 
 const on: LockSettings = { ...DEFAULT_LOCK_SETTINGS, enabled: true };
@@ -159,18 +159,25 @@ describe('PIN hashing', () => {
 
 describe('lock-exempt routes', () => {
     const ctx = { settings: { ...DEFAULT_LOCK_SETTINGS, enabled: true }, loggedIn: true, isNative: true };
+    const SHEET_UA = `Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile ${QUICK_ADD_UA_MARKER}`;
+    const APP_UA = 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile';
 
-    it('only the widget add sheet is exempt', () => {
-        expect(isLockExemptRoute('/widget-add')).toBe(true);
-        expect(isLockExemptRoute('/widget-add/')).toBe(true);
-        expect(isLockExemptRoute('/widget-addx')).toBe(false);
-        expect(isLockExemptRoute('/dashboard')).toBe(false);
-        expect(isLockExemptRoute('/')).toBe(false);
-        expect(isLockExemptRoute(undefined)).toBe(false);
+    it('only exactly /widget-add, and only in QuickAddActivity (UA marker)', () => {
+        expect(isLockExemptRoute('/widget-add', SHEET_UA)).toBe(true);
+        expect(isLockExemptRoute('/widget-add/', SHEET_UA)).toBe(true);
+        expect(isLockExemptRoute('/widget-add', APP_UA)).toBe(false);
+        expect(isLockExemptRoute('/widget-add/', undefined)).toBe(false);
+        expect(isLockExemptRoute('/widget-add/x', SHEET_UA)).toBe(false);
+        expect(isLockExemptRoute('/widget-addx', SHEET_UA)).toBe(false);
+        expect(isLockExemptRoute('/dashboard', SHEET_UA)).toBe(false);
+        expect(isLockExemptRoute('/', SHEET_UA)).toBe(false);
+        expect(isLockExemptRoute(undefined, SHEET_UA)).toBe(false);
     });
 
-    it('a page load there never locks; anywhere else it still does', () => {
-        expect(shouldLockOnPageLoad({ ...ctx, sessionUnlocked: false, backgroundedAt: 1000, pathname: '/widget-add/' })).toBe(false);
-        expect(shouldLockOnPageLoad({ ...ctx, sessionUnlocked: false, backgroundedAt: 1000, pathname: '/dashboard/' })).toBe(true);
+    it('a page load there never locks; MainActivity on the same path, or anywhere else, still does', () => {
+        const load = { ...ctx, sessionUnlocked: false, backgroundedAt: 1000 };
+        expect(shouldLockOnPageLoad({ ...load, pathname: '/widget-add/', userAgent: SHEET_UA })).toBe(false);
+        expect(shouldLockOnPageLoad({ ...load, pathname: '/widget-add/', userAgent: APP_UA })).toBe(true);
+        expect(shouldLockOnPageLoad({ ...load, pathname: '/dashboard/', userAgent: SHEET_UA })).toBe(true);
     });
 });

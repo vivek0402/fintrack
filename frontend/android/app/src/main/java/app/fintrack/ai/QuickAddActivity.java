@@ -8,6 +8,7 @@ import android.view.WindowManager;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import com.capacitorjs.plugins.pushnotifications.PushNotificationsPlugin;
@@ -29,15 +30,17 @@ import com.getcapacitor.Logger;
  *
  * Manifest: its own task (taskAffinity=""), excluded from recents, and
  * finished as soon as it stops (noHistory + onStop below), so it never
- * lingers unlocked in the background and every "+" tap is a fresh sheet with
- * a fresh app-lock decision. The web page's AppLockGate treats every load
- * here as a cold start, so the lock screen shows first whenever lock is on.
+ * lingers in the background and every "+" tap is a fresh sheet. The app
+ * lock is waived for exactly /widget-add in this WebView (user's choice),
+ * recognised by UA_MARKER; anything that leaves the sheet opens MainActivity,
+ * which applies its normal lock.
  */
 public class QuickAddActivity extends BridgeActivity {
 
     static final String SHEET_PATH = "/widget-add/";
     private static final String TAG = "FinTrackQuickAdd";
     private static final float DIM_AMOUNT = 0.6f;
+    static final String UA_MARKER = "FinTrackQuickAdd/1";
 
     private boolean leaving = false;
     private boolean sheetShown = false;
@@ -66,6 +69,12 @@ public class QuickAddActivity extends BridgeActivity {
             return;
         }
         wv.setBackgroundColor(Color.TRANSPARENT);
+        // Identifies this WebView to the web app as the add sheet's, the one
+        // place the app lock is waived (lib/appLock.ts QUICK_ADD_UA_MARKER).
+        // Set natively and only here: web content can't add it, and
+        // MainActivity's WebView never has it.
+        WebSettings settings = wv.getSettings();
+        settings.setUserAgentString(settings.getUserAgentString() + " " + UA_MARKER);
         bridge.setWebViewClient(new SheetWebViewClient(bridge));
         // Same mechanism as MainActivity's widget cold start: replace the
         // initial server.url load with the sheet page before anything paints.

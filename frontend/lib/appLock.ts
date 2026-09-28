@@ -42,17 +42,46 @@ export const LOCK_BG_ELAPSED_KEY = 'fintrack-lock-bg-elapsed';
 export const LOCKED_ATTR = 'data-app-locked';
 export const COVER_ATTR = 'data-lock-cover';
 
-// Routes the app lock never covers. /widget-add is the Android widgets' add
-// sheet (QuickAddActivity): by the user's choice it opens straight to the
-// form. It is its own WebView, never counts as unlocking the app, and never
-// touches the app's lock timestamps; anything that leaves it hands over to
-// MainActivity, which makes its own lock decision. The pre-hydration script
-// (lib/lockHeadScript.ts) inlines this list.
-export const LOCK_EXEMPT_ROUTES: readonly string[] = ['/widget-add'];
+// The one lock exemption: the Android widgets' add sheet. By the user's
+// choice it opens straight to the form. Exempt only when BOTH hold:
+// - the path is exactly /widget-add (trailing slash allowed, no sub-paths);
+// - this WebView belongs to QuickAddActivity, which (alone) appends
+//   QUICK_ADD_UA_MARKER to its user agent natively. Web content can't set it.
+// So MainActivity, even if it loads /widget-add, keeps its normal lock. The
+// sheet never counts as unlocking the app and never touches the app's lock
+// timestamps; anything that leaves it hands over to MainActivity. The
+// pre-hydration script (lib/lockHeadScript.ts) inlines the same check.
+export const WIDGET_ADD_PATH = '/widget-add';
+export const QUICK_ADD_UA_MARKER = 'FinTrackQuickAdd/1';
 
-export function isLockExemptRoute(pathname: string | null | undefined): boolean {
-    const path = (pathname ?? '').replace(/\/+$/, '');
-    return LOCK_EXEMPT_ROUTES.some(r => path === r || path.startsWith(r + '/'));
+export function isWidgetAddPath(pathname: string | null | undefined): boolean {
+    return (pathname ?? '').replace(/\/+$/, '') === WIDGET_ADD_PATH;
+}
+
+export function hasQuickAddMarker(userAgent: string | null | undefined): boolean {
+    return typeof userAgent === 'string' && userAgent.includes(QUICK_ADD_UA_MARKER);
+}
+
+export function isLockExemptRoute(pathname: string | null | undefined, userAgent: string | null | undefined): boolean {
+    return isWidgetAddPath(pathname) && hasQuickAddMarker(userAgent);
+}
+
+function currentUserAgent(): string {
+    try { return typeof navigator !== 'undefined' ? navigator.userAgent : ''; } catch { return ''; }
+}
+
+/** This WebView is QuickAddActivity's (the widget add sheet's activity). */
+export function inQuickAddActivity(): boolean {
+    return hasQuickAddMarker(currentUserAgent());
+}
+
+/** This document is the widget add sheet, in its own activity: lock-exempt. */
+export function inWidgetAddSheet(): boolean {
+    try {
+        return typeof window !== 'undefined' && isLockExemptRoute(window.location.pathname, currentUserAgent());
+    } catch {
+        return false;
+    }
 }
 
 type ReadStore = Pick<Storage, 'getItem'>;
@@ -122,8 +151,13 @@ export function shouldLockOnColdStart({ settings, loggedIn, isNative }: LockCont
  * in-app reload (the PWA layer reloads on reconnect), which shouldn't re-prompt.
  * A pending background timestamp means we left the app, so it always locks.
  */
-export function shouldLockOnPageLoad(ctx: LockContext & { sessionUnlocked: boolean; backgroundedAt: number | null; pathname?: string | null }): boolean {
-    if (isLockExemptRoute(ctx.pathname)) return false;
+export function shouldLockOnPageLoad(ctx: LockContext & {
+    sessionUnlocked: boolean;
+    backgroundedAt: number | null;
+    pathname?: string | null;
+    userAgent?: string | null;
+}): boolean {
+    if (isLockExemptRoute(ctx.pathname, ctx.userAgent)) return false;
     if (!shouldLockOnColdStart(ctx)) return false;
     return !(ctx.sessionUnlocked && ctx.backgroundedAt === null);
 }

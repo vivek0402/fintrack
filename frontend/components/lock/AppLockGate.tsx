@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, isLockExemptRoute, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
+    LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, inWidgetAddSheet, isLockExemptRoute,
+    readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
-import { onWidgetAddPage } from '@/lib/widgetAdd';
 import { readPersistedAuth, signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isContentHidden, setContentHidden, useLockStore } from '@/store/lockStore';
 import { LockScreen } from './LockScreen';
@@ -35,8 +35,8 @@ function currentPath(): string {
     try { return window.location.pathname; } catch { return ''; }
 }
 
-function onLockExemptRoute(): boolean {
-    return isLockExemptRoute(currentPath());
+function currentUserAgent(): string {
+    try { return navigator.userAgent; } catch { return ''; }
 }
 
 async function nativeElapsed(): Promise<number | null> {
@@ -62,10 +62,11 @@ export function decideOnPageLoad(): void {
         sessionUnlocked,
         backgroundedAt: readTimestamp(local(), LOCK_BG_AT_KEY),
         pathname: currentPath(),
+        userAgent: currentUserAgent(),
     });
 
     if (lock) store.lock();
-    else if (store.locked && !onLockExemptRoute()) store.unlock();
+    else if (store.locked && !inWidgetAddSheet()) store.unlock();
     else {
         // An exempt route is simply not locked; it is never an unlock (no
         // session flag, no clearing the app's timestamps).
@@ -93,14 +94,14 @@ export async function handleAppStateChange(
     // The widget add sheet (a second WebView on the same storage) logged out
     // while we sat in the background (its API calls hit a dead session):
     // follow suit before anything is revealed. Content stays hidden until /login.
-    if (isActive && !onWidgetAddPage() && signedOutElsewhere()) {
+    if (isActive && !inWidgetAddSheet() && signedOutElsewhere()) {
         useAuthStore.getState().logout();
         goTo('/login');
         return;
     }
     // Pick up what the sheet may have saved meanwhile (a rotated refresh
     // token), so this WebView doesn't later write its stale copy back.
-    if (isActive && !onWidgetAddPage()) {
+    if (isActive && !inWidgetAddSheet()) {
         const saved = readPersistedAuth();
         if (saved?.exists && saved.token) {
             try { await useAuthStore.persist.rehydrate(); } catch { /* keep memory */ }
@@ -114,7 +115,7 @@ export async function handleAppStateChange(
     // Lock-exempt route (the widget add sheet): no lock, and never touch the
     // background timestamps. They are the full app's, and writing them here
     // would restart its grace period without an unlock.
-    if (onLockExemptRoute()) return;
+    if (inWidgetAddSheet()) return;
 
     const storage = local();
 
@@ -192,6 +193,17 @@ export function AppLockGate() {
         if (LOGGED_OUT_ROUTES.some(r => path === r || path.startsWith(r + '/'))) setContentHidden(false);
     }, [pathname, locked, token]);
 
+    // Defence in depth: a client-side move off the exempt route carries no
+    // unlocked state with it. Re-decide exactly as on a page load.
+    const prevPath = useRef(pathname);
+    useEffect(() => {
+        const prev = prevPath.current;
+        prevPath.current = pathname;
+        if (prev === pathname) return;
+        const ua = currentUserAgent();
+        if (isLockExemptRoute(prev, ua) && !isLockExemptRoute(pathname, ua)) decideOnPageLoad();
+    }, [pathname]);
+
     useEffect(() => {
         if (!isNativeApp()) return;
         let cancelled = false;
@@ -219,7 +231,9 @@ export function AppLockGate() {
         router.replace('/login');
     }, [router]);
 
-    if (!isClient || !locked || isLockExemptRoute(pathname)) return null;
+    // Only QuickAddActivity's WebView on exactly /widget-add is exempt: an
+    // active lock anywhere else (MainActivity included) always shows.
+    if (!isClient || !locked || isLockExemptRoute(pathname, currentUserAgent())) return null;
     return <LockScreen mode="unlock" promptKey={promptNonce} onSuccess={unlock} onForgot={onForgot} />;
 }
 

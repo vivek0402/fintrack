@@ -1,10 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { useAuthStore } from '@/store/authStore';
 import { useLockStore } from '@/store/lockStore';
 import { AppLockGate, __resetPageLoadForTests } from '@/components/lock/AppLockGate';
-import { LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_SETTINGS_KEY, readSettings } from '@/lib/appLock';
+import { LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_SETTINGS_KEY, QUICK_ADD_UA_MARKER, readSettings } from '@/lib/appLock';
 import { LOCK_HEAD_SCRIPT } from '@/lib/lockHeadScript';
 import WidgetAddPage from './page';
 
@@ -59,9 +59,18 @@ vi.mock('@/components/transactions/TransactionModal', () => ({
 
 const plugin = vi.mocked(FinTrackNative);
 
+const APP_UA = 'Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile';
+const setUserAgent = (ua: string | null) => {
+    if (ua === null) delete (navigator as unknown as Record<string, unknown>).userAgent;
+    else Object.defineProperty(navigator, 'userAgent', { value: ua, configurable: true });
+};
+
+afterEach(() => { setUserAgent(null); });
+
 beforeEach(() => {
     vi.clearAllMocks();
     native.value = true;
+    setUserAgent(`${APP_UA} ${QUICK_ADD_UA_MARKER}`); // QuickAddActivity's WebView
     modalProps.current = null;
     useAuthStore.setState({ token: 't', refreshToken: 'r', isLoading: false });
     useLockStore.setState({ locked: false });
@@ -138,6 +147,27 @@ describe('/widget-add (Android widget add sheet)', () => {
             expect(plugin.closeQuickAdd).toHaveBeenCalledWith({ refreshWidgets: false });
         } finally {
             vi.useRealTimers();
+        }
+    });
+
+    it('in MainActivity (no marker) with lock on: forwards to the in-app form, under the normal lock', () => {
+        setUserAgent(APP_UA);
+        window.history.replaceState({}, '', '/widget-add/');
+        try {
+            localStorage.setItem(LOCK_SETTINGS_KEY, JSON.stringify({ enabled: true, biometric: false, graceMs: 0, hideRecents: false }));
+            new Function(LOCK_HEAD_SCRIPT)();
+            expect(document.documentElement.hasAttribute(LOCKED_ATTR)).toBe(true);
+            useLockStore.setState({ settings: readSettings(localStorage), locked: true });
+            __resetPageLoadForTests();
+            render(<><AppLockGate /><WidgetAddPage /></>);
+            expect(useLockStore.getState().locked).toBe(true);
+            expect(document.querySelector('[data-lock-root]')).not.toBeNull();
+            expect(screen.queryByTestId('tx-modal')).toBeNull();
+            expect(router.replace).toHaveBeenCalledWith('/transactions?add=true');
+        } finally {
+            localStorage.clear();
+            document.documentElement.removeAttribute(LOCKED_ATTR);
+            window.history.replaceState({}, '', '/');
         }
     });
 

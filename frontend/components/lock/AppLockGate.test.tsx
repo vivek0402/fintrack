@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import {
-    DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
+    DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, QUICK_ADD_UA_MARKER, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { useAuthStore } from '@/store/authStore';
@@ -76,9 +76,16 @@ beforeEach(() => {
     __resetPageLoadForTests();
 });
 
+// QuickAddActivity appends this to its WebView's user agent (natively).
+const setUserAgent = (ua: string | null) => {
+    if (ua === null) delete (navigator as unknown as Record<string, unknown>).userAgent;
+    else Object.defineProperty(navigator, 'userAgent', { value: ua, configurable: true });
+};
+
 afterEach(() => {
     vi.restoreAllMocks();
     window.history.replaceState({}, '', '/');
+    setUserAgent(null);
 });
 
 describe('decideOnPageLoad', () => {
@@ -213,9 +220,11 @@ describe('logout while locked', () => {
 // The widget add sheet (/widget-add/, QuickAddActivity) is a second WebView
 // next to the app's, sharing localStorage but not memory.
 describe('widget add sheet', () => {
+    // QuickAddActivity's WebView on /widget-add/.
     const onSheet = () => {
         window.history.replaceState({}, '', '/widget-add/');
         nav.path = '/widget-add';
+        setUserAgent(`Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile ${QUICK_ADD_UA_MARKER}`);
     };
 
     it('with lock on, the sheet opens unlocked: no lock, no hidden content, no lock screen', () => {
@@ -267,6 +276,54 @@ describe('widget add sheet', () => {
         expect(useLockStore.getState().locked).toBe(true);
         useLockStore.getState().unlock();
         await awayAndBack(T0 + 61_000);
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('MainActivity (no marker) loading /widget-add still locks, and shows the lock screen', () => {
+        window.history.replaceState({}, '', '/widget-add/');
+        nav.path = '/widget-add';
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
+        render(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(hidden()).toBe(true);
+        expect(document.querySelector('[data-lock-root]')).not.toBeNull();
+    });
+
+    it('MainActivity backgrounded on /widget-add records its timestamp as usual', async () => {
+        window.history.replaceState({}, '', '/widget-add/');
+        vi.spyOn(Date, 'now').mockReturnValue(T0);
+        await handleAppStateChange(false);
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
+        expect(hidden()).toBe(true);
+    });
+
+    it('MainActivity: client-side navigation from /widget-add to /dashboard stays locked', () => {
+        window.history.replaceState({}, '', '/widget-add/');
+        nav.path = '/widget-add';
+        const { rerender } = render(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(true);
+        window.history.replaceState({}, '', '/dashboard/');
+        nav.path = '/dashboard';
+        rerender(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(true);
+        expect(document.querySelector('[data-lock-root]')).not.toBeNull();
+    });
+
+    it('defence in depth: leaving the exempt route client-side re-decides like a page load', () => {
+        onSheet();
+        const { rerender } = render(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(false);
+        window.history.replaceState({}, '', '/dashboard/');
+        nav.path = '/dashboard';
+        rerender(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(true);
+    });
+
+    it('/widget-add/<anything> is not exempt, even in the sheet activity', () => {
+        onSheet();
+        window.history.replaceState({}, '', '/widget-add/x/');
+        nav.path = '/widget-add/x';
+        render(<AppLockGate />);
         expect(useLockStore.getState().locked).toBe(true);
     });
 

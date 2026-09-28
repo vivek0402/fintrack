@@ -6,7 +6,8 @@ import { useAuthStore } from '@/store/authStore';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { widgetAPI } from '@/lib/api';
 import { ensureWidgetToken } from '@/lib/widgets';
-import { closeQuickAdd, isWidgetAddPath, onWidgetAddPage } from '@/lib/widgetAdd';
+import { closeQuickAdd } from '@/lib/widgetAdd';
+import { inQuickAddActivity, inWidgetAddSheet } from '@/lib/appLock';
 
 const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
 // Identity check for ensureWidgetToken's logout race: the signed-in user's id
@@ -43,8 +44,8 @@ export default function CapacitorBridge() {
         const { App } = await import('@capacitor/app');
         if (cancelled) return;
         handle = await App.addListener('backButton', () => {
-          // The widget add sheet over the home screen: Back closes it.
-          if (isWidgetAddPath(pathnameRef.current)) {
+          // The widget add sheet's own activity: Back closes it.
+          if (inQuickAddActivity()) {
             closeQuickAdd();
           } else if (pathnameRef.current === '/dashboard') {
             App.exitApp();
@@ -81,7 +82,7 @@ export default function CapacitorBridge() {
   // already keeps the widgets set up for (it asks for a refresh on save).
   const widgetsReadyRef = useRef(false);
   useEffect(() => {
-    if (isLoading || onWidgetAddPage()) return;
+    if (isLoading || inWidgetAddSheet()) return;
     if (!token) {
       widgetsReadyRef.current = false;
       return;
@@ -104,7 +105,7 @@ export default function CapacitorBridge() {
         const { App } = await import('@capacitor/app');
         if (cancelled) return;
         handle = await App.addListener('resume', () => {
-          if (!useAuthStore.getState().token || onWidgetAddPage()) return;
+          if (!useAuthStore.getState().token || inWidgetAddSheet()) return;
           ensureWidgetToken(issueWidgetToken, currentUserId);
         });
         if (cancelled) handle.remove();
