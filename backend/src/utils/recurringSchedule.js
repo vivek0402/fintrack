@@ -8,9 +8,12 @@
 // setMonth(+1)-then-setDate code overflowed instead (Jan 31 -> Mar 3 -> Mar 31,
 // skipping February).
 //
-// Items with no day_of_month anchor on the current due date's day: the table
-// stores no start date, so once such an item has been clamped (31 -> Feb 28)
-// it stays on the 28th. Setting day_of_month avoids that.
+// Monthly items always get a day_of_month: POST/PUT store the first due
+// date's day when none is given (monthlyAnchorDay below), and migration 076
+// pinned older rows to their next due date's day. Without one the only
+// anchor would be the current due date, and a clamped date (31 -> Feb 28)
+// would stay on the 28th for good. The fallback below is for rows that
+// somehow still have none.
 //
 // Daily/weekly are plain calendar-day steps (no overflow possible). The table
 // only allows daily/weekly/monthly (CHECK constraint), so there is no yearly.
@@ -69,4 +72,15 @@ function firstRecurringDueDate({ frequency, day_of_month }, todayStr) {
     return istAddDays(todayStr, 1);
 }
 
-module.exports = { nextRecurringDate, firstRecurringDueDate };
+/**
+ * day_of_month to store for an item: the given day, or for monthly items with
+ * none, the day of `dueStr` (its first/next due date). Non-monthly items keep
+ * whatever was given (usually null).
+ */
+function monthlyAnchorDay({ frequency, day_of_month }, dueStr) {
+    const anchor = validDay(day_of_month);
+    if (anchor || frequency !== 'monthly') return anchor;
+    return Number(calendarDateStr(dueStr).split('-')[2]);
+}
+
+module.exports = { nextRecurringDate, firstRecurringDueDate, monthlyAnchorDay, validDay };

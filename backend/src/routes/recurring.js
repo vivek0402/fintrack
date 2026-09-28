@@ -4,7 +4,7 @@ const auth = require('../middleware/auth');
 const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isValidTransactionType, isValidRecurringFrequency } = require('../utils/validation');
 const { istDateStr } = require('../utils/istDate');
-const { firstRecurringDueDate } = require('../utils/recurringSchedule');
+const { firstRecurringDueDate, monthlyAnchorDay, validDay } = require('../utils/recurringSchedule');
 const { postDueRecurring } = require('../utils/recurringPosting');
 const router = express.Router();
 
@@ -36,6 +36,8 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidRecurringFrequency(frequency))
             return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
+        if (day_of_month != null && day_of_month !== '' && !validDay(day_of_month))
+            return res.status(400).json({ error: 'Day of month must be a whole number from 1 to 31.' });
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
                 `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
@@ -48,12 +50,15 @@ router.post('/', async (req, res) => {
         // Anchored on the IST calendar date; day_of_month is clamped to short
         // months (31 -> Feb 28/29) instead of overflowing into the next one.
         const nextDue = firstRecurringDueDate({ frequency, day_of_month }, istDateStr());
+        // Monthly items without a day anchor on their first due date, so a
+        // start on the 31st never gets stuck on the 28th after February.
+        const anchorDay = monthlyAnchorDay({ frequency, day_of_month }, nextDue);
 
         const result = await pool.query(
             `INSERT INTO recurring_transactions
         (user_id, category_id, type, amount, description, notes, frequency, day_of_month, next_due_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-            [req.user.id, category_id || null, type, amount, description, notes || null, frequency, day_of_month || null, nextDue]
+            [req.user.id, category_id || null, type, amount, description, notes || null, frequency, anchorDay, nextDue]
         );
         res.status(201).json({ recurring: result.rows[0] });
     } catch (err) {
@@ -102,6 +107,8 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ error: 'Amount must be a positive number.' });
         if (!isValidRecurringFrequency(frequency))
             return res.status(400).json({ error: "Frequency must be 'daily', 'weekly', or 'monthly'." });
+        if (day_of_month != null && day_of_month !== '' && !validDay(day_of_month))
+            return res.status(400).json({ error: 'Day of month must be a whole number from 1 to 31.' });
         if (category_id) {
             const { rows: categoryCheck } = await pool.query(
                 `SELECT id FROM categories WHERE id = $1 AND (user_id = $2 OR user_id IS NULL)`,
@@ -116,12 +123,15 @@ router.put('/:id', async (req, res) => {
             [req.params.id, req.user.id]
         );
 
+        // A monthly item with the day cleared keeps its next due date's day as
+        // the anchor (see monthlyAnchorDay), so it can't start drifting.
         const result = await pool.query(
             `UPDATE recurring_transactions
              SET type=$1, amount=$2, description=$3, frequency=$4,
-                 day_of_month=$5, category_id=$6
+                 day_of_month=COALESCE($5::int, CASE WHEN $4 = 'monthly' THEN EXTRACT(DAY FROM next_due_date)::int END),
+                 category_id=$6
              WHERE id=$7 AND user_id=$8 RETURNING *`,
-            [type, amount, description, frequency, day_of_month || null, category_id || null, req.params.id, req.user.id]
+            [type, amount, description, frequency, validDay(day_of_month), category_id || null, req.params.id, req.user.id]
         );
         if (result.rows.length === 0)
             return res.status(404).json({ error: 'Not found.' });

@@ -431,6 +431,55 @@ describe('recurring month overflow (shared recurringSchedule helper)', () => {
         const params = pool.query.mock.calls[0][1];
         expect(params[8]).toBe('2027-02-28');
     });
+
+    test('POST / monthly with no day stores the first due date\'s day, so it can never drift', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2027-01-30T06:00:00.000Z')); // IST Jan 30 -> first due Jan 31
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'r4' }] });
+
+        const res = await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Gym', frequency: 'monthly' });
+
+        expect(res.status).toBe(201);
+        const params = pool.query.mock.calls[0][1];
+        expect(params[8]).toBe('2027-01-31');
+        expect(params[7]).toBe(31);
+    });
+
+    test('POST / weekly with no day keeps day_of_month null', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2027-01-30T06:00:00.000Z'));
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'r5' }] });
+
+        await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 100, description: 'Class', frequency: 'weekly' });
+
+        expect(pool.query.mock.calls[0][1][7]).toBeNull();
+    });
+
+    test('POST / rejects a day of month outside 1-31 instead of failing in the DB', async () => {
+        const res = await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 100, description: 'Rent', frequency: 'monthly', day_of_month: 40 });
+
+        expect(res.status).toBe(400);
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+
+    test('PUT / monthly with the day cleared falls back to the next due date\'s day in SQL', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ amount: '1000' }] })
+            .mockResolvedValueOnce({ rows: [{ id: '1' }] });
+
+        const res = await request(buildApp())
+            .put('/api/recurring/1')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: '' });
+
+        expect(res.status).toBe(200);
+        const [sql, params] = pool.query.mock.calls[1];
+        expect(sql).toMatch(/day_of_month=COALESCE\(\$5::int, CASE WHEN \$4 = 'monthly' THEN EXTRACT\(DAY FROM next_due_date\)::int END\)/);
+        expect(params[4]).toBeNull();
+    });
 });
 
 describe('POST /api/recurring/process — claim-then-post (shared recurringPosting helper)', () => {
