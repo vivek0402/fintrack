@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isValidTransactionType, isValidRecurringFrequency } = require('../utils/validation');
 const { istDateStr } = require('../utils/istDate');
+const { nextRecurringDate, firstRecurringDueDate } = require('../utils/recurringSchedule');
 const router = express.Router();
 
 router.use(auth);
@@ -43,27 +44,15 @@ router.post('/', async (req, res) => {
                 return res.status(400).json({ error: 'Invalid category_id.' });
         }
 
-        // Anchor "today" on the IST calendar date (not the server/UTC one), then do
-        // all day/month arithmetic in UTC-midnight space against that anchor so the
-        // server process's own timezone can't reintroduce the boundary bug when the
-        // result is serialized back to a date string below.
-        const today = new Date(`${istDateStr()}T00:00:00.000Z`);
-        let nextDue = new Date(today);
-
-        if (frequency === 'monthly' && day_of_month) {
-            nextDue.setUTCDate(day_of_month);
-            if (nextDue <= today) nextDue.setUTCMonth(nextDue.getUTCMonth() + 1);
-        } else if (frequency === 'weekly') {
-            nextDue.setUTCDate(today.getUTCDate() + 7);
-        } else {
-            nextDue.setUTCDate(today.getUTCDate() + 1);
-        }
+        // Anchored on the IST calendar date; day_of_month is clamped to short
+        // months (31 -> Feb 28/29) instead of overflowing into the next one.
+        const nextDue = firstRecurringDueDate({ frequency, day_of_month }, istDateStr());
 
         const result = await pool.query(
             `INSERT INTO recurring_transactions
         (user_id, category_id, type, amount, description, notes, frequency, day_of_month, next_due_date)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-            [req.user.id, category_id || null, type, amount, description, notes || null, frequency, day_of_month || null, nextDue.toISOString().split('T')[0]]
+            [req.user.id, category_id || null, type, amount, description, notes || null, frequency, day_of_month || null, nextDue]
         );
         res.status(201).json({ recurring: result.rows[0] });
     } catch (err) {
@@ -170,12 +159,7 @@ router.post('/process', async (req, res) => {
 
         const created = [];
         for (const r of due.rows) {
-            const current = new Date(r.next_due_date);
-            let next = new Date(current);
-            if (r.frequency === 'daily') next.setDate(current.getDate() + 1);
-            else if (r.frequency === 'weekly') next.setDate(current.getDate() + 7);
-            else if (r.frequency === 'monthly') { next.setMonth(current.getMonth() + 1); if (r.day_of_month) next.setDate(r.day_of_month); }
-            const nextStr = next.toISOString().split('T')[0];
+            const nextStr = nextRecurringDate(r, r.next_due_date);
 
             // Atomically advance next_due_date only if it still matches what we read.
             // This prevents duplicate transactions when two requests race (e.g. two browser tabs).

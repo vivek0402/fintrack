@@ -40,6 +40,7 @@ const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalanc
 const { buildCardDueAlerts, buildCardOverdueAlerts, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
 const { istDateStr, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istAddMonths, istAddDays, istDaysBetween, calendarDateStr } = require('./utils/istDate');
 const { fetchAlertableUserIds, ALERTABLE_USER_IDS_SQL } = require('./utils/alertableUsers');
+const { nextRecurringDate } = require('./utils/recurringSchedule');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -378,18 +379,9 @@ cron.schedule('0 0 * * *', async () => {
                     [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
                 );
 
-                const current = new Date(r.next_due_date);
-                let next = new Date(current);
-                if (r.frequency === 'daily')        next.setDate(current.getDate() + 1);
-                else if (r.frequency === 'weekly')   next.setDate(current.getDate() + 7);
-                else if (r.frequency === 'monthly') {
-                    next.setMonth(current.getMonth() + 1);
-                    if (r.day_of_month) next.setDate(r.day_of_month);
-                }
-
                 await pool.query(
                     'UPDATE recurring_transactions SET next_due_date=$1 WHERE id=$2',
-                    [next.toISOString().split('T')[0], r.id]
+                    [nextRecurringDate(r, r.next_due_date), r.id]
                 );
                 processed++;
             } catch (err) {

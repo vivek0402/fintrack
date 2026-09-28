@@ -374,3 +374,52 @@ describe('PATCH /api/recurring/:id/toggle', () => {
         expect(res.body.recurring).toMatchObject({ id: 1, is_active: false });
     });
 });
+
+describe('recurring month overflow (shared recurringSchedule helper)', () => {
+    afterEach(() => { pool.query.mockReset(); jest.useRealTimers(); });
+
+    test('/process advances a day-31 item from Jan 31 to Feb 28, not Mar 3/Mar 31', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2027-01-31T06:00:00.000Z'));
+        const dueItem = {
+            id: 'r1', user_id: 'user-123', category_id: null, type: 'expense',
+            amount: '500', description: 'Rent', notes: null,
+            frequency: 'monthly', day_of_month: 31, next_due_date: '2027-01-31',
+        };
+        pool.query
+            .mockResolvedValueOnce({ rows: [dueItem] })
+            .mockResolvedValueOnce({ rowCount: 1 })
+            .mockResolvedValueOnce({ rows: [] });
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.status).toBe(200);
+        const [sql, params] = pool.query.mock.calls[1];
+        expect(sql).toMatch(/UPDATE recurring_transactions SET next_due_date=\$1/);
+        expect(params).toEqual(['2027-02-28', 'r1', '2027-01-31']);
+    });
+
+    test('/process with no day_of_month clamps Jan 31 to Feb 28', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2027-01-31T06:00:00.000Z'));
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'r2', frequency: 'monthly', day_of_month: null, next_due_date: '2027-01-31', description: 'Gym' }] })
+            .mockResolvedValueOnce({ rowCount: 1 })
+            .mockResolvedValueOnce({ rows: [] });
+
+        await request(buildApp()).post('/api/recurring/process');
+
+        expect(pool.query.mock.calls[1][1][0]).toBe('2027-02-28');
+    });
+
+    test('POST / with day_of_month 31 in February stores Feb 28, not Mar 3', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2027-02-10T06:00:00.000Z'));
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'r3' }] });
+
+        const res = await request(buildApp())
+            .post('/api/recurring')
+            .send({ type: 'expense', amount: 1000, description: 'Rent', frequency: 'monthly', day_of_month: 31 });
+
+        expect(res.status).toBe(201);
+        const params = pool.query.mock.calls[0][1];
+        expect(params[8]).toBe('2027-02-28');
+    });
+});
