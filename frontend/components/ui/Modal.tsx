@@ -28,6 +28,9 @@ interface ModalProps {
     // of another one: Modal and BottomSheet share a base, so at equal z-index
     // the stack order falls to DOM order, which is not something to rely on.
     zIndexBase?: number;
+    // false: no dimming layer behind the sheet/dialog (tapping outside still
+    // closes). See BottomSheet's prop of the same name.
+    scrim?: boolean;
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -38,7 +41,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // close resetting it while the outer one is still open.
 let openModalCount = 0;
 
-export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog, zIndexBase = 9999 }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog, zIndexBase = 9999, scrim = true }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -99,7 +102,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
 
     if (isMobile && !forceDialog) {
         return (
-            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding}>
+            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding} scrim={scrim}>
                 {children}
             </BottomSheet>
         );
@@ -114,9 +117,9 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 left: 0,
                 width: '100vw',
                 height: '100vh',
-                backgroundColor: opaque ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.7)',
-                backdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
-                WebkitBackdropFilter: opaque ? 'blur(4px)' : 'blur(2px)',
+                backgroundColor: !scrim ? 'transparent' : opaque ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.7)',
+                backdropFilter: !scrim ? undefined : opaque ? 'blur(4px)' : 'blur(2px)',
+                WebkitBackdropFilter: !scrim ? undefined : opaque ? 'blur(4px)' : 'blur(2px)',
                 padding: '16px',
                 zIndex: zIndexBase,
                 display: 'flex',

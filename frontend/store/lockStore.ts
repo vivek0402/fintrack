@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import {
     DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
-    clearLockStorage, readSettings, writeSettings,
+    clearLockStorage, inWidgetAddSheet, readSettings, writeSettings,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 
@@ -59,8 +59,14 @@ export const useLockStore = create<LockStore>((set, get) => ({
     unlock: () => {
         try {
             session()?.setItem(LOCK_SESSION_KEY, '1');
-            local()?.removeItem(LOCK_BG_AT_KEY);
-            local()?.removeItem(LOCK_BG_ELAPSED_KEY);
+            // The background timestamp is the full app's (shared localStorage).
+            // The widget add sheet is lock-exempt and never unlocks; this guard
+            // is defence in depth so nothing run there can clear it, or the
+            // app, still unlocked in memory behind it, would skip its own lock.
+            if (!inWidgetAddSheet()) {
+                local()?.removeItem(LOCK_BG_AT_KEY);
+                local()?.removeItem(LOCK_BG_ELAPSED_KEY);
+            }
         } catch { /* ignore */ }
         setContentHidden(false);
         set({ locked: false });

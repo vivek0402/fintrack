@@ -27,6 +27,22 @@
 
         </activity>
 
+        <!-- The widgets' "+": Add Transaction as a sheet over the home screen.
+             Own task (empty affinity) so MainActivity's task never comes to
+             the front; not in recents; finished once it stops (noHistory,
+             plus QuickAddActivity.onStop). Only our widget PendingIntents
+             start it. -->
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".QuickAddActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.QuickAdd"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:exported="false" />
+
         <service
             android:name=".FinTrackMessagingService"
             android:exported="false">

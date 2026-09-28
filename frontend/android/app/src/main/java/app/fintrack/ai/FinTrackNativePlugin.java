@@ -147,6 +147,30 @@ public class FinTrackNativePlugin extends Plugin {
         call.resolve();
     }
 
+    // ── Widget add sheet (QuickAddActivity) ─────────────────────────────────
+    // Both are no-ops in MainActivity, so the web code can call them anywhere.
+
+    /** Closes the add sheet; refreshWidgets=true after a save (the page's debounced refresh dies with it). */
+    @PluginMethod
+    public void closeQuickAdd(PluginCall call) {
+        boolean refresh = Boolean.TRUE.equals(call.getBoolean("refreshWidgets", false));
+        AppCompatActivity activity = getActivity();
+        call.resolve();
+        if (activity instanceof QuickAddActivity) {
+            activity.runOnUiThread(() -> ((QuickAddActivity) activity).close(refresh));
+        }
+    }
+
+    /** From the add sheet: open the full app (logged out, Forgot PIN) and close the sheet. */
+    @PluginMethod
+    public void openMainApp(PluginCall call) {
+        AppCompatActivity activity = getActivity();
+        call.resolve();
+        if (activity instanceof QuickAddActivity) {
+            activity.runOnUiThread(() -> ((QuickAddActivity) activity).openMainApp(false));
+        }
+    }
+
     // ── App lock: biometrics ────────────────────────────────────────────────
 
     @PluginMethod

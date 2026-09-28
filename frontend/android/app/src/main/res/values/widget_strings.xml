@@ -5,7 +5,7 @@
     <string name="widget_wide_label">Spending &amp; budgets</string>
     <string name="widget_wide_description">Today and this month\'s spending, plus your three tightest budgets.</string>
     <string name="widget_quick_add_label">Quick add</string>
-    <string name="widget_quick_add_description">Log a transaction by typing it like a message.</string>
+    <string name="widget_quick_add_description">Add a transaction right from your home screen.</string>
 
     <string name="widget_label_today">Today</string>
     <string name="widget_label_spent_today">Spent today</string>
@@ -15,7 +15,7 @@
     <string name="widget_no_budget">No budget set</string>
     <string name="widget_no_budgets">No budgets this month</string>
     <string name="widget_add_transaction">Add a transaction</string>
-    <string name="widget_quick_add_hint">Type it like a message</string>
+    <string name="widget_quick_add_hint">Amount, category, date</string>
     <string name="widget_signed_out">Open FinTrack to set up</string>
     <string name="widget_updating">Updating…</string>
     <string name="widget_tap_to_refresh">tap to refresh</string>

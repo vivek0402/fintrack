@@ -27,6 +27,12 @@ export interface FinTrackNativePlugin {
   /** Asks the widgets to fetch fresh numbers now (no-op when none are placed). */
   refreshWidgets(): Promise<void>;
 
+  // ── Widget add sheet (QuickAddActivity, /widget-add/) ──
+  /** Closes the add sheet over the home screen (no-op in the full app). refreshWidgets: after a save. */
+  closeQuickAdd(options?: { refreshWidgets?: boolean }): Promise<void>;
+  /** From the add sheet: opens the full app and closes the sheet (no-op in the full app). */
+  openMainApp(): Promise<void>;
+
   // ── App lock ──
   biometricStatus(): Promise<{ status: BiometricAvailability }>;
   /** BiometricPrompt bound to a Keystore CryptoObject; success requires the authenticated cipher. */
@@ -57,6 +63,8 @@ export const FinTrackNative = registerPlugin<FinTrackNativePlugin>('FinTrackNati
     saveWidgetToken: async () => {},
     clearWidgetToken: async () => {},
     refreshWidgets: async () => {},
+    closeQuickAdd: async () => {},
+    openMainApp: async () => {},
     biometricStatus: async () => ({ status: 'no_hardware' as const }),
     authenticate: async () => ({ result: 'error' as const }),
     enableBiometricKey: async () => ({ ok: false }),

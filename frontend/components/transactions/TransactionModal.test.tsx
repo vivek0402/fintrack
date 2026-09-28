@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TransactionModal } from './TransactionModal';
-import { transactionsAPI, creditCardsAPI } from '@/lib/api';
+import { transactionsAPI, creditCardsAPI, accountsAPI } from '@/lib/api';
 
 // Integration coverage for the highest-traffic write path in the app. The
 // primitives are unit-tested elsewhere; what matters here is the composed
@@ -454,5 +454,42 @@ describe('EMI conversion', () => {
         await waitFor(() => expect(screen.getByText(/valid emi tenure/i)).toBeInTheDocument());
         expect(creditCardsAPI.convertToEmi).not.toHaveBeenCalled();
         expect(transactionsAPI.create).not.toHaveBeenCalled();
+    });
+});
+
+// The Android widget add sheet (app/widget-add) opens this form on its own,
+// with nothing loaded yet.
+describe('holdUntilReady', () => {
+    it('shows a loading state in the sheet until accounts (and categories) are in', async () => {
+        let resolveAccounts: (v: Awaited<ReturnType<typeof accountsAPI.getAll>>) => void = () => {};
+        vi.mocked(accountsAPI.getAll).mockImplementationOnce(
+            () => new Promise(r => { resolveAccounts = r; }) as ReturnType<typeof accountsAPI.getAll>,
+        );
+        open({ holdUntilReady: true });
+        expect(screen.getByText('Loading your categories…')).toBeInTheDocument();
+        expect(document.querySelector('form')).toBeNull();
+
+        resolveAccounts({ data: { accounts: [{ id: 1, name: "HDFC", is_default: true }] } } as never);
+        await waitFor(() => expect(document.querySelector('form')).not.toBeNull());
+        expect(screen.queryByText('Loading your categories…')).toBeNull();
+    });
+
+    it('holds again when reopened, until the new fetch lands', async () => {
+        const props = { onClose: vi.fn(), onSuccess: vi.fn(), holdUntilReady: true };
+        const { rerender } = render(<TransactionModal isOpen {...props} />);
+        await waitFor(() => expect(document.querySelector('form')).not.toBeNull());
+
+        rerender(<TransactionModal isOpen={false} {...props} />);
+        vi.mocked(accountsAPI.getAll).mockImplementationOnce(
+            () => new Promise(() => {}) as ReturnType<typeof accountsAPI.getAll>,
+        );
+        rerender(<TransactionModal isOpen {...props} />);
+        await waitFor(() => expect(screen.getByText('Loading your categories…')).toBeInTheDocument());
+        expect(document.querySelector('form')).toBeNull();
+    });
+
+    it('shows the form straight away without it', () => {
+        open();
+        expect(document.querySelector('form')).not.toBeNull();
     });
 });

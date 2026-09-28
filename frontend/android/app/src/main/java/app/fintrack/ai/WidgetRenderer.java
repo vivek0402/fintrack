@@ -31,8 +31,8 @@ final class WidgetRenderer {
     private static final String DASH = "—";
 
     // Intent extras MainActivity understands. Taps never bypass the app lock:
-    // they just open the app, and AppLockGate locks on cold start / resume.
-    static final String EXTRA_OPEN_QUICK_ADD = "OPEN_QUICK_ADD";
+    // they open the app (or the add sheet, QuickAddActivity), and AppLockGate
+    // locks on cold start / resume.
     static final String EXTRA_OPEN_SCREEN = "OPEN_SCREEN";
 
     private static final int RC_QUICK_ADD = 7101;
@@ -253,7 +253,9 @@ final class WidgetRenderer {
     private static RemoteViews buildQuickAdd(Context ctx, Model m) {
         RemoteViews v = new RemoteViews(ctx.getPackageName(), R.layout.widget_quick_add);
         v.setOnClickPendingIntent(R.id.widget_root, openScreen(ctx, "dashboard", RC_DASHBOARD));
-        v.setOnClickPendingIntent(R.id.widget_plus, quickAdd(ctx));
+        PendingIntent add = quickAdd(ctx);
+        v.setOnClickPendingIntent(R.id.widget_plus, add);
+        v.setOnClickPendingIntent(R.id.widget_text, add);
         v.setTextViewText(R.id.widget_subtitle, ctx.getString(
             m.signedIn ? R.string.widget_quick_add_hint : R.string.widget_signed_out));
         v.setViewVisibility(R.id.widget_today_col, m.signedIn ? View.VISIBLE : View.GONE);
@@ -288,13 +290,19 @@ final class WidgetRenderer {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    // The "+" (and the quick-add bar's text): the Add Transaction form as a
+    // sheet over the home screen, in its own task, never MainActivity's.
+    // CLEAR_TASK makes every tap a fresh sheet (and a fresh lock decision).
+    private static PendingIntent quickAdd(Context ctx) {
+        Intent i = new Intent(ctx, QuickAddActivity.class);
+        i.setAction("app.fintrack.ai.widget.ADD_SHEET");
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        return PendingIntent.getActivity(ctx, RC_QUICK_ADD, i,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
     // Distinct actions keep these PendingIntents from collapsing into one
     // (Intent equality ignores extras).
-    private static PendingIntent quickAdd(Context ctx) {
-        Intent i = new Intent("app.fintrack.ai.widget.QUICK_ADD");
-        i.putExtra(EXTRA_OPEN_QUICK_ADD, true);
-        return activity(ctx, i, RC_QUICK_ADD);
-    }
 
     private static PendingIntent openScreen(Context ctx, String screen, int requestCode) {
         Intent i = new Intent("app.fintrack.ai.widget.OPEN_" + screen.toUpperCase(Locale.ROOT));

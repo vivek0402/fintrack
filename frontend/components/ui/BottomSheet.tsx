@@ -14,9 +14,13 @@ interface BottomSheetProps {
     // See the matching prop on Modal -- lets a sheet whose own first child is
     // the header render its rows full-bleed.
     bodyPadding?: string;
+    // false: no dimming layer (the tap-to-close area stays). For a sheet
+    // whose window already dims what's behind it (the Android widget add
+    // sheet over the home screen).
+    scrim?: boolean;
 }
 
-export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0' }: BottomSheetProps) {
+export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0', scrim = true }: BottomSheetProps) {
     const [mounted, setMounted] = useState(false);
     const [closing, setClosing] = useState(false);
     const [dragY, setDragY] = useState(0);
@@ -64,12 +68,13 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
         <>
             <div
                 onClick={handleClose}
+                data-testid="sheet-scrim"
                 style={{
                     position: 'fixed',
                     inset: 0,
-                    background: 'rgba(0,0,0,0.55)',
-                    backdropFilter: 'blur(2px)',
-                    WebkitBackdropFilter: 'blur(2px)',
+                    background: scrim ? 'rgba(0,0,0,0.55)' : 'transparent',
+                    backdropFilter: scrim ? 'blur(2px)' : undefined,
+                    WebkitBackdropFilter: scrim ? 'blur(2px)' : undefined,
                     zIndex: 9999,
                 }}
             />
