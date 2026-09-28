@@ -37,7 +37,7 @@ const { notifyOnce } = require('./utils/fcm');
 const { ROUTES } = require('./utils/ai');
 const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
-const { buildCardDueAlerts, isCardInDueWindow, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
+const { buildCardDueAlerts, buildCardOverdueAlerts, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
 const { istDateStr } = require('./utils/istDate');
 const app = express();
 
@@ -741,7 +741,8 @@ cron.schedule('0 9 * * *', async () => {
     }
 }, { timezone: 'Asia/Kolkata' });
 
-// ─── Cron: credit card bill due within 3 days and unpaid — daily 9am IST ─────
+// ─── Cron: credit card bill due within 3 days, or due yesterday (overdue),
+// and unpaid — daily 9am IST ──────────────────────────────────────────────────
 cron.schedule('0 9 * * *', async () => {
     try {
         const today = istDateStr();
@@ -752,17 +753,23 @@ cron.schedule('0 9 * * *', async () => {
         for (const { user_id } of users) {
             try {
                 const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
-                // Due-window filter first, so the payments query only runs for
-                // the few days each cycle a card is actually about to be due.
+                // Due-window / overdue filters first, so the payments query
+                // only runs on the few days each cycle a card is about to be
+                // (or has just gone past) due.
                 const dueCards = cards.filter(c => isCardInDueWindow(c, today));
-                if (!dueCards.length) continue;
+                const overdueCards = cards.filter(c => isCardOverdue(c, today));
+                if (!dueCards.length && !overdueCards.length) continue;
 
                 const paidByCard = new Map();
-                for (const card of dueCards) {
+                for (const card of [...dueCards, ...overdueCards]) {
                     paidByCard.set(card.id, await fetchCardPaymentsSince(pool, user_id, card.id, card.last_statement_close_date));
                 }
 
-                for (const alert of buildCardDueAlerts(dueCards, paidByCard, today)) {
+                const alerts = [
+                    ...buildCardDueAlerts(dueCards, paidByCard, today),
+                    ...buildCardOverdueAlerts(overdueCards, paidByCard, today),
+                ];
+                for (const alert of alerts) {
                     await notifyOnce(user_id, alert.alertKey, {
                         title: alert.title,
                         body: alert.body,

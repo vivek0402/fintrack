@@ -1,4 +1,5 @@
-const { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, withStatementRemaining } = require('../src/utils/cardDueAlerts');
+const { buildCardDueAlerts, buildCardOverdueAlerts, amountDueOnStatement, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince, withStatementRemaining } = require('../src/utils/cardDueAlerts');
+const { prefKeyForAlert } = require('../src/utils/notificationPrefs');
 
 const TODAY = '2026-09-27';
 
@@ -270,5 +271,74 @@ describe('withStatementRemaining', () => {
         const [c] = await withStatementRemaining(pool, 'u1', [{ id: 9, statement_balance: null, last_statement_close_date: null }]);
         expect(c).toMatchObject({ statement_amount_due: null, statement_paid: null, statement_remaining: null });
         expect(pool.query).not.toHaveBeenCalled();
+    });
+});
+
+describe('buildCardOverdueAlerts', () => {
+    // card() is due 2026-09-30, so the day after is 2026-10-01.
+    const DAY_AFTER = '2026-10-01';
+
+    test('day after the due date and unpaid -> alert with the full amount', () => {
+        const alerts = buildCardOverdueAlerts([card()], new Map(), DAY_AFTER);
+        expect(alerts).toHaveLength(1);
+        expect(alerts[0].title).toBe('⚠️ HDFC Regalia bill is overdue');
+        expect(alerts[0].body).toMatch(/^₹45,250 was due on 30 Sept?\. Pay it now to limit late fees and interest\.$/);
+    });
+
+    test('fully paid -> no alert', () => {
+        expect(buildCardOverdueAlerts([card()], new Map([[7, 45250]]), DAY_AFTER)).toEqual([]);
+    });
+
+    test('paid to within a rupee rounding -> no alert (same rounding as the due alert)', () => {
+        expect(buildCardOverdueAlerts([card({ statement_balance: 45250.4 })], new Map([[7, 45250]]), DAY_AFTER)).toEqual([]);
+    });
+
+    test('partly paid -> remaining of total', () => {
+        const [alert] = buildCardOverdueAlerts([card()], new Map([[7, 20000]]), DAY_AFTER);
+        expect(alert.body).toMatch(/^₹25,250 of ₹45,250 is still unpaid\. It was due on 30 Sept?\. Pay it now to limit late fees and interest\.$/);
+    });
+
+    test('EMI principal is excluded, as in the due alert', () => {
+        const [alert] = buildCardOverdueAlerts([card({ statement_balance: 48000, emi_blocked_principal: 36000 })], new Map(), DAY_AFTER);
+        expect(alert.body).toMatch(/^₹12,000 was due on /);
+    });
+
+    test('on the due date, 2 days after, or before -> no alert', () => {
+        for (const today of ['2026-09-30', '2026-10-02', '2026-10-15', '2026-09-27']) {
+            expect(buildCardOverdueAlerts([card()], new Map(), today)).toEqual([]);
+        }
+    });
+
+    test('day-after counting crosses month and year boundaries', () => {
+        const c = card({ statement_due_date: '2026-12-31' });
+        expect(buildCardOverdueAlerts([c], new Map(), '2027-01-01')).toHaveLength(1);
+    });
+
+    test('alert key is cc_overdue:{cardId}:{dueDate}', () => {
+        const [alert] = buildCardOverdueAlerts([card()], new Map(), DAY_AFTER);
+        expect(alert.alertKey).toBe('cc_overdue:7:2026-09-30');
+        expect(alert.cardId).toBe(7);
+    });
+
+    test('data carries type and deep link to the accounts screen (all string values)', () => {
+        const [alert] = buildCardOverdueAlerts([card()], new Map(), DAY_AFTER);
+        expect(alert.data).toEqual({ type: 'bill', deepLink: '/accounts', card_id: '7' });
+    });
+
+    test('no real bill or no due period -> no alert', () => {
+        expect(buildCardOverdueAlerts([card({ statement_balance: 0 })], new Map(), DAY_AFTER)).toEqual([]);
+        expect(buildCardOverdueAlerts([card({ due_days: null })], new Map(), DAY_AFTER)).toEqual([]);
+        const noCycle = card({ statement_balance: null, statement_due_date: null, last_statement_close_date: null });
+        expect(buildCardOverdueAlerts([noCycle], new Map(), DAY_AFTER)).toEqual([]);
+    });
+
+    test('isCardOverdue matches only the day after the due date', () => {
+        expect(isCardOverdue(card(), DAY_AFTER)).toBe(true);
+        expect(isCardOverdue(card(), '2026-09-30')).toBe(false);
+        expect(isCardOverdue(card(), '2026-10-02')).toBe(false);
+    });
+
+    test('cc_overdue is governed by the billReminders toggle', () => {
+        expect(prefKeyForAlert('cc_overdue:7:2026-09-30')).toBe('billReminders');
     });
 });
