@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ error: 'User not found.' });
         res.json({ profile: result.rows[0] });
     } catch (err) {
+        console.error('[Profile]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -42,6 +43,7 @@ router.put('/', async (req, res) => {
         );
         res.json({ user: result.rows[0] });
     } catch (err) {
+        console.error('[Profile]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -60,6 +62,7 @@ router.put('/password', async (req, res) => {
         await pool.query('UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2', [newHash, req.user.id]);
         res.json({ message: 'Password updated.' });
     } catch (err) {
+        console.error('[Profile]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

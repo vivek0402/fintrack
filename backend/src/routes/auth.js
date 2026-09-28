@@ -453,6 +453,7 @@ router.get('/me', authMiddleware, async (req, res) => {
             return res.status(404).json({ error: 'User not found.' });
         res.json({ user: result.rows[0] });
     } catch (err) {
+        console.error('[Auth]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

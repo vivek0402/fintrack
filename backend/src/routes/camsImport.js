@@ -35,7 +35,7 @@ router.post('/cams-statement', (req, res, next) => {
         let pdfData;
         try {
             pdfData = await pdfParse(req.file.buffer);
-        } catch (e) {
+        } catch {
             await pool.query(
                 'UPDATE cams_import_jobs SET status=$1, error_message=$2 WHERE id=$3',
                 ['failed', 'PDF could not be read', jobId]
@@ -69,7 +69,7 @@ Rules: units, nav, current_value, and price_per_unit must be numbers (not string
         try {
             const clean = rawResponse.replace(/```json|```/g, '').trim();
             parsed = JSON.parse(clean);
-        } catch (e) {
+        } catch {
             await pool.query(
                 'UPDATE cams_import_jobs SET status=$1, error_message=$2 WHERE id=$3',
                 ['failed', 'AI could not parse statement format', jobId]

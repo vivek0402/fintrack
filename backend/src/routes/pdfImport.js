@@ -36,7 +36,7 @@ router.post('/bank-statement', (req, res, next) => {
         let pdfData;
         try {
             pdfData = await pdfParse(req.file.buffer);
-        } catch (e) {
+        } catch {
             await pool.query(
                 'UPDATE pdf_import_jobs SET status=$1, error_message=$2 WHERE id=$3',
                 ['failed', 'PDF could not be read', jobId]
@@ -70,7 +70,7 @@ Rules: Credits/deposits/salary/refunds = income. Debits/withdrawals/payments/cha
         try {
             const clean = rawResponse.replace(/```json|```/g, '').trim();
             parsed = JSON.parse(clean);
-        } catch (e) {
+        } catch {
             await pool.query(
                 'UPDATE pdf_import_jobs SET status=$1, error_message=$2 WHERE id=$3',
                 ['failed', 'AI could not parse statement format', jobId]

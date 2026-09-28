@@ -279,6 +279,7 @@ app.get('/health', async (req, res) => {
             ...(migration_warning ? { migration_warning } : {}),
         });
     } catch (err) {
+        console.error('[Health]', err.message);
         res.status(500).json({ status: 'error', database: 'disconnected' });
     }
 });
@@ -331,7 +332,7 @@ app.use('/api/insights',     require('./routes/insights'));
 app.use('/api/widget',       require('./routes/widget'));
 
 // ─── Global error handler ────────────────────────────────────────────────────
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => { // 4 args: Express's error-handler signature
     // CORS errors — safe to surface the origin name
     if (err.message && err.message.includes('not allowed by CORS')) {
         return res.status(403).json({ error: 'CORS: origin not allowed' });

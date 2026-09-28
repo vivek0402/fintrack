@@ -7,7 +7,6 @@ const { simulateFinancialPlan, getFiveYearSummary, calculateEMI: calculateLoanEM
 const { getFundsForPlan } = require('../services/fundCatalog');
 const { aiComplete } = require('../utils/ai');
 const { computeDriftReport } = require('../services/behaviorAnalysis');
-const { fetchCreditCardsWithBalance } = require('../utils/creditCardBalance');
 const { nonSpendingExclusionSQL } = require('../utils/savingsRate');
 const { istMonthStart, istMonthsAgoStart } = require('../utils/istDate');
 const router = express.Router();
@@ -561,12 +560,6 @@ function emiForLoan(loan) {
 function lastNFullMonthsRange(n) {
     const now = new Date();
     return { start: istMonthsAgoStart(n, now), end: istMonthStart(now) };
-}
-
-function addMonthsToDate(date, months) {
-    const d = new Date(date);
-    d.setMonth(d.getMonth() + months);
-    return d.toISOString().split('T')[0];
 }
 
 function classifyCashflowMonth(net_cashflow, income) {

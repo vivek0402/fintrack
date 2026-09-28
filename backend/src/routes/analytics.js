@@ -42,6 +42,7 @@ router.get('/summary', async (req, res) => {
             category_breakdown: categoryRes.rows
         });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -58,6 +59,7 @@ router.get('/trends', async (req, res) => {
         );
         res.json({ trends: result.rows });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -85,6 +87,7 @@ router.get('/yearly', async (req, res) => {
 
         res.json({ monthly: monthly.rows, totals: totals.rows, years: { current: currentYear, last: lastYear } });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -131,6 +134,7 @@ router.get('/forecast', async (req, res) => {
             }
         });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -174,6 +178,7 @@ router.get('/report', async (req, res) => {
             categories: categoryResult.rows,
         });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -208,6 +213,7 @@ router.get('/payment-methods', async (req, res) => {
 
         res.json({ breakdown, total: grandTotal, month: m, year: y });
     } catch (err) {
+        console.error('[Analytics]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });

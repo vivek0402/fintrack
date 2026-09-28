@@ -35,16 +35,6 @@ async function getAvgMonthlyExpenses(userId) {
     return fmt(res.rows[0].avg);
 }
 
-async function getAvgMonthlyIncome(userId) {
-    const res = await pool.query(
-        `SELECT COALESCE(SUM(amount), 0) / 3.0 AS avg FROM transactions
-         WHERE user_id = $1 AND type = 'income' AND date >= (CURRENT_DATE - INTERVAL '3 months')
-         AND ${nonSpendingExclusionSQL('transactions')}`,
-        [userId]
-    );
-    return fmt(res.rows[0].avg);
-}
-
 async function getFinancialPlan(userId) {
     const res = await pool.query(`SELECT * FROM financial_plans WHERE user_id = $1`, [userId]);
     const plan = res.rows[0] || null;

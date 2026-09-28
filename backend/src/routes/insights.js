@@ -168,10 +168,8 @@ router.get('/peer-benchmarks', async (req, res) => {
         // Sum category spend into benchmark groups
         const groupTotals = {};
         for (const key of Object.keys(GROUP_LABELS)) groupTotals[key] = 0;
-        let totalExpense = 0;
         for (const row of expenseRes.rows) {
             const amount = parseFloat(row.total) || 0;
-            totalExpense += amount;
             const group = mapCategoryToGroup(row.category_name);
             if (group) groupTotals[group] += amount;
         }

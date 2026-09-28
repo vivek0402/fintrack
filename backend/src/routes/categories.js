@@ -22,6 +22,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ categories: result.rows });
     } catch (err) {
+        console.error('[Categories]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -38,6 +39,7 @@ router.post('/', async (req, res) => {
         );
         res.status(201).json({ category: result.rows[0] });
     } catch (err) {
+        console.error('[Categories]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
@@ -61,6 +63,7 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ error: 'Category not found.' });
         res.json({ message: 'Deleted.' });
     } catch (err) {
+        console.error('[Categories]', err.message);
         res.status(500).json({ error: 'Server error.' });
     }
 });
