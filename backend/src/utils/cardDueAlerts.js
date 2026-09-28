@@ -10,6 +10,10 @@
 // calendar date (istDateStr()); nothing in here reads the server clock.
 
 const DUE_WINDOW_DAYS = 3;
+// Overdue alerts are eligible 1..OVERDUE_WINDOW_DAYS days after the due date,
+// so one missed 09:00 cron run doesn't lose the alert. The per-due-date
+// cc_overdue key (notifyOnce) still makes it fire only once.
+const OVERDUE_WINDOW_DAYS = 3;
 
 // Whole days from `fromStr` to `toStr`, both 'YYYY-MM-DD'. Anchored at UTC
 // midnight so the result never depends on the server's timezone.
@@ -66,12 +70,14 @@ function isCardInDueWindow(card, todayStr) {
     return daysLeft >= 0 && daysLeft <= DUE_WINDOW_DAYS;
 }
 
-// True when the card has a real bill that was due exactly YESTERDAY (IST):
-// the overdue alert fires once, on the first day late fees apply. Later days
-// don't match, so the alert never repeats or turns up stale.
+// True when the card has a real bill whose due date was 1 to
+// OVERDUE_WINDOW_DAYS days ago (IST). Normally that alert goes out the day
+// after the due date; the extra days only cover a missed cron run. Past the
+// window nothing matches, so a stale alert never turns up.
 function isCardOverdue(card, todayStr) {
     if (!hasBillWithDueDate(card)) return false;
-    return daysBetween(card.statement_due_date, todayStr) === 1;
+    const daysLate = daysBetween(card.statement_due_date, todayStr);
+    return daysLate >= 1 && daysLate <= OVERDUE_WINDOW_DAYS;
 }
 
 // Bill payments recorded via POST /api/credit-cards/:id/pay (the card-side
@@ -191,8 +197,8 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
 }
 
 /**
- * Overdue alerts: the day after the due date (IST), for statements still
- * unpaid. Same inputs and remaining-amount math as buildCardDueAlerts.
+ * Overdue alerts: 1-3 days after the due date (IST; normally the first of
+ * those days, keyed so it fires once), for statements still unpaid. Same inputs and remaining-amount math as buildCardDueAlerts.
  * @returns {Array<{ cardId, alertKey, title, body, data }>}
  */
 function buildCardOverdueAlerts(cards, paidByCard, todayStr) {
@@ -233,4 +239,5 @@ module.exports = {
     fetchCardPaymentsSince,
     withStatementRemaining,
     DUE_WINDOW_DAYS,
+    OVERDUE_WINDOW_DAYS,
 };

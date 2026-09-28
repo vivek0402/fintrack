@@ -731,7 +731,7 @@ cron.schedule('0 9 * * *', async () => {
     }
 }, { timezone: 'Asia/Kolkata' });
 
-// ─── Cron: credit card bill due within 3 days, or due yesterday (overdue),
+// ─── Cron: credit card bill due within 3 days, or 1-3 days overdue,
 // and unpaid — daily 9am IST ──────────────────────────────────────────────────
 cron.schedule('0 9 * * *', async () => {
     try {

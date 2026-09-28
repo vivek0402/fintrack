@@ -303,9 +303,17 @@ describe('buildCardOverdueAlerts', () => {
         expect(alert.body).toMatch(/^₹12,000 was due on /);
     });
 
-    test('on the due date, 2 days after, or before -> no alert', () => {
-        for (const today of ['2026-09-30', '2026-10-02', '2026-10-15', '2026-09-27']) {
+    test('on the due date, before it, or 4+ days after -> no alert', () => {
+        for (const today of ['2026-09-30', '2026-09-27', '2026-10-04', '2026-10-15']) {
             expect(buildCardOverdueAlerts([card()], new Map(), today)).toEqual([]);
+        }
+    });
+
+    test('still alerts 2 and 3 days after (covers a missed cron run), same key', () => {
+        for (const today of ['2026-10-02', '2026-10-03']) {
+            const [alert] = buildCardOverdueAlerts([card()], new Map(), today);
+            expect(alert.alertKey).toBe('cc_overdue:7:2026-09-30');
+            expect(alert.body).toMatch(/^₹45,250 was due on 30 Sept?\./);
         }
     });
 
@@ -332,10 +340,11 @@ describe('buildCardOverdueAlerts', () => {
         expect(buildCardOverdueAlerts([noCycle], new Map(), DAY_AFTER)).toEqual([]);
     });
 
-    test('isCardOverdue matches only the day after the due date', () => {
-        expect(isCardOverdue(card(), DAY_AFTER)).toBe(true);
-        expect(isCardOverdue(card(), '2026-09-30')).toBe(false);
-        expect(isCardOverdue(card(), '2026-10-02')).toBe(false);
+    test('isCardOverdue matches days 1 to 3 after the due date', () => {
+        expect(isCardOverdue(card(), '2026-09-30')).toBe(false); // due date
+        expect(isCardOverdue(card(), DAY_AFTER)).toBe(true);     // day 1
+        expect(isCardOverdue(card(), '2026-10-03')).toBe(true);  // day 3
+        expect(isCardOverdue(card(), '2026-10-04')).toBe(false); // day 4
     });
 
     test('cc_overdue is governed by the billReminders toggle', () => {
