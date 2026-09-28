@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { currentCycleNewCharges, cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, payCycleRow, type PayCycle } from './cardStatement';
+import { currentCycleNewCharges, cycleHeadline, cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, payCycleRow, type PayCycle } from './cardStatement';
 
 const fmtDate = (d: string) => `<${d}>`;
 
@@ -138,5 +138,26 @@ describe('payCycleRow', () => {
         });
         // an API without statement_balance shows no figure rather than the net total
         expect(payCycleRow(cycles[2], 2, card, fmtDate, inr).amount).toBeNull();
+    });
+});
+
+describe('cycleHeadline (Billing Cycles page)', () => {
+    const base = { start: '2026-08-06', end: '2026-09-05', label: 'Aug 6 – Sep 5', total: '-2850.00', is_current: false };
+
+    it('a closed cycle shows what its statement billed, like the picker', () => {
+        expect(cycleHeadline({ ...base, statement_balance: 450, charges: 450, payments: 3300 })).toEqual({ amount: 450, caption: 'billed' });
+    });
+
+    it('a statement in credit says so', () => {
+        expect(cycleHeadline({ ...base, statement_balance: -200 })).toEqual({ amount: -200, caption: 'in credit' });
+    });
+
+    it('the open cycle shows new charges, not net of payments', () => {
+        const cur = { ...base, end: null, is_current: true, total: '7160.00', statement_balance: null, charges: 12160, payments: 5000 };
+        expect(cycleHeadline(cur)).toEqual({ amount: 12160, caption: 'not billed yet' });
+    });
+
+    it('falls back to the net total against an older API', () => {
+        expect(cycleHeadline(base)).toEqual({ amount: -2850, caption: null });
     });
 });

@@ -1,4 +1,4 @@
-const { nextRecurringDate, firstRecurringDueDate } = require('../src/utils/recurringSchedule');
+const { nextRecurringDate, firstRecurringDueDate, monthlyAnchorDay } = require('../src/utils/recurringSchedule');
 
 const monthly = (day_of_month) => ({ frequency: 'monthly', day_of_month });
 
@@ -98,5 +98,21 @@ describe('firstRecurringDueDate', () => {
         expect(firstRecurringDueDate({ frequency: 'weekly' }, '2026-12-28')).toBe('2027-01-04');
         expect(firstRecurringDueDate({ frequency: 'daily' }, '2026-12-31')).toBe('2027-01-01');
         expect(firstRecurringDueDate(monthly(null), '2026-09-10')).toBe('2026-09-11');
+    });
+});
+
+describe('monthlyAnchorDay', () => {
+    test('keeps a valid given day', () => {
+        expect(monthlyAnchorDay(monthly(15), '2027-01-31')).toBe(15);
+    });
+
+    test('monthly with no day anchors on the due date, so a 31st start survives February', () => {
+        const day = monthlyAnchorDay(monthly(null), '2027-01-31');
+        expect(day).toBe(31);
+        expect(chain(monthly(day), '2027-01-31', 3)).toEqual(['2027-01-31', '2027-02-28', '2027-03-31']);
+    });
+
+    test('non-monthly items keep no anchor', () => {
+        expect(monthlyAnchorDay({ frequency: 'weekly', day_of_month: null }, '2027-01-31')).toBeNull();
     });
 });
