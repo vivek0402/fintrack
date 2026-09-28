@@ -366,6 +366,8 @@ describe('GET /api/credit-cards/:id/cycles', () => {
     });
 
     test('includes correctly-formatted label fields for both the current and a closed cycle', async () => {
+        jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+        jest.setSystemTime(new Date('2026-09-20T06:30:00.000Z')); // not the billing day
         mockCardWithBillingDate();
 
         const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=2');
@@ -383,6 +385,29 @@ describe('GET /api/credit-cards/:id/cycles', () => {
         expect(closed.end).not.toBeNull();
         // "Aug 6 – Sep 5" style.
         expect(closed.label).toMatch(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/);
+        jest.useRealTimers();
+    });
+
+    describe('labels pinned to a date', () => {
+        afterEach(() => jest.useRealTimers());
+        const at = (iso) => {
+            jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+            jest.setSystemTime(new Date(iso));
+        };
+
+        test('closed cycles end on the billing day, which the statement includes', async () => {
+            at('2026-09-20T06:30:00.000Z'); // IST Sep 20, billing day 6
+            mockCardWithBillingDate();
+            const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=2');
+            expect(res.body.cycles.map(c => c.label)).toEqual(['Sep 7 – present', 'Aug 7 – Sep 6']);
+        });
+
+        test('on the billing day the open cycle starts tomorrow and says so', async () => {
+            at('2026-09-06T06:30:00.000Z'); // IST Sep 6 = billing day
+            mockCardWithBillingDate();
+            const res = await request(buildApp()).get('/api/credit-cards/card-1/cycles?limit=2');
+            expect(res.body.cycles.map(c => c.label)).toEqual(['Starts Sep 7', 'Aug 7 – Sep 6']);
+        });
     });
 
     test('returns 500 when fetchCyclesWithTotals\' DB query rejects', async () => {

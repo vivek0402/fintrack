@@ -12,20 +12,12 @@ const { istAddMonths, istDateStr, istMostRecentDayOfMonth } = require('./istDate
 
 const MAX_CYCLES = 24;
 
-// Calendar-date-only "day before" -- takes a 'YYYY-MM-DD' string and returns
-// the previous calendar day, also as a 'YYYY-MM-DD' string. Uses Date.UTC
-// the same way istAddMonths/istDaysInMonth do: purely as a UTC-anchored
-// calendar calculator for a date that's already resolved, never to derive
-// "today" from the server's own clock/timezone -- so this stays IST-safe by
+// Calendar-date-only "day after" -- takes a 'YYYY-MM-DD' string and returns
+// the next calendar day, also as a 'YYYY-MM-DD' string. Uses Date.UTC the
+// same way istAddMonths/istDaysInMonth do: purely as a UTC-anchored calendar
+// calculator for a date that's already resolved, never to derive "today"
+// from the server's own clock/timezone -- so this stays IST-safe by
 // construction, same reasoning istDate.js's own header documents.
-function dayBefore(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() - 1);
-    return dt.toISOString().split('T')[0];
-}
-
-// Calendar-date-only "day after", the inverse of dayBefore above.
 function dayAfter(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d));
@@ -41,6 +33,15 @@ function dayAfter(dateStr) {
 // what the IST-boundary fixes elsewhere in this app (istDate.js's header,
 // the EMI feature's own due-date tests) exist to avoid.
 //
+// A statement closes ON the billing day and includes it (see the close-day
+// note above buildStatementBalanceQuery), so a closed cycle runs from the
+// day after the previous close through its own close: billing day 5 gives
+// Aug 6 - Sep 5, and the open cycle starts the day after the latest close.
+// On the billing day itself that is tomorrow: today's charges belong to the
+// statement that closed today. Windows, totals and statement_balance all use
+// this one definition, so a closed cycle's total is exactly the activity
+// its statement billed.
+//
 // `today`/`balanceAsOf` are both 'YYYY-MM-DD' strings (or omitted/null) --
 // never `Date` objects -- so this function never constructs a server-
 // timezone Date from ambiguous input, the same discipline istAddMonths
@@ -53,34 +54,27 @@ function computeCycleBoundaries(billingDate, count, balanceAsOf, today) {
 
     const t = today || istDateStr();
 
-    // Most recent occurrence of billingDate that isn't in the future. If
-    // this calendar month's billingDate hasn't happened yet, the current
-    // (open) cycle actually started last month -- shared with
-    // getLastStatementCloseDate in creditCardBalance.js via
-    // istMostRecentDayOfMonth (istDate.js), which is what actually keeps
-    // this IST-safe (it never depends on server-local "today").
-    let cursor = istMostRecentDayOfMonth(billingDate, t);
+    // Latest close: the most recent occurrence of billingDate that isn't in
+    // the future, shared with getLastStatementCloseDate in
+    // creditCardBalance.js via istMostRecentDayOfMonth (istDate.js), which
+    // is what keeps this IST-safe.
+    let close = istMostRecentDayOfMonth(billingDate, t);
 
     const boundaries = [];
     let end = null; // open-ended for the current cycle only
 
     for (let i = 0; i < cappedCount; i++) {
-        let start = cursor;
-        let clipped = false;
-        if (balanceAsOf && start < balanceAsOf) {
-            start = balanceAsOf;
-            clipped = true;
-        }
+        let start = dayAfter(close);
+        // At or before balanceAsOf is where the app's data begins: clip the
+        // start to it and stop, since any older cycle would be empty.
+        const clipped = Boolean(balanceAsOf && start <= balanceAsOf);
+        if (clipped) start = balanceAsOf;
         boundaries.push({ start, end, is_current: i === 0 });
-        // Clipping means `start` is the oldest cycle the app has real data
-        // for -- stop generating any earlier (further-back) cycles, per the
-        // clipping rule.
         if (clipped) break;
 
-        // Prepare the next, older cycle: it ends the day before this one's
-        // (unclipped) start, and begins exactly one calendar month earlier.
-        end = dayBefore(cursor);
-        cursor = istAddMonths(cursor, -1);
+        // The next, older cycle closes on this one's previous billing day.
+        end = close;
+        close = istAddMonths(close, -1);
     }
 
     return boundaries;
@@ -96,6 +90,8 @@ function computeCycleBoundaries(billingDate, count, balanceAsOf, today) {
 // columns regardless of how many cycles were requested -- easy to map back
 // onto the `boundaries` array in order, and it's one round trip regardless
 // of N, same as the requirement asks for.
+const IS_BILL_PAYMENT = `COALESCE('credit_card_payment' = ANY(t.tags), false)`;
+
 function buildBucketQuery(boundaries) {
     const valuesRows = [];
     const params = [];
@@ -107,11 +103,21 @@ function buildBucketQuery(boundaries) {
         paramIndex += 3;
     });
 
+    // charges + payments = total: charges are purchases net of refunds (any
+    // card income that isn't a bill payment), the same split the Pay Bill
+    // picker's "new charges" uses; payments are bill payments, recognised the
+    // way cardDueAlerts.js's CARD_PAYMENTS_SINCE_QUERY does (the card-side
+    // income leg of POST /:id/pay, tagged 'credit_card_payment').
     const sql = `
         SELECT cyc.idx,
             COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0)
                 - COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0)
-                AS total
+                AS total,
+            COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount
+                              WHEN t.type = 'income' AND NOT ${IS_BILL_PAYMENT} THEN -t.amount
+                              ELSE 0 END), 0) AS charges,
+            COALESCE(SUM(CASE WHEN t.type = 'income' AND ${IS_BILL_PAYMENT} THEN t.amount ELSE 0 END), 0)
+                AS payments
         FROM (VALUES ${valuesRows.join(', ')}) AS cyc(idx, cycle_start, cycle_end)
         LEFT JOIN transactions t
             ON t.credit_card_id = $1
@@ -128,16 +134,10 @@ function buildBucketQuery(boundaries) {
 // bill" number: a statement closes ON the billing day and includes every
 // transaction dated on or before that day. That is how STATEMENT_BALANCE_QUERY
 // (creditCardBalance.js) prices the latest statement, how statement_paid
-// counts payments (strictly after the close, cardDueAlerts.js) and how
-// new_charges_since_statement splits the balance. So a closed cycle's
-// statement_close_date is the day AFTER its `end` (= the next cycle's
-// unclipped start, the billing day), and its statement_balance is the running
-// balance as of that date.
-//
-// The cycle WINDOWS above (start/end/total) predate this and put close-day
-// transactions in the NEXT cycle; they are left exactly as they were (the
-// Cycles history page reads them), so a charge dated on the billing day shows
-// in the next cycle's `total` but in this statement's statement_balance.
+// counts payments (strictly after the close, cardDueAlerts.js), how
+// new_charges_since_statement splits the balance, and how the cycle windows
+// above are cut. So a closed cycle's statement_close_date is its `end`, and
+// its statement_balance is the running balance as of that date.
 //
 // Same formula as STATEMENT_BALANCE_QUERY -- baseline snapshot plus activity
 // from balance_as_of through the close -- and, like statement_amount_due, no
@@ -233,12 +233,19 @@ async function fetchCyclesWithTotals(pool, userId, cardId, count) {
 
     const { sql, params } = buildBucketQuery(boundaries);
     const { rows: totalsRows } = await pool.query(sql, [cardId, userId, ...params]);
-    const totalByIdx = new Map(totalsRows.map(r => [Number(r.idx), r.total]));
+    const rowByIdx = new Map(totalsRows.map(r => [Number(r.idx), r]));
 
-    const results = boundaries.map((b, idx) => ({
-        ...b,
-        total: totalByIdx.has(idx) ? totalByIdx.get(idx) : '0',
-    }));
+    // charges/payments (numbers at 2dp) are this window's own activity only;
+    // the baseline folded into the oldest `total` below is in neither.
+    const results = boundaries.map((b, idx) => {
+        const r = rowByIdx.get(idx);
+        return {
+            ...b,
+            total: r ? r.total : '0',
+            charges: round2(parseFloat(r?.charges) || 0),
+            payments: round2(parseFloat(r?.payments) || 0),
+        };
+    });
 
     // Fold the baseline snapshot into the oldest cycle -- the last entry,
     // since `results` is most-recent-first. parseFloat/COALESCE-to-0 same
@@ -252,7 +259,7 @@ async function fetchCyclesWithTotals(pool, userId, cardId, count) {
     // open current cycle. A number at 2dp, like statement_amount_due, so the
     // latest statement's figure matches it exactly.
     const closes = results
-        .map((c, idx) => ({ idx, close: c.end ? dayAfter(c.end) : null }))
+        .map((c, idx) => ({ idx, close: c.end }))
         .filter(c => c.close);
     const balanceByIdx = new Map();
     if (closes.length) {

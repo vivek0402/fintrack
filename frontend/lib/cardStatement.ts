@@ -28,6 +28,22 @@ export interface PayCycle {
     // statement close, and that close date. null on the current cycle.
     statement_close_date?: string | null;
     statement_balance?: number | null;
+    // Additive: this window's charges (net of refunds) and bill payments.
+    charges?: number;
+    payments?: number;
+}
+
+// Billing Cycles page headline for one cycle, the same figure the picker
+// shows: what a closed statement billed (anything unpaid from the one before
+// included), or the open cycle's new charges so far. Against an older API
+// without those fields it falls back to the cycle's net total, uncaptioned.
+export function cycleHeadline(cycle: PayCycle): { amount: number; caption: string | null } {
+    if (cycle.is_current && cycle.charges != null) return { amount: Number(cycle.charges), caption: 'not billed yet' };
+    if (!cycle.is_current && cycle.statement_balance != null) {
+        const billed = Number(cycle.statement_balance);
+        return { amount: billed, caption: billed < 0 ? 'in credit' : 'billed' };
+    }
+    return { amount: Number(cycle.total), caption: null };
 }
 
 export interface StatementFields {

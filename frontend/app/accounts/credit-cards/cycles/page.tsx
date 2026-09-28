@@ -9,16 +9,12 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { fmt as fmtBase } from '@/lib/utils';
+import { cycleHeadline, type PayCycle } from '@/lib/cardStatement';
 
-interface Cycle {
-    start: string;
-    end: string | null;
-    label: string;
-    total: string;
-    is_current: boolean;
-}
+type Cycle = PayCycle;
 
 function fmt(n: number) { return fmtBase(Math.abs(n)); }
+function signed(n: number) { return `${n < 0 ? '−' : ''}${fmt(n)}`; }
 
 function CreditCardCyclesPageInner() {
     const router = useRouter();
@@ -90,34 +86,47 @@ function CreditCardCyclesPageInner() {
                         subtitle="This card has no billing date set, or no cycles have closed yet."
                     />
                 ) : (
-                    cycles.map((cycle, i) => (
+                    cycles.map((cycle, i) => {
+                        const { amount, caption } = cycleHeadline(cycle);
+                        return (
                         <button
                             key={cycle.start}
                             type="button"
                             onClick={() => openCycle(cycle)}
                             style={{
-                                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
                                 padding: '14px 16px', background: cycle.is_current ? 'var(--accent-subtle)' : 'transparent',
                                 border: 'none', borderTop: i === 0 ? 'none' : '1px solid var(--glass-border)',
                                 cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
                             }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{cycle.label}</span>
-                                {cycle.is_current && (
-                                    <span style={{
-                                        display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '999px',
-                                        fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                                        background: 'var(--accent)', color: 'white',
-                                    }}>
-                                        Current
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{cycle.label}</span>
+                                    {cycle.is_current && (
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '999px',
+                                            fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                                            background: 'var(--accent)', color: 'white',
+                                        }}>
+                                            Current
+                                        </span>
+                                    )}
+                                </div>
+                                {cycle.charges != null && cycle.payments != null && (
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                                        Spent {signed(cycle.charges)} · Paid {fmt(cycle.payments)}
                                     </span>
                                 )}
                             </div>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: Number(cycle.total) > 0 ? 'var(--color-warn)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                                {Number(cycle.total) >= 0 ? '+' : '−'}{fmt(Number(cycle.total))}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: !caption && amount > 0 ? 'var(--color-warn)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {caption ? signed(amount) : `${amount >= 0 ? '+' : '−'}${fmt(amount)}`}
+                                </span>
+                                {caption && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{caption}</span>}
+                            </div>
                         </button>
-                    ))
+                        );
+                    })
                 )}
             </div>
         </div>

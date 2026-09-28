@@ -12,25 +12,31 @@ function mockPool(...results) {
 describe('computeCycleBoundaries', () => {
     test('current cycle is the first entry, open-ended, when billingDate has already occurred this month', () => {
         const boundaries = computeCycleBoundaries(5, 3, null, '2026-06-20');
-        expect(boundaries[0]).toEqual({ start: '2026-06-05', end: null, is_current: true });
+        expect(boundaries[0]).toEqual({ start: '2026-06-06', end: null, is_current: true });
     });
 
     test('current cycle rolls back to last month when this month\'s billingDate has not happened yet', () => {
         const boundaries = computeCycleBoundaries(25, 3, null, '2026-06-20');
-        expect(boundaries[0]).toEqual({ start: '2026-05-25', end: null, is_current: true });
+        expect(boundaries[0]).toEqual({ start: '2026-05-26', end: null, is_current: true });
     });
 
-    test('billingDate exactly today counts as already occurred (not future)', () => {
-        const boundaries = computeCycleBoundaries(20, 1, null, '2026-06-20');
-        expect(boundaries[0]).toEqual({ start: '2026-06-20', end: null, is_current: true });
+    test('billingDate exactly today closes a statement today, so the open cycle starts tomorrow', () => {
+        const boundaries = computeCycleBoundaries(20, 2, null, '2026-06-20');
+        expect(boundaries).toEqual([
+            { start: '2026-06-21', end: null, is_current: true },
+            { start: '2026-05-21', end: '2026-06-20', is_current: false },
+        ]);
     });
 
-    test('closed cycles step backward one calendar month at a time, ending the day before the next cycle starts', () => {
+    // A statement closes ON the billing day and includes it (the same rule
+    // statement_balance and new_charges_since_statement use), so each closed
+    // window ends on a billing day and the next one starts the day after.
+    test('closed cycles step backward one calendar month at a time, each ending on its billing (close) day', () => {
         const boundaries = computeCycleBoundaries(5, 3, null, '2026-06-20');
         expect(boundaries).toEqual([
-            { start: '2026-06-05', end: null, is_current: true },
-            { start: '2026-05-05', end: '2026-06-04', is_current: false },
-            { start: '2026-04-05', end: '2026-05-04', is_current: false },
+            { start: '2026-06-06', end: null, is_current: true },
+            { start: '2026-05-06', end: '2026-06-05', is_current: false },
+            { start: '2026-04-06', end: '2026-05-05', is_current: false },
         ]);
     });
 
@@ -44,23 +50,23 @@ describe('computeCycleBoundaries', () => {
     test('closed cycles correctly cross a year boundary via istAddMonths, not raw Date arithmetic', () => {
         const boundaries = computeCycleBoundaries(10, 3, null, '2026-01-15');
         expect(boundaries).toEqual([
-            { start: '2026-01-10', end: null, is_current: true },
-            { start: '2025-12-10', end: '2026-01-09', is_current: false },
-            { start: '2025-11-10', end: '2025-12-09', is_current: false },
+            { start: '2026-01-11', end: null, is_current: true },
+            { start: '2025-12-11', end: '2026-01-10', is_current: false },
+            { start: '2025-11-11', end: '2025-12-10', is_current: false },
         ]);
     });
 
     test('clips the oldest cycle\'s start to balanceAsOf and stops generating further cycles', () => {
-        // Without clipping this would keep going back to 2026-02-05,
-        // 2026-01-05, etc. balanceAsOf lands mid-cycle (03-10), so the
+        // Without clipping this would keep going back to 2026-02-06,
+        // 2026-01-06, etc. balanceAsOf lands mid-cycle (03-10), so the
         // oldest cycle's start must clip to it and generation must stop --
         // no 2026-02-xx entry should appear at all.
         const boundaries = computeCycleBoundaries(5, 6, '2026-03-10', '2026-06-20');
         expect(boundaries).toEqual([
-            { start: '2026-06-05', end: null, is_current: true },
-            { start: '2026-05-05', end: '2026-06-04', is_current: false },
-            { start: '2026-04-05', end: '2026-05-04', is_current: false },
-            { start: '2026-03-10', end: '2026-04-04', is_current: false },
+            { start: '2026-06-06', end: null, is_current: true },
+            { start: '2026-05-06', end: '2026-06-05', is_current: false },
+            { start: '2026-04-06', end: '2026-05-05', is_current: false },
+            { start: '2026-03-10', end: '2026-04-05', is_current: false },
         ]);
     });
 
@@ -71,11 +77,11 @@ describe('computeCycleBoundaries', () => {
         ]);
     });
 
-    test('balanceAsOf exactly on a cycle start is not clipped (start stays that date, unaffected by the equal-boundary case)', () => {
-        const boundaries = computeCycleBoundaries(5, 2, '2026-05-05', '2026-06-20');
+    test('balanceAsOf exactly on a cycle start keeps that start and stops there (no empty older cycle)', () => {
+        const boundaries = computeCycleBoundaries(5, 6, '2026-05-06', '2026-06-20');
         expect(boundaries).toEqual([
-            { start: '2026-06-05', end: null, is_current: true },
-            { start: '2026-05-05', end: '2026-06-04', is_current: false },
+            { start: '2026-06-06', end: null, is_current: true },
+            { start: '2026-05-06', end: '2026-06-05', is_current: false },
         ]);
     });
 
@@ -99,10 +105,12 @@ describe('computeCycleBoundaries', () => {
     });
 
     test('defaults `today` to the real current IST date when omitted', () => {
-        // Just prove it doesn't throw and produces a sane, non-future start.
+        // Just prove it doesn't throw and produces a sane start: at most one
+        // day ahead (on the billing day the open cycle starts tomorrow).
         const boundaries = computeCycleBoundaries(5, 1, null);
         expect(boundaries).toHaveLength(1);
-        expect(boundaries[0].start <= new Date().toISOString().split('T')[0]).toBe(true);
+        const tomorrow = new Date(Date.now() + 86400000 + 5.5 * 3600000).toISOString().split('T')[0];
+        expect(boundaries[0].start <= tomorrow).toBe(true);
     });
 });
 
@@ -186,6 +194,32 @@ describe('fetchCyclesWithTotals', () => {
         // baseline snapshot folded in via .toFixed(2), even when that
         // baseline is itself 0 (no outstanding_balance on this card mock).
         expect(result[1].total).toBe('0.00');
+        expect(result[1]).toEqual(expect.objectContaining({ charges: 0, payments: 0 }));
+    });
+
+    // Billing Cycles page: "Spent ₹X · Paid ₹Y" per cycle. Refunds reduce
+    // spent; only card-bill payments count as paid; the baseline folded into
+    // the oldest total is in neither.
+    test('carries per-cycle charges and bill payments as numbers, baseline excluded', async () => {
+        const pool = mockPool(
+            { rows: [{ billing_date: 5, balance_as_of: null, outstanding_balance: '1000.00' }] },
+            { rows: [
+                { idx: 0, total: '999.00', charges: '999.00', payments: '0' },
+                { idx: 1, total: '-2850.00', charges: '450.00', payments: '3300.00' },
+            ] },
+        );
+        const result = await fetchCyclesWithTotals(pool, 'u1', 1, 2);
+        expect(result.map(c => [c.charges, c.payments])).toEqual([[999, 0], [450, 3300]]);
+        expect(result[1].total).toBe('-1850.00'); // baseline only in total
+    });
+
+    test('the bucket query splits bill payments by the credit_card_payment tag', async () => {
+        const pool = mockPool({ rows: [{ billing_date: 5, balance_as_of: null }] }, { rows: [] });
+        await fetchCyclesWithTotals(pool, 'u1', 1, 2);
+        const [sql] = pool.query.mock.calls[1];
+        expect(sql).toMatch(/'credit_card_payment' = ANY\(t\.tags\)/);
+        expect(sql).toMatch(/AS charges/);
+        expect(sql).toMatch(/AS payments/);
     });
 
     // Pins the "credit balance" case: a mid-cycle bill payment (an
@@ -256,7 +290,7 @@ describe('fetchCyclesWithTotals', () => {
     test('sum(cycle totals) + active EMI remaining principal equals current_outstanding_balance, cycles fully covering the span, nonzero baseline', async () => {
         const billingDate = 5;
         const today = '2026-06-20';
-        const balanceAsOf = '2026-04-05';
+        const balanceAsOf = '2026-04-06';
         const outstandingBaseline = 5000; // nonzero -- exercises Fix 1
         const emiRemainingPrincipal = 1200; // not tied to any transaction date -- excluded from cycle totals
 
@@ -264,27 +298,27 @@ describe('fetchCyclesWithTotals', () => {
         // 3 cycles exactly covers [balanceAsOf, today] with billingDate 5.
         const boundaries = computeCycleBoundaries(billingDate, 3, balanceAsOf, today);
         expect(boundaries).toEqual([
-            { start: '2026-06-05', end: null, is_current: true },
-            { start: '2026-05-05', end: '2026-06-04', is_current: false },
-            { start: '2026-04-05', end: '2026-05-04', is_current: false },
+            { start: '2026-06-06', end: null, is_current: true },
+            { start: '2026-05-06', end: '2026-06-05', is_current: false },
+            { start: '2026-04-06', end: '2026-05-05', is_current: false },
         ]);
 
         // Dated transactions, including two placed exactly on a cycle
-        // boundary (05-04 = the oldest cycle's last day, 05-05 = the middle
+        // boundary (05-05 = the oldest cycle's last day, 05-06 = the middle
         // cycle's first day) to exercise the >=/<= edges.
         const transactions = [
             { date: '2026-04-10', type: 'expense', amount: 1000 },
             { date: '2026-04-20', type: 'income', amount: 200 },
-            { date: '2026-05-04', type: 'expense', amount: 30 }, // oldest cycle's last day
-            { date: '2026-05-05', type: 'expense', amount: 50 }, // middle cycle's first day
+            { date: '2026-05-05', type: 'expense', amount: 30 }, // oldest cycle's last day (close day)
+            { date: '2026-05-06', type: 'expense', amount: 50 }, // middle cycle's first day
             { date: '2026-05-10', type: 'expense', amount: 2500 },
             { date: '2026-06-01', type: 'expense', amount: 700.5 },
             { date: '2026-06-15', type: 'income', amount: 100 },
         ];
         const bucketTotals = bucketByDateRange(transactions, boundaries);
-        // Hand-verified against the fixture above: cycle0 (06-05..open) =
-        // -100; cycle1 (05-05..06-04) = 50+2500+700.5 = 3250.50; cycle2
-        // (04-05..05-04, oldest) = 1000-200+30 = 830.00.
+        // Hand-verified against the fixture above: cycle0 (06-06..open) =
+        // -100; cycle1 (05-06..06-05) = 50+2500+700.5 = 3250.50; cycle2
+        // (04-06..05-05, oldest) = 1000-200+30 = 830.00.
         expect(bucketTotals).toEqual(['-100.00', '3250.50', '830.00']);
 
         const cyclesPool = mockPool(
@@ -323,7 +357,7 @@ describe('fetchCyclesWithTotals', () => {
 // baseline + expense - income. EMI blocked principal is never added.
 describe('fetchCyclesWithTotals -- per-cycle statement_balance', () => {
     const RealDate = Date;
-    const TODAY = '2026-09-20T06:30:00.000Z'; // IST 2026-09-20; billing day 5 -> current cycle Sep 5 - present
+    const TODAY = '2026-09-20T06:30:00.000Z'; // IST 2026-09-20; billing day 5 -> current cycle Sep 6 - present
     beforeAll(() => {
         jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
         jest.setSystemTime(new RealDate(TODAY));
@@ -367,14 +401,14 @@ describe('fetchCyclesWithTotals -- per-cycle statement_balance', () => {
         { date: '2026-09-10', type: 'expense', amount: 999 },  // current cycle: in no statement
     ];
 
-    test('each closed cycle carries its close date (day after end) and the balance as of it, close day included', async () => {
+    test('each closed cycle ends on its close date and carries the balance as of it, close day included', async () => {
         const cycles = await fetchCyclesWithTotals(fixturePool(card, txs), 'u1', 1, 6);
         expect(cycles.map(c => [c.start, c.end, c.statement_close_date])).toEqual([
-            ['2026-09-05', null, null],
-            ['2026-08-05', '2026-09-04', '2026-09-05'],
-            ['2026-07-05', '2026-08-04', '2026-08-05'],
-            ['2026-06-05', '2026-07-04', '2026-07-05'],
-            ['2026-06-01', '2026-06-04', '2026-06-05'], // oldest, clipped to balance_as_of
+            ['2026-09-06', null, null],
+            ['2026-08-06', '2026-09-05', '2026-09-05'],
+            ['2026-07-06', '2026-08-05', '2026-08-05'],
+            ['2026-06-06', '2026-07-05', '2026-07-05'],
+            ['2026-06-01', '2026-06-05', '2026-06-05'], // oldest, clipped to balance_as_of
         ]);
         expect(cycles[4].statement_balance).toBe(1000); // baseline only
         expect(cycles[3].statement_balance).toBe(3300); // 1000 + 2000 + 300 (close day)

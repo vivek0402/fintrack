@@ -26,7 +26,7 @@ const PAYMENT_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Bankin
 // 06, 2026" or "09/06") -- kept out of creditCardCycles.js, which stays pure
 // data/computation per its own header comment. Anchors via Date.UTC off an
 // already-resolved 'YYYY-MM-DD' string (never the server's local clock/tz),
-// same discipline dayBefore() in creditCardCycles.js documents for itself,
+// same discipline dayAfter() in creditCardCycles.js documents for itself,
 // then renders with timeZone: 'UTC' so the UTC-anchored value round-trips
 // back out as the same calendar day regardless of server timezone.
 function formatCycleShortDate(dateStr) {
@@ -35,11 +35,13 @@ function formatCycleShortDate(dateStr) {
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-function buildCycleLabel(cycle) {
+// On the billing day the open cycle starts tomorrow (today's charges are on
+// the statement that closed today), so "Sep 6 – present" would name a day
+// that hasn't happened yet.
+function buildCycleLabel(cycle, today = istDateStr()) {
     const startLabel = formatCycleShortDate(cycle.start);
-    return cycle.is_current
-        ? `${startLabel} – present`
-        : `${startLabel} – ${formatCycleShortDate(cycle.end)}`;
+    if (!cycle.is_current) return `${startLabel} – ${formatCycleShortDate(cycle.end)}`;
+    return cycle.start > today ? `Starts ${startLabel}` : `${startLabel} – present`;
 }
 
 // GET /api/credit-cards

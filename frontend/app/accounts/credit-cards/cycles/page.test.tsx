@@ -88,6 +88,24 @@ describe('CreditCardCyclesPage', () => {
         expect(amount).toHaveStyle({ color: 'var(--color-warn)' });
     });
 
+    it('shows the billed amount per closed cycle and spent/paid underneath, matching Pay Bill', async () => {
+        getCycles.mockResolvedValue({
+            data: {
+                cycles: [
+                    { start: '2026-09-06', end: null, label: 'Sep 6 – present', total: '999.00', is_current: true, statement_balance: null, charges: 999, payments: 0 },
+                    { start: '2026-07-06', end: '2026-08-05', label: 'Jul 6 – Aug 5', total: '-2850.00', is_current: false, statement_balance: 450, charges: 450, payments: 3300 },
+                ],
+            },
+        });
+        render(<CreditCardCyclesPage />);
+        expect(await screen.findByText('₹450')).toBeInTheDocument();
+        expect(screen.getByText('billed')).toBeInTheDocument();
+        expect(screen.getByText('Spent ₹450 · Paid ₹3,300')).toBeInTheDocument();
+        expect(screen.getByText('₹999')).toBeInTheDocument();
+        expect(screen.getByText('not billed yet')).toBeInTheDocument();
+        expect(screen.queryByText('−₹2,850')).not.toBeInTheDocument();
+    });
+
     it('shows a loading state before the fetch resolves', async () => {
         let resolve: (v: any) => void = () => {};
         getCycles.mockReturnValue(new Promise(r => { resolve = r; }));
