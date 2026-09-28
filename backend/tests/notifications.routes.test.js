@@ -80,3 +80,46 @@ describe('PUT /api/notifications/prefs', () => {
         expect(pool.query).not.toHaveBeenCalled();
     });
 });
+
+describe('POST /api/notifications deepLink validation', () => {
+    afterEach(() => pool.query.mockReset());
+
+    const post = (body) => request(buildApp()).post('/api/notifications').send(body);
+
+    test('stores a valid internal deepLink with a parameterized insert', async () => {
+        pool.query.mockResolvedValueOnce({ rowCount: 1 });
+
+        const res = await post({ id: 'budget-1-9-2026', title: 'Over budget', type: 'budget', deepLink: '/budgets' });
+
+        expect(res.status).toBe(201);
+        const [sql, params] = pool.query.mock.calls[0];
+        expect(sql).toMatch(/INSERT INTO notifications .* VALUES \(\$1, \$2, \$3, \$4, \$5, \$6\)/s);
+        expect(params).toEqual(['budget-1-9-2026', 'user-123', 'Over budget', null, 'budget', '/budgets']);
+    });
+
+    test('accepts a missing or empty deepLink and stores null', async () => {
+        pool.query.mockResolvedValue({ rowCount: 1 });
+
+        expect((await post({ id: 'a', title: 't' })).status).toBe(201);
+        expect((await post({ id: 'b', title: 't', deepLink: '' })).status).toBe(201);
+        expect(pool.query.mock.calls[0][1][5]).toBeNull();
+        expect(pool.query.mock.calls[1][1][5]).toBeNull();
+    });
+
+    test.each([
+        '//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
+        'data:text/html,<script>alert(1)</script>', '/\\evil.com', '/\t/evil.com', '/acc\u0000ounts',
+    ])('rejects %j with 400 and writes nothing', async (deepLink) => {
+        const res = await post({ id: 'x', title: 't', deepLink });
+
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/internal app path/);
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+
+    test('rejects a non-string deepLink with 400', async () => {
+        const res = await post({ id: 'x', title: 't', deepLink: { href: '/accounts' } });
+        expect(res.status).toBe(400);
+        expect(pool.query).not.toHaveBeenCalled();
+    });
+});

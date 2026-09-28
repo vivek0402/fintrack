@@ -7,6 +7,7 @@ import {
     getCachedNotifications, getNotifications, markAllRead, clearAll,
     AppNotification, NotificationType,
 } from '@/lib/notifications';
+import { safeDeepLink } from '@/lib/deepLink';
 
 const TYPE_ICON: Record<NotificationType, React.ElementType> = {
     budget: Target,
@@ -80,7 +81,7 @@ export function NotificationBell({ panelAlign = 'left' }: Props) {
 
     const handleItemClick = (n: AppNotification) => {
         setOpen(false);
-        if (n.deepLink) router.push(n.deepLink);
+        if (n.deepLink) router.push(safeDeepLink(n.deepLink));
     };
 
     return (
