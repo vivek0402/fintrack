@@ -4,8 +4,9 @@
 // must not be limited to Android users: web-only users read the same alerts in
 // the bell.
 //
-// "Alertable" = any user who could plausibly see the alert, bounded so the
-// crons don't loop over long-abandoned accounts:
+// "Alertable" = a verified user (sign-up finished its email OTP; unverified
+// rows are abandoned sign-ups) who could plausibly see the alert, bounded so
+// the crons don't loop over long-abandoned accounts:
 //   - has a registered push token (everyone who got these alerts before), or
 //   - added a transaction in the last ACTIVE_WINDOW_DAYS days, or
 //   - signed in / refreshed a session in the last ACTIVE_WINDOW_DAYS days
@@ -24,15 +25,18 @@ const ACTIVE_WINDOW_DAYS = 60;
 // renumbering their own parameters.
 const ALERTABLE_USER_IDS_SQL = `
     SELECT u.id FROM users u
-    WHERE EXISTS (SELECT 1 FROM user_fcm_tokens ft WHERE ft.user_id = u.id)
-       OR EXISTS (
-           SELECT 1 FROM transactions t
-           WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '${ACTIVE_WINDOW_DAYS} days'
-       )
-       OR EXISTS (
-           SELECT 1 FROM refresh_tokens rt
-           WHERE rt.user_id = u.id AND rt.created_at > NOW() - INTERVAL '${ACTIVE_WINDOW_DAYS} days'
-       )
+    WHERE u.is_verified IS TRUE
+      AND (
+           EXISTS (SELECT 1 FROM user_fcm_tokens ft WHERE ft.user_id = u.id)
+        OR EXISTS (
+               SELECT 1 FROM transactions t
+               WHERE t.user_id = u.id AND t.created_at > NOW() - INTERVAL '${ACTIVE_WINDOW_DAYS} days'
+           )
+        OR EXISTS (
+               SELECT 1 FROM refresh_tokens rt
+               WHERE rt.user_id = u.id AND rt.created_at > NOW() - INTERVAL '${ACTIVE_WINDOW_DAYS} days'
+           )
+      )
 `;
 
 /** @returns {Promise<string[]>} ids of users the alert crons should run for */

@@ -31,6 +31,11 @@ describe('ALERTABLE_USER_IDS_SQL', () => {
         expect(sql).not.toMatch(/JOIN/);
     });
 
+    test('excludes unverified users, ANDed with the whole activity OR-group', () => {
+        // NULL is_verified counts as unverified (IS TRUE, not "<> false").
+        expect(sql).toMatch(/^ SELECT u\.id FROM users u WHERE u\.is_verified IS TRUE AND \( EXISTS .* \) $/);
+    });
+
     test('keeps every user with a push token (no regression for Android users)', () => {
         expect(sql).toContain('EXISTS (SELECT 1 FROM user_fcm_tokens ft WHERE ft.user_id = u.id)');
     });
