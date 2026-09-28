@@ -2,6 +2,7 @@ process.env.JWT_SECRET = 'test-secret';
 
 jest.mock('../src/db/pool', () => ({
     query: jest.fn(),
+    connect: jest.fn(),
 }));
 jest.mock('../src/utils/fcm', () => ({
     notifyOnce: jest.fn(),
@@ -17,6 +18,19 @@ const express = require('express');
 const request = require('supertest');
 const pool = require('../src/db/pool');
 const recurringRouter = require('../src/routes/recurring');
+
+// /process posts each row on a pooled client (BEGIN / guarded UPDATE /
+// INSERT / COMMIT). This fake client answers the claim UPDATE with
+// `claimRowCount` and records every statement.
+function mockClient({ claimRowCount = 1 } = {}) {
+    const client = {
+        query: jest.fn(async (sql) => (/^\s*UPDATE recurring_transactions/.test(sql) ? { rowCount: claimRowCount } : { rows: [], rowCount: 1 })),
+        release: jest.fn(),
+    };
+    pool.connect.mockResolvedValue(client);
+    return client;
+}
+const clientCalls = (client, re) => client.query.mock.calls.filter(([sql]) => re.test(sql));
 
 function buildApp() {
     const app = express();
@@ -217,10 +231,8 @@ describe('POST /api/recurring/process — IST day boundary (mirrors the cron fix
             amount: '500', description: 'Netflix', notes: null,
             frequency: 'monthly', day_of_month: 15, next_due_date: '2026-01-15',
         };
-        pool.query
-            .mockResolvedValueOnce({ rows: [dueItem] })  // SELECT due items
-            .mockResolvedValueOnce({ rowCount: 1 })       // UPDATE next_due_date (CAS)
-            .mockResolvedValueOnce({ rows: [] });         // INSERT transactions
+        pool.query.mockResolvedValueOnce({ rows: [dueItem] }); // SELECT due items
+        mockClient();                                          // claim + INSERT
 
         const res = await request(buildApp()).post('/api/recurring/process');
 
@@ -385,29 +397,26 @@ describe('recurring month overflow (shared recurringSchedule helper)', () => {
             amount: '500', description: 'Rent', notes: null,
             frequency: 'monthly', day_of_month: 31, next_due_date: '2027-01-31',
         };
-        pool.query
-            .mockResolvedValueOnce({ rows: [dueItem] })
-            .mockResolvedValueOnce({ rowCount: 1 })
-            .mockResolvedValueOnce({ rows: [] });
+        pool.query.mockResolvedValueOnce({ rows: [dueItem] });
+        const client = mockClient();
 
         const res = await request(buildApp()).post('/api/recurring/process');
 
         expect(res.status).toBe(200);
-        const [sql, params] = pool.query.mock.calls[1];
+        const [[sql, params]] = clientCalls(client, /UPDATE recurring_transactions/);
         expect(sql).toMatch(/UPDATE recurring_transactions SET next_due_date=\$1/);
-        expect(params).toEqual(['2027-02-28', 'r1', '2027-01-31']);
+        expect(params).toEqual(['2027-02-28', 'r1', 'user-123', '2027-01-31']);
     });
 
     test('/process with no day_of_month clamps Jan 31 to Feb 28', async () => {
         jest.useFakeTimers().setSystemTime(new Date('2027-01-31T06:00:00.000Z'));
         pool.query
-            .mockResolvedValueOnce({ rows: [{ id: 'r2', frequency: 'monthly', day_of_month: null, next_due_date: '2027-01-31', description: 'Gym' }] })
-            .mockResolvedValueOnce({ rowCount: 1 })
-            .mockResolvedValueOnce({ rows: [] });
+            .mockResolvedValueOnce({ rows: [{ id: 'r2', user_id: 'user-123', frequency: 'monthly', day_of_month: null, next_due_date: '2027-01-31', description: 'Gym' }] });
+        const client = mockClient();
 
         await request(buildApp()).post('/api/recurring/process');
 
-        expect(pool.query.mock.calls[1][1][0]).toBe('2027-02-28');
+        expect(clientCalls(client, /UPDATE recurring_transactions/)[0][1][0]).toBe('2027-02-28');
     });
 
     test('POST / with day_of_month 31 in February stores Feb 28, not Mar 3', async () => {
@@ -421,5 +430,55 @@ describe('recurring month overflow (shared recurringSchedule helper)', () => {
         expect(res.status).toBe(201);
         const params = pool.query.mock.calls[0][1];
         expect(params[8]).toBe('2027-02-28');
+    });
+});
+
+describe('POST /api/recurring/process — claim-then-post (shared recurringPosting helper)', () => {
+    afterEach(() => { pool.query.mockReset(); pool.connect.mockReset(); jest.useRealTimers(); });
+
+    const row = (over = {}) => ({
+        id: 'r1', user_id: 'user-123', category_id: 'c1', type: 'expense',
+        amount: '500', description: 'Netflix', notes: 'n', frequency: 'monthly',
+        day_of_month: 15, next_due_date: '2026-01-15', ...over,
+    });
+
+    test('normal path: one transaction per row, claims then inserts dated to the due date', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-15T06:00:00.000Z'));
+        pool.query.mockResolvedValueOnce({ rows: [row()] });
+        const client = mockClient();
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.body).toEqual({ processed: 1, created: ['Netflix'], skipped: 0, failed: 0 });
+        expect(client.query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual(['BEGIN', 'UPDATE', 'INSERT', 'COMMIT']);
+        const [[, insertParams]] = clientCalls(client, /INSERT INTO transactions/);
+        expect(insertParams).toEqual(['user-123', 'c1', 'expense', '500', 'Netflix', 'n', '2026-01-15']);
+        expect(client.release).toHaveBeenCalledTimes(1);
+    });
+
+    test('an occurrence already claimed elsewhere is skipped: ROLLBACK, no INSERT', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-15T06:00:00.000Z'));
+        pool.query.mockResolvedValueOnce({ rows: [row()] });
+        const client = mockClient({ claimRowCount: 0 });
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.body).toEqual({ processed: 0, created: [], skipped: 1, failed: 0 });
+        expect(clientCalls(client, /INSERT/)).toHaveLength(0);
+        expect(clientCalls(client, /ROLLBACK/)).toHaveLength(1);
+    });
+
+    test('continues past a bad row and reports it in failed', async () => {
+        jest.useFakeTimers().setSystemTime(new Date('2026-01-15T06:00:00.000Z'));
+        pool.query.mockResolvedValueOnce({ rows: [row({ id: 'bad', frequency: 'yearly', description: 'Bad' }), row({ id: 'ok' })] });
+        const client = mockClient();
+        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const res = await request(buildApp()).post('/api/recurring/process');
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ processed: 1, created: ['Netflix'], skipped: 0, failed: 1 });
+        expect(clientCalls(client, /UPDATE/).map(([, p]) => p[1])).toEqual(['ok']);
+        errSpy.mockRestore();
     });
 });

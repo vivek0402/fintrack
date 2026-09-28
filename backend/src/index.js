@@ -40,7 +40,7 @@ const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalanc
 const { buildCardDueAlerts, buildCardOverdueAlerts, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
 const { istDateStr, istDayOfMonth, istDaysInMonth, istMonthStart, istPriorMonthStart, istAddMonths, istAddDays, istDaysBetween, calendarDateStr } = require('./utils/istDate');
 const { fetchAlertableUserIds, ALERTABLE_USER_IDS_SQL } = require('./utils/alertableUsers');
-const { nextRecurringDate } = require('./utils/recurringSchedule');
+const { postDueRecurring } = require('./utils/recurringPosting');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -370,26 +370,11 @@ cron.schedule('0 0 * * *', async () => {
             [today]
         );
 
-        let processed = 0;
-        for (const r of due.rows) {
-            try {
-                await pool.query(
-                    `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
-                     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                    [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
-                );
+        // Claim-then-insert in one transaction per row (shared with
+        // POST /api/recurring/process), so a concurrent run can't double-post.
+        const { processed, skipped, failed } = await postDueRecurring(pool, due.rows, '[Cron]');
 
-                await pool.query(
-                    'UPDATE recurring_transactions SET next_due_date=$1 WHERE id=$2',
-                    [nextRecurringDate(r, r.next_due_date), r.id]
-                );
-                processed++;
-            } catch (err) {
-                console.error(`[Cron] Failed to process recurring ${r.id} (${r.description}):`, err.message);
-            }
-        }
-
-        console.log(`[Cron] Done — processed ${processed}/${due.rows.length} recurring transactions.`);
+        console.log(`[Cron] Done — processed ${processed}/${due.rows.length} recurring transactions (skipped ${skipped}, failed ${failed}).`);
     } catch (err) {
         console.error('[Cron] Recurring job failed:', err.message);
     }

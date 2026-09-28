@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const { nextRecurringDate, firstRecurringDueDate } = require('../src/utils/recurringSchedule');
 
 const monthly = (day_of_month) => ({ frequency: 'monthly', day_of_month });
@@ -100,17 +98,5 @@ describe('firstRecurringDueDate', () => {
         expect(firstRecurringDueDate({ frequency: 'weekly' }, '2026-12-28')).toBe('2027-01-04');
         expect(firstRecurringDueDate({ frequency: 'daily' }, '2026-12-31')).toBe('2027-01-01');
         expect(firstRecurringDueDate(monthly(null), '2026-09-10')).toBe('2026-09-11');
-    });
-});
-
-// index.js starts the server on require, so check the cron's wiring from source.
-describe('midnight recurring cron in index.js', () => {
-    const src = fs.readFileSync(path.join(__dirname, '../src/index.js'), 'utf8');
-    const block = src.split('// ─── Cron:').find(b => b.startsWith(' process recurring transactions'));
-
-    test('advances next_due_date with the shared helper', () => {
-        expect(src).toContain("const { nextRecurringDate } = require('./utils/recurringSchedule');");
-        expect(block).toContain('[nextRecurringDate(r, r.next_due_date), r.id]');
-        expect(block).not.toMatch(/setMonth|setDate/);
     });
 });

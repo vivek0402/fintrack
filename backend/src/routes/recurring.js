@@ -4,7 +4,8 @@ const auth = require('../middleware/auth');
 const { notifyOnce } = require('../utils/fcm');
 const { isPositiveNumber, isValidTransactionType, isValidRecurringFrequency } = require('../utils/validation');
 const { istDateStr } = require('../utils/istDate');
-const { nextRecurringDate, firstRecurringDueDate } = require('../utils/recurringSchedule');
+const { firstRecurringDueDate } = require('../utils/recurringSchedule');
+const { postDueRecurring } = require('../utils/recurringPosting');
 const router = express.Router();
 
 router.use(auth);
@@ -157,27 +158,12 @@ router.post('/process', async (req, res) => {
             [req.user.id, today]
         );
 
-        const created = [];
-        for (const r of due.rows) {
-            const nextStr = nextRecurringDate(r, r.next_due_date);
-
-            // Atomically advance next_due_date only if it still matches what we read.
-            // This prevents duplicate transactions when two requests race (e.g. two browser tabs).
-            const { rowCount } = await pool.query(
-                `UPDATE recurring_transactions SET next_due_date=$1
-                 WHERE id=$2 AND next_due_date=$3`,
-                [nextStr, r.id, r.next_due_date]
-            );
-            if (rowCount === 0) continue; // another concurrent request already processed this item
-
-            await pool.query(
-                `INSERT INTO transactions (user_id, category_id, type, amount, description, notes, date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                [r.user_id, r.category_id, r.type, r.amount, r.description, r.notes, r.next_due_date]
-            );
-            created.push(r.description);
-        }
-        res.json({ processed: created.length, created });
+        // Each row is claimed (guarded UPDATE) and posted in one transaction,
+        // shared with the midnight cron, so two tabs or the cron racing this
+        // request can't post the same occurrence twice. A bad row is logged
+        // and counted in `failed`; the rest still post.
+        const { processed, skipped, failed, created } = await postDueRecurring(pool, due.rows);
+        res.json({ processed, created, skipped, failed });
     } catch (err) {
         console.error('[Recurring]', err.message);
         res.status(500).json({ error: 'Server error.' });
