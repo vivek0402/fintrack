@@ -25,6 +25,14 @@ function dayBefore(dateStr) {
     return dt.toISOString().split('T')[0];
 }
 
+// Calendar-date-only "day after", the inverse of dayBefore above.
+function dayAfter(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().split('T')[0];
+}
+
 // Pure, DB-free: given a card's billing_date (1-28) and how far back the app
 // actually has data for (balanceAsOf), returns up to `count` cycle
 // boundaries, most recent first. Entry 0 is always the current, still-open
@@ -116,19 +124,72 @@ function buildBucketQuery(boundaries) {
     return { sql, params };
 }
 
+// Close-day boundary -- ONE definition for every "what did a statement
+// bill" number: a statement closes ON the billing day and includes every
+// transaction dated on or before that day. That is how STATEMENT_BALANCE_QUERY
+// (creditCardBalance.js) prices the latest statement, how statement_paid
+// counts payments (strictly after the close, cardDueAlerts.js) and how
+// new_charges_since_statement splits the balance. So a closed cycle's
+// statement_close_date is the day AFTER its `end` (= the next cycle's
+// unclipped start, the billing day), and its statement_balance is the running
+// balance as of that date.
+//
+// The cycle WINDOWS above (start/end/total) predate this and put close-day
+// transactions in the NEXT cycle; they are left exactly as they were (the
+// Cycles history page reads them), so a charge dated on the billing day shows
+// in the next cycle's `total` but in this statement's statement_balance.
+//
+// Same formula as STATEMENT_BALANCE_QUERY -- baseline snapshot plus activity
+// from balance_as_of through the close -- and, like statement_amount_due, no
+// blocked EMI principal (it is not on any real statement; installments that
+// have posted are ordinary transactions and do count). One query for every
+// closed cycle: a VALUES list of close dates cross-joined onto the card.
+function buildStatementBalanceQuery(closes) {
+    const valuesRows = [];
+    const params = [];
+    let paramIndex = 3; // $1 = cardId, $2 = userId
+    closes.forEach(({ idx, close }) => {
+        valuesRows.push(`($${paramIndex}::int, $${paramIndex + 1}::date)`);
+        params.push(idx, close);
+        paramIndex += 2;
+    });
+    const sql = `
+        SELECT cyc.idx,
+            COALESCE(c.outstanding_balance, 0)
+                + COALESCE(SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END), 0)
+                - COALESCE(SUM(CASE WHEN t.type = 'income'  THEN t.amount ELSE 0 END), 0)
+                AS statement_balance
+        FROM credit_cards c
+        CROSS JOIN (VALUES ${valuesRows.join(', ')}) AS cyc(idx, close_date)
+        LEFT JOIN transactions t
+            ON t.credit_card_id = c.id
+            AND t.user_id = c.user_id
+            AND t.date >= COALESCE(c.balance_as_of, '1970-01-01')
+            AND t.date <= cyc.close_date
+        WHERE c.id = $1 AND c.user_id = $2
+        GROUP BY cyc.idx, c.outstanding_balance
+        ORDER BY cyc.idx
+    `;
+    return { sql, params };
+}
+
+const round2 = (x) => Math.round(x * 100) / 100;
+
 const CARD_CYCLE_INPUTS_QUERY = `
     SELECT billing_date, balance_as_of, outstanding_balance
     FROM credit_cards
     WHERE id = $1 AND user_id = $2
 `;
 
-// Two DB round trips total, neither of which scales with `count`: one to
+// Three DB round trips total, none of which scales with `count`: one to
 // read the card's billing_date/balance_as_of/outstanding_balance (needed
 // before boundaries can even be computed), and one -- built by
 // buildBucketQuery above -- that sums every cycle's transactions in a
-// single query regardless of how many cycles were requested. The second
-// query is what the "not one query per cycle" requirement is actually
-// guarding against; this is not an N+1 over cycles, and a card with no
+// single query regardless of how many cycles were requested, plus one --
+// buildStatementBalanceQuery -- pricing every closed cycle's statement at
+// once (skipped when only the current cycle exists). The last two are what
+// the "not one query per cycle" requirement is actually guarding against;
+// this is not an N+1 over cycles, and a card with no
 // billing_date (or not found) short-circuits before ever running it.
 //
 // current_outstanding_balance (creditCardBalance.js's
@@ -186,10 +247,30 @@ async function fetchCyclesWithTotals(pool, userId, cardId, count) {
     const baseline = parseFloat(card.outstanding_balance) || 0;
     oldest.total = (parseFloat(oldest.total) + baseline).toFixed(2);
 
-    return results;
+    // Additive: what each CLOSED cycle's statement billed (see
+    // buildStatementBalanceQuery for the close-day definition). null on the
+    // open current cycle. A number at 2dp, like statement_amount_due, so the
+    // latest statement's figure matches it exactly.
+    const closes = results
+        .map((c, idx) => ({ idx, close: c.end ? dayAfter(c.end) : null }))
+        .filter(c => c.close);
+    const balanceByIdx = new Map();
+    if (closes.length) {
+        const { sql: sbSql, params: sbParams } = buildStatementBalanceQuery(closes);
+        const { rows: sbRows } = await pool.query(sbSql, [cardId, userId, ...sbParams]);
+        for (const r of sbRows) balanceByIdx.set(Number(r.idx), round2(parseFloat(r.statement_balance) || 0));
+    }
+    const closeByIdx = new Map(closes.map(c => [c.idx, c.close]));
+
+    return results.map((c, idx) => ({
+        ...c,
+        statement_close_date: closeByIdx.get(idx) ?? null,
+        statement_balance: balanceByIdx.has(idx) ? balanceByIdx.get(idx) : null,
+    }));
 }
 
 module.exports = {
     computeCycleBoundaries,
+    dayAfter,
     fetchCyclesWithTotals,
 };

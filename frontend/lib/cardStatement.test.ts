@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, type PayCycle } from './cardStatement';
+import { currentCycleNewCharges, cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, payCycleRow, type PayCycle } from './cardStatement';
 
 const fmtDate = (d: string) => `<${d}>`;
 
@@ -33,11 +33,22 @@ describe('cycleSuggestedAmount', () => {
         expect(cycleSuggestedAmount(cycles[1], 1, { ...paise, statement_remaining: 0 })).toBeNull();
     });
 
-    it('keeps the cycle-total behaviour for other cycles and when statement_remaining is missing', () => {
-        expect(cycleSuggestedAmount(cycles[0], 0, owed)).toBe('500.00');
-        expect(cycleSuggestedAmount(cycles[2], 2, owed)).toBe('10000.00');
+    it('falls back to the cycle total for the latest statement when statement_remaining is missing', () => {
         expect(cycleSuggestedAmount(cycles[1], 1, { statement_due_date: '2026-10-24' })).toBe('2000.00');
         expect(cycleSuggestedAmount(cycles[1], 1, null)).toBe('2000.00');
+    });
+
+    it('current cycle: pre-fills the new charges since the close (payments added back), or the cycle total on an old API', () => {
+        // 500 net since the close after a 10,000 bill payment -> 10,500 of new charges
+        expect(cycleSuggestedAmount(cycles[0], 0, { ...owed, new_charges_since_statement: 500, statement_paid: 10000 })).toBe('10500');
+        expect(cycleSuggestedAmount(cycles[0], 0, { ...owed, new_charges_since_statement: 0, statement_paid: 0 })).toBeNull();
+        expect(cycleSuggestedAmount(cycles[0], 0, owed)).toBe('500');
+    });
+
+    it('older statements never pre-fill: their balance rolled into the latest one', () => {
+        expect(cycleSuggestedAmount(cycles[2], 2, owed)).toBeNull();
+        expect(isCycleSelectable(cycles[2], 2, owed)).toBe(false);
+        expect(isCycleSelectable(cycles[0], 0, owed)).toBe(true);
     });
 });
 
@@ -85,10 +96,47 @@ describe('cycleStatusLabel', () => {
         expect(cycleStatusLabel({ ...cycles[1], total: '0.00' }, 1, owed, fmtDate)).toBe('Due <2026-10-24>');
     });
 
-    it('keeps the existing labels for the current and older cycles', () => {
-        expect(cycleStatusLabel(cycles[0], 0, owed, fmtDate)).toBe('Not yet billed');
-        expect(cycleStatusLabel({ ...cycles[2], total: '0.00' }, 2, owed, fmtDate)).toBe('Paid in full');
-        expect(cycleStatusLabel({ ...cycles[2], total: '-5.00' }, 2, owed, fmtDate)).toBe('Overpaid · credit');
-        expect(cycleStatusLabel(cycles[2], 2, owed, fmtDate)).toBe('Closed');
+    it('labels the current cycle as not billed and every older statement as carried forward', () => {
+        expect(cycleStatusLabel(cycles[0], 0, owed, fmtDate)).toBe('Not billed yet');
+        expect(cycleStatusLabel({ ...cycles[2], total: '0.00' }, 2, owed, fmtDate)).toBe('Carried into the next statement');
+        expect(cycleStatusLabel(cycles[2], 2, owed, fmtDate)).toBe('Carried into the next statement');
+    });
+});
+
+describe('payCycleRow', () => {
+    const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+    const card = { ...owed, statement_amount_due: 12000, statement_paid: 4000, statement_remaining: 8000, new_charges_since_statement: -3500 };
+    const withBilled: PayCycle[] = [
+        cycles[0],
+        { ...cycles[1], statement_close_date: '2026-10-05', statement_balance: 12000 },
+        { ...cycles[2], statement_close_date: '2026-09-05', statement_balance: 10000 },
+    ];
+
+    it('current cycle: new charges since the close, not billed yet, selectable', () => {
+        expect(payCycleRow(withBilled[0], 0, card, fmtDate, inr)).toEqual({
+            amount: 500, caption: 'new charges', status: 'Not billed yet', statusTone: 'muted', selectable: true,
+        });
+        expect(currentCycleNewCharges(withBilled[0], card)).toBe(500); // -3500 net + 4000 paid
+    });
+
+    it('latest statement: what is left of the amount due, due date in warn', () => {
+        expect(payCycleRow(withBilled[1], 1, card, fmtDate, inr)).toEqual({
+            amount: 8000, caption: 'of ₹12,000 left', status: 'Due <2026-10-24>', statusTone: 'warn', selectable: true,
+        });
+    });
+
+    it('latest statement paid in full: 0 left, green status, not selectable', () => {
+        const paid = { ...card, statement_paid: 12000, statement_remaining: 0 };
+        expect(payCycleRow(withBilled[1], 1, paid, fmtDate, inr)).toEqual({
+            amount: 0, caption: 'of ₹12,000 left', status: 'Paid in full', statusTone: 'inc', selectable: false,
+        });
+    });
+
+    it('older statement: what it billed, carried forward, disabled', () => {
+        expect(payCycleRow(withBilled[2], 2, card, fmtDate, inr)).toEqual({
+            amount: 10000, caption: 'billed', status: 'Carried into the next statement', statusTone: 'muted', selectable: false,
+        });
+        // an API without statement_balance shows no figure rather than the net total
+        expect(payCycleRow(cycles[2], 2, card, fmtDate, inr).amount).toBeNull();
     });
 });

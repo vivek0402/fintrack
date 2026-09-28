@@ -1,5 +1,6 @@
 const { computeCycleBoundaries, fetchCyclesWithTotals } = require('../src/utils/creditCardCycles');
-const { fetchCreditCardsWithBalance } = require('../src/utils/creditCardBalance');
+const { fetchCreditCardsWithBalance, getLastStatementCloseDate } = require('../src/utils/creditCardBalance');
+const { amountDueOnStatement } = require('../src/utils/cardDueAlerts');
 
 function mockPool(...results) {
     const query = jest.fn();
@@ -119,8 +120,9 @@ describe('fetchCyclesWithTotals', () => {
         // it. Neither call count nor either individual query's shape grows
         // with the number of cycles requested -- that's the regression this
         // asserts against (a naive per-cycle-loop implementation would have
-        // made 1 + N calls here, i.e. 25, not 2).
-        expect(pool.query).toHaveBeenCalledTimes(2);
+        // made 1 + N calls here, i.e. 25, not 2). A third, equally
+        // constant call prices every closed cycle's statement_balance at once.
+        expect(pool.query).toHaveBeenCalledTimes(3);
     });
 
     test('the bucketing query itself is one query no matter the cycle count (3 vs 24 cycles cost the same number of calls)', async () => {
@@ -168,9 +170,9 @@ describe('fetchCyclesWithTotals', () => {
         // cares that the bucket query's { idx, total } rows get mapped back
         // onto the right boundary in the right order.
         expect(result).toEqual([
-            { start: expect.any(String), end: null, is_current: true, total: '1500.00' },
-            { start: expect.any(String), end: expect.any(String), is_current: false, total: '3200.50' },
-            { start: expect.any(String), end: expect.any(String), is_current: false, total: '900.00' },
+            expect.objectContaining({ start: expect.any(String), end: null, is_current: true, total: '1500.00' }),
+            expect.objectContaining({ start: expect.any(String), end: expect.any(String), is_current: false, total: '3200.50' }),
+            expect.objectContaining({ start: expect.any(String), end: expect.any(String), is_current: false, total: '900.00' }),
         ]);
     });
 
@@ -311,5 +313,115 @@ describe('fetchCyclesWithTotals', () => {
 
         const sumOfCycleTotals = cycles.reduce((sum, c) => sum + parseFloat(c.total), 0);
         expect(sumOfCycleTotals + emiRemainingPrincipal).toBeCloseTo(parseFloat(cardWithBalance.current_outstanding_balance), 2);
+    });
+});
+
+// Per-closed-cycle statement_balance: the running balance as of each
+// statement's close, close day INCLUDED (the STATEMENT_BALANCE_QUERY
+// definition). The mocked pool evaluates the real SQL's WHERE semantics
+// against a fixture: t.date >= balance_as_of AND t.date <= close_date,
+// baseline + expense - income. EMI blocked principal is never added.
+describe('fetchCyclesWithTotals -- per-cycle statement_balance', () => {
+    const RealDate = Date;
+    const TODAY = '2026-09-20T06:30:00.000Z'; // IST 2026-09-20; billing day 5 -> current cycle Sep 5 - present
+    beforeAll(() => {
+        jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
+        jest.setSystemTime(new RealDate(TODAY));
+    });
+    afterAll(() => jest.useRealTimers());
+
+    const STATEMENT_SQL = /AS cyc\(idx, close_date\)/;
+
+    function statementRows(card, transactions, params) {
+        const rows = [];
+        for (let i = 2; i < params.length; i += 2) {
+            const idx = params[i];
+            const close = params[i + 1];
+            const net = transactions
+                .filter(t => t.date >= (card.balance_as_of || '1970-01-01') && t.date <= close)
+                .reduce((s, t) => s + (t.type === 'expense' ? t.amount : -t.amount), 0);
+            rows.push({ idx, statement_balance: (parseFloat(card.outstanding_balance || 0) + net).toFixed(2) });
+        }
+        return rows;
+    }
+
+    function fixturePool(card, transactions) {
+        const query = jest.fn(async (sql, params) => {
+            if (STATEMENT_SQL.test(sql)) return { rows: statementRows(card, transactions, params) };
+            if (/AS cyc\(idx, cycle_start, cycle_end\)/.test(sql)) return { rows: [] };
+            if (/FROM credit_cards\s+WHERE id = \$1/.test(sql)) return { rows: [card] };
+            throw new Error('unexpected query');
+        });
+        return { query };
+    }
+
+    const card = { billing_date: 5, balance_as_of: '2026-06-01', outstanding_balance: '1000.00' };
+    const txs = [
+        { date: '2026-06-10', type: 'expense', amount: 2000 },
+        { date: '2026-07-05', type: 'expense', amount: 300 },  // close day of the Jun 5 - Jul 4 statement
+        { date: '2026-07-06', type: 'expense', amount: 400 },
+        { date: '2026-07-20', type: 'income', amount: 3300 },  // pays that statement in full
+        { date: '2026-08-05', type: 'expense', amount: 50 },   // close day of the July statement
+        { date: '2026-08-12', type: 'expense', amount: 5000 },
+        { date: '2026-09-05', type: 'expense', amount: 25 },   // close day of the latest statement
+        { date: '2026-09-10', type: 'expense', amount: 999 },  // current cycle: in no statement
+    ];
+
+    test('each closed cycle carries its close date (day after end) and the balance as of it, close day included', async () => {
+        const cycles = await fetchCyclesWithTotals(fixturePool(card, txs), 'u1', 1, 6);
+        expect(cycles.map(c => [c.start, c.end, c.statement_close_date])).toEqual([
+            ['2026-09-05', null, null],
+            ['2026-08-05', '2026-09-04', '2026-09-05'],
+            ['2026-07-05', '2026-08-04', '2026-08-05'],
+            ['2026-06-05', '2026-07-04', '2026-07-05'],
+            ['2026-06-01', '2026-06-04', '2026-06-05'], // oldest, clipped to balance_as_of
+        ]);
+        expect(cycles[4].statement_balance).toBe(1000); // baseline only
+        expect(cycles[3].statement_balance).toBe(3300); // 1000 + 2000 + 300 (close day)
+        expect(cycles[2].statement_balance).toBe(450);  // 3300 + 400 - 3300 + 50
+        expect(cycles[1].statement_balance).toBe(5475); // 450 + 5000 + 25; the Sep 10 charge is excluded
+        expect(cycles[0].statement_balance).toBeNull();
+    });
+
+    test('the latest statement equals statement_amount_due from GET /api/credit-cards (EMI card)', async () => {
+        const emiPrincipal = 12000;
+        const cycles = await fetchCyclesWithTotals(fixturePool(card, txs), 'u1', 1, 6);
+
+        // What the card endpoint does for the same card: STATEMENT_BALANCE_QUERY at
+        // getLastStatementCloseDate, + blocked EMI principal (fetchCreditCardsWithCycleBreakdown),
+        // - that principal again (amountDueOnStatement), rounded to 2dp (withStatementRemaining).
+        const close = getLastStatementCloseDate(card.billing_date).toISOString().split('T')[0];
+        expect(close).toBe(cycles[1].statement_close_date);
+        const [row] = statementRows(card, txs, [1, 'u1', 0, close]);
+        const cardFields = { statement_balance: parseFloat(row.statement_balance) + emiPrincipal, emi_blocked_principal: emiPrincipal };
+        const amountDue = Math.round(amountDueOnStatement(cardFields) * 100) / 100;
+
+        expect(cycles[1].statement_balance).toBe(amountDue);
+        expect(cycles[1].statement_balance).toBe(5475); // no EMI principal leaked in
+    });
+
+    test('one statement query for all closed cycles, whatever the count', async () => {
+        const pool = fixturePool({ ...card, balance_as_of: null }, txs);
+        await fetchCyclesWithTotals(pool, 'u1', 1, 24);
+        const sbCalls = pool.query.mock.calls.filter(([sql]) => STATEMENT_SQL.test(sql));
+        expect(sbCalls).toHaveLength(1);
+        expect(sbCalls[0][1]).toHaveLength(2 + 23 * 2); // cardId, userId + (idx, close) per closed cycle
+        expect(pool.query).toHaveBeenCalledTimes(3);
+    });
+
+    test('skips the statement query when only the current cycle exists', async () => {
+        const pool = fixturePool({ ...card, balance_as_of: '2026-09-08' }, txs);
+        const cycles = await fetchCyclesWithTotals(pool, 'u1', 1, 6);
+        expect(cycles).toHaveLength(1);
+        expect(cycles[0].statement_balance).toBeNull();
+        expect(pool.query).toHaveBeenCalledTimes(2);
+    });
+
+    test('the statement query is parameterized and scoped to the user', async () => {
+        const pool = fixturePool(card, txs);
+        await fetchCyclesWithTotals(pool, 'u1', 1, 3);
+        const [sql] = pool.query.mock.calls.find(([q]) => STATEMENT_SQL.test(q));
+        expect(sql).not.toMatch(/2026-/);
+        expect(sql).toMatch(/WHERE c\.id = \$1 AND c\.user_id = \$2/);
     });
 });

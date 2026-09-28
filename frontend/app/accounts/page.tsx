@@ -15,7 +15,7 @@ import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useCountUp } from '@/hooks/useCountUp';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
-import { cycleSuggestedAmount, cycleStatusLabel as statusLabelFor, defaultPayCycleIdx, isCycleSelectable, type PayCycle } from '@/lib/cardStatement';
+import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone } from '@/lib/cardStatement';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -155,7 +155,8 @@ const tileKeySt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-mute
 const tileValSt: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' };
 const tileDueSt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-body)' };
 function cycleAmountColor(total: number) { return total > 0 ? 'var(--color-warn)' : total < 0 ? 'var(--color-inc)' : 'var(--text-muted)'; }
-function fmtCycleAmount(total: number) { return `${total < 0 ? '−' : ''}${fmt(total)}`; }
+function fmtCycleAmount(total: number | null) { return total == null ? '—' : `${total < 0 ? '−' : ''}${fmt(total)}`; }
+const STATUS_TONE_COLOR: Record<StatusTone, string> = { warn: 'var(--color-warn)', inc: 'var(--color-inc)', muted: 'var(--text-muted)' };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -305,11 +306,13 @@ export default function AccountsPage() {
         if (amount != null) setPayForm(f => ({ ...f, amount }));
         setShowCycleSheet(false);
     };
-    // idx === 1 is always the most recently CLOSED cycle (idx 0 is the
-    // still-open current one) -- the same statement statement_due_date and
-    // statement_remaining describe, so its label comes from those rather
-    // than the cycle's net total. See lib/cardStatement.ts.
-    const cycleStatusLabel = (cycle: Cycle, idx: number) => statusLabelFor(cycle, idx, payingCard, formatDate);
+    // One description per row -- amount, caption, status, selectable --
+    // shared by the sheet rows and the Cycle trigger so they always agree.
+    // idx 0 = current cycle (new charges), idx 1 = latest statement (what's
+    // left on it), idx 2+ = older statements (what they billed, not payable).
+    // See lib/cardStatement.ts.
+    const cycleRow = (cycle: Cycle, idx: number) => payCycleRow(cycle, idx, payingCard, formatDate, fmt);
+    const selectedRow = selectedCycle ? cycleRow(selectedCycle, selectedCycleIdx) : null;
 
     // Quick chips + calendar grid for the Date sheet -- same pattern as
     // TransactionModal's own dateSheet, rendered through the shared Modal
@@ -755,10 +758,15 @@ export default function AccountsPage() {
                                         <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {selectedCycle?.label || 'Select a cycle'}
                                         </div>
-                                        {selectedCycle && <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2 }}>{cycleStatusLabel(selectedCycle, selectedCycleIdx)}</div>}
+                                        {selectedRow && <div style={{ fontSize: 10.5, color: STATUS_TONE_COLOR[selectedRow.statusTone], marginTop: 2 }}>{selectedRow.status}</div>}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                                        {selectedCycle && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: cycleAmountColor(Number(selectedCycle.total)) }}>{fmtCycleAmount(Number(selectedCycle.total))}</span>}
+                                        {selectedRow && (
+                                            <div data-testid="cycle-trigger-amount" style={{ textAlign: 'right' }}>
+                                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: cycleAmountColor(selectedRow.amount ?? 0) }}>{fmtCycleAmount(selectedRow.amount)}</div>
+                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{selectedRow.caption}</div>
+                                            </div>
+                                        )}
                                         <ChevronDown size={14} color="var(--text-muted)" />
                                     </div>
                                 </div>
@@ -815,24 +823,33 @@ export default function AccountsPage() {
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {payCycles.map((cycle, idx) => {
                             const active = cycle.start === selectedCycleKey;
-                            const total = Number(cycle.total);
-                            const disabled = !isCycleSelectable(cycle, idx, payingCard);
+                            const row = cycleRow(cycle, idx);
+                            const disabled = !row.selectable;
                             return (
                                 <button key={cycle.start} type="button" disabled={disabled} onClick={() => pickCycle(cycle, idx)}
+                                    data-testid={`cycle-row-${idx}`}
                                     style={{
-                                        display: 'flex', flexDirection: 'column', gap: 2, width: '100%', padding: '11px 14px',
+                                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', padding: '11px 14px',
                                         borderRadius: 'var(--radius-md)', border: 'none', textAlign: 'left', fontFamily: 'var(--font-body)',
                                         background: active ? 'var(--accent-subtle)' : 'transparent',
                                         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
                                     }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                                         <span style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-primary)' }}>{cycle.label}</span>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: cycleAmountColor(total) }}>{fmtCycleAmount(total)}</span>
+                                        <span style={{ fontSize: 10.5, color: disabled ? 'var(--text-muted)' : STATUS_TONE_COLOR[row.statusTone] }}>{row.status}</span>
                                     </div>
-                                    <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{cycleStatusLabel(cycle, idx)}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: disabled ? 'var(--text-muted)' : cycleAmountColor(row.amount ?? 0) }}>{fmtCycleAmount(row.amount)}</span>
+                                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{row.caption}</span>
+                                    </div>
                                 </button>
                             );
                         })}
+                        {payCycles.length > 2 && (
+                            <p style={{ margin: 0, padding: '10px 14px 2px', fontSize: 11, lineHeight: 1.45, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                                {OLDER_STATEMENTS_NOTE}
+                            </p>
+                        )}
                     </div>
                 </Modal>
             )}
