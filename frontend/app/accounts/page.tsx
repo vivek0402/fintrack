@@ -403,7 +403,7 @@ export default function AccountsPage() {
 
                 {/* ── Toast ── */}
                 {toast && mounted && createPortal(
-                    <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)' }}>
+                    <div style={{ position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)' }}>
                         {toast}
                     </div>,
                     document.body

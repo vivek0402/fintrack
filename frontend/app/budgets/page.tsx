@@ -903,7 +903,7 @@ function BudgetsPageInner() {
         ...otGlassSheet,
         borderRadius: '20px 20px 0 0',
         borderTop: '1px solid var(--glass-border)',
-        padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
+        padding: '24px 20px calc(24px + var(--sa-bottom))',
         zIndex: 10000, maxHeight: '92vh', overflowY: 'auto',
     } : {
         position: 'fixed', top: '50%', left: '50%',
@@ -1707,7 +1707,7 @@ function BudgetsPageInner() {
                         {/* Toast */}
                         {otToast && (
                             <div style={{
-                                position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+                                position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)',
                                 background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)',
                                 color: 'var(--color-inc)', padding: '10px 20px', borderRadius: '10px',
                                 fontSize: '14px', fontWeight: 500, zIndex: 2000, whiteSpace: 'nowrap',

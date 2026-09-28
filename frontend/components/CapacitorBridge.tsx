@@ -8,6 +8,7 @@ import { widgetAPI } from '@/lib/api';
 import { ensureWidgetToken } from '@/lib/widgets';
 import { closeQuickAdd } from '@/lib/widgetAdd';
 import { inQuickAddActivity, inWidgetAddSheet } from '@/lib/appLock';
+import { currentDocumentTheme, syncSystemBarsStyle } from '@/lib/systemBars';
 
 const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
 // Identity check for ensureWidgetToken's logout race: the signed-in user's id
@@ -63,6 +64,13 @@ export default function CapacitorBridge() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // register once — listener is permanent for the app's lifecycle
+
+  // Status-bar icons match the app theme from the first paint, including the
+  // bare routes (login, onboarding, lock) that never mount AppLayout's
+  // loadTheme. Later theme changes sync through the theme store.
+  useEffect(() => {
+    syncSystemBarsStyle(currentDocumentTheme());
+  }, []);
 
   // Sync existing JWT to SharedPreferences once store hydrates —
   // handles the case where the user was already logged in before installing

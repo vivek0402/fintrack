@@ -51,7 +51,7 @@ export default function PageHelp({ title, sections }: PageHelpProps) {
                     maxHeight: '80vh',
                     display: 'flex',
                     flexDirection: 'column',
-                    paddingBottom: 'env(safe-area-inset-bottom)',
+                    paddingBottom: 'var(--sa-bottom)',
                     animation: 'slideUp 0.3s ease',
                 }}
             >

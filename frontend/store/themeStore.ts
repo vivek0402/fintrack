@@ -1,9 +1,12 @@
 import { create } from 'zustand';
+import { syncSystemBarsStyle } from '@/lib/systemBars';
 
 export type Theme = 'dark' | 'light';
 
 function applyAttributes(theme: Theme) {
     document.documentElement.setAttribute('data-theme', theme);
+    // Android status-bar icons follow the app theme, not the device's night mode.
+    syncSystemBarsStyle(theme);
 }
 
 interface ThemeStore {

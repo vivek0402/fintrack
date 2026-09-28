@@ -84,7 +84,7 @@ export function GlobalSearch() {
                     <div onClick={close}
                         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', zIndex: 9999 }} />
 
-                    <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '580px', borderRadius: 'var(--radius-lg)', zIndex: 10000, overflow: 'hidden', animation: 'springIn 260ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                    <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: 'calc(80px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '580px', borderRadius: 'var(--radius-lg)', zIndex: 10000, overflow: 'hidden', animation: 'springIn 260ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
 
                         {/* Search input */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)' }}>

@@ -116,7 +116,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     maxWidth: isMobile ? undefined : '1280px',
                     margin: isMobile ? undefined : '0 auto',
                     padding: isMobile
-                        ? '16px 16px calc(160px + env(safe-area-inset-bottom))'
+                        ? '16px 16px calc(160px + var(--sa-bottom))'
                         : '32px 40px',
                 }}>
                     <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>

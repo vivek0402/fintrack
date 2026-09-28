@@ -50,6 +50,15 @@
   /* Transitions */
   --transition-fast: all 0.12s ease;
   --transition-base: all 0.20s ease;
+
+  /* Safe-area insets. Use these, never env(safe-area-inset-*) directly.
+     Inside the Android WebView env() reports 0; Capacitor's SystemBars plugin
+     instead writes the real insets onto <html> as --safe-area-inset-* (SDK 35+,
+     viewport-fit=cover). Web and iOS never set those, so they fall back to env(). */
+  --sa-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sa-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --sa-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sa-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
 }
 
 * {
@@ -75,8 +84,9 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* Content starts below the status bar; StatusBarStrip paints over this band. */
+  padding-top: var(--sa-top);
+  padding-bottom: var(--sa-bottom);
 }
 
 h1, h2, h3, h4, h5, h6 {

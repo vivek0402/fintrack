@@ -154,14 +154,14 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                 {footer && (
                     <div style={{
                         flexShrink: 0,
-                        padding: 'calc(16px + env(safe-area-inset-bottom, 0px)) 20px 16px',
+                        padding: '16px 20px calc(16px + var(--sa-bottom))',
                         borderTop: '1px solid var(--border-subtle)',
                     }}>
                         {footer}
                     </div>
                 )}
                 {!footer && (
-                    <div style={{ flexShrink: 0, height: 'calc(16px + env(safe-area-inset-bottom, 0px))' }} />
+                    <div style={{ flexShrink: 0, height: 'calc(16px + var(--sa-bottom))' }} />
                 )}
             </div>
         </>

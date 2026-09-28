@@ -10,6 +10,7 @@ vi.mock('./AppLayout', () => ({
 }));
 vi.mock('./AmbientLighting', () => ({ AmbientLighting: () => <div data-testid="ambient" /> }));
 vi.mock('@/components/lock/AppLockGate', () => ({ AppLockGate: () => <div data-testid="lock-gate" /> }));
+vi.mock('./StatusBarStrip', () => ({ StatusBarStrip: () => <div data-testid="status-strip" /> }));
 
 function renderAt(path: string) {
     nav.path = path;
@@ -32,5 +33,15 @@ describe('AppLayoutGate', () => {
     it('keeps /login bare as before', () => {
         renderAt('/login');
         expect(screen.queryByTestId('app-chrome')).toBeNull();
+    });
+
+    it.each(['/dashboard', '/login', '/register', '/onboarding'])('paints the status-bar strip on %s', (path) => {
+        renderAt(path);
+        expect(screen.getByTestId('status-strip')).toBeInTheDocument();
+    });
+
+    it.each(['/widget-add', '/widget-add/'])('never paints the strip over the launcher on %s', (path) => {
+        renderAt(path);
+        expect(screen.queryByTestId('status-strip')).toBeNull();
     });
 });
