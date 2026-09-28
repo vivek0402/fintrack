@@ -429,6 +429,7 @@ const CANDIDATE_SQL = `
              WHEN EXISTS (SELECT 1 FROM credit_card_emis e WHERE e.source_transaction_id = t.id) THEN 'card_emi_purchase'
              WHEN EXISTS (SELECT 1 FROM one_time_expense_items o WHERE o.transaction_id = t.id) THEN 'one_time_expense'
              WHEN EXISTS (SELECT 1 FROM expense_splits s WHERE s.transaction_id = t.id) THEN 'expense_split'
+             WHEN t.recurring_id IS NOT NULL THEN 'recurring'
              WHEN EXISTS (SELECT 1 FROM recurring_transactions r
                           WHERE r.user_id = t.user_id AND r.type = t.type AND r.amount = t.amount
                             AND LOWER(TRIM(r.description)) = LOWER(TRIM(t.description))) THEN 'recurring'

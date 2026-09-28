@@ -501,7 +501,7 @@ describe('POST /api/recurring/process — claim-then-post (shared recurringPosti
         expect(res.body).toEqual({ processed: 1, created: ['Netflix'], skipped: 0, failed: 0 });
         expect(client.query.mock.calls.map(([sql]) => sql.trim().split(/\s+/)[0])).toEqual(['BEGIN', 'UPDATE', 'INSERT', 'COMMIT']);
         const [[, insertParams]] = clientCalls(client, /INSERT INTO transactions/);
-        expect(insertParams).toEqual(['user-123', 'c1', 'expense', '500', 'Netflix', 'n', '2026-01-15']);
+        expect(insertParams).toEqual(['user-123', 'c1', 'expense', '500', 'Netflix', 'n', '2026-01-15', 'r1']); // last: recurring_id
         expect(client.release).toHaveBeenCalledTimes(1);
     });
 

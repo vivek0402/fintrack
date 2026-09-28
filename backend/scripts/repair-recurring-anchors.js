@@ -8,7 +8,8 @@
 // the drifted day. The table stores no start date, so the only record of the
 // original day is the item's own postings: the recurring cron copies the
 // item's user, type, amount, description, category and notes onto each
-// transaction, dated to the due date.
+// transaction, dated to the due date (and, since migration 077, links it by
+// recurring_id).
 //
 // For each active monthly item this finds its earliest matching posting.
 // If that was on the 29th-31st and the item is now anchored on an earlier
@@ -49,18 +50,21 @@ const ITEMS_SQL = `
     ORDER BY user_id, id
 `;
 
-// Every posting that matches an item exactly, oldest first. Only the date is
-// needed; a LATERAL keeps it one query for all items.
+// Every posting of an item, oldest first: rows linked by recurring_id
+// (postings since migration 077), plus older unlinked rows that match the
+// item exactly. Only the date is needed; a LATERAL keeps it one query.
 const POSTINGS_SQL = `
     SELECT r.id AS recurring_id, t.date
     FROM recurring_transactions r
     JOIN LATERAL (
         SELECT t.date FROM transactions t
-        WHERE t.user_id = r.user_id AND t.type = r.type AND t.amount = r.amount
-          AND t.description = r.description
-          AND t.category_id IS NOT DISTINCT FROM r.category_id
-          AND t.notes IS NOT DISTINCT FROM r.notes
-          AND t.date <= r.next_due_date
+        WHERE t.user_id = r.user_id AND t.date <= r.next_due_date
+          AND (t.recurring_id = r.id
+               OR (t.recurring_id IS NULL
+                   AND t.type = r.type AND t.amount = r.amount
+                   AND t.description = r.description
+                   AND t.category_id IS NOT DISTINCT FROM r.category_id
+                   AND t.notes IS NOT DISTINCT FROM r.notes))
     ) t ON true
     WHERE r.frequency = 'monthly' AND r.is_active = true
       AND ($1::uuid IS NULL OR r.user_id = $1)
