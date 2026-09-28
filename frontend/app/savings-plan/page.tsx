@@ -664,7 +664,7 @@ function SavingsPlanPageInner() {
                                             </select>
                                             {roundUpGoalId && (
                                                 <p style={{ fontSize: 11, color: 'var(--color-inc)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                    ✓ ~{fmt(roundUpMonthly)}/mo allocated to "{activeGoals.find(g => g.id === roundUpGoalId)?.name}"
+                                                    ✓ ~{fmt(roundUpMonthly)}/mo allocated to &quot;{activeGoals.find(g => g.id === roundUpGoalId)?.name}&quot;
                                                 </p>
                                             )}
                                         </>
@@ -781,7 +781,7 @@ function SavingsPlanPageInner() {
                             <div style={{ textAlign: 'center', padding: '48px 24px' }}>
                                 <p style={{ fontSize: '48px', marginBottom: '12px' }}>📅</p>
                                 <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No forecast yet</p>
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Uses your last 3 months of transactions to predict this month's spending — no guesswork</p>
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Uses your last 3 months of transactions to predict this month&apos;s spending — no guesswork</p>
                                 <Button variant="primary" size="md" onClick={() => fetchForecast()}>Generate Forecast</Button>
                             </div>
                         )}

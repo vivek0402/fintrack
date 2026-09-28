@@ -354,18 +354,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         if (matched) setForm(prev => ({ ...prev, category_id: String(matched.id) }));
     }, [prefill, categories]);
 
-    const applyParsed = (parsed: any) => {
-        if (!parsed) return;
-        setForm(prev => ({ ...prev, amount: parsed.amount ? String(parsed.amount) : prev.amount, description: parsed.description || parsed.merchant || prev.description, date: parsed.date || prev.date, type: parsed.type === 'income' ? 'income' : 'expense', notes: parsed.notes || prev.notes }));
-        const matched = findCategory(categories, parsed.category || '');
-        if (matched) {
-            setForm(prev => ({ ...prev, category_id: String(matched.id) }));
-        } else if (parsed.category) {
-            setPendingNewCategory(parsed.category);
-            setShowNewCategoryPrompt(true);
-        }
-    };
-
     const handleApproveNewCategory = async () => {
         if (!pendingNewCategory) return;
         setApprovingCat(true);
@@ -805,7 +793,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <div style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                     <div>
                         <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>✨ New category detected</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI suggested: <strong>"{pendingNewCategory}"</strong></div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI suggested: <strong>&quot;{pendingNewCategory}&quot;</strong></div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                         <button type="button" onClick={handleApproveNewCategory} disabled={approvingCat}
@@ -980,7 +968,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
                             <label style={labelStyle}>Fund / Asset details (optional)</label>
                             <p style={{ fontSize: '0.75rem', color: 'var(--color-warn)', margin: '-4px 0 0', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>
-                                Without these details, this transaction won't be tracked as an investment asset — it'll only be excluded from your spending totals.
+                                Without these details, this transaction won&apos;t be tracked as an investment asset — it&apos;ll only be excluded from your spending totals.
                             </p>
                             <div>
                                 <select value={form.investment.type}

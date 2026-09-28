@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Moon, Sun, TrendingUp, Sparkles, Target, CheckCircle, PiggyBank, Zap, BarChart3, MessageSquareText, FileUp, Landmark } from 'lucide-react';
+import { ArrowRight, Moon, Sun, TrendingUp, Sparkles, Target, CheckCircle, BarChart3, MessageSquareText, FileUp, Landmark } from 'lucide-react';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, budgetsAPI, categoriesAPI } from '@/lib/api';
@@ -45,7 +45,7 @@ export default function OnboardingPage() {
     const [categories, setCategories] = useState<any[]>([]);
     const [budgets, setBudgets] = useState<{ category_id: string; amount: number; name: string }[]>([]);
     const [saving, setSaving] = useState(false);
-    const { setTheme, theme } = useThemeStore();
+    const { setTheme } = useThemeStore();
     const [amounts, setAmounts] = useState<Record<string, number>>(
         Object.fromEntries(POPULAR_BUDGETS.map(b => [b.name, b.amount]))
     );
@@ -177,7 +177,7 @@ export default function OnboardingPage() {
                             Welcome, {firstName}.
                         </h1>
                         <p style={{ fontSize: '15px', color: 'var(--text-muted)', margin: '0 0 36px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                            Let's get FinTrack set up for you. Takes about 2 minutes.
+                            Let&apos;s get FinTrack set up for you. Takes about 2 minutes.
                         </p>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '36px' }}>

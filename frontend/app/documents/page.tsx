@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Upload, Download, Trash2, FileText, Landmark, Receipt, Shield,
+    Upload, Download, Trash2, Landmark, Receipt, Shield,
     TrendingUp, File, Archive,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -132,7 +132,6 @@ export default function DocumentsPage() {
         });
     }, [documents, typeFilter, fyFilter]);
 
-    const filtersActive = typeFilter !== 'all' || fyFilter !== 'all';
 
     const clearFilters = () => {
         setTypeFilter('all');

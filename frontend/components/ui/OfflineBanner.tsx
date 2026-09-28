@@ -43,7 +43,7 @@ export function OfflineBanner() {
         }}>
             {showReconnect
                 ? <><Wifi size={14} /> Back online — syncing…</>
-                : <><WifiOff size={14} /> You're offline — changes will sync when reconnected</>
+                : <><WifiOff size={14} /> You&apos;re offline — changes will sync when reconnected</>
             }
         </div>
     );

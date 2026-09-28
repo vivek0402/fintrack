@@ -288,7 +288,7 @@ export function BulkOpsPanel({
                     <div onClick={e => e.stopPropagation()} style={sheetStyle}>
                         <ModalHeader title={`Delete ${count} transaction${count !== 1 ? 's' : ''}?`} onClose={() => setBulkDeleteOpen(false)} />
                         <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                            {count} transaction{count !== 1 ? 's' : ''} will be removed. You'll have a few seconds to undo.
+                            {count} transaction{count !== 1 ? 's' : ''} will be removed. You&apos;ll have a few seconds to undo.
                         </p>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setBulkDeleteOpen(false)} style={cancelStyle}>Cancel</button>

@@ -12,7 +12,7 @@ import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MilestoneBurst } from '@/components/ui/MilestoneBurst';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -568,7 +568,7 @@ export default function GoalsPage() {
                             </div>
                         )}
                         <p style={{ fontSize: '0.78rem', color: 'var(--color-inc)', margin: '0 0 16px', fontFamily: 'var(--font-body)' }}>
-                            ✅ Goal "{lifeEventResult.goal?.name}" has been created automatically.
+                            ✅ Goal &quot;{lifeEventResult.goal?.name}&quot; has been created automatically.
                         </p>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <Button onClick={() => { setLifeEventResult(null); setLifeEventForm({ event_type: '', target_amount: '', target_date: '' }); }} variant="secondary" size="md">Plan Another</Button>

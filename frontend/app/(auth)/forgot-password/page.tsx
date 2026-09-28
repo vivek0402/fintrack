@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
                             Forgot password?
                         </h1>
                         <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Enter your email and we'll send a reset code.
+                            Enter your email and we&apos;ll send a reset code.
                         </p>
                     </div>
 
@@ -146,7 +146,7 @@ export default function ForgotPasswordPage() {
                         </Button>
 
                         <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            Didn't receive it?{' '}
+                            Didn&apos;t receive it?{' '}
                             {cooldown > 0 ? <span>Resend in {cooldown}s</span> : (
                                 <button type="button" onClick={handleResend}
                                     style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '12px', fontWeight: 500, padding: 0 }}>

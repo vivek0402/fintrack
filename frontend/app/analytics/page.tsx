@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+    AreaChart, Area, LineChart, Line, PieChart, Pie, Cell,
     XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
 } from 'recharts';
@@ -13,7 +13,7 @@ import { toast } from '@/store/toastStore';
 import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI, opportunityAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
-import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
@@ -22,8 +22,7 @@ import { DatePicker } from '@/components/ui/DatePicker';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
-    Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, Calendar, Award,
-    ChevronLeft, ChevronDown, ChevronRight, Brain, CheckCircle2, AlertTriangle,
+    Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, ChevronLeft, ChevronDown, ChevronRight, Brain, CheckCircle2, AlertTriangle,
     Utensils, Home, Car, Tv, ShoppingBag, HeartPulse, GraduationCap, PiggyBank,
     FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
@@ -35,7 +34,7 @@ const vizSkeleton = (h: number) => {
 const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
-import { exportToCSV, formatCurrency, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 import { CalendarTab } from '@/components/analytics/CalendarTab';
 import { HealthTab } from '@/components/analytics/health/HealthTab';
 
@@ -277,9 +276,6 @@ function AnalyticsOverviewTab() {
 
     // KPI computations
     const totalExpenses     = categories.reduce((s, c) => s + parseFloat(c.total ?? 0), 0);
-    const daysInSelectedMonth = new Date(currentYear, currentMonth, 0).getDate();
-    const daysElapsed         = isCurrentMonth ? new Date().getDate() : daysInSelectedMonth;
-    const dailyAvg          = daysElapsed > 0 ? (summary?.total_expenses ?? 0) / daysElapsed : 0;
     const savingsRate       = summary?.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
     const lastMonthKey      = (() => { let m = currentMonth - 1, y = currentYear; if (m === 0) { m = 12; y--; } return `${y}-${m}`; })();
     const lastMonthExp      = trendsMap[lastMonthKey]?.expenses ?? 0;
@@ -287,9 +283,6 @@ function AnalyticsOverviewTab() {
     const vsLastMonth       = lastMonthExp > 0 ? Math.round(((( summary?.total_expenses ?? 0) - lastMonthExp) / lastMonthExp) * 100) : null;
     const incVsLastMonth    = lastMonthInc > 0 ? Math.round((((summary?.total_income ?? 0) - lastMonthInc) / lastMonthInc) * 100) : null;
     const totalBalance      = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
-
-    const monthlyExpenses   = Object.values(trendsMap).map(d => d.expenses).filter(v => v > 0);
-    const avgMonthlyExpense = monthlyExpenses.length ? monthlyExpenses.reduce((a, b) => a + b, 0) / monthlyExpenses.length : 0;
 
     const getYearlyTotal = (year: number, type: string) => {
         if (!yearlyData) return 0;

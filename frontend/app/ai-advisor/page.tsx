@@ -404,7 +404,7 @@ function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => voi
     );
 }
 
-function ChatInput({ input, setInput, sending, canSend, onSend }: {
+function ChatInput({ input, setInput, canSend, onSend }: {
     input: string;
     setInput: (v: string) => void;
     sending: boolean;

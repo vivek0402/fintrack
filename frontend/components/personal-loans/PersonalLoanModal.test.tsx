@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PersonalLoanModal } from './PersonalLoanModal';
-import { personalLoansAPI, accountsAPI } from '@/lib/api';
+import { personalLoansAPI } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({
     personalLoansAPI: { create: vi.fn().mockResolvedValue({ data: { loan: { id: 'l1' } } }) },

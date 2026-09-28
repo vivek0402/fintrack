@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const BURST_COLORS = ['var(--color-inc)', 'var(--accent)', 'var(--cat-2)', 'var(--cat-4)', 'var(--color-warn)'];
@@ -12,7 +12,8 @@ export function MilestoneBurst({ onDone }: { onDone: () => void }) {
         return () => clearTimeout(t);
     }, [onDone]);
 
-    const particles = useMemo(() => Array.from({ length: 14 }, (_, i) => {
+    // Random once per burst: a lazy state initializer, not render-time work.
+    const [particles] = useState(() => Array.from({ length: 14 }, (_, i) => {
         const angle = (360 / 14) * i + (Math.random() * 18 - 9);
         const distance = 64 + Math.random() * 48;
         const rad = (angle * Math.PI) / 180;
@@ -24,7 +25,7 @@ export function MilestoneBurst({ onDone }: { onDone: () => void }) {
             delay: Math.random() * 70,
             size: 5 + Math.random() * 3,
         };
-    }), []);
+    }));
 
     return createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
