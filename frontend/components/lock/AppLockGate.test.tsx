@@ -259,11 +259,36 @@ describe('widget add sheet', () => {
 
     it('the app, resumed after the sheet logged out, logs out too before revealing anything', async () => {
         const goTo = vi.fn();
-        // The sheet's logout cleared the shared storage; this WebView still holds a token.
-        localStorage.removeItem('fintrack-auth');
+        // The sheet's logout saved a token-less state; this WebView still holds a token.
+        localStorage.setItem('fintrack-auth', JSON.stringify({ state: { user: null, token: null, refreshToken: null }, version: 0 }));
         localStorage.removeItem(LOCK_BG_AT_KEY);
         await handleAppStateChange(true, goTo);
         expect(useAuthStore.getState().token).toBeNull();
         expect(goTo).toHaveBeenCalledWith('/login');
+    });
+
+    it('a normal resume with intact storage does not log out', async () => {
+        const goTo = vi.fn();
+        await handleAppStateChange(true, goTo);
+        expect(useAuthStore.getState().token).toBe('t');
+        expect(goTo).not.toHaveBeenCalled();
+    });
+
+    it('a resume with the auth key missing (evicted storage) does not log out', async () => {
+        const goTo = vi.fn();
+        localStorage.removeItem('fintrack-auth');
+        await handleAppStateChange(true, goTo);
+        expect(useAuthStore.getState().token).toBe('t');
+        expect(goTo).not.toHaveBeenCalled();
+    });
+
+    it('resuming picks up a refresh token the sheet rotated', async () => {
+        useAuthStore.setState({ refreshToken: 'R0' });
+        localStorage.setItem('fintrack-auth', JSON.stringify({
+            state: { user: useAuthStore.getState().user, token: 't1', refreshToken: 'R1' }, version: 0,
+        }));
+        await handleAppStateChange(true, vi.fn());
+        expect(useAuthStore.getState().refreshToken).toBe('R1');
+        expect(useAuthStore.getState().token).toBe('t1');
     });
 });

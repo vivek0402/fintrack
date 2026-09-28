@@ -158,6 +158,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     useEffect(() => {
         if (!isOpen) return;
+        setAccountsLoaded(false); // reopened: hold again until this fetch lands
         accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]))
             .finally(() => setAccountsLoaded(true));
     }, [isOpen]);

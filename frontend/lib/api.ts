@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { readPersistedTokens, useAuthStore } from '@/store/authStore';
+import { Capacitor } from '@capacitor/core';
+import { persistedRefreshTokenFor, signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -31,17 +32,21 @@ function forceLogout() {
 // makes every concurrent 401 await the same in-flight refresh instead.
 let refreshPromise: Promise<string> | null = null;
 
+function signedOutElsewhereNative(): boolean {
+    try { return Capacitor.isNativePlatform() && signedOutElsewhere(); } catch { return false; }
+}
+
 function refreshAccessToken(): Promise<string> {
     if (!refreshPromise) {
-        // Prefer the saved pair when it differs from ours: the Android widget
-        // add sheet runs in a second WebView on the same storage and may have
-        // rotated the refresh token since this document read it. Refreshing
-        // with our stale copy would present a revoked token and log out.
-        const persisted = readPersistedTokens();
+        // Android: the widget add sheet runs in a second WebView on the same
+        // storage and may have rotated the refresh token (same user) since
+        // this document read it; refreshing with our stale copy would present
+        // a revoked token and log out. If storage shows a logout or another
+        // user, don't refresh at all. The web is unchanged.
+        const { user } = useAuthStore.getState();
         let { refreshToken } = useAuthStore.getState();
-        if (persisted?.refreshToken && persisted.refreshToken !== refreshToken) {
-            refreshToken = persisted.refreshToken;
-        }
+        if (signedOutElsewhereNative()) refreshToken = null;
+        else refreshToken = persistedRefreshTokenFor(user?.id) ?? refreshToken;
         refreshPromise = (refreshToken
             ? refreshClient.post('/api/auth/refresh', { refresh_token: refreshToken })
             : Promise.reject(new Error('No refresh token available')))

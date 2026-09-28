@@ -16,10 +16,19 @@ import { useLockStore } from '@/store/lockStore';
 // attributes: while the lock screen is up (set before first paint by the head
 // script) the page keeps its normal opaque look, so the lock covers the whole
 // screen exactly as it does in the app.
+//
+// Glass needs something real behind it (DESIGN.md), and a native home screen
+// isn't something the WebView can sample: a translucent sheet just shows the
+// widgets and icons through the fields. So on this route every sheet and
+// dialog fill (--glass-sheet-surface: the form, its nested pickers, the fund
+// search dropdown) is the solid surface; radius, border and edge highlight
+// are untouched. Scoped to this page's <style>, so in-app sheets keep glass.
 const TRANSPARENT_CSS = `
 html:not([data-app-locked]):not([data-lock-cover]),
 html:not([data-app-locked]):not([data-lock-cover]) body { background: transparent !important; }
 html:not([data-app-locked]):not([data-lock-cover]) .ambient-lighting { display: none; }
+html:root, html[data-theme] { --glass-sheet-surface: var(--bg-surface-1); }
+.glass-sheet { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 `;
 
 /**

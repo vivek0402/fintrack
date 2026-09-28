@@ -121,4 +121,11 @@ describe('/widget-add (Android widget add sheet)', () => {
         expect(router.replace).toHaveBeenCalledWith('/transactions?add=true');
         expect(screen.queryByTestId('tx-modal')).toBeNull();
     });
+
+    it('makes every sheet fill opaque on this route only (nothing behind it to frost)', () => {
+        const { container } = render(<WidgetAddPage />);
+        const css = container.querySelector('style')?.textContent ?? '';
+        expect(css).toMatch(/--glass-sheet-surface:\s*var\(--bg-surface-1\)/);
+        expect(css).toMatch(/\.glass-sheet\s*\{[^}]*backdrop-filter:\s*none/);
+    });
 });

@@ -474,6 +474,20 @@ describe('holdUntilReady', () => {
         expect(screen.queryByText('Loading your categories…')).toBeNull();
     });
 
+    it('holds again when reopened, until the new fetch lands', async () => {
+        const props = { onClose: vi.fn(), onSuccess: vi.fn(), holdUntilReady: true };
+        const { rerender } = render(<TransactionModal isOpen {...props} />);
+        await waitFor(() => expect(document.querySelector('form')).not.toBeNull());
+
+        rerender(<TransactionModal isOpen={false} {...props} />);
+        vi.mocked(accountsAPI.getAll).mockImplementationOnce(
+            () => new Promise(() => {}) as ReturnType<typeof accountsAPI.getAll>,
+        );
+        rerender(<TransactionModal isOpen {...props} />);
+        await waitFor(() => expect(screen.getByText('Loading your categories…')).toBeInTheDocument());
+        expect(document.querySelector('form')).toBeNull();
+    });
+
     it('shows the form straight away without it', () => {
         open();
         expect(document.querySelector('form')).not.toBeNull();

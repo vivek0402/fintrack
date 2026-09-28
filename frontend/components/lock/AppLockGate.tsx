@@ -7,7 +7,7 @@ import {
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { onWidgetAddPage, openMainApp } from '@/lib/widgetAdd';
-import { signedOutElsewhere, useAuthStore } from '@/store/authStore';
+import { readPersistedAuth, signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isContentHidden, setContentHidden, useLockStore } from '@/store/lockStore';
 import { LockScreen } from './LockScreen';
 import { isNativeApp, useIsClient } from './useIsNative';
@@ -83,6 +83,14 @@ export async function handleAppStateChange(
         useAuthStore.getState().logout();
         goTo('/login');
         return;
+    }
+    // Pick up what the sheet may have saved meanwhile (a rotated refresh
+    // token), so this WebView doesn't later write its stale copy back.
+    if (isActive && !onWidgetAddPage()) {
+        const saved = readPersistedAuth();
+        if (saved?.exists && saved.token) {
+            try { await useAuthStore.persist.rehydrate(); } catch { /* keep memory */ }
+        }
     }
 
     const store = useLockStore.getState();

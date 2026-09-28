@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { Capacitor } from '@capacitor/core';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { resetAppLock } from '@/store/lockStore';
 import { signOutWidgets } from '@/lib/widgets';
@@ -12,19 +13,31 @@ const NOTIF_PREFS_KEY = 'fintrack-notif-prefs';
 // zustand persist key; lib/lockHeadScript.ts reads it too.
 const AUTH_STORAGE_KEY = 'fintrack-auth';
 
+interface PersistedAuth {
+    /** False when the key is absent (never written, or storage evicted): no evidence either way. */
+    exists: boolean;
+    userId: string | null;
+    token: string | null;
+    refreshToken: string | null;
+}
+
 /**
- * The tokens as currently saved in localStorage, which can be newer than
- * this document's in-memory copy: the Android widget add sheet
+ * The auth state as currently saved in localStorage, which can be newer than
+ * this document's in-memory copy: on Android the widget add sheet
  * (/widget-add/) is a second WebView on the same storage, and can rotate the
  * refresh token or log out while the app sits in the background.
  * Null when storage is unreadable.
  */
-export function readPersistedTokens(): { token: string | null; refreshToken: string | null } | null {
+export function readPersistedAuth(): PersistedAuth | null {
     try {
         if (typeof window === 'undefined') return null;
         const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-        const state = raw ? (JSON.parse(raw) as { state?: { token?: unknown; refreshToken?: unknown } })?.state : null;
+        if (raw === null) return { exists: false, userId: null, token: null, refreshToken: null };
+        const state = (JSON.parse(raw) as { state?: { token?: unknown; refreshToken?: unknown; user?: { id?: unknown } | null } })?.state;
+        const id = state?.user?.id;
         return {
+            exists: true,
+            userId: typeof id === 'string' || typeof id === 'number' ? String(id) : null,
             token: typeof state?.token === 'string' ? state.token : null,
             refreshToken: typeof state?.refreshToken === 'string' ? state.refreshToken : null,
         };
@@ -33,11 +46,35 @@ export function readPersistedTokens(): { token: string | null; refreshToken: str
     }
 }
 
-/** Logged in here, but another WebView (the widget add sheet) has since logged out. */
+function isNative(): boolean {
+    try { return Capacitor.isNativePlatform(); } catch { return false; }
+}
+
+/**
+ * Logged in here, but the saved state says otherwise: it was logged out
+ * (key present, no token) or holds a different user. A missing key is not
+ * evidence of a logout (e.g. evicted storage), so it never counts.
+ */
 export function signedOutElsewhere(): boolean {
-    if (!useAuthStore.getState().token) return false;
-    const persisted = readPersistedTokens();
-    return persisted !== null && persisted.token === null;
+    const { token, user } = useAuthStore.getState();
+    if (!token) return false;
+    const p = readPersistedAuth();
+    if (!p || !p.exists) return false;
+    if (!p.token) return true;
+    return !!(p.userId && user?.id != null && p.userId !== String(user.id));
+}
+
+/**
+ * Android only: the saved refresh token, if it belongs to `userId` and so may
+ * be a newer rotation (by the widget add sheet) of the one in memory. Never
+ * on the web: another tab's token could be a different login entirely, and
+ * the web keeps its original one-token-per-tab refresh behaviour.
+ */
+export function persistedRefreshTokenFor(userId: string | number | null | undefined): string | null {
+    if (!isNative() || userId == null) return null;
+    const p = readPersistedAuth();
+    if (!p?.exists || !p.token || p.userId !== String(userId)) return null;
+    return p.refreshToken;
 }
 
 interface User {
@@ -75,7 +112,11 @@ export const useAuthStore = create<AuthStore>()(
             },
 
             setAuth: (user, token, refreshToken) => {
-                set({ user, token, refreshToken: refreshToken ?? get().refreshToken, isLoading: false });
+                // No new refresh token (e.g. a profile edit re-issuing the access
+                // token): keep the current one, which on Android may be the
+                // saved rotation rather than this WebView's revoked copy.
+                const keep = persistedRefreshTokenFor(user?.id) ?? get().refreshToken;
+                set({ user, token, refreshToken: refreshToken ?? keep, isLoading: false });
                 FinTrackNative.saveToken({ token }).catch(() => {});
             },
 
