@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const { effectivePrefs, validatePrefsPayload } = require('../utils/notificationPrefs');
+const { isValidDeepLink } = require('../utils/deepLink');
 const router = express.Router();
 
 router.use(auth);
@@ -89,6 +90,10 @@ router.post('/', async (req, res) => {
         const { id, title, body, type, deepLink } = req.body;
         if (!id || typeof id !== 'string' || !title || typeof title !== 'string')
             return res.status(400).json({ error: 'id and title are required.' });
+        // A bad link is a client bug or an attack, so refuse it loudly rather
+        // than silently storing an entry that goes nowhere.
+        if (deepLink != null && deepLink !== '' && !isValidDeepLink(deepLink))
+            return res.status(400).json({ error: 'deepLink must be an internal app path.' });
 
         await pool.query(
             `INSERT INTO notifications (id, user_id, title, body, type, deep_link)

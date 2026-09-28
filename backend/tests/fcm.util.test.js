@@ -324,3 +324,34 @@ describe('sendToUser: notification settings', () => {
         errSpy.mockRestore();
     });
 });
+
+describe('sendToUser: deepLink validation', () => {
+    test.each([
+        '//evil.com', '/..//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
+        'data:text/html,x', '/\\evil.com', '/\n/evil.com',
+    ])('drops invalid deepLink %j from the bell row and the push payload', async (deepLink) => {
+        const fcm = loadFcmModule();
+        routeQueries({ tokens: ['tok-1'] });
+        mockSendEachForMulticast.mockResolvedValueOnce({ responses: [{ success: true }] });
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+        await fcm.sendToUser('user-1', { title: 't', body: 'b', data: { type: 'bill', deepLink } }, { alertKey: 'bill_due:1:2026-10-01' });
+
+        const [, params] = callsMatching(/INSERT INTO notifications/)[0];
+        expect(params[5]).toBeNull();
+        const message = mockSendEachForMulticast.mock.calls[0][0];
+        expect(message.data).toEqual({ type: 'bill' });
+        warnSpy.mockRestore();
+    });
+
+    test('keeps a valid deepLink in both the bell row and the push payload', async () => {
+        const fcm = loadFcmModule();
+        routeQueries({ tokens: ['tok-1'] });
+        mockSendEachForMulticast.mockResolvedValueOnce({ responses: [{ success: true }] });
+
+        await fcm.sendToUser('user-1', { title: 't', body: 'b', data: { type: 'bill', deepLink: '/accounts' } }, { alertKey: 'bill_due:1:2026-10-01' });
+
+        expect(callsMatching(/INSERT INTO notifications/)[0][1][5]).toBe('/accounts');
+        expect(mockSendEachForMulticast.mock.calls[0][0].data).toEqual({ type: 'bill', deepLink: '/accounts' });
+    });
+});

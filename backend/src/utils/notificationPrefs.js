@@ -15,6 +15,7 @@ const PREFIX_TO_PREF = Object.freeze({
     bills_week: 'billReminders',
     bill_changed: 'billReminders',
     cc_due: 'billReminders',
+    cc_overdue: 'billReminders',
     personal_loan_due: 'billReminders',
 
     // Spending against limits, and unusual-spend alerts.

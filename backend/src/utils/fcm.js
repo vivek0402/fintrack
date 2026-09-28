@@ -3,6 +3,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 const { randomUUID } = require('crypto');
 const pool = require('../db/pool');
 const { shouldPush, bellTypeFor, prefKeyForAlert } = require('./notificationPrefs');
+const { sanitizeDeepLink } = require('./deepLink');
 
 let _initialized = false;
 let _messaging = null;
@@ -64,7 +65,7 @@ async function recordInBell(userId, alertKey, { title, body, data }) {
                 title || 'FinTrack',
                 body || null,
                 bellTypeFor(alertKey, data),
-                data?.deepLink ? String(data.deepLink) : null,
+                data?.deepLink ? sanitizeDeepLink(String(data.deepLink)) : null,
             ]
         );
     } catch (err) {
@@ -83,6 +84,13 @@ async function recordInBell(userId, alertKey, { title, body, data }) {
  */
 async function sendToUser(userId, { title, body, data = {} }, { alertKey = null } = {}) {
     try {
+        // Never store or send a link that points outside the app: an invalid
+        // one is dropped (the bell entry / push still goes out, just unlinked).
+        if (data && data.deepLink != null && !sanitizeDeepLink(String(data.deepLink))) {
+            console.warn('[FCM] dropping invalid deepLink for alert', alertKey);
+            data = { ...data };
+            delete data.deepLink;
+        }
         // Unkeyed / unmapped pushes can't be muted, so skip the prefs query.
         const prefs = prefKeyForAlert(alertKey) ? await loadPrefs(userId) : null;
         // Bell row first, so a foreground push's refresh already sees it.

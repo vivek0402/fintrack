@@ -9,6 +9,9 @@ const {
     istMonthsAgoStart,
     mondayOf,
     istMostRecentDayOfMonth,
+    istAddDays,
+    istDaysBetween,
+    calendarDateStr,
 } = require('../src/utils/istDate');
 
 describe('istDateStr', () => {
@@ -199,5 +202,81 @@ describe('istMostRecentDayOfMonth', () => {
         const naiveUtcResult = `${ts.getUTCFullYear()}-${String(ts.getUTCMonth() + 1).padStart(2, '0')}-01`;
         expect(naiveUtcResult).toBe('2026-01-01');
         expect(istMostRecentDayOfMonth(1, todayIst)).not.toBe(naiveUtcResult);
+    });
+});
+
+describe('istAddDays', () => {
+    test('adds and subtracts whole calendar days', () => {
+        expect(istAddDays('2026-09-28', 3)).toBe('2026-10-01');
+        expect(istAddDays('2026-09-28', -7)).toBe('2026-09-21');
+        expect(istAddDays('2026-09-28', 0)).toBe('2026-09-28');
+    });
+
+    test('crosses month, year and leap-day boundaries', () => {
+        expect(istAddDays('2026-12-30', 3)).toBe('2027-01-02');
+        expect(istAddDays('2027-01-02', -3)).toBe('2026-12-30');
+        expect(istAddDays('2028-02-28', 1)).toBe('2028-02-29');
+        expect(istAddDays('2027-02-28', 1)).toBe('2027-03-01');
+    });
+
+    test('"today + 3" between 00:00 and 05:30 IST uses the IST date, not the UTC one', () => {
+        // 2026-01-15 01:00 IST == 2026-01-14 19:30 UTC.
+        const ts = new Date('2026-01-14T19:30:00.000Z');
+        expect(istAddDays(istDateStr(ts), 3)).toBe('2026-01-18');
+        // The old `new Date(Date.now() + 3 days).toISOString()` form gives the UTC answer.
+        expect(new Date(ts.getTime() + 3 * 86400000).toISOString().split('T')[0]).toBe('2026-01-17');
+    });
+
+    test('just before and just after IST midnight', () => {
+        expect(istAddDays(istDateStr(new Date('2026-03-31T18:29:59.000Z')), 1)).toBe('2026-04-01'); // 23:59:59 IST Mar 31
+        expect(istAddDays(istDateStr(new Date('2026-03-31T18:30:00.000Z')), 1)).toBe('2026-04-02'); // 00:00 IST Apr 1
+        expect(istAddDays(istDateStr(new Date('2026-03-31T23:59:00.000Z')), 1)).toBe('2026-04-02'); // 05:29 IST Apr 1
+        expect(istAddDays(istDateStr(new Date('2026-04-01T00:00:00.000Z')), 1)).toBe('2026-04-02'); // 05:30 IST Apr 1
+    });
+});
+
+describe('istDaysBetween', () => {
+    test('whole calendar days, negative when the target is earlier', () => {
+        expect(istDaysBetween('2026-09-28', '2026-10-05')).toBe(7);
+        expect(istDaysBetween('2026-09-28', '2026-09-28')).toBe(0);
+        expect(istDaysBetween('2026-09-28', '2026-09-26')).toBe(-2);
+        expect(istDaysBetween('2026-12-31', '2027-01-01')).toBe(1);
+        expect(istDaysBetween('2028-02-28', '2028-03-01')).toBe(2);
+    });
+
+    test('"days left" between 00:00 and 05:30 IST counts from the IST date', () => {
+        // 2026-01-15 02:00 IST == 2026-01-14 20:30 UTC; a deadline on Jan 16 is 1 day away in IST.
+        const ts = new Date('2026-01-14T20:30:00.000Z');
+        expect(istDaysBetween(istDateStr(ts), '2026-01-16')).toBe(1);
+        // A UTC-date-based count would say 2.
+        expect(istDaysBetween(ts.toISOString().split('T')[0], '2026-01-16')).toBe(2);
+    });
+});
+
+describe('calendarDateStr', () => {
+    test('a pg DATE value (JS Date at local midnight) keeps its calendar day', () => {
+        expect(calendarDateStr(new Date(2026, 9, 5))).toBe('2026-10-05');
+        expect(calendarDateStr(new Date(2027, 0, 1))).toBe('2027-01-01');
+    });
+
+    test('strings are cut to their date part', () => {
+        expect(calendarDateStr('2026-10-05')).toBe('2026-10-05');
+        expect(calendarDateStr('2026-10-05T00:00:00.000Z')).toBe('2026-10-05');
+    });
+});
+
+describe('istDayOfMonth / istDaysInMonth between 00:00 and 05:30 IST', () => {
+    test('the first IST hours of a month already count as that month', () => {
+        // 2026-05-01 03:00 IST == 2026-04-30 21:30 UTC.
+        const ts = new Date('2026-04-30T21:30:00.000Z');
+        expect(istDayOfMonth(ts)).toBe(1);
+        expect(istDaysInMonth(ts)).toBe(31); // May, not April's 30
+        expect(istDaysInMonth(ts) - istDayOfMonth(ts)).toBe(30);
+    });
+
+    test('last IST day of a month, early morning', () => {
+        // 2026-09-30 01:00 IST == 2026-09-29 19:30 UTC -> 0 days left, not 1.
+        const ts = new Date('2026-09-29T19:30:00.000Z');
+        expect(istDaysInMonth(ts) - istDayOfMonth(ts)).toBe(0);
     });
 });

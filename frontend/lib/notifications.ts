@@ -2,6 +2,7 @@ import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import api, { notificationsAPI } from './api';
+import { isValidDeepLink, safeDeepLink } from './deepLink';
 
 export async function initPushNotifications(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
@@ -31,7 +32,7 @@ export async function initPushNotifications(): Promise<void> {
   PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
     const deepLink = action.notification.data?.deepLink;
     if (deepLink && typeof window !== 'undefined') {
-      window.location.href = deepLink;
+      window.location.href = safeDeepLink(deepLink);
     }
   });
 }
@@ -84,7 +85,10 @@ export async function getNotifications(): Promise<{ notifications: AppNotificati
 // NOTHING, so calling this repeatedly with the same deterministic id (e.g.
 // from notificationTrigger's rule checks) is always safe.
 export function addInAppNotification(n: AppNotification): void {
-  notificationsAPI.create({ id: n.id, title: n.title, body: n.body, type: n.type, deepLink: n.deepLink }).catch(() => {});
+  // The server rejects links that aren't internal paths, so drop a bad one
+  // rather than losing the whole entry.
+  const deepLink = isValidDeepLink(n.deepLink) ? n.deepLink : undefined;
+  notificationsAPI.create({ id: n.id, title: n.title, body: n.body, type: n.type, deepLink }).catch(() => {});
   window.dispatchEvent(new CustomEvent('fintrack-notification', { detail: n }));
 }
 

@@ -1,13 +1,19 @@
-// Decision logic for the "credit card bill due soon and unpaid" push (the
-// [Cron:CardDue] job in index.js). Everything except fetchCardPaymentsSince is
-// pure (no DB/FCM access) so it can be unit tested directly -- the cron just
-// wires fetchCreditCardsWithCycleBreakdown -> isCardInDueWindow ->
-// fetchCardPaymentsSince -> buildCardDueAlerts -> notifyOnce.
+// Decision logic for the "credit card bill due soon and unpaid" push and the
+// "credit card bill overdue" push (both in the [Cron:CardDue] job in
+// index.js). Everything except fetchCardPaymentsSince is pure (no DB/FCM
+// access) so it can be unit tested directly -- the cron just wires
+// fetchCreditCardsWithCycleBreakdown -> isCardInDueWindow / isCardOverdue ->
+// fetchCardPaymentsSince -> buildCardDueAlerts / buildCardOverdueAlerts ->
+// notifyOnce.
 //
 // All dates are 'YYYY-MM-DD' strings. `todayStr` must already be the IST
 // calendar date (istDateStr()); nothing in here reads the server clock.
 
 const DUE_WINDOW_DAYS = 3;
+// Overdue alerts are eligible 1..OVERDUE_WINDOW_DAYS days after the due date,
+// so one missed 09:00 cron run doesn't lose the alert. The per-due-date
+// cc_overdue key (notifyOnce) still makes it fire only once.
+const OVERDUE_WINDOW_DAYS = 3;
 
 // Whole days from `fromStr` to `toStr`, both 'YYYY-MM-DD'. Anchored at UTC
 // midnight so the result never depends on the server's timezone.
@@ -45,17 +51,33 @@ function amountDueOnStatement(card) {
     return parseFloat(card.statement_balance) - (parseFloat(card.emi_blocked_principal) || 0);
 }
 
-// True when the card has a real bill (amount due > 0) whose due date falls in
-// [today, today + DUE_WINDOW_DAYS]. Cards with no configured due period
-// (due_days null/<=0) are skipped: their computed "due date" is just the
-// statement close date, which would produce a misleading "due today" alert.
-function isCardInDueWindow(card, todayStr) {
+// True when the card has a real bill (amount due > 0) with a real due date.
+// Cards with no configured due period (due_days null/<=0) are skipped: their
+// computed "due date" is just the statement close date, which would produce a
+// misleading "due today" / "overdue" alert.
+function hasBillWithDueDate(card) {
     if (!card.statement_due_date) return false;
     if (card.due_days == null || !(Number(card.due_days) > 0)) return false;
     const amountDue = amountDueOnStatement(card);
-    if (amountDue == null || !(amountDue > 0)) return false;
+    return amountDue != null && amountDue > 0;
+}
+
+// True when the card has a real bill whose due date falls in
+// [today, today + DUE_WINDOW_DAYS].
+function isCardInDueWindow(card, todayStr) {
+    if (!hasBillWithDueDate(card)) return false;
     const daysLeft = daysBetween(todayStr, card.statement_due_date);
     return daysLeft >= 0 && daysLeft <= DUE_WINDOW_DAYS;
+}
+
+// True when the card has a real bill whose due date was 1 to
+// OVERDUE_WINDOW_DAYS days ago (IST). Normally that alert goes out the day
+// after the due date; the extra days only cover a missed cron run. Past the
+// window nothing matches, so a stale alert never turns up.
+function isCardOverdue(card, todayStr) {
+    if (!hasBillWithDueDate(card)) return false;
+    const daysLate = daysBetween(card.statement_due_date, todayStr);
+    return daysLate >= 1 && daysLate <= OVERDUE_WINDOW_DAYS;
 }
 
 // Bill payments recorded via POST /api/credit-cards/:id/pay (the card-side
@@ -122,23 +144,32 @@ function cardDisplayName(card) {
  * @param {string} todayStr  IST 'YYYY-MM-DD'
  * @returns {Array<{ cardId, alertKey, title, body, data }>}
  */
-function buildCardDueAlerts(cards, paidByCard, todayStr) {
-    const getPaid = (id) => {
-        const v = paidByCard instanceof Map ? paidByCard.get(id) : paidByCard?.[id];
-        return parseFloat(v) || 0;
-    };
+function paidFor(paidByCard, id) {
+    const v = paidByCard instanceof Map ? paidByCard.get(id) : paidByCard?.[id];
+    return parseFloat(v) || 0;
+}
 
+// { statementBalance, paid, remaining } for a card's last statement, or null
+// when nothing is left to pay. Rounds before comparing so a payment a few
+// paise short of the statement (which the ₹ formatting would show as ₹0)
+// doesn't nag. Shared by the due and overdue alerts.
+function unpaidStatement(card, paidByCard) {
+    const statementBalance = amountDueOnStatement(card);
+    const paid = paidFor(paidByCard, card.id);
+    const remaining = statementBalance - paid;
+    if (Math.round(remaining) <= 0) return null;
+    return { statementBalance, paid, remaining };
+}
+
+function buildCardDueAlerts(cards, paidByCard, todayStr) {
     const alerts = [];
     for (const card of cards || []) {
         if (!isCardInDueWindow(card, todayStr)) continue;
-        const statementBalance = amountDueOnStatement(card);
         const daysLeft = daysBetween(todayStr, card.statement_due_date);
 
-        const paid = getPaid(card.id);
-        const remaining = statementBalance - paid;
-        // Round before comparing so a payment a few paise short of the
-        // statement (which the ₹ formatting would show as ₹0) doesn't nag.
-        if (Math.round(remaining) <= 0) continue;
+        const unpaid = unpaidStatement(card, paidByCard);
+        if (!unpaid) continue;
+        const { statementBalance, paid, remaining } = unpaid;
 
         const name = cardDisplayName(card);
         const dueOn = formatDueDate(card.statement_due_date);
@@ -165,4 +196,48 @@ function buildCardDueAlerts(cards, paidByCard, todayStr) {
     return alerts;
 }
 
-module.exports = { buildCardDueAlerts, amountDueOnStatement, isCardInDueWindow, fetchCardPaymentsSince, withStatementRemaining, DUE_WINDOW_DAYS };
+/**
+ * Overdue alerts: 1-3 days after the due date (IST; normally the first of
+ * those days, keyed so it fires once), for statements still unpaid. Same inputs and remaining-amount math as buildCardDueAlerts.
+ * @returns {Array<{ cardId, alertKey, title, body, data }>}
+ */
+function buildCardOverdueAlerts(cards, paidByCard, todayStr) {
+    const alerts = [];
+    for (const card of cards || []) {
+        if (!isCardOverdue(card, todayStr)) continue;
+
+        const unpaid = unpaidStatement(card, paidByCard);
+        if (!unpaid) continue;
+        const { statementBalance, paid, remaining } = unpaid;
+
+        const dueOn = formatDueDate(card.statement_due_date);
+        const amountText = paid > 0
+            ? `${formatInr(remaining)} of ${formatInr(statementBalance)} is still unpaid. It was due on ${dueOn}.`
+            : `${formatInr(remaining)} was due on ${dueOn}.`;
+
+        alerts.push({
+            cardId: card.id,
+            alertKey: `cc_overdue:${card.id}:${card.statement_due_date}`,
+            title: `⚠️ ${cardDisplayName(card)} bill is overdue`,
+            body: `${amountText} Pay it now to limit late fees and interest.`,
+            data: {
+                type: 'bill',
+                deepLink: '/accounts',
+                card_id: String(card.id),
+            },
+        });
+    }
+    return alerts;
+}
+
+module.exports = {
+    buildCardDueAlerts,
+    buildCardOverdueAlerts,
+    amountDueOnStatement,
+    isCardInDueWindow,
+    isCardOverdue,
+    fetchCardPaymentsSince,
+    withStatementRemaining,
+    DUE_WINDOW_DAYS,
+    OVERDUE_WINDOW_DAYS,
+};
