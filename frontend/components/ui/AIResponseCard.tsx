@@ -36,16 +36,20 @@ const colorStyles = {
     },
 };
 
-function stripHtml(text: string): string {
+// Tags are dropped for readability only; safety comes from rendering text
+// nodes (React escapes them), never HTML, since this text is model output.
+function stripTags(text: string): string {
     return text.replace(/<[^>]*>/g, '');
 }
 
-function highlightValues(text: string): string {
-    const safe = stripHtml(text);
-    return safe.replace(
-        /(₹[\d,]+(?:\.\d+)?|[\d.]+%)/g,
-        '<span style="color: var(--accent); font-weight: 500;">$1</span>'
-    );
+const VALUE_PATTERN = /(₹[\d,]+(?:\.\d+)?|[\d.]+%)/;
+
+export function highlightValues(text: string): React.ReactNode[] {
+    return stripTags(text)
+        .split(VALUE_PATTERN)
+        .map((part, i) => i % 2 === 1
+            ? <span key={i} style={{ color: 'var(--accent)', fontWeight: 500 }}>{part}</span>
+            : part);
 }
 
 function parseMessageSections(message: string): { headline: string; details: string } {
@@ -111,17 +115,15 @@ export function AIResponseCard({ message, type = 'chat', onAction, style }: AIRe
             )}
 
             {/* Headline */}
-            <p
-                style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 6px', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}
-                dangerouslySetInnerHTML={{ __html: highlightValues(headline) }}
-            />
+            <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 6px', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
+                {highlightValues(headline)}
+            </p>
 
             {/* Details */}
             {details && (
-                <p
-                    style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}
-                    dangerouslySetInnerHTML={{ __html: highlightValues(details) }}
-                />
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
+                    {highlightValues(details)}
+                </p>
             )}
 
             {/* Action buttons */}
