@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     DEFAULT_LOCK_SETTINGS, LockSettings, NO_ATTEMPTS, PBKDF2_ITERATIONS,
     attemptsLeft, constantTimeEqual, cooldownRemainingMs, hashPin, isUsablePinHash, parseAttempts, parseSettings,
-    registerFailure, shouldLockOnColdStart, shouldLockOnPageLoad, shouldLockOnResume, verifyPin,
+    isLockExemptRoute, registerFailure, shouldLockOnColdStart, shouldLockOnPageLoad, shouldLockOnResume, verifyPin,
 } from './appLock';
 
 const on: LockSettings = { ...DEFAULT_LOCK_SETTINGS, enabled: true };
@@ -154,5 +154,23 @@ describe('PIN hashing', () => {
         expect(constantTimeEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2]))).toBe(true);
         expect(constantTimeEqual(new Uint8Array([1, 2]), new Uint8Array([1, 2, 0]))).toBe(false);
         expect(constantTimeEqual(new Uint8Array([1, 2]), new Uint8Array([1, 3]))).toBe(false);
+    });
+});
+
+describe('lock-exempt routes', () => {
+    const ctx = { settings: { ...DEFAULT_LOCK_SETTINGS, enabled: true }, loggedIn: true, isNative: true };
+
+    it('only the widget add sheet is exempt', () => {
+        expect(isLockExemptRoute('/widget-add')).toBe(true);
+        expect(isLockExemptRoute('/widget-add/')).toBe(true);
+        expect(isLockExemptRoute('/widget-addx')).toBe(false);
+        expect(isLockExemptRoute('/dashboard')).toBe(false);
+        expect(isLockExemptRoute('/')).toBe(false);
+        expect(isLockExemptRoute(undefined)).toBe(false);
+    });
+
+    it('a page load there never locks; anywhere else it still does', () => {
+        expect(shouldLockOnPageLoad({ ...ctx, sessionUnlocked: false, backgroundedAt: 1000, pathname: '/widget-add/' })).toBe(false);
+        expect(shouldLockOnPageLoad({ ...ctx, sessionUnlocked: false, backgroundedAt: 1000, pathname: '/dashboard/' })).toBe(true);
     });
 });

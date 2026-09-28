@@ -42,6 +42,19 @@ export const LOCK_BG_ELAPSED_KEY = 'fintrack-lock-bg-elapsed';
 export const LOCKED_ATTR = 'data-app-locked';
 export const COVER_ATTR = 'data-lock-cover';
 
+// Routes the app lock never covers. /widget-add is the Android widgets' add
+// sheet (QuickAddActivity): by the user's choice it opens straight to the
+// form. It is its own WebView, never counts as unlocking the app, and never
+// touches the app's lock timestamps; anything that leaves it hands over to
+// MainActivity, which makes its own lock decision. The pre-hydration script
+// (lib/lockHeadScript.ts) inlines this list.
+export const LOCK_EXEMPT_ROUTES: readonly string[] = ['/widget-add'];
+
+export function isLockExemptRoute(pathname: string | null | undefined): boolean {
+    const path = (pathname ?? '').replace(/\/+$/, '');
+    return LOCK_EXEMPT_ROUTES.some(r => path === r || path.startsWith(r + '/'));
+}
+
 type ReadStore = Pick<Storage, 'getItem'>;
 type RWStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
@@ -109,7 +122,8 @@ export function shouldLockOnColdStart({ settings, loggedIn, isNative }: LockCont
  * in-app reload (the PWA layer reloads on reconnect), which shouldn't re-prompt.
  * A pending background timestamp means we left the app, so it always locks.
  */
-export function shouldLockOnPageLoad(ctx: LockContext & { sessionUnlocked: boolean; backgroundedAt: number | null }): boolean {
+export function shouldLockOnPageLoad(ctx: LockContext & { sessionUnlocked: boolean; backgroundedAt: number | null; pathname?: string | null }): boolean {
+    if (isLockExemptRoute(ctx.pathname)) return false;
     if (!shouldLockOnColdStart(ctx)) return false;
     return !(ctx.sessionUnlocked && ctx.backgroundedAt === null);
 }

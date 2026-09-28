@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
     LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_SESSION_KEY, LOCK_SETTINGS_KEY, readSettings, readTimestamp, shouldLockOnPageLoad,
 } from './appLock';
@@ -24,6 +24,8 @@ const authCases: (string | null)[] = [
 ];
 const sessionCases: (string | null)[] = [null, '1', '0'];
 const bgCases: (string | null)[] = [null, '1700000000000', 'garbage', '0'];
+// '/widget-add' is lock-exempt (LOCK_EXEMPT_ROUTES); the others must not be.
+const pathCases = ['/', '/dashboard/', '/widget-add/', '/widget-add', '/widget-add/x', '/widget-addx/', '/transactions/'];
 
 function runHeadScript(): boolean {
     document.documentElement.removeAttribute(LOCKED_ATTR);
@@ -40,6 +42,7 @@ function gateDecision(auth: string | null): boolean {
         isNative: true,
         sessionUnlocked: sessionStorage.getItem(LOCK_SESSION_KEY) === '1',
         backgroundedAt: readTimestamp(localStorage, LOCK_BG_AT_KEY),
+        pathname: window.location.pathname,
     });
 }
 
@@ -51,21 +54,28 @@ describe('pre-hydration lock script', () => {
         sessionStorage.clear();
     });
 
-    it('agrees with shouldLockOnPageLoad for every stored state', () => {
+    afterEach(() => { window.history.replaceState({}, '', '/'); });
+
+    it('agrees with shouldLockOnPageLoad for every stored state and route', () => {
         let checked = 0;
         let locks = 0;
-        for (const s of settingsCases) for (const a of authCases) for (const ss of sessionCases) for (const bg of bgCases) {
+        const locksByPath: Record<string, number> = {};
+        for (const path of pathCases) for (const s of settingsCases) for (const a of authCases) for (const ss of sessionCases) for (const bg of bgCases) {
+            window.history.replaceState({}, '', path);
             set(localStorage, LOCK_SETTINGS_KEY, s);
             set(localStorage, 'fintrack-auth', a);
             set(sessionStorage, LOCK_SESSION_KEY, ss);
             set(localStorage, LOCK_BG_AT_KEY, bg);
             const expected = gateDecision(a);
-            expect(runHeadScript(), JSON.stringify({ s, a, ss, bg })).toBe(expected);
+            expect(runHeadScript(), JSON.stringify({ path, s, a, ss, bg })).toBe(expected);
             checked++;
-            if (expected) locks++;
+            if (expected) { locks++; locksByPath[path] = (locksByPath[path] ?? 0) + 1; }
         }
-        expect(checked).toBe(settingsCases.length * authCases.length * sessionCases.length * bgCases.length);
+        expect(checked).toBe(pathCases.length * settingsCases.length * authCases.length * sessionCases.length * bgCases.length);
         expect(locks).toBeGreaterThan(0);
+        // The exempt route never locks; every other route does in some state.
+        for (const p of ['/widget-add/', '/widget-add', '/widget-add/x']) expect(locksByPath[p] ?? 0).toBe(0);
+        for (const p of ['/', '/dashboard/', '/widget-addx/', '/transactions/']) expect(locksByPath[p]).toBeGreaterThan(0);
     });
 
     it('never throws when storage is unavailable', () => {

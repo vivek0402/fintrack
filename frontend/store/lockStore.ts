@@ -61,8 +61,9 @@ export const useLockStore = create<LockStore>((set, get) => ({
         try {
             session()?.setItem(LOCK_SESSION_KEY, '1');
             // The background timestamp is the full app's (shared localStorage).
-            // Unlocking the widget add sheet must not clear it, or the app,
-            // still unlocked in memory behind it, would skip its own lock.
+            // The widget add sheet is lock-exempt and never unlocks; this guard
+            // is defence in depth so nothing run there can clear it, or the
+            // app, still unlocked in memory behind it, would skip its own lock.
             if (!onWidgetAddPage()) {
                 local()?.removeItem(LOCK_BG_AT_KEY);
                 local()?.removeItem(LOCK_BG_ELAPSED_KEY);

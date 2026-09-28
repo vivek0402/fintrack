@@ -3,6 +3,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { useAuthStore } from '@/store/authStore';
 import { useLockStore } from '@/store/lockStore';
+import { AppLockGate, __resetPageLoadForTests } from '@/components/lock/AppLockGate';
+import { LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_SETTINGS_KEY, readSettings } from '@/lib/appLock';
+import { LOCK_HEAD_SCRIPT } from '@/lib/lockHeadScript';
 import WidgetAddPage from './page';
 
 const native = vi.hoisted(() => ({ value: true }));
@@ -26,7 +29,16 @@ vi.mock('@/plugins/FinTrackNativePlugin', () => ({
         clearToken: vi.fn(async () => {}),
         clearLock: vi.fn(async () => {}),
         clearWidgetToken: vi.fn(async () => {}),
+        setSecureFlag: vi.fn(async () => {}),
+        authenticate: vi.fn(async () => ({ result: 'cancel' })),
+        biometricStatus: vi.fn(async () => ({ status: 'available' })),
+        getPinHash: vi.fn(async () => ({ hash: null })),
+        elapsedRealtime: vi.fn(async () => ({ ms: 0 })),
     },
+}));
+
+vi.mock('@capacitor/app', () => ({
+    App: { addListener: vi.fn(async () => ({ remove: vi.fn() })) },
 }));
 
 // The form itself is covered by TransactionModal.test.tsx. Here: what the
@@ -85,10 +97,24 @@ describe('/widget-add (Android widget add sheet)', () => {
         expect(plugin.closeQuickAdd).toHaveBeenCalledTimes(1);
     });
 
-    it('shows nothing but the lock screen while locked', () => {
-        useLockStore.setState({ locked: true });
-        render(<WidgetAddPage />);
-        expect(screen.queryByTestId('tx-modal')).toBeNull();
+    it('with app lock on, opens straight to the form: no lock screen', () => {
+        window.history.replaceState({}, '', '/widget-add/');
+        try {
+            localStorage.setItem(LOCK_SETTINGS_KEY, JSON.stringify({ enabled: true, biometric: true, graceMs: 0, hideRecents: false }));
+            localStorage.setItem(LOCK_BG_AT_KEY, '1700000000000');
+            new Function(LOCK_HEAD_SCRIPT)();
+            expect(document.documentElement.hasAttribute(LOCKED_ATTR)).toBe(false);
+            useLockStore.setState({ settings: readSettings(localStorage), locked: false });
+            __resetPageLoadForTests();
+            render(<><AppLockGate /><WidgetAddPage /></>);
+            expect(useLockStore.getState().locked).toBe(false);
+            expect(screen.getByTestId('tx-modal')).toBeInTheDocument();
+            expect(document.querySelector('[data-lock-root]')).toBeNull();
+            expect(plugin.authenticate).not.toHaveBeenCalled();
+        } finally {
+            localStorage.clear();
+            window.history.replaceState({}, '', '/');
+        }
     });
 
     it('logged out: a compact sheet that opens the app', async () => {

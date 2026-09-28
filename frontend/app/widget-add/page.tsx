@@ -8,14 +8,11 @@ import { Button } from '@/components/ui/Button';
 import { useIsClient, useIsNative } from '@/components/lock/useIsNative';
 import { closeQuickAdd, openMainApp } from '@/lib/widgetAdd';
 import { useAuthStore } from '@/store/authStore';
-import { useLockStore } from '@/store/lockStore';
 
 // The page is drawn over the Android home screen (QuickAddActivity: a
 // translucent window that already dims the launcher), so it paints no
-// background, no ambient backdrop and no scrim of its own. Keyed off the lock
-// attributes: while the lock screen is up (set before first paint by the head
-// script) the page keeps its normal opaque look, so the lock covers the whole
-// screen exactly as it does in the app.
+// background, no ambient backdrop and no scrim of its own. The app lock never
+// covers this route (lib/appLock.ts LOCK_EXEMPT_ROUTES).
 //
 // Glass needs something real behind it (DESIGN.md), and a native home screen
 // isn't something the WebView can sample: a translucent sheet just shows the
@@ -24,9 +21,8 @@ import { useLockStore } from '@/store/lockStore';
 // search dropdown) is the solid surface; radius, border and edge highlight
 // are untouched. Scoped to this page's <style>, so in-app sheets keep glass.
 const TRANSPARENT_CSS = `
-html:not([data-app-locked]):not([data-lock-cover]),
-html:not([data-app-locked]):not([data-lock-cover]) body { background: transparent !important; }
-html:not([data-app-locked]):not([data-lock-cover]) .ambient-lighting { display: none; }
+html, body { background: transparent !important; }
+.ambient-lighting { display: none; }
 html:root, html[data-theme] { --glass-sheet-surface: var(--bg-surface-1); }
 .glass-sheet { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 `;
@@ -42,7 +38,6 @@ export default function WidgetAddPage() {
     const isClient = useIsClient();
     const native = useIsNative();
     const token = useAuthStore(s => s.token);
-    const locked = useLockStore(s => s.locked);
     const saved = useRef(false);
     const closing = useRef(false);
 
@@ -60,7 +55,7 @@ export default function WidgetAddPage() {
     }, []);
 
     let sheet: React.ReactNode = null;
-    if (isClient && native && !locked) {
+    if (isClient && native) {
         sheet = token
             ? <TransactionModal isOpen onClose={close} onSuccess={onSuccess} scrim={false} holdUntilReady />
             : <LoggedOutSheet onClose={close} />;

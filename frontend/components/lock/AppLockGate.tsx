@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useLayoutEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-    LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
+    LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, isLockExemptRoute, readTimestamp, shouldLockOnPageLoad, shouldLockOnResume,
 } from '@/lib/appLock';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
-import { onWidgetAddPage, openMainApp } from '@/lib/widgetAdd';
+import { onWidgetAddPage } from '@/lib/widgetAdd';
 import { readPersistedAuth, signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isContentHidden, setContentHidden, useLockStore } from '@/store/lockStore';
 import { LockScreen } from './LockScreen';
@@ -31,6 +31,14 @@ function removeBgKeys(storage: Storage | null) {
     } catch { /* ignore */ }
 }
 
+function currentPath(): string {
+    try { return window.location.pathname; } catch { return ''; }
+}
+
+function onLockExemptRoute(): boolean {
+    return isLockExemptRoute(currentPath());
+}
+
 async function nativeElapsed(): Promise<number | null> {
     try {
         const { ms } = await FinTrackNative.elapsedRealtime();
@@ -53,11 +61,17 @@ export function decideOnPageLoad(): void {
         isNative,
         sessionUnlocked,
         backgroundedAt: readTimestamp(local(), LOCK_BG_AT_KEY),
+        pathname: currentPath(),
     });
 
     if (lock) store.lock();
-    else if (store.locked) store.unlock();
-    else setContentHidden(false);
+    else if (store.locked && !onLockExemptRoute()) store.unlock();
+    else {
+        // An exempt route is simply not locked; it is never an unlock (no
+        // session flag, no clearing the app's timestamps).
+        if (store.locked) useLockStore.setState({ locked: false });
+        setContentHidden(false);
+    }
 
     if (isNative) {
         // MainActivity already applied FLAG_SECURE natively on cold start; this
@@ -77,8 +91,8 @@ export async function handleAppStateChange(
     goTo: (path: string) => void = (path) => window.location.replace(path),
 ): Promise<void> {
     // The widget add sheet (a second WebView on the same storage) logged out
-    // while we sat in the background ("Forgot PIN" or a lockout there): follow
-    // suit before anything is revealed. Content stays hidden until /login.
+    // while we sat in the background (its API calls hit a dead session):
+    // follow suit before anything is revealed. Content stays hidden until /login.
     if (isActive && !onWidgetAddPage() && signedOutElsewhere()) {
         useAuthStore.getState().logout();
         goTo('/login');
@@ -97,15 +111,10 @@ export async function handleAppStateChange(
     const loggedIn = !!useAuthStore.getState().token;
     if (!store.settings.enabled || !loggedIn) return;
 
-    // The widget add sheet is finished natively as soon as it stops, so this
-    // is only a backstop. It never touches the background timestamps: those
-    // are the full app's, and writing them here would restart its grace
-    // period without an unlock.
-    if (onWidgetAddPage()) {
-        if (!isActive) store.lock();
-        else if (store.locked) store.requestPrompt();
-        return;
-    }
+    // Lock-exempt route (the widget add sheet): no lock, and never touch the
+    // background timestamps. They are the full app's, and writing them here
+    // would restart its grace period without an unlock.
+    if (onLockExemptRoute()) return;
 
     const storage = local();
 
@@ -207,13 +216,10 @@ export function AppLockGate() {
         // logout() also resets the lock (settings, PIN hash, key, FLAG_SECURE)
         // but keeps content hidden until /login renders.
         useAuthStore.getState().logout();
-        // The widget add sheet has no login screen: the full app shows it
-        // (and, if it was running, notices the logout on resume).
-        if (onWidgetAddPage()) openMainApp();
-        else router.replace('/login');
+        router.replace('/login');
     }, [router]);
 
-    if (!isClient || !locked) return null;
+    if (!isClient || !locked || isLockExemptRoute(pathname)) return null;
     return <LockScreen mode="unlock" promptKey={promptNonce} onSuccess={unlock} onForgot={onForgot} />;
 }
 

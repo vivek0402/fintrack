@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import {
     DEFAULT_LOCK_SETTINGS, LOCKED_ATTR, LOCK_BG_AT_KEY, LOCK_BG_ELAPSED_KEY, LOCK_SESSION_KEY, LockSettings,
 } from '@/lib/appLock';
@@ -218,43 +218,56 @@ describe('widget add sheet', () => {
         nav.path = '/widget-add';
     };
 
-    it('locks on load like any cold start, even right after the app was used', () => {
+    it('with lock on, the sheet opens unlocked: no lock, no hidden content, no lock screen', () => {
         onSheet();
-        localStorage.setItem(LOCK_BG_AT_KEY, String(Date.now() - 1_000));
-        decideOnPageLoad();
-        expect(useLockStore.getState().locked).toBe(true);
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0)); // the app left long ago
+        render(<AppLockGate />);
+        expect(useLockStore.getState().locked).toBe(false);
+        expect(hidden()).toBe(false);
+        expect(screen.queryByText('Enter your PIN')).toBeNull();
+        expect(screen.queryByText('FinTrack is locked')).toBeNull();
+        expect(plugin.authenticate).not.toHaveBeenCalled();
     });
 
-    it("unlocking the sheet leaves the app's background timestamp alone", () => {
+    it('never shows the lock screen even if the store says locked', () => {
+        onSheet();
+        useLockStore.setState({ locked: true });
+        render(<AppLockGate />);
+        expect(document.querySelector('[data-lock-root]')).toBeNull();
+    });
+
+    it("using the sheet leaves the app's lock timestamps, session flag and attempts alone", async () => {
         onSheet();
         localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
         localStorage.setItem(LOCK_BG_ELAPSED_KEY, '5');
-        useLockStore.getState().lock();
-        useLockStore.getState().unlock();
-        expect(hidden()).toBe(false);
+        localStorage.setItem('fintrack-lock-attempts', JSON.stringify({ failures: 3, cooldownUntil: null }));
+        const before = { ...localStorage };
+        decideOnPageLoad();
+        await handleAppStateChange(false);
+        await handleAppStateChange(true);
+        expect(useLockStore.getState().locked).toBe(false);
         expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
         expect(localStorage.getItem(LOCK_BG_ELAPSED_KEY)).toBe('5');
-    });
-
-    it("leaving the sheet locks it without restarting the app's grace period", async () => {
-        onSheet();
-        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
-        await handleAppStateChange(false);
-        expect(useLockStore.getState().locked).toBe(true);
-        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
+        expect({ ...localStorage }).toEqual(before);
+        expect(sessionStorage.getItem(LOCK_SESSION_KEY)).toBeNull(); // never an "unlock"
         expect(plugin.elapsedRealtime).not.toHaveBeenCalled();
     });
 
-    it('"Forgot PIN" on the sheet logs out and hands over to the app', async () => {
+    it("defence in depth: an unlock run on the sheet still can't clear the app's timestamp", () => {
         onSheet();
-        useLockStore.getState().lock();
-        render(<AppLockGate />);
-        // No usable PIN hash (mock) -> the "Log in again" state, which calls onForgot.
-        const button = await screen.findByText('Log in again');
-        await act(async () => { fireEvent.click(button); });
-        expect(useAuthStore.getState().token).toBeNull();
-        expect(plugin.openMainApp).toHaveBeenCalledTimes(1);
-        expect(router.replace).not.toHaveBeenCalled();
+        localStorage.setItem(LOCK_BG_AT_KEY, String(T0));
+        useLockStore.getState().unlock();
+        expect(localStorage.getItem(LOCK_BG_AT_KEY)).toBe(String(T0));
+    });
+
+    it('the app itself still locks on cold start and past the grace period', async () => {
+        // (onSheet not called: MainActivity's WebView on an app route)
+        window.history.replaceState({}, '', '/dashboard/');
+        decideOnPageLoad();
+        expect(useLockStore.getState().locked).toBe(true);
+        useLockStore.getState().unlock();
+        await awayAndBack(T0 + 61_000);
+        expect(useLockStore.getState().locked).toBe(true);
     });
 
     it('the app, resumed after the sheet logged out, logs out too before revealing anything', async () => {

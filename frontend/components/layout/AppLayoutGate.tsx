@@ -7,7 +7,7 @@ import { AppLockGate } from '@/components/lock/AppLockGate';
 
 // Routes that render their own full-bleed UI with no sidebar/bottom-nav/FAB chrome.
 // /widget-add: the Android widgets' add sheet over the home screen (it hides
-// the ambient backdrop itself unless the lock screen is up).
+// the ambient backdrop itself; it is lock-exempt, see lib/appLock.ts).
 const noChromeRoutes = ['/', '/login', '/register', '/forgot-password', '/onboarding', '/widget-add'];
 
 // AppLockGate sits at the same position in both branches, so React keeps the
