@@ -6,8 +6,9 @@
 // on the web and on devices without an inset it is 0px tall and paints nothing
 // (the hairline is a box-shadow, which a zero-height box does not draw).
 //
-// Stacking: above page content, the sticky/fixed page chrome and the bottom
-// nav dock, but BELOW every scrim (the More panel's 998, modals and sheets at
+// Stacking: above page content and the sticky/fixed page chrome (the bottom
+// nav dock at 999 sits higher, harmlessly, since it lives at the bottom),
+// but BELOW every scrim (the More panel's 998, modals and sheets at
 // 9999+), so an open dialog dims the band along with the page instead of
 // leaving an undimmed bar on top. The lock screen hides every body child but
 // the backdrop (globals.css), this included, and draws its own top inset.

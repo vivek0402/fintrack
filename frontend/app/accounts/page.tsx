@@ -822,6 +822,8 @@ export default function AccountsPage() {
                 <Modal isOpen={showCycleSheet} onClose={() => setShowCycleSheet(false)} title="Which cycle?" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {payCycles.map((cycle, idx) => {
+                            // An older statement that billed nothing and saw no activity is just noise.
+                            if (idx >= 2 && Number(cycle.statement_balance ?? 0) === 0 && Number(cycle.total) === 0) return null;
                             const active = cycle.start === selectedCycleKey;
                             const row = cycleRow(cycle, idx);
                             const disabled = !row.selectable;
