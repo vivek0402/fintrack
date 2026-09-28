@@ -39,6 +39,7 @@ const { postDueEmiInstallments } = require('./utils/creditCardEmi');
 const { fetchCreditCardsWithCycleBreakdown } = require('./utils/creditCardBalance');
 const { buildCardDueAlerts, buildCardOverdueAlerts, isCardInDueWindow, isCardOverdue, fetchCardPaymentsSince } = require('./utils/cardDueAlerts');
 const { istDateStr } = require('./utils/istDate');
+const { fetchAlertableUserIds, ALERTABLE_USER_IDS_SQL } = require('./utils/alertableUsers');
 const app = express();
 
 // ─── Run pending migrations on startup ───────────────────────────────────────
@@ -423,11 +424,9 @@ cron.schedule('0 0 * * *', async () => {
 cron.schedule('0 8 * * *', async () => {
     console.log('[Cron] Checking bill-due reminders...');
     try {
-        const { rows: users } = await pool.query(
-            `SELECT DISTINCT user_id FROM user_fcm_tokens`
-        );
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const today = new Date().toISOString().split('T')[0];
                 const in3 = new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0];
@@ -467,11 +466,9 @@ cron.schedule('0 9 * * 0', async () => {
         const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
         const today = new Date().toISOString().split('T')[0];
 
-        const { rows: users } = await pool.query(
-            `SELECT DISTINCT user_id FROM user_fcm_tokens`
-        );
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const alertKey = `weekly_summary:${today}`;
                 const { rows } = await pool.query(
@@ -501,6 +498,8 @@ cron.schedule('0 20 * * *', async () => {
     console.log('[Cron] Sending 8pm transaction reminders...');
     try {
         const today = new Date().toISOString().split('T')[0];
+        // Push-only nudge (a bell entry seen only once the user is already
+        // in the app is noise), so this stays limited to users with tokens.
         const { rows: users } = await pool.query(
             `SELECT DISTINCT user_id FROM user_fcm_tokens`
         );
@@ -535,6 +534,8 @@ cron.schedule('0 12 * * *', async () => {
     console.log('[Cron] Checking inactivity...');
     try {
         const today = new Date().toISOString().split('T')[0];
+        // Push-only nudge (a bell entry seen only once the user is already
+        // in the app is noise), so this stays limited to users with tokens.
         const { rows: users } = await pool.query(
             `SELECT DISTINCT user_id FROM user_fcm_tokens`
         );
@@ -578,9 +579,9 @@ cron.schedule('30 8 * * *', async () => {
         if (daysLeft > 5) return;
 
         const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const { rows: budgets } = await pool.query(
                     `SELECT b.id, b.amount, c.name,
@@ -626,9 +627,9 @@ cron.schedule('0 10 15 * *', async () => {
         const lastMonthSameDay = lastMonthDate.toISOString().split('T')[0];
         const monthLabel = now.toLocaleDateString('en-IN', { month: 'long' });
 
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const alertKey = `midmonth:${today.slice(0, 7)}`;
 
@@ -678,8 +679,8 @@ cron.schedule('0 9 * * *', async () => {
             `SELECT g.*, u.id AS uid
              FROM savings_goals g
              JOIN users u ON u.id = g.user_id
-             JOIN user_fcm_tokens ft ON ft.user_id = g.user_id
-             WHERE g.deadline IS NOT NULL
+             WHERE g.user_id IN (${ALERTABLE_USER_IDS_SQL})
+               AND g.deadline IS NOT NULL
                AND g.saved_amount < g.target_amount
                AND g.deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`
         );
@@ -710,12 +711,12 @@ cron.schedule('0 9 * * *', async () => {
             `SELECT pl.*, COALESCE(r.repaid_amount, 0) AS repaid_amount,
                     pl.principal_amount - COALESCE(r.repaid_amount, 0) AS outstanding_amount
              FROM personal_loans pl
-             JOIN user_fcm_tokens ft ON ft.user_id = pl.user_id
              LEFT JOIN (
                  SELECT loan_id, SUM(amount) AS repaid_amount
                  FROM personal_loan_repayments GROUP BY loan_id
              ) r ON r.loan_id = pl.id
-             WHERE pl.due_date IS NOT NULL
+             WHERE pl.user_id IN (${ALERTABLE_USER_IDS_SQL})
+               AND pl.due_date IS NOT NULL
                AND pl.written_off_at IS NULL
                AND pl.due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '3 days'`
         );
@@ -746,11 +747,9 @@ cron.schedule('0 9 * * *', async () => {
 cron.schedule('0 9 * * *', async () => {
     try {
         const today = istDateStr();
-        const { rows: users } = await pool.query(
-            `SELECT DISTINCT user_id FROM user_fcm_tokens`
-        );
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const cards = await fetchCreditCardsWithCycleBreakdown(pool, user_id);
                 // Due-window / overdue filters first, so the payments query
@@ -791,8 +790,8 @@ cron.schedule('0 10 * * *', async () => {
         const { rows: goals } = await pool.query(
             `SELECT g.*
              FROM savings_goals g
-             JOIN user_fcm_tokens ft ON ft.user_id = g.user_id
-             WHERE g.saved_amount < g.target_amount
+             WHERE g.user_id IN (${ALERTABLE_USER_IDS_SQL})
+               AND g.saved_amount < g.target_amount
                AND g.updated_at < NOW() - INTERVAL '14 days'`
         );
 
@@ -822,9 +821,9 @@ cron.schedule('30 9 * * *', async () => {
 
         const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
         const today = now.toISOString().split('T')[0];
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const alertKey = `salary_missing:${today.slice(0, 7)}`;
 
@@ -856,9 +855,9 @@ cron.schedule('0 9 * * 1', async () => {
     try {
         const today = new Date().toISOString().split('T')[0];
         const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const alertKey = `bills_week:${today}`;
 
@@ -1084,9 +1083,9 @@ cron.schedule('0 20 * * 0', async () => {
         const sunday = now.toISOString().split('T')[0];
         const saturday = new Date(now - 86400000).toISOString().split('T')[0];
         const monday = new Date(now - 6 * 86400000).toISOString().split('T')[0];
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const alertKey = `weekend_spike:${sunday}`;
 
@@ -1127,9 +1126,9 @@ cron.schedule('0 20 * * 0', async () => {
 cron.schedule('0 7 * * 0', async () => {
     console.log('[Cron] Analyzing day-of-week spending patterns...');
     try {
-        const { rows: users } = await pool.query(`SELECT DISTINCT user_id FROM user_fcm_tokens`);
+        const userIds = await fetchAlertableUserIds(pool);
 
-        for (const { user_id } of users) {
+        for (const user_id of userIds) {
             try {
                 const today = new Date().toISOString().split('T')[0];
                 const alertKey = `day_pattern:${today.slice(0, 7)}`;
