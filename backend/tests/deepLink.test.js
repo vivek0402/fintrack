@@ -21,6 +21,13 @@ const ATTACKS = [
     '/acc\u0000ounts',
     '/acc\u007Founts',
     '/acc\u0085ounts',
+    '/..//evil.com',
+    '/.//x',
+    '/%2e%2e//evil.com',
+    '/%2E.//evil.com',
+    '/a/../..//evil.com',
+    '/accounts/..',
+    '/accounts/./x',
     ' /accounts',
     'accounts',
     '',
@@ -31,6 +38,7 @@ describe('isValidDeepLink', () => {
     test.each([
         '/', '/accounts', '/transactions', '/budgets', '/goals', '/recurring', '/analytics', '/dashboard',
         '/accounts?card=7', '/transactions#tx-1', '/personal-loans/detail?id=3',
+        '/accounts?next=/..//x', '/transactions#/../x', '/a..b', '/.well-known',
     ])('accepts internal path %j', (link) => {
         expect(isValidDeepLink(link)).toBe(true);
     });

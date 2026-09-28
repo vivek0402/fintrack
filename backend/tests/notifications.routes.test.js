@@ -107,7 +107,7 @@ describe('POST /api/notifications deepLink validation', () => {
     });
 
     test.each([
-        '//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
+        '//evil.com', '/..//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
         'data:text/html,<script>alert(1)</script>', '/\\evil.com', '/\t/evil.com', '/acc\u0000ounts',
     ])('rejects %j with 400 and writes nothing', async (deepLink) => {
         const res = await post({ id: 'x', title: 't', deepLink });

@@ -86,7 +86,7 @@ describe('push tap handler', () => {
     });
 
     it.each([
-        '//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
+        '//evil.com', '/..//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
         'data:text/html,x', '/\\evil.com', '/\t/evil.com',
     ])('sends an invalid deep link (%j) to the dashboard instead', (deepLink) => {
         tap({ deepLink });

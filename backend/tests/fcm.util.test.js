@@ -327,7 +327,7 @@ describe('sendToUser: notification settings', () => {
 
 describe('sendToUser: deepLink validation', () => {
     test.each([
-        '//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
+        '//evil.com', '/..//evil.com', 'javascript:alert(1)', 'http://evil.com', 'intent://x#Intent;end',
         'data:text/html,x', '/\\evil.com', '/\n/evil.com',
     ])('drops invalid deepLink %j from the bell row and the push payload', async (deepLink) => {
         const fcm = loadFcmModule();

@@ -4,6 +4,7 @@ import { isValidDeepLink, safeDeepLink, DEEP_LINK_FALLBACK } from './deepLink';
 const VALID = [
   '/', '/accounts', '/transactions', '/budgets', '/goals', '/recurring', '/analytics', '/dashboard',
   '/accounts?card=7', '/transactions#tx-1',
+  '/accounts?next=/..//x', '/transactions#/../x', '/a..b', '/.well-known',
 ];
 
 const ATTACKS = [
@@ -25,6 +26,13 @@ const ATTACKS = [
   '/acc\u0000ounts',
   '/acc\u007Founts',
   '/acc\u0085ounts',
+  '/..//evil.com',
+  '/.//x',
+  '/%2e%2e//evil.com',
+  '/%2E.//evil.com',
+  '/a/../..//evil.com',
+  '/accounts/..',
+  '/accounts/./x',
   ' /accounts',
   'accounts',
   '',
