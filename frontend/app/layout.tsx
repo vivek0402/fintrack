@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Analytics } from '@vercel/analytics/next';
 import CapacitorBridge from '@/components/CapacitorBridge';
 import { AppLayoutGate } from '@/components/layout/AppLayoutGate';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import { LOCK_HEAD_SCRIPT } from '@/lib/lockHeadScript';
 import './globals.css';
 
@@ -69,7 +70,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body suppressHydrationWarning><CapacitorBridge /><AppLayoutGate>{children}</AppLayoutGate><Analytics /></body>
+      <body suppressHydrationWarning><CapacitorBridge /><QueryProvider><AppLayoutGate>{children}</AppLayoutGate></QueryProvider><Analytics /></body>
     </html>
   );
 }

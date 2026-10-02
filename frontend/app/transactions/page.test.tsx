@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { renderWithQuery as render, createTestQueryClient } from '@/lib/test-utils';
 import TransactionsPage from './page';
 import { transactionsAPI } from '@/lib/api';
 import { getCachedTransactions, cacheTransactions } from '@/lib/offlineCache';
@@ -161,5 +162,22 @@ describe('offline fallback', () => {
         render(<TransactionsPage />);
         await waitFor(() => expect(getAll).toHaveBeenCalled());
         expect(document.body.textContent).not.toMatch(/couldn't load|could not load/i);
+    });
+});
+
+describe('cached data', () => {
+    it('shows the cached list at once, with no skeleton, while the refresh is still in flight', async () => {
+        const queryClient = createTestQueryClient();
+        const now = new Date();
+        queryClient.setQueryData(
+            ['transactions', 'u1', { month: now.getMonth() + 1, year: now.getFullYear() }], rows,
+            { updatedAt: 0 },  // stale, so the page still refreshes it
+        );
+        getAll.mockImplementation(() => new Promise(() => {}));  // refresh never lands
+
+        render(<TransactionsPage />, { queryClient });
+        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        await waitFor(() => expect(getAll).toHaveBeenCalled());
+        expect(screen.getByText('Coffee')).toBeInTheDocument();
     });
 });

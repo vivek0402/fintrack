@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { persistedRefreshTokenFor, signedOutElsewhere, useAuthStore } from '@/store/authStore';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
+import { invalidateAfterTransactionWrite } from '@/lib/queryClient';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -66,7 +67,10 @@ api.interceptors.response.use(
     res => {
         // The one place every transaction create/edit/delete succeeds through,
         // so the Android widgets never lag behind what was just saved.
-        if (isTransactionWrite(res.config?.method, res.config?.url)) refreshWidgets();
+        if (isTransactionWrite(res.config?.method, res.config?.url)) {
+            refreshWidgets();
+            invalidateAfterTransactionWrite();
+        }
         return res;
     },
     async (err) => {

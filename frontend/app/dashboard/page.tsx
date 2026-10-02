@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
+import { useDashboardData } from '@/hooks/queries';
+import { analyticsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
 import { fmt, getSmartIcon } from '@/lib/utils';
 import { getCached, setCached } from '@/lib/apiCache';
 import { CountUp } from '@/components/ui/CountUp';
@@ -35,6 +36,8 @@ const NetWorthWidget = dynamic(() => import('@/components/dashboard/NetWorthWidg
 const WealthVelocityWidget = dynamic(() => import('@/components/dashboard/WealthVelocityWidget').then(m => m.WealthVelocityWidget), { ssr: false, loading: vizSkeleton(120) });
 const AssetAllocationWidget = dynamic(() => import('@/components/dashboard/AssetAllocationWidget').then(m => m.AssetAllocationWidget), { ssr: false, loading: vizSkeleton(120) });
 const CreditUtilizationWidget = dynamic(() => import('@/components/dashboard/CreditUtilizationWidget').then(m => m.CreditUtilizationWidget), { ssr: false, loading: vizSkeleton(120) });
+
+const NO_ROWS: any[] = [];
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -204,38 +207,38 @@ export default function DashboardPage() {
         else setSelMonth(m => m + 1);
     };
 
-    const [summary, setSummary]         = useState<any>(null);
-    const [trends, setTrends]           = useState<any[]>([]);
-    const [transactions, setTransactions] = useState<any[]>([]);
-    const [budgets, setBudgets]         = useState<any[]>([]);
-    const [goals, setGoals]             = useState<any[]>([]);
-    const [dataLoading, setDataLoading] = useState(true);
-    // Bumped by mobile pull-to-refresh to re-run the fetch effect below
-    // without refactoring its inline fetchData into a standalone callable --
-    // see the effect's dependency array a few hundred lines down.
+    // Summary, trends, recent transactions, budgets and goals for the month,
+    // from the shared query cache (persisted, so a cold app start shows the
+    // last numbers while Render wakes up). Saving a transaction anywhere
+    // refreshes this in the background; the skeleton shows only when there is
+    // nothing cached for the month yet.
+    const dashQuery = useDashboardData(month, year);
+    const summary      = dashQuery.data?.summary ?? null;
+    const trends       = dashQuery.data?.trends ?? NO_ROWS;
+    const transactions = dashQuery.data?.transactions ?? NO_ROWS;
+    const budgets      = dashQuery.data?.budgets ?? NO_ROWS;
+    const goals        = dashQuery.data?.goals ?? NO_ROWS;
+    const dataLoading  = dashQuery.isPending;
+    // Bumped by mobile pull-to-refresh to re-run the secondary-widget fetch
+    // effect below (accounts, investments, ratios...).
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // The fetch effect's fetchData is defined inline (not a standalone
-    // callable), and its own dataLoading flag can short-circuit to false
-    // without ever going true on a cache hit (see the effect below) -- so
-    // there's no reliable "fetch actually finished" signal to await here.
-    // Bumping refreshKey re-runs the effect; resolving after a short fixed
-    // delay is the documented, acceptable simplification for this page.
-    //
-    // A pull-to-refresh is a user explicitly asking for fresh data, so it
-    // must bypass the effect's own 10-minute localStorage cache -- otherwise
-    // (the common case, since a dashboard being viewed was almost always
-    // loaded within the last 10 minutes) refreshKey just re-runs the effect
-    // straight into its cache-hit branch, which returns the same stale data
-    // without any network request. This key format must stay in sync with
-    // the CACHE_KEY built inside the effect below.
+    // Pull-to-refresh is the user explicitly asking for fresh data: refetch
+    // the month bundle (resolving when it lands) and re-run the secondary
+    // fetches, bypassing their short localStorage caches.
+    const refetchDashboard = dashQuery.refetch;
+    useEffect(() => {
+        if (dashQuery.isError && !dashQuery.data) toast.error('Failed to load dashboard data');
+    }, [dashQuery.isError, dashQuery.data]);
     const handleDashboardRefresh = useCallback(() => {
         if (user) {
-            try { localStorage.removeItem(`dashboard-cache-${user.id}-${month}-${year}`); } catch { /* ignore */ }
+            for (const k of ['accounts', 'investments', 'investment-ratio', 'credit-utilization', 'dti', 'active-loan-count']) {
+                try { localStorage.removeItem(`${k}-cache-${user.id}`); } catch { /* ignore */ }
+            }
         }
         setRefreshKey(k => k + 1);
-        return new Promise<void>(resolve => setTimeout(resolve, 600));
-    }, [user, month, year]);
+        return refetchDashboard().then(() => {});
+    }, [user, refetchDashboard]);
     const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(handleDashboardRefresh, isMobile);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
@@ -335,58 +338,6 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!user) return;
-        const CACHE_KEY = `dashboard-cache-${user.id}-${month}-${year}`;
-        const CACHE_TTL = 10 * 60 * 1000;
-
-        const fetchData = async () => {
-            try {
-                const cached = localStorage.getItem(CACHE_KEY);
-                if (cached) {
-                    const { data, ts } = JSON.parse(cached);
-                    if (Date.now() - ts < CACHE_TTL) {
-                        setSummary(data.summary);
-                        setTrends(data.trends ?? []);
-                        setTransactions(data.transactions);
-                        setBudgets(data.budgets);
-                        setGoals(data.goals ?? []);
-                        setDataLoading(false);
-                        return;
-                    }
-                }
-            } catch { /* stale cache */ }
-
-            setDataLoading(true);
-            try {
-                recurringAPI.process().catch(() => {});
-                const [summaryRes, trendsRes, txRes, budgetsRes, goalsRes] = await Promise.all([
-                    analyticsAPI.summary({ month, year }),
-                    analyticsAPI.trends(),
-                    transactionsAPI.getAll({ month, year }),
-                    budgetsAPI.getAll({ month, year }),
-                    goalsAPI.getAll(),
-                ]);
-                const data = {
-                    summary:      summaryRes.data.summary,
-                    trends:       trendsRes.data.trends ?? [],
-                    transactions: txRes.data.transactions,
-                    budgets:      budgetsRes.data.budgets,
-                    goals:        goalsRes.data.goals ?? [],
-                };
-                setSummary(data.summary);
-                setTrends(data.trends);
-                setTransactions(data.transactions);
-                setBudgets(data.budgets);
-                setGoals(data.goals);
-                try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() })); } catch {}
-            } catch (err) {
-                console.error('[Dashboard]', err);
-                toast.error('Failed to load dashboard data');
-            }
-            finally { setDataLoading(false); }
-        };
-
-        fetchData();
-
         // Data that doesn't need to be fresh on every single dashboard open --
         // cache it client-side so a repeat visit within the TTL costs nothing.
         // Opportunities and the weekly briefing are deliberately NOT cached

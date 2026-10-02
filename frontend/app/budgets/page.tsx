@@ -9,7 +9,9 @@ import {
     Check, Calendar, Target, Repeat,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { budgetsAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/api';
+import { useBudgets, queryKeys } from '@/hooks/queries';
 import { CategoryField, type CategoryOption } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
 import { GCard } from '@/components/ui/GCard';
@@ -28,6 +30,8 @@ import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/Suggesti
 import { Tabs } from '@/components/ui/Tabs';
 import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
+
+const NO_BUDGETS: any[] = [];
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -145,9 +149,14 @@ function BudgetsPageInner() {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear  = new Date().getFullYear();
 
-    const [budgets, setBudgets]       = useState<any[]>([]);
+    // Cached: revisits show this month's budgets at once; saves refresh in the
+    // background instead of reloading the list behind a skeleton.
+    const queryClient = useQueryClient();
+    const budgetsQuery = useBudgets(currentMonth, currentYear);
+    const budgets: any[] = budgetsQuery.data ?? NO_BUDGETS;
+    const budgetsLoading = budgetsQuery.isPending;
+    const budgetsKey = queryKeys.budgets(user?.id, currentMonth, currentYear);
     const { categories } = useCategories();
-    const [budgetsLoading, setBudgetsLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [pendingDeleteBudget, setPendingDeleteBudget] = useState<Set<string>>(new Set());
@@ -178,18 +187,17 @@ function BudgetsPageInner() {
         try { setRolloverEnabled(JSON.parse(localStorage.getItem('fintrack-budget-rollover') ?? '{}')); } catch {}
     }, []);
 
-    const fetchBudgets = async () => {
-        setBudgetsLoading(true);
-        try {
-            const res = await budgetsAPI.getAll({ month: currentMonth, year: currentYear });
-            setBudgets(res.data.budgets);
-        } catch (err) { console.error(err); toast.error('Failed to load budgets'); }
-        finally { setBudgetsLoading(false); }
+    // The dashboard bundle carries its own budgets copy -- refresh both.
+    const fetchBudgets = () => {
+        queryClient.invalidateQueries({ queryKey: ['budgets'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
+    useEffect(() => {
+        if (budgetsQuery.isError && !budgetsQuery.data) toast.error('Failed to load budgets');
+    }, [budgetsQuery.isError, budgetsQuery.data]);
 
     useEffect(() => {
         if (!user) return;
-        fetchBudgets();
 
         const pm  = currentMonth === 1 ? 12 : currentMonth - 1;
         const py  = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -276,6 +284,8 @@ function BudgetsPageInner() {
             setDeletingId(id);
             try {
                 await budgetsAPI.delete(id);
+                // Out of the cache before un-hiding, so the row never flashes back.
+                queryClient.setQueryData<any[]>(budgetsKey, list => (list ?? []).filter(b => b.id !== id));
                 setPendingDeleteBudget(prev => { const s = new Set(prev); s.delete(id); return s; });
                 fetchBudgets();
             } catch {
@@ -292,6 +302,9 @@ function BudgetsPageInner() {
         setEditLoading(true); setEditError('');
         try {
             await budgetsAPI.create({ category_id: budget.category_id, amount: parseFloat(editAmount), month: currentMonth, year: currentYear });
+            // Show the new limit now; the background refresh confirms it.
+            queryClient.setQueryData<any[]>(budgetsKey, list => (list ?? []).map(b =>
+                b.id === budget.id ? { ...b, amount: String(parseFloat(editAmount)) } : b));
             setEditingId(null); fetchBudgets();
         } catch (err: any) { setEditError(err.response?.data?.error || 'Failed to update.'); }
         finally { setEditLoading(false); }

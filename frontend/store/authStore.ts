@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { FinTrackNative } from '@/plugins/FinTrackNativePlugin';
 import { resetAppLock } from '@/store/lockStore';
 import { signOutWidgets } from '@/lib/widgets';
+import { clearQueryCache } from '@/lib/queryClient';
 
 // lib/notificationPrefs.ts's NOTIF_PREFS_KEY. Not imported: that module
 // imports lib/api.ts, which imports this store (authStore.test.ts pins the
@@ -141,6 +142,8 @@ export const useAuthStore = create<AuthStore>()(
                 // Cached notification toggles belong to this user; don't hand
                 // them to the next one on a shared device.
                 try { localStorage.removeItem(NOTIF_PREFS_KEY); } catch { /* storage unavailable */ }
+                // Same for every cached server response (transactions, budgets...).
+                clearQueryCache();
             },
         }),
         {

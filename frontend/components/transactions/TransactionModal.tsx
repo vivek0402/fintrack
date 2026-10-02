@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { FileText, ChevronDown, Check } from 'lucide-react';
-import { transactionsAPI, categoriesAPI, accountsAPI, creditCardsAPI, marketDataAPI, goalsAPI, analyticsAPI } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { transactionsAPI, categoriesAPI, creditCardsAPI, marketDataAPI } from '@/lib/api';
+import {
+    useAccounts, useCreditCards, useGoals, usePaymentMethodUsage,
+    upsertTransactionInCache, invalidateAfterTransactionWrite,
+} from '@/hooks/queries';
 import { addToQueue } from '@/lib/txQueue';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -14,6 +19,9 @@ import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
 import { randomCategoryColor } from '@/lib/categoryColors';
+
+const NO_ITEMS: any[] = [];
+const NO_USAGE: Record<string, number> = {};
 
 // ─── Calendar grid helper ────────────────────────────────────────────────────
 
@@ -69,7 +77,8 @@ function computeContextKey(form: {
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    /** Optional: the modal updates the shared query cache itself. */
+    onSuccess?: () => void;
     onOfflineSave?: (tx: any) => void;
     transaction?: any;
     prefill?: any;
@@ -113,11 +122,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     });
     const [tagInput, setTagInput] = useState('');
     const { categories, loading: categoriesLoading, refresh: refreshCategories, addLocal: addLocalCategory } = useCategories();
-    const [accounts, setAccounts]     = useState<any[]>([]);
-    const [accountsLoaded, setAccountsLoaded] = useState(false);
-    const [cards, setCards]           = useState<any[]>([]);
-    const [goals, setGoals]           = useState<any[]>([]);
-    const [paymentUsage, setPaymentUsage] = useState<Record<string, number>>({});
+    // Picker data comes from the shared query cache: the first open fetches
+    // it, later opens show it instantly (refreshing in the background if stale).
+    const queryClient = useQueryClient();
+    const accountsQuery = useAccounts({ enabled: isOpen });
+    const accounts: any[] = accountsQuery.data ?? NO_ITEMS;
+    const accountsLoaded = !accountsQuery.isPending;
+    const cards: any[] = useCreditCards({ enabled: isOpen }).data ?? NO_ITEMS;
+    const goals: any[] = useGoals({ enabled: isOpen }).data ?? NO_ITEMS;
+    const paymentUsage: Record<string, number> = usePaymentMethodUsage({ enabled: isOpen }).data ?? NO_USAGE;
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
 
@@ -155,35 +168,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     latestDescriptionRef.current = form.description;
 
     const [entrySignals, setEntrySignals] = useState<EntrySignal[]>([]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        setAccountsLoaded(false); // reopened: hold again until this fetch lands
-        accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]))
-            .finally(() => setAccountsLoaded(true));
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        creditCardsAPI.getAll().then(res => setCards(res.data.cards || [])).catch(() => setCards([]));
-    }, [isOpen]);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        goalsAPI.getAll().then(res => setGoals(res.data.goals || [])).catch(() => setGoals([]));
-    }, [isOpen]);
-
-    // Counts this month's usage per payment method -- same idea as
-    // categories' usage_count, just scoped to the current month since
-    // payment method has no per-user record to sum all-time.
-    useEffect(() => {
-        if (!isOpen) return;
-        analyticsAPI.paymentMethods().then(res => {
-            const map: Record<string, number> = {};
-            (res.data.breakdown || []).forEach((b: any) => { map[b.method] = b.count; });
-            setPaymentUsage(map);
-        }).catch(() => setPaymentUsage({}));
-    }, [isOpen]);
 
     // Populate form
      
@@ -382,10 +366,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             const transferTags = [...(form.tags.length > 0 ? form.tags : []), 'transfer'];
             const base = { amount, description: form.description, notes: form.notes || undefined, date: form.date, tags: transferTags };
             try {
-                await transactionsAPI.create({ ...base, type: 'expense', account_id: form.account_id });
-                await transactionsAPI.create({ ...base, type: 'income',  account_id: form.to_account_id });
+                const out = await transactionsAPI.create({ ...base, type: 'expense', account_id: form.account_id });
+                const into = await transactionsAPI.create({ ...base, type: 'income',  account_id: form.to_account_id });
+                for (const saved of [out.data?.transaction, into.data?.transaction]) {
+                    if (saved) upsertTransactionInCache(queryClient, saved, categories);
+                }
+                invalidateAfterTransactionWrite(queryClient);
                 toast.success('Transfer recorded');
-                onSuccess(); onClose();
+                onSuccess?.(); onClose();
             } catch { setError('Transfer failed. Please try again.'); }
             finally { setLoading(false); }
             return;
@@ -412,8 +400,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, goal_id: form.goal_id, investment_details: investmentDetails };
         const submittingEmi = !isEditing && form.emi.enabled;
         let createdInvestment: { is_new_holding: boolean } | undefined;
+        let savedTx: any;
         try {
-            if (isEditing) await transactionsAPI.update(transaction.id, payload);
+            if (isEditing) savedTx = (await transactionsAPI.update(transaction.id, payload)).data?.transaction;
             else if (submittingEmi) {
                 // 0% interest is the derivation the backend itself uses for
                 // is_no_cost -- computed fresh here rather than trusted from the
@@ -434,10 +423,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     notes: form.notes || undefined,
                 });
             }
-            else { const res = await transactionsAPI.create(payload); createdInvestment = res.data.investment; }
+            else { const res = await transactionsAPI.create(payload); createdInvestment = res.data.investment; savedTx = res.data.transaction; }
+            // Show the saved row in every cached list right away, then refresh
+            // everything the write touched (totals, budgets, goals, balances)
+            // in the background -- no list reload, no skeleton.
+            if (savedTx) upsertTransactionInCache(queryClient, savedTx, categories);
+            invalidateAfterTransactionWrite(queryClient);
             if (user) {
                 const now = new Date(); const cm = now.getMonth() + 1; const cy = now.getFullYear();
-                localStorage.removeItem(`dashboard-cache-${user.id}-${cm}-${cy}`);
                 localStorage.removeItem(`analytics-cache-${user.id}-${cm}-${cy}`);
                 // A transaction can move a bank balance, this month's investment
                 // ratio, and DTI (income-driven) -- none of these are month-keyed
@@ -454,7 +447,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     const [txYear, txMonth] = form.date.split('-');
                     const tm = parseInt(txMonth); const ty = parseInt(txYear);
                     if (tm !== cm || ty !== cy) {
-                        localStorage.removeItem(`dashboard-cache-${user.id}-${tm}-${ty}`);
                         localStorage.removeItem(`analytics-cache-${user.id}-${tm}-${ty}`);
                     }
                 }
@@ -468,7 +460,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             if (submittingEmi) toast.success('EMI purchase recorded');
             else if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
             else toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
-            onSuccess(); onClose();
+            onSuccess?.(); onClose();
         } catch (err: any) {
             const isNetworkErr = !err.response;
             // An EMI conversion isn't a plain transaction create -- there's no

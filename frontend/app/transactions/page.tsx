@@ -5,9 +5,13 @@ import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Zap, X, SearchX } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { transactionsAPI, aiAPI, accountsAPI, creditCardsAPI } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { aiAPI } from '@/lib/api';
 import { apiWithCache } from '@/lib/apiWithCache';
-import { cacheTransactions, getCachedTransactions } from '@/lib/offlineCache';
+import {
+    useTransactions, useAccounts, useCreditCards, queryKeys, invalidateAfterTransactionWrite,
+    removeTransactionsFromCache, type TransactionParams,
+} from '@/hooks/queries';
 import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
@@ -22,6 +26,9 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
+// Stable empty list, so a missing query result doesn't change identity per render.
+const NO_TRANSACTIONS: any[] = [];
+
 const getNowYear  = () => new Date().getFullYear();
 const getNowMonth = () => new Date().getMonth() + 1;
 
@@ -31,10 +38,8 @@ function TransactionsPageInner() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile     = useIsMobile();
 
-    const [transactions, setTransactions]   = useState<any[]>([]);
     const [filtered, setFiltered]           = useState<any[]>([]);
     const [sortKey, setSortKey]             = useState<SortKey>(DEFAULT_SORT);
-    const [loading, setLoading]             = useState(true);
     const [modalOpen, setModalOpen]         = useState(false);
     const [editingTx, setEditingTx]         = useState<any>(null);
     const [prefillData, setPrefillData]     = useState<any>(null);
@@ -56,15 +61,12 @@ function TransactionsPageInner() {
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
     const [filterFrom, setFilterFrom] = useState<string | null>(null);
     const [filterTo, setFilterTo]     = useState<string | null>(null);
-    const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
-    const [creditCards, setCreditCards]     = useState<any[]>([]);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
     // The FAB is portalled to document.body so no transformed ancestor (any
     // transform makes a containing block for position:fixed descendants) can
     // pin it to the page instead of the viewport.
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
-    const [fetchError, setFetchError]       = useState(false);
     const [quickAddFailed, setQuickAddFailed] = useState(false);
     const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ summary: { total_income: number; total_expenses: number } } | null>(null);
     const [activeFilterCount, setActiveFilterCount] = useState(0);
@@ -176,62 +178,50 @@ function TransactionsPageInner() {
         }
     }, [searchParams]);
 
-    const fetchTransactions = async () => {
-        if (!user) return;
-        setLoading(true);
-        setFetchError(false);
-        const params: Record<string, any> = selectedMonth ? { month: selectedMonth, year: selectedYear } : {};
-        if (filterCreditCardId) params.credit_card_id = filterCreditCardId;
-        // from/to override month/year entirely on the backend -- don't send both.
+    // Server params for the current period/filters. from/to override
+    // month/year entirely on the backend -- don't send both.
+    const txParams = useMemo<TransactionParams>(() => {
         if (filterFrom || filterTo) {
-            delete params.month; delete params.year;
-            if (filterFrom) params.from = filterFrom;
-            if (filterTo) params.to = filterTo;
+            return {
+                ...(filterFrom ? { from: filterFrom } : {}),
+                ...(filterTo ? { to: filterTo } : {}),
+                ...(filterCreditCardId ? { credit_card_id: filterCreditCardId } : {}),
+            };
         }
-        try {
-            // Bypass apiWithCache here (which swallows failures and falls back to
-            // cache silently) so a genuine backend error can surface distinctly
-            // from "this month has zero transactions" -- OfflineBanner already
-            // covers pure browser-offline app-wide, so this is specifically for
-            // an online-but-failing backend with no cache to fall back to.
-            const res = await transactionsAPI.getAll(params);
-            const txs = res.data?.transactions ?? [];
-            setTransactions(txs);
-            cacheTransactions(txs).catch(() => {});
-        } catch {
-            const cached = await getCachedTransactions();
-            setTransactions(cached);
-            if (cached.length === 0) setFetchError(true);
-        } finally {
-            setLoading(false);
-        }
-    };
+        return {
+            ...(selectedMonth ? { month: selectedMonth, year: selectedYear } : {}),
+            ...(filterCreditCardId ? { credit_card_id: filterCreditCardId } : {}),
+        };
+    }, [selectedMonth, selectedYear, filterCreditCardId, filterFrom, filterTo]);
 
-    // Mobile pull-to-refresh -- fetchTransactions always resolves (its own
-    // try/catch/finally never rethrows), so the indicator's "refreshing"
-    // state tracks the real fetch, not a fixed timeout.
+    // Cached per period: revisiting the page (or a month) shows the last list
+    // at once and refreshes it in the background -- the skeleton only shows
+    // when there is nothing cached yet.
+    const queryClient = useQueryClient();
+    const txQuery = useTransactions(txParams);
+    const transactions = txQuery.data ?? NO_TRANSACTIONS;
+    const loading = txQuery.isPending;
+    const fetchError = txQuery.isError && !txQuery.data;
+    const refetchTransactions = txQuery.refetch;
+    const fetchTransactions = useCallback(() => refetchTransactions().then(() => {}), [refetchTransactions]);
+    // After a write: refresh everything it touches, in the background.
+    const refreshAfterWrite = useCallback(() => invalidateAfterTransactionWrite(queryClient), [queryClient]);
+
+    // Mobile pull-to-refresh -- resolves when the refetch actually lands.
     const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(fetchTransactions, isMobile);
 
     useEffect(() => {
-        if (user) { setDisplayCount(50); fetchTransactions(); }
-    }, [user, selectedMonth, selectedYear, filterCreditCardId, filterFrom, filterTo]);
-
-    useEffect(() => {
-        const handler = () => fetchTransactions();
-        window.addEventListener('fintrack:queue-synced', handler);
-        return () => window.removeEventListener('fintrack:queue-synced', handler);
-    }, [user, selectedMonth, selectedYear, filterCreditCardId, filterFrom, filterTo]);
+        window.addEventListener('fintrack:queue-synced', refreshAfterWrite);
+        return () => window.removeEventListener('fintrack:queue-synced', refreshAfterWrite);
+    }, [refreshAfterWrite]);
 
     // Powers the filter bar's Account section and resolves filterCreditCardId
     // (set from a ?credit_card_id= deep link) to a human-readable chip label.
-    useEffect(() => {
-        if (!user) return;
-        accountsAPI.getAll().then(res => setAccounts(res.data.accounts || [])).catch(() => setAccounts([]));
-        creditCardsAPI.getAll().then(res => setCreditCards(res.data.cards || [])).catch(() => setCreditCards([]));
-    }, [user]);
+    const accounts: { id: number; name: string }[] = useAccounts().data ?? NO_TRANSACTIONS;
+    const creditCards: any[] = useCreditCards().data ?? NO_TRANSACTIONS;
 
     const handleOfflineSave = (pendingTx: any) => {
-        setTransactions(prev => [pendingTx, ...prev]);
+        queryClient.setQueryData<any[]>(queryKeys.transactions(user?.id, txParams), prev => [pendingTx, ...(prev ?? [])]);
     };
 
     // Reset display count when filtered changes
@@ -334,9 +324,8 @@ function TransactionsPageInner() {
     }, [filtered]);
 
     const removeIds = useCallback((ids: string[]) => {
-        const idSet = new Set(ids);
-        setTransactions(prev => prev.filter(tx => !idSet.has(tx.id)));
-    }, []);
+        removeTransactionsFromCache(queryClient, ids);
+    }, [queryClient]);
 
     if (isLoading || !user) return (
         <>
@@ -454,7 +443,7 @@ function TransactionsPageInner() {
                             transactions={visibleTransactions}
                             currency={user.currency}
                             onEdit={openEdit}
-                            onRefresh={fetchTransactions}
+                            onRefresh={refreshAfterWrite}
                             selectMode={selectMode}
                             selectedIds={selectedIds}
                             onToggleSelect={toggleSelect}
@@ -517,7 +506,7 @@ function TransactionsPageInner() {
             )}
 
             {/* ── TRANSACTION MODAL ── */}
-            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onSuccess={fetchTransactions} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
+            <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
 
             {/* ── BULK OPS PANEL ── */}
             {selectMode && selectedIds.size > 0 && (
@@ -529,7 +518,7 @@ function TransactionsPageInner() {
                     selectedMonth={selectedMonth}
                     onSelectAll={selectAll}
                     onExit={exitSelectMode}
-                    onRefresh={fetchTransactions}
+                    onRefresh={refreshAfterWrite}
                     onRemoveIds={removeIds}
                     onPendingDeleteChange={setPendingDelete}
                 />

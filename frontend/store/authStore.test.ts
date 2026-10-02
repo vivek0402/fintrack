@@ -17,6 +17,7 @@ vi.mock('@/plugins/FinTrackNativePlugin', () => ({
 
 import { persistedRefreshTokenFor, readPersistedAuth, signedOutElsewhere, useAuthStore } from './authStore';
 import { NOTIF_PREFS_KEY } from '@/lib/notificationPrefs';
+import { queryClient, QUERY_CACHE_STORAGE_KEY } from '@/lib/queryClient';
 
 describe('authStore.logout', () => {
     beforeEach(() => {
@@ -35,6 +36,14 @@ describe('authStore.logout', () => {
         expect(localStorage.getItem(NOTIF_PREFS_KEY)).toBeNull();
         expect(localStorage.getItem('unrelated')).toBe('keep');
         expect(useAuthStore.getState().token).toBeNull();
+    });
+
+    it("drops every cached server response, in memory and on disk, so the next user never sees this one's data", () => {
+        queryClient.setQueryData(['transactions', 'u1', { month: 8, year: 2026 }], [{ id: 'a' }]);
+        localStorage.setItem(QUERY_CACHE_STORAGE_KEY, '{"clientState":{}}');
+        useAuthStore.getState().logout();
+        expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+        expect(localStorage.getItem(QUERY_CACHE_STORAGE_KEY)).toBeNull();
     });
 });
 

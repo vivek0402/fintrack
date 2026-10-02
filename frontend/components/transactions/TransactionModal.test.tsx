@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithQuery as render, createTestQueryClient } from '@/lib/test-utils';
 import { TransactionModal } from './TransactionModal';
 import { transactionsAPI, creditCardsAPI, accountsAPI } from '@/lib/api';
 
@@ -85,6 +86,23 @@ describe('add transaction', () => {
             expect.objectContaining({ amount: 250, description: 'Coffee', type: 'expense' })
         );
         await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    });
+
+    it('puts the saved row straight into the cached list for its month, with no list refetch', async () => {
+        const queryClient = createTestQueryClient();
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const [y, m] = today.split('-').map(Number);
+        const key = ['transactions', 'u1', { month: m, year: y }];
+        queryClient.setQueryData(key, []);
+        vi.mocked(transactionsAPI.create).mockResolvedValueOnce({
+            data: { transaction: { id: 'new1', amount: '250', description: 'Coffee', type: 'expense', date: today } },
+        } as never);
+
+        render(<TransactionModal isOpen onClose={vi.fn()} />, { queryClient });
+        await fillBasics('250', 'Coffee');
+        submit();
+
+        await waitFor(() => expect(queryClient.getQueryData<any[]>(key)?.map(t => t.id)).toEqual(['new1']));
     });
 
     it('picks a category through the dialog and sends its id', async () => {
@@ -474,18 +492,19 @@ describe('holdUntilReady', () => {
         expect(screen.queryByText('Loading your categories…')).toBeNull();
     });
 
-    it('holds again when reopened, until the new fetch lands', async () => {
+    it('reopens straight to the form from the cached accounts, without holding again', async () => {
         const props = { onClose: vi.fn(), onSuccess: vi.fn(), holdUntilReady: true };
         const { rerender } = render(<TransactionModal isOpen {...props} />);
         await waitFor(() => expect(document.querySelector('form')).not.toBeNull());
 
         rerender(<TransactionModal isOpen={false} {...props} />);
+        // Even if a background refresh were slow, the cached list is shown.
         vi.mocked(accountsAPI.getAll).mockImplementationOnce(
             () => new Promise(() => {}) as ReturnType<typeof accountsAPI.getAll>,
         );
         rerender(<TransactionModal isOpen {...props} />);
-        await waitFor(() => expect(screen.getByText('Loading your categories…')).toBeInTheDocument());
-        expect(document.querySelector('form')).toBeNull();
+        expect(document.querySelector('form')).not.toBeNull();
+        expect(screen.queryByText('Loading your categories…')).toBeNull();
     });
 
     it('shows the form straight away without it', () => {

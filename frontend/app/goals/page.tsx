@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2, Target, Brain, ChevronRight, Pencil } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { goalsAPI, aiAPI } from '@/lib/api';
+import { useGoals, queryKeys } from '@/hooks/queries';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -19,6 +21,8 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
 import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
+
+const NO_GOALS: any[] = [];
 
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
@@ -52,8 +56,13 @@ export default function GoalsPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
-    const [goals, setGoals] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Cached: revisits show goals at once; the skeleton only shows on a cold
+    // cache. Writes refresh it in the background instead of reloading the list.
+    const queryClient = useQueryClient();
+    const goalsQuery = useGoals();
+    const goals: any[] = goalsQuery.data ?? NO_GOALS;
+    const loading = goalsQuery.isPending;
+    const goalsKey = queryKeys.goals(user?.id);
     const [showForm, setShowForm] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -81,13 +90,16 @@ export default function GoalsPage() {
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
-    const fetchGoals = async () => {
-        setLoading(true);
-        try { const res = await goalsAPI.getAll(); setGoals(res.data.goals); }
-        catch (err) { console.error(err); toast.error('Failed to load goals'); }
-        finally { setLoading(false); }
+    // Goals feed the dashboard's health score and the transaction modal's
+    // goal picker, which read the same ['goals'] query; the dashboard bundle
+    // carries its own copy, so refresh that too.
+    const fetchGoals = () => {
+        queryClient.invalidateQueries({ queryKey: ['goals'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     };
-    useEffect(() => { if (user) fetchGoals(); }, [user]);
+    useEffect(() => {
+        if (goalsQuery.isError && !goalsQuery.data) toast.error('Failed to load goals');
+    }, [goalsQuery.isError, goalsQuery.data]);
 
     // ── Handlers (logic unchanged) ────────────────────────────────────────────
 
@@ -133,9 +145,13 @@ export default function GoalsPage() {
     const handleAddFunds = async () => {
         if (!fundsGoalId || !fundsAmount) return;
         setFundsLoading(true);
+        const goal = goals.find(g => g.id === fundsGoalId);
+        const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
+        // Move the progress bar now; roll back if the server says no.
+        const before = queryClient.getQueryData<any[]>(goalsKey);
+        queryClient.setQueryData<any[]>(goalsKey, list => (list ?? []).map(g =>
+            g.id === fundsGoalId ? { ...g, saved_amount: String(parseFloat(g.saved_amount) + amount) } : g));
         try {
-            const goal = goals.find(g => g.id === fundsGoalId);
-            const amount = fundsType === 'add' ? parseFloat(fundsAmount) : -parseFloat(fundsAmount);
             await goalsAPI.addFunds(fundsGoalId, amount);
             setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); fetchGoals();
 
@@ -147,7 +163,10 @@ export default function GoalsPage() {
             } else {
                 toast.success(fundsType === 'add' ? 'Funds added to goal' : 'Funds withdrawn from goal');
             }
-        } catch { toast.error('Failed to update goal funds'); }
+        } catch {
+            queryClient.setQueryData(goalsKey, before);
+            toast.error('Failed to update goal funds');
+        }
         finally { setFundsLoading(false); }
     };
 
@@ -168,6 +187,8 @@ export default function GoalsPage() {
             setDeletingId(id);
             try {
                 await goalsAPI.delete(id);
+                // Out of the cache before un-hiding, so the card never flashes back.
+                queryClient.setQueryData<any[]>(goalsKey, list => (list ?? []).filter(g => g.id !== id));
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
                 fetchGoals();
             } catch {

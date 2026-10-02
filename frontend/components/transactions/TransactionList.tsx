@@ -2,7 +2,9 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil, Trash2, ReceiptText } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { transactionsAPI } from '@/lib/api';
+import { removeTransactionsFromCache } from '@/hooks/queries';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { formatCurrency, formatDate, getCategoryColor, getCategoryBg, getSmartIcon } from '@/lib/utils';
@@ -29,6 +31,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     const { user } = useAuthStore();
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmId, setConfirmId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
     // Rows are memoized, so the callbacks handed to them must be stable. These
     // refs let the stable callbacks below read the latest props without
@@ -65,13 +68,15 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             setDeletingId(id);
             try {
                 await transactionsAPI.delete(id);
+                // Drop it from the cached lists before un-hiding, so the row
+                // never flashes back while the background refresh runs.
+                removeTransactionsFromCache(queryClient, [id]);
                 setPendingNow(prev => { const s = new Set(prev); s.delete(id); return s; });
-                // Bust dashboard and analytics cache for current month and the transaction's own month
+                // Bust the analytics page's own cache for the current month and the transaction's own month
                 if (u) {
                     const now = new Date();
                     const cm = now.getMonth() + 1;
                     const cy = now.getFullYear();
-                    localStorage.removeItem(`dashboard-cache-${u.id}-${cm}-${cy}`);
                     localStorage.removeItem(`analytics-cache-${u.id}-${cm}-${cy}`);
                     // Deleting a transaction can also change a bank balance, this
                     // month's investment ratio, and DTI -- not month-keyed like the
@@ -85,7 +90,6 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         const tm = parseInt(txMonth);
                         const ty = parseInt(txYear);
                         if (tm !== cm || ty !== cy) {
-                            localStorage.removeItem(`dashboard-cache-${u.id}-${tm}-${ty}`);
                             localStorage.removeItem(`analytics-cache-${u.id}-${tm}-${ty}`);
                         }
                     }
@@ -98,7 +102,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                 setDeletingId(null);
             }
         }, 4200);
-    }, []);
+    }, [queryClient]);
 
     const handleEdit = useCallback((tx: any) => latest.current.onEdit(tx), []);
     const handleToggle = useCallback((id: string) => latest.current.onToggleSelect?.(id), []);
