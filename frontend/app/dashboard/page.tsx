@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, transactionsAPI, recurringAPI, budgetsAPI, goalsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
 import { fmt, getSmartIcon } from '@/lib/utils';
 import { getCached, setCached } from '@/lib/apiCache';
-import { useCountUp } from '@/hooks/useCountUp';
+import { CountUp } from '@/components/ui/CountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { toast } from '@/store/toastStore';
@@ -274,10 +274,11 @@ export default function DashboardPage() {
         setExpColor(s.getPropertyValue('--color-exp').trim() || '#dc2626');
     }, [theme]);
 
-    // Animated numbers
-    const heroIncome   = useCountUp(summary?.total_income   ?? 0, 900, !dataLoading);
-    const heroExpenses = useCountUp(summary?.total_expenses ?? 0, 900, !dataLoading);
-    const heroNet      = useCountUp((summary?.total_income ?? 0) - (summary?.total_expenses ?? 0), 900, !dataLoading);
+    // Hero figures -- rendered through <CountUp>, which animates them without
+    // re-rendering this page on every frame.
+    const heroIncome   = Number(summary?.total_income   ?? 0);
+    const heroExpenses = Number(summary?.total_expenses ?? 0);
+    const heroNet      = heroIncome - heroExpenses;
 
     const hour     = new Date().getHours();
     const greeting = `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.full_name?.split(' ')[0] ?? 'there'}`;
@@ -535,17 +536,17 @@ export default function DashboardPage() {
                 <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
             ) : (
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '28px' : '38px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                    {heroNet >= 0 ? '' : '−'}{fmt(Math.abs(heroNet))}
+                    <CountUp value={heroNet} format={n => (n >= 0 ? '' : '−') + fmt(Math.abs(n))} />
                 </p>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--color-exp) 12%, transparent)' }}>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
-                        {heroNet >= 0 ? '+' : ''}{fmt(heroNet)} this month
+                        <CountUp value={heroNet} format={n => (n >= 0 ? '+' : '') + fmt(n)} /> this month
                     </span>
                 </div>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                    {fmt(heroIncome)} in · {fmt(heroExpenses)} out
+                    <CountUp value={heroIncome} format={fmt} /> in · <CountUp value={heroExpenses} format={fmt} /> out
                 </p>
             </div>
         </div>
@@ -717,9 +718,9 @@ export default function DashboardPage() {
 
                         const tiles = [
                             // ── Row 1 ──
-                            { label: 'Total Income',   value: fmt(heroIncome),   sub: MONTH_NAMES[month],          color: 'var(--color-inc)', Icon: TrendingUp   },
-                            { label: 'Total Expenses', value: fmt(heroExpenses), sub: MONTH_NAMES[month],          color: 'var(--color-exp)', Icon: TrendingDown },
-                            { label: 'Net Balance',    value: fmt(Math.abs(heroNet)), sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', Icon: Wallet },
+                            { label: 'Total Income',   value: <CountUp value={heroIncome} format={fmt} />,   sub: MONTH_NAMES[month],          color: 'var(--color-inc)', Icon: TrendingUp   },
+                            { label: 'Total Expenses', value: <CountUp value={heroExpenses} format={fmt} />, sub: MONTH_NAMES[month],          color: 'var(--color-exp)', Icon: TrendingDown },
+                            { label: 'Net Balance',    value: <CountUp value={Math.abs(heroNet)} format={fmt} />, sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', Icon: Wallet },
                             { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,           color: savingsBadge.color, Icon: Award        },
                             // ── Row 2 ──
                             {

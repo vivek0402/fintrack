@@ -18,19 +18,19 @@ vi.mock('@/components/analytics/CalendarTab', () => ({ CalendarTab: () => <div>c
 vi.mock('@/lib/api', () => ({}));
 
 describe('Insights page tabs', () => {
-    it('?tab=health selects the Health tab', () => {
+    it('?tab=health selects the Health tab', async () => {
         search = 'tab=health';
         render(<AnalyticsPage />);
-        expect(screen.getByText('health-tab-body')).toBeInTheDocument();
+        expect(await screen.findByText('health-tab-body')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Health' })).toHaveStyle({ background: 'var(--accent)' });
     });
 
-    it('shows every tab as a chip, in order', () => {
+    it('shows every tab as a chip, in order', async () => {
         search = 'tab=calendar';
         render(<AnalyticsPage />);
         const labels = ['Overview', 'Health', 'Insights', 'Reports', 'Year Review', 'Calendar', 'Personality'];
         const chips = screen.getAllByRole('button').filter(b => labels.includes(b.textContent ?? ''));
         expect(chips.map(b => b.textContent)).toEqual(labels);
-        expect(screen.getByText('calendar-tab-body')).toBeInTheDocument();
+        expect(await screen.findByText('calendar-tab-body')).toBeInTheDocument();
     });
 });

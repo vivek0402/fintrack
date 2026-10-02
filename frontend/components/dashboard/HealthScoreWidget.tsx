@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, ChevronRight } from 'lucide-react';
 import { calculateHealthScore, monthlySeriesFromTrends, HealthScoreResult } from '@/lib/healthScore';
-import { useCountUp } from '@/hooks/useCountUp';
+import { CountUp } from '@/components/ui/CountUp';
 import { ScoreRing } from '@/components/analytics/health/ScoreRing';
 
 interface Props {
@@ -42,7 +42,6 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
     }));
   }, [loading, summary, hasData, budgets, goals, trends, investmentRatio, dti, creditUtilization]);
 
-  const displayScore = useCountUp(result?.score ?? 0, 1000, !!result);
 
   const weakest = result
     ? [...result.breakdown].sort((a, b) => (a.score / a.max) - (b.score / b.max)).slice(0, 3)
@@ -80,7 +79,7 @@ export function HealthScoreWidget({ summary, budgets, goals, trends, loading, in
         <ScoreRing score={result.score} color={result.color} />
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginTop: '6px' }}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 800, color: result.color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-            {displayScore}
+            <CountUp value={result.score} duration={1000} />
           </span>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>/ 100</span>
         </div>

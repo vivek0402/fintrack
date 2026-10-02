@@ -48,8 +48,8 @@
   --radius-full: 9999px;
 
   /* Transitions */
-  --transition-fast: all 0.12s ease;
-  --transition-base: all 0.20s ease;
+  --transition-fast: 0.12s ease;
+  --transition-base: 0.20s ease;
 
   /* Safe-area insets. Use these, never env(safe-area-inset-*) directly.
      Inside the Android WebView env() reports 0; Capacitor's SystemBars plugin
@@ -189,7 +189,7 @@ h1, h2, h3, h4, h5, h6 {
   --surface-2: var(--bg-surface-2);
   --bg-border: var(--border-subtle);
   --bg-border-strong: var(--border-visible);
-  --transition-slow: all 0.32s ease;
+  --transition-slow: 0.32s ease;
   --accent-green-border: color-mix(in srgb, var(--color-inc) 25%, transparent);
   --accent-red-border: color-mix(in srgb, var(--color-exp) 25%, transparent);
   --accent-yellow-border: color-mix(in srgb, var(--color-warn) 25%, transparent);
@@ -266,7 +266,7 @@ h1, h2, h3, h4, h5, h6 {
   --surface-2: var(--bg-surface-2);
   --bg-border: var(--border-subtle);
   --bg-border-strong: var(--border-visible);
-  --transition-slow: all 0.32s ease;
+  --transition-slow: 0.32s ease;
   --accent-green-border: color-mix(in srgb, var(--color-inc) 25%, transparent);
   --accent-red-border: color-mix(in srgb, var(--color-exp) 25%, transparent);
   --accent-yellow-border: color-mix(in srgb, var(--color-warn) 25%, transparent);
@@ -522,9 +522,11 @@ button:active:not(:disabled) {
   100% { transform: scale(1); }
 }
 
+/* Compositor-only (opacity + transform): animating filter: blur forced a
+   repaint of the number every frame. */
 @keyframes numberReveal {
-  from { opacity: 0; transform: translateY(8px) scale(0.96); filter: blur(2px); }
-  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @keyframes softPulse {

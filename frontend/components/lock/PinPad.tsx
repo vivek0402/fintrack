@@ -9,7 +9,7 @@ const keyStyle = (disabled: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     color: 'var(--text-primary)', cursor: disabled ? 'default' : 'pointer',
     opacity: disabled ? 0.4 : 1, padding: 0,
-    transition: 'var(--transition-fast)', WebkitTapHighlightColor: 'transparent',
+    transition: 'background-color var(--transition-fast), opacity var(--transition-fast)', WebkitTapHighlightColor: 'transparent',
 });
 
 /**
@@ -50,7 +50,7 @@ export function PinPad({ title, message, error, length, value, onDigit, onBacksp
                                 width: 14, height: 14, borderRadius: 'var(--radius-full)', boxSizing: 'border-box',
                                 background: filled ? (error ? 'var(--color-exp)' : 'var(--text-primary)') : 'transparent',
                                 border: `1.5px solid ${error ? 'var(--color-exp)' : filled ? 'var(--text-primary)' : 'var(--border-visible)'}`,
-                                transition: 'var(--transition-fast)',
+                                transition: 'background-color var(--transition-fast), border-color var(--transition-fast)',
                             }}
                         />
                     );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
     PiggyBank, Zap, Trophy, Flame, Loader2, AlertCircle, Sparkles,
     Utensils, Car, Plane, ShoppingBag, Laptop, Home, Heart,
@@ -553,7 +554,7 @@ function SavingsPlanPageInner() {
                             ) : activeGoals.length === 0 ? (
                                 <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0', fontFamily: 'var(--font-body)' }}>
                                     No active goals.{' '}
-                                    <a href="/goals" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>Create one →</a>
+                                    <Link href="/goals" style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}>Create one →</Link>
                                 </p>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

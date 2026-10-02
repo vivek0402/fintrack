@@ -13,9 +13,11 @@ import { Modal } from '@/components/ui/Modal';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
-import { useCountUp } from '@/hooks/useCountUp';
+import { CountUp } from '@/components/ui/CountUp';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
 import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone } from '@/lib/cardStatement';
+
+const inr = (n: number) => n.toLocaleString('en-IN');
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -224,10 +226,6 @@ export default function AccountsPage() {
     const totalWallets = wallets.reduce((s, w) => s + Number(w.balance), 0);
     const netWorth     = totalBanks + totalWallets - totalCards;
 
-    const animatedNetWorth = useCountUp(Math.abs(netWorth), 1000, mounted);
-    const animatedBanks    = useCountUp(totalBanks,    900, mounted);
-    const animatedCards    = useCountUp(totalCards,    900, mounted);
-    const animatedWallets  = useCountUp(totalWallets,  900, mounted);
 
     // ── Bank handlers (logic unchanged) ──────────────────────────────────────
 
@@ -417,17 +415,17 @@ export default function AccountsPage() {
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Net Worth</p>
                         <div style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '32px' : '2.5rem', fontWeight: 800, color: netWorth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: '20px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                            {netWorth < 0 ? '−' : ''}₹{animatedNetWorth.toLocaleString('en-IN')}
+                            {netWorth < 0 ? '−' : ''}₹<CountUp value={Math.abs(netWorth)} duration={1000} enabled={mounted} format={inr} />
                         </div>
                         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                             {[
-                                { label: 'Bank Balance', value: animatedBanks,   color: 'var(--color-inc)' },
-                                { label: 'CC Debt',      value: animatedCards,   color: 'var(--color-exp)' },
-                                { label: 'Wallets',      value: animatedWallets, color: 'var(--color-inc)' },
+                                { label: 'Bank Balance', value: totalBanks,   color: 'var(--color-inc)' },
+                                { label: 'CC Debt',      value: totalCards,   color: 'var(--color-exp)' },
+                                { label: 'Wallets',      value: totalWallets, color: 'var(--color-inc)' },
                             ].map(pill => (
                                 <div key={pill.label}>
                                     <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px', fontFamily: 'var(--font-body)' }}>{pill.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: pill.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>₹{pill.value.toLocaleString('en-IN')}</p>
+                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: pill.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>₹<CountUp value={pill.value} enabled={mounted} format={inr} /></p>
                                 </div>
                             ))}
                         </div>

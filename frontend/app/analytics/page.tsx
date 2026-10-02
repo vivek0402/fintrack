@@ -19,6 +19,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { CountUp } from '@/components/ui/CountUp';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
@@ -34,9 +35,10 @@ const vizSkeleton = (h: number) => {
 const SpendingHeatmap = dynamic(() => import('@/components/analytics/SpendingHeatmap').then(m => m.SpendingHeatmap), { ssr: false, loading: vizSkeleton(100) });
 const SankeyFlow = dynamic(() => import('@/components/analytics/SankeyFlow').then(m => m.SankeyFlow), { ssr: false, loading: vizSkeleton(200) });
 const CategoryTrajectory = dynamic(() => import('@/components/analytics/CategoryTrajectory').then(m => m.CategoryTrajectory), { ssr: false, loading: vizSkeleton(200) });
+// Non-default tabs: loaded on first open so they stay out of the page's initial bundle.
+const CalendarTab = dynamic(() => import('@/components/analytics/CalendarTab').then(m => m.CalendarTab), { ssr: false, loading: vizSkeleton(400) });
+const HealthTab = dynamic(() => import('@/components/analytics/health/HealthTab').then(m => m.HealthTab), { ssr: false, loading: vizSkeleton(400) });
 import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
-import { CalendarTab } from '@/components/analytics/CalendarTab';
-import { HealthTab } from '@/components/analytics/health/HealthTab';
 
 // Every section of the page is a visible chip (the row scrolls horizontally on
 // mobile). Deep links land here too: /reports, /year-review, /personality,
@@ -1495,22 +1497,6 @@ function ReportsTab() {
 // ═══════════════════════════════════════════════════════════════════════════
 const yrFmt = (n: number) => '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
-function useCountUp(target: number, duration = 1400, enabled = true) {
-    const [val, setVal] = useState(0);
-    useEffect(() => {
-        if (!enabled || target === 0) { setVal(target); return; }
-        let cur = 0;
-        const step = target / (duration / 16);
-        const t = setInterval(() => {
-            cur = Math.min(cur + step, target);
-            setVal(Math.floor(cur));
-            if (cur >= target) clearInterval(t);
-        }, 16);
-        return () => clearInterval(t);
-    }, [target, duration, enabled]);
-    return val;
-}
-
 function YearReviewTab() {
     const { user } = useAuthStore();
     const cardRef = useRef<HTMLDivElement>(null);
@@ -1594,7 +1580,6 @@ function YearReviewTab() {
         };
     }, [yearTxs]);
 
-    const animCount = useCountUp(stats?.count ?? 0, 1400, !!stats);
 
     const handleScreenshot = () => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1646,7 +1631,7 @@ function YearReviewTab() {
                         {/* Big animated count */}
                         <div className="glass-surface" style={{ ...sCard, textAlign: 'center', padding: '36px 24px' }}>
                             <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 12vw, 72px)', fontWeight: 800, color: 'var(--accent)', margin: '0 0 6px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                                {animCount.toLocaleString('en-IN')}
+                                <CountUp value={stats?.count ?? 0} duration={1400} enabled={!!stats} format={n => n.toLocaleString('en-IN')} />
                             </p>
                             <p style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>transactions in {selectedYear}</p>
                             <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>Every rupee tracked — great financial discipline!</p>

@@ -58,7 +58,7 @@ export function ThemeToggle() {
                                 fontWeight: 500,
                                 cursor: 'pointer',
                                 border: 'none',
-                                transition: 'var(--transition-fast)',
+                                transition: 'background-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast)',
                                 background: isActive ? 'var(--surface-1)' : 'transparent',
                                 color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                                 boxShadow: isActive ? 'var(--shadow-card)' : 'none',

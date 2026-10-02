@@ -102,10 +102,18 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     const activeFilterCount = useMemo(() => countActiveFilters(inputValue, panel), [inputValue, panel]);
     useEffect(() => { onActiveFilterCountChange?.(activeFilterCount); }, [activeFilterCount]);
 
+    // Typing re-filters the whole list, so let keystrokes settle for 150ms
+    // first. Clearing the box applies at once.
+    const [filterQuery, setFilterQuery] = useState(inputValue);
+    useEffect(() => {
+        const t = setTimeout(() => setFilterQuery(inputValue), inputValue.trim() ? 150 : 0);
+        return () => clearTimeout(t);
+    }, [inputValue]);
+
     // Apply filters on every change
     useEffect(() => {
-        onFilter(applyAdvancedFilters(transactions, inputValue, panel));
-    }, [transactions, inputValue, panel]);
+        onFilter(applyAdvancedFilters(transactions, filterQuery, panel));
+    }, [transactions, filterQuery, panel]);
 
     // Sync date context with parent (drives server-side fetch range) --
     // both 'all' and 'custom' need the fetch widened beyond the current

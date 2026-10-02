@@ -108,6 +108,12 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
         }
     }, [moreOpen, activeGroupKey]);
 
+    // The main tabs navigate via router.push, which never prefetches on its own;
+    // warm their route chunks up front so tab switches don't wait on the network.
+    useEffect(() => {
+        mainTabs.forEach(t => router.prefetch(t.href));
+    }, [router]);
+
     useEffect(() => {
         document.body.style.overflow = moreOpen ? 'hidden' : '';
         return () => { document.body.style.overflow = ''; };

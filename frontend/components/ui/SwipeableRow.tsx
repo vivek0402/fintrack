@@ -13,12 +13,19 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
     const [transitioning, setTransitioning] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const startX = useRef(0);
+    const startY = useRef(0);
+    // Which way this gesture is going, decided once movement clears the noise
+    // threshold. A vertical gesture is a scroll: the row ignores it entirely
+    // instead of drifting sideways (and re-rendering) on every touchmove.
+    const axisRef = useRef<'x' | 'y' | null>(null);
     const draggingRef = useRef(false);
     const didSwipeRef = useRef(false);
     const rowRef = useRef<HTMLDivElement>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         startX.current = e.touches[0].clientX;
+        startY.current = e.touches[0].clientY;
+        axisRef.current = null;
         draggingRef.current = true;
         didSwipeRef.current = false;
         setTransitioning(false);
@@ -27,11 +34,16 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!draggingRef.current) return;
         const raw = e.touches[0].clientX - startX.current;
-        // Only treat this as an actual swipe (and switch the row into its
-        // opaque dragging visual) once horizontal movement clears the noise
-        // threshold -- setting this on touchstart instead fired on every
-        // touch, including the start of a plain vertical scroll.
-        if (Math.abs(raw) > 8) { didSwipeRef.current = true; setIsDragging(true); }
+        const dy = e.touches[0].clientY - startY.current;
+        if (axisRef.current === null) {
+            if (Math.abs(raw) <= 8 && Math.abs(dy) <= 8) return;
+            axisRef.current = Math.abs(raw) > Math.abs(dy) ? 'x' : 'y';
+            if (axisRef.current === 'y') { draggingRef.current = false; return; }
+            // Only now is this an actual swipe -- switch the row into its
+            // dragging visual.
+            didSwipeRef.current = true;
+            setIsDragging(true);
+        }
         setDragX(Math.max(-100, Math.min(0, raw)));
     };
 
@@ -98,7 +110,11 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
                     position: 'relative',
                     transform: `translateX(${dragX}px)`,
                     transition: transitioning ? 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)' : 'none',
-                    willChange: 'transform',
+                    // A layer per row only while it is actually being dragged.
+                    willChange: isDragging ? 'transform' : undefined,
+                    // Vertical panning stays with the browser (smooth native
+                    // scroll); only horizontal movement reaches the handlers.
+                    touchAction: 'pan-y',
                     zIndex: 1,
                     background: 'transparent',
                 }}

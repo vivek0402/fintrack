@@ -194,8 +194,8 @@ Always use the canonical v2 tokens in new code.
   ```
 - **Transition tokens:**
   ```css
-  --transition-fast: all 0.12s ease   — hover states, focus rings
-  --transition-base: all 0.20s ease   — button presses, toggles
+  --transition-fast: 0.12s ease   — hover states, focus rings (timing only: write `opacity var(--transition-fast)`, never the token alone)
+  --transition-base: 0.20s ease   — button presses, toggles
   ```
 
 ## Layout

@@ -46,10 +46,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         runNotificationCheck();
     }, []);
 
-    // Android hardware/gesture back button now lives in CapacitorBridge (mounted
-    // once at the true app root) — AppLayout remounts on every page navigation,
-    // which used to leave a registration gap on every nav where a back press
-    // would fall through to the native default (exit) instead of our handler.
+    // Android hardware/gesture back button lives in CapacitorBridge (mounted
+    // once at the true app root), so it is registered independently of any
+    // layout that may remount when crossing between bare and chromed routes.
 
     // Warm up the backend + Supabase on first app load (free-tier cold-start mitigation)
     useEffect(() => {
@@ -96,15 +95,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             `}</style>
             <OfflineBanner />
             <Sidebar />
+            {/* No key/entry animation on <main>: pages swap in place like native
+                tabs instead of replaying a fade-and-slide on every navigation. */}
             <main
-                key={pathname}
                 style={{
                     marginLeft: isMobile ? '0' : sidebarCollapsed ? '76px' : '240px',
                     flex: 1,
                     minHeight: '100vh',
                     overflowX: 'hidden',
                     color: 'var(--text-primary)',
-                    animation: 'pageEnter 0.2s ease-out forwards',
                     // Lifts page content above the fixed ambient backdrop, which is
                     // positioned and would otherwise paint over unpositioned content.
                     position: 'relative',
@@ -119,7 +118,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         ? '16px 16px calc(160px + var(--sa-bottom))'
                         : '32px 40px',
                 }}>
-                    <PageErrorBoundary><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
+                    {/* Keyed so a crashed page's error state resets when you navigate away. */}
+                    <PageErrorBoundary key={pathname}><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
                 </div>
             </main>
             {/* The mobile add-transaction button now lives inside BottomNav, docked

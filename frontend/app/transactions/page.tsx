@@ -59,12 +59,9 @@ function TransactionsPageInner() {
     const [accounts, setAccounts]           = useState<{ id: number; name: string }[]>([]);
     const [creditCards, setCreditCards]     = useState<any[]>([]);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
-    // AppLayout's <main> runs a page-enter animation whose final keyframe
-    // leaves `transform: translateY(0)` applied via fill-mode: forwards --
-    // an identity transform still makes it a containing block for
-    // position:fixed descendants, so anything fixed *inside* a page (like
-    // this FAB) ends up pinned to <main> instead of the viewport and
-    // scrolls with it. Portalling to document.body sidesteps that entirely.
+    // The FAB is portalled to document.body so no transformed ancestor (any
+    // transform makes a containing block for position:fixed descendants) can
+    // pin it to the page instead of the viewport.
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
     const [fetchError, setFetchError]       = useState(false);
@@ -84,13 +81,19 @@ function TransactionsPageInner() {
     ];
 
     // ── Infinite scroll ───────────────────────────────────────────────────────
+    // One observer at a time: disconnect the previous one whenever the sentinel
+    // button unmounts or is replaced, instead of piling up observers.
+    const loadMoreObserver = useRef<IntersectionObserver | null>(null);
     const loadMoreRef = useCallback((node: HTMLElement | null) => {
+        loadMoreObserver.current?.disconnect();
+        loadMoreObserver.current = null;
         if (!node) return;
         const observer = new IntersectionObserver(
             entries => { if (entries[0].isIntersecting) setDisplayCount(c => c + 50); },
             { threshold: 0.1 }
         );
         observer.observe(node);
+        loadMoreObserver.current = observer;
     }, []);
 
     // ── Quick add placeholder rotation ────────────────────────────────────────
@@ -276,8 +279,10 @@ function TransactionsPageInner() {
 
     const sortedFiltered = useMemo(() => sortTransactions(filtered, sortKey), [filtered, sortKey]);
 
-    const totalIncome  = filtered.filter(isRealIncome).reduce((s, tx) => s + parseFloat(tx.amount), 0);
-    const totalExpense = filtered.filter(isNonSavingsExpense).reduce((s, tx) => s + parseFloat(tx.amount), 0);
+    const { totalIncome, totalExpense } = useMemo(() => ({
+        totalIncome:  filtered.filter(isRealIncome).reduce((s, tx) => s + parseFloat(tx.amount), 0),
+        totalExpense: filtered.filter(isNonSavingsExpense).reduce((s, tx) => s + parseFloat(tx.amount), 0),
+    }), [filtered]);
     const netAmount    = totalIncome - totalExpense;
     const visibleTransactions = sortedFiltered.slice(0, displayCount);
     const hasMore = sortedFiltered.length > displayCount;
@@ -304,6 +309,7 @@ function TransactionsPageInner() {
     const netDelta  = prevNet != null && prevNet !== 0 ? ((netAmount - prevNet) / Math.abs(prevNet)) * 100 : null;
 
     const handleModalClose = () => { setModalOpen(false); setEditingTx(null); setPrefillData(null); };
+    const openEdit = useCallback((tx: any) => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }, []);
 
     // ── Select mode ──────────────────────────────────────────────────────────
     const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
@@ -447,7 +453,7 @@ function TransactionsPageInner() {
                         <TransactionList
                             transactions={visibleTransactions}
                             currency={user.currency}
-                            onEdit={tx => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }}
+                            onEdit={openEdit}
                             onRefresh={fetchTransactions}
                             selectMode={selectMode}
                             selectedIds={selectedIds}
