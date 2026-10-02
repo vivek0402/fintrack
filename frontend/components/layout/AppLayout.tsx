@@ -20,6 +20,7 @@ import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 import { resolveViewTransition } from '@/lib/viewTransition';
 import { usePrefetchTabData } from '@/hooks/queries';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
 // /transactions used to be excluded -- it had its own header add button.
@@ -42,6 +43,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const { user } = useAuthStore();
     // Warm Home / Money / Insights data so the first tap on each is instant.
     usePrefetchTabData();
+    // Back/forward returns to where you were on that page.
+    useScrollRestoration();
 
     useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
 
