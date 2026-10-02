@@ -19,6 +19,7 @@ import { toast } from '@/store/toastStore';
 import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 import { resolveViewTransition } from '@/lib/viewTransition';
+import { usePrefetchTabData } from '@/hooks/queries';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
 // /transactions used to be excluded -- it had its own header add button.
@@ -39,6 +40,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const [addFabPressed, setAddFabPressed] = useState(false);
     const [showTour, setShowTour] = useState(false);
     const { user } = useAuthStore();
+    // Warm Home / Money / Insights data so the first tap on each is instant.
+    usePrefetchTabData();
 
     useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
 

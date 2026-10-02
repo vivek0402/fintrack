@@ -7,6 +7,7 @@ import { Info, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
 import { analyticsAPI } from '@/lib/api';
+import { useUserQuery } from '@/hooks/queries';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
@@ -94,6 +95,8 @@ const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Ico
     insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--glass-fill-2)', Icon: Minus },
 };
 
+const NO_SNAPSHOTS: NetWorthSnapshot[] = [];
+
 function NetWorthPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -102,34 +105,32 @@ function NetWorthPageInner() {
     const initialTab = searchParams.get('tab');
     const [tab, setTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab! : 'overview');
 
-    const [current, setCurrent] = useState<NetWorthCurrent | null>(null);
-    const [history, setHistory] = useState<NetWorthSnapshot[]>([]);
-    const [velocity, setVelocity] = useState<WealthVelocityData | null>(null);
-    const [allocation, setAllocation] = useState<AssetAllocationData | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Cached: revisits show net worth at once and refresh in the background.
+    const netWorthQuery = useUserQuery('net-worth', [], async () => {
+        const [nwRes, velRes, allocRes] = await Promise.all([
+            analyticsAPI.getNetWorth(),
+            analyticsAPI.getWealthVelocity(),
+            analyticsAPI.getAssetAllocation(),
+        ]);
+        return {
+            current: nwRes.data.current as NetWorthCurrent,
+            history: (nwRes.data.history || []) as NetWorthSnapshot[],
+            velocity: velRes.data as WealthVelocityData,
+            allocation: allocRes.data as AssetAllocationData,
+        };
+    });
+    const current = netWorthQuery.data?.current ?? null;
+    const history: NetWorthSnapshot[] = netWorthQuery.data?.history ?? NO_SNAPSHOTS;
+    const velocity = netWorthQuery.data?.velocity ?? null;
+    const allocation = netWorthQuery.data?.allocation ?? null;
+    const loading = netWorthQuery.isPending;
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     useEffect(() => {
-        if (!user) return;
-        Promise.all([
-            analyticsAPI.getNetWorth(),
-            analyticsAPI.getWealthVelocity(),
-            analyticsAPI.getAssetAllocation(),
-        ])
-            .then(([nwRes, velRes, allocRes]) => {
-                setCurrent(nwRes.data.current);
-                setHistory(nwRes.data.history || []);
-                setVelocity(velRes.data);
-                setAllocation(allocRes.data);
-            })
-            .catch((err: any) => {
-                if (err.response?.status === 401) router.push('/login');
-                else toast.error('Failed to load net worth data');
-            })
-            .finally(() => setLoading(false));
-    }, [user]);
+        if (netWorthQuery.isError && !netWorthQuery.data) toast.error('Failed to load net worth data');
+    }, [netWorthQuery.isError, netWorthQuery.data]);
 
     if (isLoading || !user || loading || !current) {
         return (

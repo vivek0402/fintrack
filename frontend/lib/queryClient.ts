@@ -43,13 +43,13 @@ export function clearQueryCache(): void {
     try { localStorage.removeItem(QUERY_CACHE_STORAGE_KEY); } catch { /* storage unavailable */ }
 }
 
-/** Everything a transaction write can change. Refetches in the background:
- *  pages keep showing their current data (no skeleton) until it lands. Also
- *  called from the API client after every transaction write, so writers that
- *  don't touch the cache themselves (SMS/bank import, offline queue sync)
- *  still refresh every page. */
+/** A transaction write can move almost every number in the app (totals,
+ *  budgets, goals, balances, net worth, debt ratios), so mark every cached
+ *  query stale. Only the queries on screen refetch now, in the background --
+ *  pages keep showing their current data (no skeleton) until it lands; the
+ *  rest refresh the next time their page opens. Also called from the API
+ *  client after every transaction write, so writers that don't touch the
+ *  cache themselves (SMS/bank import, offline queue sync) refresh too. */
 export function invalidateAfterTransactionWrite(qc: QueryClient = queryClient) {
-    for (const key of ['transactions', 'dashboard', 'budgets', 'goals', 'accounts', 'creditCards', 'paymentMethodUsage']) {
-        qc.invalidateQueries({ queryKey: [key] });
-    }
+    qc.invalidateQueries();
 }

@@ -17,6 +17,10 @@ import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/store/toastStore';
 import { Investment, InvestmentSummary, INVESTMENT_TYPES, GROUP_LABELS } from '@/types/investments';
 import { fmt } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserQuery } from '@/hooks/queries';
+
+const NO_INVESTMENTS: Investment[] = [];
 
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
@@ -52,9 +56,16 @@ export default function InvestmentsPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
-    const [investments, setInvestments] = useState<Investment[]>([]);
-    const [summary, setSummary] = useState<InvestmentSummary | null>(null);
-    const [loading, setLoading] = useState(true);
+    // Holdings + summary from the shared cache: revisits show them at once
+    // and refresh in the background.
+    const queryClient = useQueryClient();
+    const investmentsQuery = useUserQuery('investments', [], async () => {
+        const [invRes, sumRes] = await Promise.all([investmentAPI.getAll(), investmentAPI.getSummary()]);
+        return { investments: (invRes.data.investments || []) as Investment[], summary: sumRes.data as InvestmentSummary };
+    });
+    const investments: Investment[] = investmentsQuery.data?.investments ?? NO_INVESTMENTS;
+    const summary: InvestmentSummary | null = investmentsQuery.data?.summary ?? null;
+    const loading = investmentsQuery.isPending;
 
     const [showAdd, setShowAdd] = useState(false);
     const [showCamsImport, setShowCamsImport] = useState(false);
@@ -73,18 +84,9 @@ export default function InvestmentsPage() {
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
-    const fetchData = () => {
-        setLoading(true);
-        return Promise.all([investmentAPI.getAll(), investmentAPI.getSummary()])
-            .then(([invRes, sumRes]) => {
-                setInvestments(invRes.data.investments || []);
-                setSummary(sumRes.data);
-            })
-            .catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => { if (user) fetchData(); }, [user]);
+    // Holdings feed net worth, the dashboard's allocation widgets and the
+    // investment ratio -- refresh every cached query after a write.
+    const fetchData = () => queryClient.invalidateQueries();
 
     // ── Add Investment ──────────────────────────────────────────────────────
 
@@ -219,6 +221,9 @@ export default function InvestmentsPage() {
             try {
                 await investmentAPI.delete(id);
                 if (user) { localStorage.removeItem(`investments-cache-${user.id}`); localStorage.removeItem(`investment-ratio-cache-${user.id}`); }
+                // Out of the cache before un-hiding, so the row never flashes back.
+                queryClient.setQueryData<{ investments: Investment[]; summary: InvestmentSummary }>(['investments', user?.id],
+                    prev => prev && { ...prev, investments: prev.investments.filter(i => i.id !== id) });
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
                 fetchData();
             } catch {

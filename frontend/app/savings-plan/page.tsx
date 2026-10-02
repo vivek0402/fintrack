@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { analyticsAPI, goalsAPI, transactionsAPI, aiAPI, milestoneAPI } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserQuery } from '@/hooks/queries';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -162,6 +164,9 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { name: '', target_date: '', description: '', target_amount: '', current_amount: '0', parent_id: '', priority: '0' };
 
+const NO_ROWS: any[] = [];
+const NO_MILESTONES: Milestone[] = [];
+
 function SavingsPlanPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -172,11 +177,27 @@ function SavingsPlanPageInner() {
     const [tab, setTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab! : 'savings-plan');
 
     // ── Savings Plan state ──
-    const [summary, setSummary]           = useState<any>(null);
-    const [goals, setGoals]               = useState<any[]>([]);
-    const [trends, setTrends]             = useState<any[]>([]);
-    const [transactions, setTransactions] = useState<any[]>([]);
-    const [dataLoading, setDataLoading]   = useState(true);
+    // From the shared cache: revisits show the plan at once and refresh in
+    // the background. The all-time transaction list stays in memory only.
+    const queryClient = useQueryClient();
+    const planQuery = useUserQuery('savings-plan', [], async () => {
+        const [sumRes, goalsRes, trendsRes] = await Promise.all([
+            analyticsAPI.summary(), goalsAPI.getAll(), analyticsAPI.trends(),
+        ]);
+        return {
+            summary: sumRes.data.summary,
+            goals: (goalsRes.data.goals ?? []) as any[],
+            trends: (trendsRes.data.trends ?? []) as any[],
+        };
+    });
+    const allTxQuery = useUserQuery('transactions-all', [],
+        async () => ((await transactionsAPI.getAll()).data.transactions ?? []) as any[],
+        { persist: false });
+    const summary = planQuery.data?.summary ?? null;
+    const goals: any[] = planQuery.data?.goals ?? NO_ROWS;
+    const trends: any[] = planQuery.data?.trends ?? NO_ROWS;
+    const transactions: any[] = allTxQuery.data ?? NO_ROWS;
+    const dataLoading = planQuery.isPending || allTxQuery.isPending;
 
     const [savePlan, setSavePlan]               = useState<Record<string, number>>({});
     const [roundUpEnabled, setRoundUpEnabled]   = useState(false);
@@ -190,8 +211,10 @@ function SavingsPlanPageInner() {
     const [forecastError, setForecastError]         = useState('');
 
     // ── Milestones state ──
-    const [milestonesLoading, setMilestonesLoading] = useState(true);
-    const [milestones, setMilestones] = useState<Milestone[]>([]);
+    const milestonesQuery = useUserQuery('milestones', [],
+        async () => ((await milestoneAPI.getAll()).data.milestones || []) as Milestone[]);
+    const milestonesLoading = milestonesQuery.isPending;
+    const milestones: Milestone[] = milestonesQuery.data ?? NO_MILESTONES;
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
     const [formOpen, setFormOpen] = useState(false);
@@ -209,27 +232,6 @@ function SavingsPlanPageInner() {
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
-
-    // ── Combined data fetch on mount ──
-    useEffect(() => {
-        if (!user) return;
-        setDataLoading(true);
-        setMilestonesLoading(true);
-        Promise.all([
-            analyticsAPI.summary(),
-            goalsAPI.getAll(),
-            analyticsAPI.trends(),
-            transactionsAPI.getAll(),
-            milestoneAPI.getAll(),
-        ]).then(([sumRes, goalsRes, trendsRes, txRes, milestonesRes]) => {
-            setSummary(sumRes.data.summary);
-            setGoals(goalsRes.data.goals ?? []);
-            setTrends(trendsRes.data.trends ?? []);
-            setTransactions(txRes.data.transactions ?? []);
-            setMilestones(milestonesRes.data.milestones || []);
-        }).catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
-          .finally(() => { setDataLoading(false); setMilestonesLoading(false); });
-    }, [user]);
 
     useEffect(() => {
         try {
@@ -285,11 +287,7 @@ function SavingsPlanPageInner() {
     };
 
     function fetchMilestones() {
-        setMilestonesLoading(true);
-        milestoneAPI.getAll()
-            .then(res => setMilestones(res.data.milestones || []))
-            .catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
-            .finally(() => setMilestonesLoading(false));
+        queryClient.invalidateQueries({ queryKey: ['milestones'] });
     }
 
     function toggleExpand(id: string) {
@@ -511,7 +509,15 @@ function SavingsPlanPageInner() {
 
     const childCountOf = (id: string) => milestones.filter(m => m.parent_id === id).length;
 
-    if (isLoading || !user) return <div />;
+    // Signing-in check still running: a skeleton, like every other page,
+    // instead of an empty box.
+    if (isLoading || !user) return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <SkeletonCard height={88} />
+            <SkeletonCard height={200} />
+            <SkeletonCard height={200} />
+        </div>
+    );
 
     return (
         <>

@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Sparkles, CreditCard, Gauge, Calculator, TrendingDown, Snowflake, Mountain, Plus, Landmark, Wallet, Percent, Layers, Pencil, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { debtAPI, loanAPI } from '@/lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserQuery } from '@/hooks/queries';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -133,6 +135,8 @@ interface PrepaymentImpactResult {
     recommendation: string;
 }
 
+const NO_LOANS: Loan[] = [];
+
 function DebtIntelligencePageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -141,16 +145,38 @@ function DebtIntelligencePageInner() {
     const initialTab = searchParams.get('tab');
     const [tab, setTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab! : 'overview');
 
-    const [loading, setLoading] = useState(true);
-    const [loans, setLoans] = useState<Loan[]>([]);
-    const [payoff, setPayoff] = useState<PayoffOptimizerResult | null>(null);
-    const [utilization, setUtilization] = useState<CreditUtilizationResult | null>(null);
-    const [dti, setDti] = useState<DtiResult | null>(null);
+    // Loans and the debt ratios from the shared cache: revisits show them at
+    // once and refresh in the background.
+    const queryClient = useQueryClient();
+    const debtQuery = useUserQuery('debt', [], async () => {
+        const [loansRes, payoffRes, utilRes, dtiRes] = await Promise.all([
+            loanAPI.getAll(true),
+            debtAPI.getPayoffOptimizer(),
+            debtAPI.getCreditUtilization(),
+            debtAPI.getDti(),
+        ]);
+        return {
+            loans: (loansRes.data.loans || []) as Loan[],
+            payoff: payoffRes.data as PayoffOptimizerResult,
+            utilization: utilRes.data as CreditUtilizationResult,
+            dti: dtiRes.data as DtiResult,
+        };
+    });
+    const loading = debtQuery.isPending;
+    const loans: Loan[] = debtQuery.data?.loans ?? NO_LOANS;
+    // A what-if run with an extra payment replaces the baseline plan until
+    // the data next changes.
+    const [payoffOverride, setPayoff] = useState<PayoffOptimizerResult | null>(null);
+    const payoff = payoffOverride ?? debtQuery.data?.payoff ?? null;
+    const utilization = debtQuery.data?.utilization ?? null;
+    const dti = debtQuery.data?.dti ?? null;
 
     const [extraPayment, setExtraPayment] = useState('');
     const [payoffLoading, setPayoffLoading] = useState(false);
 
-    const [prepayLoanId, setPrepayLoanId] = useState('');
+    const [chosenPrepayLoanId, setPrepayLoanId] = useState('');
+    // Defaults to the first active loan until one is picked.
+    const prepayLoanId = chosenPrepayLoanId || loans[0]?.id || '';
     const [prepayAmount, setPrepayAmount] = useState('');
     const [prepayResult, setPrepayResult] = useState<PrepaymentImpactResult | null>(null);
     const [prepayLoading, setPrepayLoading] = useState(false);
@@ -181,27 +207,12 @@ function DebtIntelligencePageInner() {
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
+    // Loans move the dashboard's debt widgets and ratios too -- refresh every
+    // cached query, and drop any what-if plan so the new baseline shows.
     const fetchData = () => {
-        setLoading(true);
-        return Promise.all([
-            loanAPI.getAll(true),
-            debtAPI.getPayoffOptimizer(),
-            debtAPI.getCreditUtilization(),
-            debtAPI.getDti(),
-        ])
-            .then(([loansRes, payoffRes, utilRes, dtiRes]) => {
-                const activeLoans = (loansRes.data.loans || []) as Loan[];
-                setLoans(activeLoans);
-                setPayoff(payoffRes.data);
-                setUtilization(utilRes.data);
-                setDti(dtiRes.data);
-                if (activeLoans.length > 0) setPrepayLoanId(activeLoans[0].id);
-            })
-            .catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
-            .finally(() => setLoading(false));
+        setPayoff(null);
+        return queryClient.invalidateQueries();
     };
-
-    useEffect(() => { if (user) fetchData(); }, [user]);
 
     const runOptimizer = () => {
         const extra = extraPayment.trim() ? parseFloat(extraPayment) : 0;

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
+import { useUserQuery } from '@/hooks/queries';
 import { Card } from '@/components/ui/Card';
 import { StatTile } from '@/components/ui/StatTile';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -72,20 +73,14 @@ export default function CashFlowPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
 
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<CashflowResult | null>(null);
+    // Cached: revisits show the projection at once and refresh it in the background.
+    const cashflowQuery = useUserQuery('cashflow', [], async () => (await planningAPI.getCashflow()).data as CashflowResult);
+    const loading = cashflowQuery.isPending;
+    const data = cashflowQuery.data ?? null;
     const [assumptionsOpen, setAssumptionsOpen] = useState(false);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
-
-    useEffect(() => {
-        if (!user) return;
-        planningAPI.getCashflow()
-            .then(res => setData(res.data))
-            .catch((err: any) => { if (err.response?.status === 401) router.push('/login'); })
-            .finally(() => setLoading(false));
-    }, [user]);
 
     if (isLoading || !user || loading || !data) {
         return (

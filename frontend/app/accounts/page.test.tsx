@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { renderWithQuery as render } from '@/lib/test-utils';
 import AccountsPage from './page';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 

@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { CountUp } from '@/components/ui/CountUp';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserQuery, useAccounts, fetchAnalyticsOverview } from '@/hooks/queries';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
@@ -27,6 +29,8 @@ import {
     Utensils, Home, Car, Tv, ShoppingBag, HeartPulse, GraduationCap, PiggyBank,
     FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
 } from 'lucide-react';
+const NO_ROWS: any[] = [];
+
 const vizSkeleton = (h: number) => {
     const VizSkeleton = () => <div style={{ height: h, background: 'var(--glass-fill-1)', borderRadius: 8 }} />;
     VizSkeleton.displayName = 'VizSkeleton';
@@ -166,21 +170,30 @@ function AnalyticsOverviewTab() {
         }
     };
 
-    const [summary, setSummary]                 = useState<any>(null);
-    const [trends, setTrends]                   = useState<any[]>([]);
-    const [categories, setCategories]           = useState<any[]>([]);
-    const [yearlyData, setYearlyData]           = useState<any>(null);
-    const [paymentMethods, setPaymentMethods]   = useState<any[]>([]);
-    const [paymentTotal, setPaymentTotal]       = useState(0);
-    const [allTransactions, setAllTransactions] = useState<any[]>([]);
-    const [yearTransactions, setYearTransactions] = useState<any[]>([]);
-    const [accounts, setAccounts]               = useState<any[]>([]);
-    const [accountsLoading, setAccountsLoading] = useState(true);
+    // The month's numbers, from the shared cache: revisits (and coming back
+    // to a month) show them at once and refresh in the background.
+    const overviewQuery = useUserQuery('analytics', ['overview', currentMonth, currentYear],
+        () => fetchAnalyticsOverview(currentMonth, currentYear));
+    const summary          = overviewQuery.data?.summary ?? null;
+    const trends: any[]    = overviewQuery.data?.trends ?? NO_ROWS;
+    const categories: any[] = overviewQuery.data?.categories ?? NO_ROWS;
+    const yearlyData       = overviewQuery.data?.yearlyData ?? null;
+    const paymentMethods: any[] = overviewQuery.data?.paymentMethods ?? NO_ROWS;
+    const paymentTotal: number = overviewQuery.data?.paymentTotal ?? 0;
+    const allTransactions: any[] = overviewQuery.data?.allTransactions ?? NO_ROWS;
+    const dataLoading      = overviewQuery.isPending;
+    // A whole year of rows for the heatmap: cached in memory only (too big
+    // for localStorage), independent of the selected month.
+    const yearTransactions: any[] = useUserQuery('transactions-year', [currentYear],
+        async () => (await transactionsAPI.getAll({ year: currentYear })).data.transactions ?? [],
+        { persist: false }).data ?? NO_ROWS;
+    const accountsQuery = useAccounts();
+    const accounts: any[] = accountsQuery.data ?? NO_ROWS;
+    const accountsLoading = accountsQuery.isPending;
     const [allocationPlan, setAllocationPlan]   = useState<any>(null);
     const [allocationLoading, setAllocationLoading] = useState(false);
     const [allocationError, setAllocationError] = useState('');
     const [planGenerated, setPlanGenerated]     = useState(false);
-    const [dataLoading, setDataLoading]         = useState(true);
 
     const [showHeatmap,       setShowHeatmap]       = useState(true);
     const [showSankey,        setShowSankey]        = useState(true);
@@ -202,42 +215,11 @@ function AnalyticsOverviewTab() {
     useEffect(() => { setAllocationPlan(null); setPlanGenerated(false); }, [currentMonth, currentYear]);
 
     useEffect(() => {
-        if (!user) return;
-        const fetchData = async () => {
-            setDataLoading(true);
-            try {
-                const [summaryRes, trendsRes, allTxRes, yearlyRes, pmRes] = await Promise.all([
-                    analyticsAPI.summary({ month: currentMonth, year: currentYear }),
-                    analyticsAPI.trends(),
-                    transactionsAPI.getAll({ month: currentMonth, year: currentYear }),
-                    analyticsAPI.yearly(currentYear),
-                    analyticsAPI.paymentMethods({ month: currentMonth, year: currentYear }),
-                ]);
-                setSummary(summaryRes.data.summary);
-                setCategories(summaryRes.data.category_breakdown ?? []);
-                setTrends(trendsRes.data.trends ?? []);
-                setAllTransactions(allTxRes.data.transactions ?? []);
-                setYearlyData(yearlyRes.data);
-                setPaymentMethods(pmRes.data.breakdown ?? []);
-                setPaymentTotal(pmRes.data.total ?? 0);
-                // Read chart colours after DOM has updated with any new theme
-                setCc(readChartColors());
-            } catch (err) {
-                console.error(err);
-                toast.error('Failed to load analytics data');
-            }
-            finally { setDataLoading(false); }
-        };
-        fetchData();
-        // Fetch full year for heatmap — independent of selected month
-        transactionsAPI.getAll({ year: currentYear })
-            .then((res: any) => setYearTransactions(res.data.transactions ?? []))
-            .catch(() => {});
-        accountsAPI.getAll()
-            .then((res: any) => setAccounts(res.data.accounts ?? []))
-            .catch(() => setAccounts([]))
-            .finally(() => setAccountsLoading(false));
-    }, [user, currentMonth, currentYear]);
+        if (overviewQuery.isError && !overviewQuery.data) toast.error('Failed to load analytics data');
+    }, [overviewQuery.isError, overviewQuery.data]);
+
+    // Read chart colours again once fresh data has rendered.
+    useEffect(() => { if (overviewQuery.data) setCc(readChartColors()); }, [overviewQuery.data]);
 
     // ── Derived chart data ────────────────────────────────────────────────────
 
@@ -1037,36 +1019,40 @@ function InsightsTab() {
         initialView === 'opportunities' || initialView === 'behavioral' ? initialView : 'benchmarks'
     );
 
-    const [benchmarks, setBenchmarks] = useState<any>(null);
-    const [benchmarksLoading, setBenchmarksLoading] = useState(true);
+    // Cached: reopening Insights shows the last results at once. A failed
+    // load settles to "nothing to show", as before.
+    const queryClient = useQueryClient();
+    const benchmarksQuery = useUserQuery('insights', ['benchmarks'],
+        () => insightsAPI.getPeerBenchmarks().then(res => res.data).catch(() => null));
+    const benchmarks = benchmarksQuery.data ?? null;
+    const benchmarksLoading = benchmarksQuery.isPending;
 
-    const [patterns, setPatterns] = useState<any>(null);
-    const [patternsLoading, setPatternsLoading] = useState(true);
+    const patternsKey = ['insights', user?.id, 'patterns'];
+    const patternsQuery = useUserQuery('insights', ['patterns'],
+        () => insightsAPI.getBehavioralPatterns().then(res => res.data).catch(() => null));
+    const patterns = patternsQuery.data ?? null;
+    const patternsLoading = patternsQuery.isPending;
     const [refreshing, setRefreshing] = useState(false);
 
-    const [opportunities, setOpportunities] = useState<any[]>([]);
-    const [opportunitiesLoading, setOpportunitiesLoading] = useState(true);
+    const opportunitiesKey = ['insights', user?.id, 'opportunities'];
+    const opportunitiesQuery = useUserQuery('insights', ['opportunities'],
+        () => opportunityAPI.getAll().then(res => res.data?.opportunities ?? []).catch(() => []));
+    const opportunities: any[] = opportunitiesQuery.data ?? NO_ROWS;
+    const opportunitiesLoading = opportunitiesQuery.isPending;
     const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
-
-    useEffect(() => {
-        if (!user) return;
-        insightsAPI.getPeerBenchmarks().then(res => setBenchmarks(res.data)).catch(() => {}).finally(() => setBenchmarksLoading(false));
-        insightsAPI.getBehavioralPatterns().then(res => setPatterns(res.data)).catch(() => {}).finally(() => setPatternsLoading(false));
-        opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {}).finally(() => setOpportunitiesLoading(false));
-    }, [user]);
 
     const refreshPatterns = async () => {
         setRefreshing(true);
         try {
             const res = await insightsAPI.getBehavioralPatterns(true);
-            setPatterns(res.data);
+            queryClient.setQueryData(patternsKey, res.data);
         } catch { toast.error('Failed to refresh patterns — try again'); } finally { setRefreshing(false); }
     };
 
     const handleDismissOpportunity = async (id: string) => {
         setDismissingIds(prev => new Set(prev).add(id));
         try { await opportunityAPI.dismiss(id); } catch {}
-        setTimeout(() => setOpportunities(prev => prev.filter((o: any) => o.id !== id)), 250);
+        setTimeout(() => queryClient.setQueryData<any[]>(opportunitiesKey, prev => (prev ?? []).filter((o: any) => o.id !== id)), 250);
     };
 
     const handleActOnOpportunity = async (opp: any) => {

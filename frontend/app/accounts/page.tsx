@@ -14,10 +14,15 @@ import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { CountUp } from '@/components/ui/CountUp';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserQuery } from '@/hooks/queries';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
 import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone } from '@/lib/cardStatement';
 
 const inr = (n: number) => n.toLocaleString('en-IN');
+const NO_BANKS: never[] = [];
+const NO_CARDS: never[] = [];
+const NO_WALLETS: never[] = [];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -167,11 +172,26 @@ export default function AccountsPage() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile = useIsMobile();
 
-    const [banks,   setBanks]   = useState<BankAccount[]>([]);
-    const [cards,   setCards]   = useState<CreditCard[]>([]);
-    const [wallets, setWallets] = useState<Wallet[]>([]);
+    // Banks, cards and wallets from the shared cache: revisits show balances
+    // at once and refresh in the background. Each list keeps its last value
+    // if its own request fails, as before.
+    const queryClient = useQueryClient();
+    const accountsPageQuery = useUserQuery('accounts-page', [], async () => {
+        const prev = queryClient.getQueryData<{ banks: BankAccount[]; cards: CreditCard[]; wallets: Wallet[] }>(['accounts-page', user?.id]);
+        const [banksRes, cardsRes, walletsRes] = await Promise.allSettled([
+            accountsAPI.getAll(), creditCardsAPI.getAll(), walletsAPI.getAll(),
+        ]);
+        return {
+            banks:   banksRes.status   === 'fulfilled' ? banksRes.value.data.accounts as BankAccount[] : prev?.banks ?? [],
+            cards:   cardsRes.status   === 'fulfilled' ? cardsRes.value.data.cards as CreditCard[]     : prev?.cards ?? [],
+            wallets: walletsRes.status === 'fulfilled' ? walletsRes.value.data.wallets as Wallet[]     : prev?.wallets ?? [],
+        };
+    });
+    const banks: BankAccount[] = accountsPageQuery.data?.banks ?? NO_BANKS;
+    const cards: CreditCard[]  = accountsPageQuery.data?.cards ?? NO_CARDS;
+    const wallets: Wallet[]    = accountsPageQuery.data?.wallets ?? NO_WALLETS;
     const [mounted, setMounted] = useState(false);
-    const [dataLoading, setDataLoading] = useState(true);
+    const dataLoading = accountsPageQuery.isPending;
 
     const [showBankModal,   setShowBankModal]   = useState(false);
     const [showCardModal,   setShowCardModal]   = useState(false);
@@ -208,18 +228,12 @@ export default function AccountsPage() {
 
     const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
 
+    // After a write: balances feed the dashboard, net worth, the transaction
+    // form's pickers and more, so refresh every cached query. Awaited so the
+    // success toast lands with the new numbers already on screen.
     const fetchAll = useCallback(async () => {
-        setDataLoading(true);
-        const [banksRes, cardsRes, walletsRes] = await Promise.allSettled([
-            accountsAPI.getAll(), creditCardsAPI.getAll(), walletsAPI.getAll(),
-        ]);
-        if (banksRes.status   === 'fulfilled') setBanks(banksRes.value.data.accounts);
-        if (cardsRes.status   === 'fulfilled') setCards(cardsRes.value.data.cards);
-        if (walletsRes.status === 'fulfilled') setWallets(walletsRes.value.data.wallets);
-        setDataLoading(false);
-    }, []);
-
-    useEffect(() => { if (user) fetchAll(); }, [user, fetchAll]);
+        await queryClient.invalidateQueries();
+    }, [queryClient]);
 
     const totalBanks   = banks.reduce((s, b) => s + Number(b.current_balance), 0);
     const totalCards   = cards.reduce((s, c) => s + Number(c.current_outstanding_balance), 0);
@@ -396,7 +410,15 @@ export default function AccountsPage() {
         setDeleteConfirm(null);
     };
 
-    if (isLoading) return null;
+    // Signing-in check still running: a skeleton, like every other page,
+    // instead of a blank screen.
+    if (isLoading) return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <Skeleton height={180} borderRadius={24} />
+            <Skeleton height={120} borderRadius={16} />
+            <Skeleton height={120} borderRadius={16} />
+        </div>
+    );
 
     return (
         <>
