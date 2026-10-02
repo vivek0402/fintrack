@@ -21,7 +21,6 @@ export function RedesignAnnouncement() {
     const { theme, setTheme } = useThemeStore();
     const [show, setShow]       = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [localTheme, setLocalTheme] = useState<typeof theme>(theme);
     // Tracks the user value we've already reacted to, so the localStorage check
     // below runs during render (once per user change) instead of in an effect —
     // avoids the extra render pass a useEffect-based check would cause. `user`
@@ -44,9 +43,6 @@ export function RedesignAnnouncement() {
             if (hasOnboarded && !hasSeen) setShow(true);
         }
     }
-
-    // Apply changes live as user picks
-    useEffect(() => { setTheme(localTheme); }, [localTheme, setTheme]);
 
     const handleDone = () => {
         localStorage.setItem(STORAGE_KEY, '1');
@@ -97,8 +93,8 @@ export function RedesignAnnouncement() {
                         </p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)' }}>
                             {([{ key: 'light' as const, label: '☀️ Light' }, { key: 'dark' as const, label: '🌙 Dark' }]).map(m => (
-                                <button key={m.key} type="button" onClick={() => setLocalTheme(m.key)}
-                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: localTheme === m.key ? 'var(--glass-fill-3)' : 'transparent', boxShadow: localTheme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: localTheme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
+                                <button key={m.key} type="button" onClick={() => setTheme(m.key)}
+                                    style={{ padding: '9px 8px', borderRadius: 'var(--radius-sm)', background: theme === m.key ? 'var(--glass-fill-3)' : 'transparent', boxShadow: theme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: theme === m.key ? 600 : 400, transition: 'all 0.15s' }}>
                                     {m.label}
                                 </button>
                             ))}
