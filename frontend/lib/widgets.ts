@@ -114,7 +114,7 @@ const TX_WRITE_PATHS: RegExp[] = [
     /^\/api\/recurring\/process(?:[?]|$)/,                               // post due recurring
     /^\/api\/splits(?:[/?]|$)/,                                         // splits
     /^\/api\/groups(?:[/?]|$)/,                                         // group splits, (un)link
-    /^\/api\/credit-cards\/[^/?]+\/(?:pay|convert-to-emi)(?:[?]|$)/,     // card payment, EMI
+    /^\/api\/credit-cards\/[^/?]+\/(?:pay|pay\/undo|convert-to-emi)(?:[?]|$)/, // card payment (+undo), EMI
     /^\/api\/one-time-expenses(?:[/?]|$)/,                              // one-time expense items
     /^\/api\/personal-loans(?:[/?]|$)/,                                 // loan disbursal/repayment
     /^\/api\/accounts(?:[/?]|$)/,                                       // account (re)assignment

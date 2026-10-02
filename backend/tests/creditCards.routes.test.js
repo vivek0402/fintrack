@@ -272,6 +272,49 @@ describe('POST /api/credit-cards/:id/pay', () => {
         expect(client.release).toHaveBeenCalledTimes(1);
     });
 
+    test('link_transaction_id tags and pairs the existing bank debit instead of creating one', async () => {
+        const client = mockClient(async (sql, params) => {
+            if (sql.includes('FROM credit_cards')) return { rows: [{ id: 'card-1', bank_name: 'HDFC', card_name: 'Regalia' }] };
+            if (sql.includes('FROM transactions t LEFT JOIN bank_accounts')) return { rows: [{ id: 'bank-tx', amount: '2600', date: '2026-09-03', tags: null, transfer_group_id: null, account_id: 9, credit_card_id: null, type: 'expense', account_name: 'HDFC Savings' }] };
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes('UPDATE transactions')) {
+                expect(sql).toContain("array_append(COALESCE(tags, '{}'), 'credit_card_payment')");
+                expect(params[1]).toBe('bank-tx');
+                return { rows: [{ id: 'bank-tx', transfer_group_id: params[0] }] };
+            }
+            if (sql.includes("VALUES ($1,'income'")) {
+                expect(params[1]).toBe('2600');          // takes the debit's amount
+                expect(params[4]).toBe('2026-09-03');    // and its date
+                return { rows: [{ id: 'card-tx', transfer_group_id: params[7] }] };
+            }
+            if (sql.includes("VALUES ($1,'expense'")) throw new Error('must not create a second bank debit');
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'card-1', current_outstanding_balance: 39710 }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/pay')
+            .send({ link_transaction_id: 'bank-tx', payment_method: 'Net Banking' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.linked_transaction_id).toBe('bank-tx');
+        const [bankLeg, cardLeg] = res.body.transactions;
+        expect(bankLeg.transfer_group_id).toBe(cardLeg.transfer_group_id);
+    });
+
+    test('refuses to link a debit that is already a card payment', async () => {
+        const client = mockClient(async (sql) => {
+            if (sql.includes('FROM credit_cards')) return { rows: [{ id: 'card-1', bank_name: 'HDFC', card_name: 'Regalia' }] };
+            if (sql.includes('FROM transactions t LEFT JOIN bank_accounts')) return { rows: [{ id: 'bank-tx', amount: '2600', type: 'expense', account_id: 9, tags: ['credit_card_payment'], transfer_group_id: 'g1', credit_card_id: null }] };
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        const res = await request(buildApp()).post('/api/credit-cards/card-1/pay').send({ link_transaction_id: 'bank-tx' });
+        expect(res.status).toBe(409);
+        expect(client.release).toHaveBeenCalledTimes(1);
+    });
+
     test('still requires bank_account_id unless card_only', async () => {
         const res = await request(buildApp())
             .post('/api/credit-cards/card-1/pay')
@@ -631,5 +674,58 @@ describe('POST /api/credit-cards/:id/convert-to-emi', () => {
 
         expect(res.status).toBe(201);
         expect(installmentInserts[0][3]).toBe('2026-03-01'); // 1 month after the IST purchase date, 2026-02-01
+    });
+});
+
+describe('POST /api/credit-cards/:id/pay/undo', () => {
+    test('a linked payment: deletes the card leg and restores the bank debit it linked', async () => {
+        const sqls = [];
+        const client = mockClient(async (sql, params) => {
+            sqls.push(sql);
+            if (sql.includes('SELECT id, transfer_group_id, tags FROM transactions')) return { rows: [{ id: 'card-tx', transfer_group_id: 'g1', tags: ['credit_card_payment'] }] };
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes("array_remove(tags, 'credit_card_payment')")) { expect(params).toEqual(['bank-tx', 'user-123', 'g1']); return { rows: [{ id: 'bank-tx' }] }; }
+            if (sql.startsWith('DELETE FROM transactions WHERE id = $1')) { expect(params[0]).toBe('card-tx'); return { rows: [] }; }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'card-1' }] });
+        const res = await request(buildApp()).post('/api/credit-cards/card-1/pay/undo').send({ card_transaction_id: 'card-tx', unlink_transaction_id: 'bank-tx' });
+        expect(res.status).toBe(200);
+        // Never deletes the whole group: the linked bank debit predates this payment.
+        expect(sqls.some(q => q.includes('WHERE transfer_group_id = $1 AND user_id'))).toBe(false);
+    });
+
+    test('a two-sided payment: deletes both legs it created', async () => {
+        const client = mockClient(async (sql, params) => {
+            if (sql.includes('SELECT id, transfer_group_id, tags FROM transactions')) return { rows: [{ id: 'card-tx', transfer_group_id: 'g2', tags: ['credit_card_payment'] }] };
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes('DELETE FROM transactions WHERE transfer_group_id = $1')) { expect(params[0]).toBe('g2'); return { rows: [] }; }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'card-1' }] });
+        const res = await request(buildApp()).post('/api/credit-cards/card-1/pay/undo').send({ card_transaction_id: 'card-tx' });
+        expect(res.status).toBe(200);
+    });
+
+    test('rejects anything that is not a card payment on this card', async () => {
+        const client = mockClient(async () => ({ rows: [] }));
+        pool.connect.mockResolvedValue(client);
+        const res = await request(buildApp()).post('/api/credit-cards/card-1/pay/undo').send({ card_transaction_id: 'nope' });
+        expect(res.status).toBe(404);
+    });
+});
+
+describe('GET /api/credit-cards/:id/payment-candidates', () => {
+    test('validates input and returns ranked candidates', async () => {
+        expect((await request(buildApp()).get('/api/credit-cards/card-1/payment-candidates?from=x&to=y&amount=1')).status).toBe(400);
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 'card-1', bank_name: 'HDFC', card_name: 'Regalia', last_four: '4321' }] })
+            .mockResolvedValueOnce({ rows: [{ id: 'b', amount: '2600', date: '2026-09-03', description: 'CC PAYMENT HDFC', account_id: 9, account_name: 'HDFC Savings' }] });
+        const res = await request(buildApp()).get('/api/credit-cards/card-1/payment-candidates?from=2026-08-16&to=2026-09-11&amount=2600&due=2026-09-04');
+        expect(res.status).toBe(200);
+        expect(res.body.candidates).toHaveLength(1);
+        expect(res.body.candidates[0]).toMatchObject({ id: 'b', reason: 'Same amount · card in description' });
     });
 });

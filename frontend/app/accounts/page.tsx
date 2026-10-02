@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon, ChevronDown, Check, AlertTriangle } from 'lucide-react';
@@ -17,9 +17,21 @@ import { CountUp } from '@/components/ui/CountUp';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery } from '@/hooks/queries';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
-import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone, olderUnpaidShares, pastPaymentDate, OLDER_UNPAID_NOTE } from '@/lib/cardStatement';
+import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone, olderUnpaidShares, pastPaymentDate, OLDER_UNPAID_NOTE, unpaidStatementIdxs, statementPaymentWindow, closeDateOf } from '@/lib/cardStatement';
+import { getNotPaid, setNotPaid as saveNotPaid } from '@/lib/cardNotPaid';
+import { CardUnpaidNote } from '@/components/accounts/CardUnpaidNote';
 
 const inr = (n: number) => n.toLocaleString('en-IN');
+
+// A bank debit that looks like a card bill payment (GET /:id/payment-candidates).
+interface PaymentCandidate { id: string; amount: number; date: string; description: string; account_name: string; score: number; reason: string }
+// What Undo needs to reverse one recorded payment.
+interface RecordedPayment { cardTxId: string; unlinkId?: string }
+// Pre-select a found debit when it has the same amount AND card wording
+// (score >= 4); "Record all" links without asking only on the strongest
+// (same amount + this card named, 5). See backend utils/cardPaymentMatch.js.
+const LINK_DEFAULT_SCORE = 4;
+const LINK_AUTO_SCORE = 5;
 const NO_BANKS: never[] = [];
 const NO_CARDS: never[] = [];
 const NO_WALLETS: never[] = [];
@@ -209,9 +221,18 @@ export default function AccountsPage() {
     const [payForm,     setPayForm]   = useState({ bank_account_id: '', amount: '', date: new Date().toISOString().split('T')[0], payment_method: 'UPI' });
     const [payCycles,        setPayCycles]        = useState<Cycle[]>([]);
     const [selectedCycleKey, setSelectedCycleKey] = useState<string | null>(null);
-    // Recording a bill paid outside the app: record only the card side (the
-    // bank debit is already in the app), and "record all unpaid" selection.
-    const [payCardOnly, setPayCardOnly] = useState(false);
+    // Recording a bill paid outside the app. payChoice: where the money came
+    // from -- 'link:<txId>' (a bank debit already in the app, found by
+    // matching), 'new' (record the bank side too) or 'card' (card side only).
+    const [payChoice, setPayChoice] = useState<string>('new');
+    const [payCandidates, setPayCandidates] = useState<PaymentCandidate[] | null>(null);
+    // "Record all": the strong bank match found for each statement, if any.
+    const [allMatches, setAllMatches] = useState<Record<number, PaymentCandidate | null>>({});
+    // Statements the user said really weren't paid (per card, this device).
+    const [notPaid, setNotPaid] = useState<Set<string>>(new Set());
+    // Bumped when "not paid" changes, so the cards' unpaid notes re-read it.
+    const [notPaidTick, setNotPaidTick] = useState(0);
+    const selectedKeyRef = useRef<string | null>(null);
     const [showCycleSheet,   setShowCycleSheet]   = useState(false);
     const [showPayMethodSheet, setShowPayMethodSheet] = useState(false);
     const [showPayAccountSheet, setShowPayAccountSheet] = useState(false);
@@ -223,13 +244,32 @@ export default function AccountsPage() {
     const [walletBalanceInput,      setWalletBalanceInput]     = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'bank' | 'card' | 'wallet'; id: number; name: string } | null>(null);
     const [saving, setSaving] = useState(false);
-    const [toast,  setToast]  = useState('');
+    const [toast,  setToast]  = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null);
+    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => { setMounted(true); }, []);
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
-    const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+    // A toast with an action (Undo, Retry) stays up longer so it can be tapped.
+    const showToast = (msg: string, action?: { label: string; run: () => void }) => {
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        setToast({ text: msg, action });
+        toastTimer.current = setTimeout(() => setToast(null), action ? 7000 : 2500);
+    };
+
+    // /accounts?review=<cardId> (from a card's Billing Cycles page): open Pay
+    // Bill on that card's oldest unpaid statement once the cards are loaded.
+    const reviewHandled = useRef(false);
+    useEffect(() => {
+        if (reviewHandled.current || dataLoading) return;
+        const id = new URLSearchParams(window.location.search).get('review');
+        if (!id) return;
+        reviewHandled.current = true;
+        const card = cards.find(c => String(c.id) === id);
+        if (card) openPayCard(card, { review: true });
+        window.history.replaceState(null, '', window.location.pathname);
+    });
 
     // After a write: balances feed the dashboard, net worth, the transaction
     // form's pickers and more, so refresh every cached query. Awaited so the
@@ -284,7 +324,7 @@ export default function AccountsPage() {
         setSaving(false);
     };
 
-    const openPayCard = (c: CreditCard) => {
+    const openPayCard = (c: CreditCard, opts: { review?: boolean } = {}) => {
         setPayingCard(c);
         const today = new Date();
         setPayForm({ bank_account_id: banks.find(b => b.is_default)?.id ? String(banks.find(b => b.is_default)!.id) : (banks[0]?.id ? String(banks[0].id) : ''), amount: '', date: today.toISOString().split('T')[0], payment_method: 'UPI' });
@@ -292,7 +332,10 @@ export default function AccountsPage() {
         setPayCalYear(today.getFullYear());
         setPayCycles([]);
         setSelectedCycleKey(null);
-        setPayCardOnly(false);
+        setPayChoice('new');
+        setPayCandidates(null);
+        setAllMatches({});
+        setNotPaid(getNotPaid(c.id));
         setShowPayModal(true);
         // A card with no billing_date returns [] here (same short-circuit
         // GET /:id/cycles already documents) -- the Cycle field just doesn't
@@ -300,6 +343,12 @@ export default function AccountsPage() {
         creditCardsAPI.getCycles(c.id).then(res => {
             const cycles: Cycle[] = res.data?.cycles || [];
             setPayCycles(cycles);
+            // "Review" (from the card's unpaid note): open on the oldest
+            // statement that looks unpaid.
+            if (opts.review) {
+                const oldest = unpaidStatementIdxs(cycles, getNotPaid(c.id))[0];
+                if (oldest != null) { pickCycleIn(cycles, oldest, c); return; }
+            }
             // Default to the most recent CLOSED cycle (index 1 -- index 0 is
             // always the still-open current one) when something is still
             // owed on that statement, pre-filling what's left to pay
@@ -314,36 +363,90 @@ export default function AccountsPage() {
             }
         }).catch(() => setPayCycles([]));
     };
+    useEffect(() => { selectedKeyRef.current = selectedCycleKey; }, [selectedCycleKey]);
     const selectedCycle = payCycles.find(c => c.start === selectedCycleKey) || null;
     const selectedCycleIdx = payCycles.findIndex(c => c.start === selectedCycleKey);
     // Older statements that look unpaid (a bill paid outside the app and never
-    // recorded): each one's own share, and their indexes oldest first.
+    // recorded): each one's own share, and their indexes oldest first --
+    // minus any the user said really weren't paid.
     const unpaidShares = useMemo(() => olderUnpaidShares(payCycles), [payCycles]);
-    const unpaidIdxs = Object.keys(unpaidShares).map(Number).filter(i => unpaidShares[i] > 0).sort((a, b) => b - a);
+    const unpaidIdxs = useMemo(() => unpaidStatementIdxs(payCycles, notPaid), [payCycles, notPaid]);
     const unpaidTotal = Math.round(unpaidIdxs.reduce((s, i) => s + unpaidShares[i], 0) * 100) / 100;
     const RECORD_ALL = '__record-all__';
     const recordingAll = selectedCycleKey === RECORD_ALL;
     const recordingPast = recordingAll || selectedCycleIdx >= 2;
     const todayStr = () => new Date().toLocaleDateString('en-CA');
-    const pickCycle = (cycle: Cycle, idx: number) => {
+
+    // Look for the bank debit that paid an older statement.
+    const findCandidates = async (card: CreditCard, cycle: Cycle, amount: number): Promise<PaymentCandidate[]> => {
+        const { from, to, due } = statementPaymentWindow(cycle, card.due_days);
+        if (from > to) return [];
+        try {
+            const res = await creditCardsAPI.paymentCandidates(card.id, { from, to, amount, due });
+            return res.data?.candidates ?? [];
+        } catch {
+            return [];
+        }
+    };
+
+    function pickCycleIn(cycles: Cycle[], idx: number, card: CreditCard | null) {
+        const cycle = cycles[idx];
         setSelectedCycleKey(cycle.start);
-        const amount = cycleSuggestedAmount(cycle, idx, payingCard, unpaidShares[idx]);
+        selectedKeyRef.current = cycle.start;
+        const share = olderUnpaidShares(cycles)[idx];
+        const amount = cycleSuggestedAmount(cycle, idx, card, share);
         // An older statement is recorded on its own due date, not today.
-        const date = idx >= 2 && payingCard ? pastPaymentDate(cycle, payingCard.due_days) : todayStr();
+        const date = idx >= 2 && card ? pastPaymentDate(cycle, card.due_days) : todayStr();
         setPayForm(f => ({ ...f, ...(amount != null ? { amount } : {}), date }));
         setShowCycleSheet(false);
-    };
+        setPayCandidates(null);
+        setPayChoice('new');
+        if (idx >= 2 && card && share > 0) {
+            const forKey = cycle.start;
+            findCandidates(card, cycle, share).then(found => {
+                // Ignore a late answer for a statement no longer selected.
+                if (selectedKeyRef.current !== forKey) return;
+                setPayCandidates(found);
+                if (found[0] && found[0].score >= LINK_DEFAULT_SCORE) setPayChoice(`link:${found[0].id}`);
+            });
+        }
+    }
+    const pickCycle = (cycle: Cycle, idx: number) => pickCycleIn(payCycles, idx, payingCard);
     const pickRecordAll = () => {
         setSelectedCycleKey(RECORD_ALL);
         setPayForm(f => ({ ...f, amount: String(unpaidTotal), date: todayStr() }));
         setShowCycleSheet(false);
+        setPayChoice('new');
+        setAllMatches({});
+        if (!payingCard) return;
+        const card = payingCard;
+        // Only strong matches are linked automatically in "Record all": the
+        // same amount AND the card in the description.
+        Promise.all(unpaidIdxs.map(async idx => {
+            const found = await findCandidates(card, payCycles[idx], unpaidShares[idx]);
+            return [idx, found[0] && found[0].score >= LINK_AUTO_SCORE ? found[0] : null] as const;
+        })).then(pairs => setAllMatches(Object.fromEntries(pairs)));
+    };
+    const toggleNotPaid = (cycle: Cycle) => {
+        if (!payingCard) return;
+        const close = closeDateOf(cycle);
+        setNotPaid(saveNotPaid(payingCard.id, close, !notPaid.has(close)));
+        setNotPaidTick(t => t + 1);
+        if (cycle.start === selectedCycleKey) setSelectedCycleKey(null);
     };
     // One description per row -- amount, caption, status, selectable --
     // shared by the sheet rows and the Cycle trigger so they always agree.
     // idx 0 = current cycle (new charges), idx 1 = latest statement (what's
-    // left on it), idx 2+ = older statements (what they billed, not payable).
-    // See lib/cardStatement.ts.
-    const cycleRow = (cycle: Cycle, idx: number) => payCycleRow(cycle, idx, payingCard, formatDate, fmt, unpaidShares[idx]);
+    // left on it), idx 2+ = older statements (pickable when they look
+    // unpaid; see lib/cardStatement.ts). A statement the user marked "not
+    // paid" reads as carried over and can't be picked.
+    const cycleRow = (cycle: Cycle, idx: number) => {
+        const row = payCycleRow(cycle, idx, payingCard, formatDate, fmt, unpaidShares[idx]);
+        if (idx >= 2 && notPaid.has(closeDateOf(cycle)) && (unpaidShares[idx] ?? 0) > 0) {
+            return { ...row, status: 'You said not paid · carried over', statusTone: 'muted' as const, selectable: false };
+        }
+        return row;
+    };
     const selectedRow = recordingAll
         ? { amount: unpaidTotal, caption: 'their own shares', status: 'Paid outside the app', statusTone: 'inc' as const, selectable: true }
         : selectedCycle ? cycleRow(selectedCycle, selectedCycleIdx) : null;
@@ -376,33 +479,86 @@ export default function AccountsPage() {
         if (monthType === 'next') { m++; if (m > 11) { m = 0;  y++; } }
         pickPayDate(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
     };
-    const cardOnly = recordingPast && payCardOnly;
-    const payDisabled = saving || (!cardOnly && !payForm.bank_account_id) || !payForm.amount || parseFloat(payForm.amount) <= 0;
+    const linkId = payChoice.startsWith('link:') ? payChoice.slice(5) : null;
+    const cardOnly = recordingPast && payChoice === 'card';
+    const needsBank = !cardOnly && !linkId;
+    const payDisabled = saving || (needsBank && !payForm.bank_account_id) || !payForm.amount || parseFloat(payForm.amount) <= 0;
+
+    // Record one payment and return what Undo needs to reverse it.
+    const recordPayment = async (card: CreditCard, body: Parameters<typeof creditCardsAPI.payBill>[1]): Promise<RecordedPayment> => {
+        const res = await creditCardsAPI.payBill(card.id, body);
+        const legs: { id: string; credit_card_id?: number | null }[] = res.data?.transactions ?? [];
+        const cardLeg = legs.find(t => t.credit_card_id != null) ?? legs[legs.length - 1];
+        return { cardTxId: String(cardLeg?.id), unlinkId: res.data?.linked_transaction_id ? String(res.data.linked_transaction_id) : undefined };
+    };
+
+    const undoPayments = async (card: CreditCard, recorded: RecordedPayment[]) => {
+        try {
+            for (const r of [...recorded].reverse()) {
+                await creditCardsAPI.undoPay(card.id, { card_transaction_id: r.cardTxId, ...(r.unlinkId ? { unlink_transaction_id: r.unlinkId } : {}) });
+            }
+            showToast('Undone');
+        } catch {
+            showToast('Could not undo. Check the card\'s history.');
+        }
+        await fetchAll();
+    };
+
+    // "Record all": one payment per statement, oldest first, each on its own
+    // due date, so every statement in between clears in turn. Strong bank
+    // matches are linked; the rest follow the chosen option. Stops at the
+    // first failure and offers Retry for what's left.
+    const recordStatements = async (card: CreditCard, idxs: number[], restChoice: string, matches: Record<number, PaymentCandidate | null>, already: RecordedPayment[] = []) => {
+        const recorded = [...already];
+        let failedAt = -1;
+        for (let n = 0; n < idxs.length; n++) {
+            const idx = idxs[n];
+            const match = matches[idx];
+            try {
+                recorded.push(await recordPayment(card, match
+                    ? { link_transaction_id: match.id, payment_method: payForm.payment_method }
+                    : {
+                        ...(restChoice === 'card' ? { card_only: true } : { bank_account_id: parseInt(payForm.bank_account_id) }),
+                        amount: unpaidShares[idx], date: pastPaymentDate(payCycles[idx], card.due_days), payment_method: payForm.payment_method,
+                    }));
+            } catch {
+                failedAt = n;
+                break;
+            }
+        }
+        await fetchAll();
+        if (failedAt === -1) {
+            showToast(`Recorded ${recorded.length} payment${recorded.length === 1 ? '' : 's'}`, { label: 'Undo', run: () => undoPayments(card, recorded) });
+            return true;
+        }
+        const rest = idxs.slice(failedAt);
+        showToast(`Recorded ${recorded.length - already.length} of ${idxs.length}. The rest didn't save.`, {
+            label: 'Retry',
+            run: () => { void recordStatements(card, rest, restChoice, matches, recorded); },
+        });
+        return false;
+    };
+
     const savePay = async () => {
         if (!payingCard || payDisabled) return;
+        const card = payingCard;
         setSaving(true);
-        const side = cardOnly ? { card_only: true } : { bank_account_id: parseInt(payForm.bank_account_id) };
-        const base = { ...side, payment_method: payForm.payment_method };
         try {
             if (recordingAll) {
-                // One payment per statement, oldest first, each on its own due
-                // date -- so every statement in between clears in turn.
-                let done = 0;
-                try {
-                    for (const idx of unpaidIdxs) {
-                        await creditCardsAPI.payBill(payingCard.id, { ...base, amount: unpaidShares[idx], date: pastPaymentDate(payCycles[idx], payingCard.due_days) });
-                        done++;
-                    }
-                } finally {
-                    if (done > 0 && done < unpaidIdxs.length) showToast(`Recorded ${done} of ${unpaidIdxs.length}. Try the rest again.`);
-                }
-                if (done === unpaidIdxs.length) showToast(`Recorded ${done} payments`);
+                await recordStatements(card, unpaidIdxs, payChoice, allMatches);
             } else {
-                await creditCardsAPI.payBill(payingCard.id, { ...base, amount: parseFloat(payForm.amount), date: payForm.date });
-                showToast(recordingPast ? 'Recorded as paid' : 'Payment recorded');
+                const recorded = await recordPayment(card, linkId
+                    ? { link_transaction_id: linkId, payment_method: payForm.payment_method }
+                    : {
+                        ...(cardOnly ? { card_only: true } : { bank_account_id: parseInt(payForm.bank_account_id) }),
+                        amount: parseFloat(payForm.amount), date: payForm.date, payment_method: payForm.payment_method,
+                    });
+                await fetchAll();
+                showToast(recordingPast ? (linkId ? 'Linked and recorded as paid' : 'Recorded as paid') : 'Payment recorded',
+                    { label: 'Undo', run: () => undoPayments(card, [recorded]) });
             }
             if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
-            await fetchAll(); setShowPayModal(false);
+            setShowPayModal(false);
         } catch { showToast('Failed to record payment'); }
         setSaving(false);
     };
@@ -469,8 +625,14 @@ export default function AccountsPage() {
 
                 {/* ── Toast ── */}
                 {toast && mounted && createPortal(
-                    <div style={{ position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)' }}>
-                        {toast}
+                    <div role="status" style={{ position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <span>{toast.text}</span>
+                        {toast.action && (
+                            <button type="button" onClick={() => { const run = toast.action!.run; setToast(null); run(); }}
+                                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', padding: 0 }}>
+                                {toast.action.label}
+                            </button>
+                        )}
                     </div>,
                     document.body
                 )}
@@ -625,6 +787,9 @@ export default function AccountsPage() {
                                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: '8px 0 0' }}>
                                                 Set a billing date to see statement balance vs. new charges
                                             </p>
+                                        )}
+                                        {c.statement_balance != null && (
+                                            <CardUnpaidNote cardId={c.id} notPaidTick={notPaidTick} onReview={() => openPayCard(c, { review: true })} />
                                         )}
                                         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                                             <button type="button" onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)} style={outlineBtn}>History</button>
@@ -795,6 +960,7 @@ export default function AccountsPage() {
                                 boxShadow: '0 12px 26px -10px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
                             }}>
                             {saving ? 'Recording…'
+                                : linkId ? 'Link and record as paid'
                                 : recordingPast ? `Record${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''} as paid`
                                 : `Pay${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''}`}
                         </button>
@@ -885,12 +1051,12 @@ export default function AccountsPage() {
                                 <input type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0"
                                     style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--glass-fill-1)', border: `1px solid color-mix(in srgb, ${PAY_TINT} 30%, transparent)`, borderRadius: 10, fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: PAY_TINT, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' }} />
                             </div>
-                            {cardOnly && (
+                            {(cardOnly || linkId) && (
                                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
-                                    Card side only. Your bank balance in the app won&apos;t change.
+                                    {linkId ? 'Uses the linked bank debit\'s amount and date.' : 'Card side only. Your bank balance in the app won\'t change.'}
                                 </div>
                             )}
-                            {!cardOnly && banks.length > 0 && (
+                            {needsBank && banks.length > 0 && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
                                     from <b style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'account'}</b>
                                     {banks.length > 1 && (
@@ -904,19 +1070,72 @@ export default function AccountsPage() {
                         </div>
                         {recordingPast && (
                             <>
-                                <button type="button" role="switch" aria-checked={payCardOnly} data-testid="card-only-switch"
-                                    onClick={() => setPayCardOnly(v => !v)}
-                                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
-                                        background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', fontFamily: 'var(--font-body)' }}>
-                                    <span aria-hidden style={{ width: 34, height: 20, borderRadius: 999, flexShrink: 0, marginTop: 1, position: 'relative', transition: 'background-color 0.2s',
-                                        background: payCardOnly ? PAY_TINT : 'var(--glass-fill-3)' }}>
-                                        <span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: '#e5e5e5', transition: 'transform 0.2s', transform: payCardOnly ? 'translateX(14px)' : 'none' }} />
-                                    </span>
-                                    <span>
-                                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>This payment already shows in my bank account in the app</span>
-                                        <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>Turn on if you imported or added it from the bank side, so it isn&apos;t counted twice.</span>
-                                    </span>
-                                </button>
+                                {(() => {
+                                    const bankName = banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'your bank account';
+                                    const option = (value: string, title: React.ReactNode, desc: React.ReactNode, testId: string) => {
+                                        const on = payChoice === value;
+                                        return (
+                                            <button key={value} type="button" role="radio" aria-checked={on} data-testid={testId} onClick={() => setPayChoice(value)}
+                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                                                    background: on ? `color-mix(in srgb, ${PAY_TINT} 14%, transparent)` : 'var(--glass-fill-1)',
+                                                    border: `1px solid ${on ? `color-mix(in srgb, ${PAY_TINT} 40%, transparent)` : 'var(--glass-border)'}` }}>
+                                                <span aria-hidden style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginTop: 2, display: 'grid', placeItems: 'center',
+                                                    border: `2px solid ${on ? PAY_TINT : 'var(--text-muted)'}` }}>
+                                                    {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: PAY_TINT }} />}
+                                                </span>
+                                                <span style={{ minWidth: 0 }}>
+                                                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</span>
+                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)' }}>{desc}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    };
+                                    if (recordingAll) {
+                                        const found = unpaidIdxs.filter(i => allMatches[i]);
+                                        const rest = unpaidIdxs.length - found.length;
+                                        return (
+                                            <div role="radiogroup" aria-label="Where the money came from" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {found.length > 0 && (
+                                                    <div data-testid="record-all-found" style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-secondary)',
+                                                        background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)' }}>
+                                                        <b style={{ color: 'var(--text-primary)' }}>Found the bank payment for {found.length} of {unpaidIdxs.length}.</b> {found.length > 1 ? 'They' : 'It'} will be linked, not added again:
+                                                        {found.map(i => (
+                                                            <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 3 }}>
+                                                                {fmt(allMatches[i]!.amount)} · {allMatches[i]!.account_name} · {formatDate(String(allMatches[i]!.date))}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {rest > 0 && (
+                                                    <>
+                                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                                            {found.length ? `The other ${rest}:` : 'Where did the money come from?'}
+                                                        </span>
+                                                        {option('new', `Add as new payments from ${bankName}`, 'Records the bank side too.', 'choice-new')}
+                                                        {option('card', 'Card side only', "They're in my bank account in the app already.", 'choice-card')}
+                                                    </>
+                                                )}
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div role="radiogroup" aria-label="Where the money came from" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                                {payCandidates === null ? 'Looking for the bank payment…'
+                                                    : payCandidates.length ? 'We found what looks like this payment' : 'Where did the money come from?'}
+                                            </span>
+                                            {(payCandidates ?? []).map((c, n) => option(`link:${c.id}`,
+                                                <>{fmt(c.amount)} from {c.account_name}{n === 0 && c.score >= LINK_DEFAULT_SCORE && (
+                                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-inc)', background: 'color-mix(in srgb, var(--color-inc) 14%, transparent)', borderRadius: 999, padding: '2px 6px', verticalAlign: 'middle' }}>Best match</span>
+                                                )}</>,
+                                                <>{formatDate(String(c.date))} · &ldquo;{c.description}&rdquo;<br /><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-muted)' }}>{c.reason}</span></>,
+                                                `choice-link-${c.id}`))}
+                                            {option('new', `Add it as a new payment from ${bankName}`,
+                                                payCandidates?.length ? 'Only if the one above is something else.' : 'Records the bank side too.', 'choice-new')}
+                                            {option('card', 'Card side only', "It's in my bank account in the app already, but not listed here.", 'choice-card')}
+                                        </div>
+                                    );
+                                })()}
                                 {(() => {
                                     const amt = parseFloat(payForm.amount) || 0;
                                     const due = Number(payingCard.statement_remaining ?? payingCard.statement_amount_due ?? 0);
@@ -935,6 +1154,12 @@ export default function AccountsPage() {
                                                 <span>Outstanding</span>
                                                 <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(out)} → {fmt(out - amt)}</span>
                                             </div>
+                                            {(linkId || (recordingAll && unpaidIdxs.some(i => allMatches[i]))) && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                    <span>Linked bank debit</span>
+                                                    <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>Counted as a card payment, not spending</span>
+                                                </div>
+                                            )}
                                             {recordingAll && (
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
                                                     <span>Payments recorded</span>
@@ -996,6 +1221,13 @@ export default function AccountsPage() {
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{row.caption}</span>
                                     </div>
                                 </button>
+                                )}
+                                {!skip && idx >= 2 && (unpaidShares[idx] ?? 0) > 0 && (
+                                    <button type="button" data-testid={`not-paid-${idx}`} onClick={() => toggleNotPaid(cycle)}
+                                        style={{ alignSelf: 'flex-start', margin: '-4px 0 6px 14px', padding: '4px 9px', borderRadius: 999, background: 'none', cursor: 'pointer',
+                                            border: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+                                        {notPaid.has(closeDateOf(cycle)) ? 'Ask me again' : 'Not paid'}
+                                    </button>
                                 )}
                                 </Fragment>
                             );

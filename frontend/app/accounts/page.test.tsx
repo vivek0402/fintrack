@@ -25,7 +25,7 @@ vi.mock('@/hooks/useWindowSize', () => ({ useIsMobile: () => false }));
 
 vi.mock('@/lib/api', () => ({
     accountsAPI: { getAll: vi.fn() },
-    creditCardsAPI: { getAll: vi.fn(), payBill: vi.fn(), getCycles: vi.fn() },
+    creditCardsAPI: { getAll: vi.fn(), payBill: vi.fn(), getCycles: vi.fn(), paymentCandidates: vi.fn(), undoPay: vi.fn() },
     walletsAPI: { getAll: vi.fn() },
 }));
 
@@ -57,6 +57,9 @@ beforeEach(() => {
     (accountsAPI.getAll as any).mockResolvedValue({ data: { accounts: [] } });
     (walletsAPI.getAll as any).mockResolvedValue({ data: { wallets: [] } });
     (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: [] } });
+    (creditCardsAPI.paymentCandidates as any).mockResolvedValue({ data: { candidates: [] } });
+    (creditCardsAPI.undoPay as any).mockResolvedValue({ data: {} });
+    localStorage.clear();
 });
 
 describe('Accounts page — Cycles button', () => {
@@ -295,10 +298,10 @@ describe('Accounts page — bills paid outside the app', () => {
         expect(creditCardsAPI.payBill).toHaveBeenCalledWith(1, expect.objectContaining({ bank_account_id: 9, amount: 5700, date: '2026-07-05' }));
     });
 
-    it('the switch records the card side only, without a bank account', async () => {
+    it('"Card side only" records just the card side, without a bank account', async () => {
         fireEvent.click(await openPay());
-        fireEvent.click(await screen.findByTestId('card-only-switch'));
-        expect(screen.getByText(/Card side only/)).toBeInTheDocument();
+        fireEvent.click(await screen.findByTestId('choice-card'));
+        expect(screen.getByText(/bank balance in the app won't change/)).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Record ₹5,700 as paid' }));
         await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(1));
         const [, body] = (creditCardsAPI.payBill as any).mock.calls[0];
@@ -315,5 +318,68 @@ describe('Accounts page — bills paid outside the app', () => {
         await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(3));
         const calls = (creditCardsAPI.payBill as any).mock.calls.map(([, b]: [number, any]) => [b.amount, b.date]);
         expect(calls).toEqual([[5700, '2026-07-05'], [4100, '2026-08-04'], [2600, '2026-09-04']]);
+    });
+
+    it('finds the bank debit, preselects a strong match, and links it instead of adding a debit', async () => {
+        (creditCardsAPI.paymentCandidates as any).mockResolvedValue({ data: { candidates: [
+            { id: 'bank-tx', amount: 5700, date: '2026-07-04', description: 'CC PAYMENT HDFC MILLENNIA', account_name: 'HDFC Savings', score: 5, reason: 'Same amount · card in description' },
+        ] } });
+        (creditCardsAPI.payBill as any).mockResolvedValue({ data: { transactions: [{ id: 'bank-tx' }, { id: 'card-tx', credit_card_id: 1 }], linked_transaction_id: 'bank-tx' } });
+        fireEvent.click(await openPay());
+        const match = await screen.findByTestId('choice-link-bank-tx');
+        expect(match).toHaveAttribute('aria-checked', 'true');
+        expect(match).toHaveTextContent('Best match');
+        // Searched around May's statement: day after its close to a week after its due date.
+        expect(creditCardsAPI.paymentCandidates).toHaveBeenCalledWith(1, { from: '2026-06-16', to: '2026-07-12', amount: 5700, due: '2026-07-05' });
+        fireEvent.click(screen.getByRole('button', { name: 'Link and record as paid' }));
+        await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledWith(1, { link_transaction_id: 'bank-tx', payment_method: 'UPI' }));
+    });
+
+    it('Undo reverses a linked payment, keeping the bank debit', async () => {
+        (creditCardsAPI.paymentCandidates as any).mockResolvedValue({ data: { candidates: [
+            { id: 'bank-tx', amount: 5700, date: '2026-07-04', description: 'CC PAYMENT HDFC', account_name: 'HDFC Savings', score: 5, reason: 'x' },
+        ] } });
+        (creditCardsAPI.payBill as any).mockResolvedValue({ data: { transactions: [{ id: 'bank-tx' }, { id: 'card-tx', credit_card_id: 1 }], linked_transaction_id: 'bank-tx' } });
+        fireEvent.click(await openPay());
+        await screen.findByTestId('choice-link-bank-tx');
+        fireEvent.click(screen.getByRole('button', { name: 'Link and record as paid' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+        await waitFor(() => expect(creditCardsAPI.undoPay).toHaveBeenCalledWith(1, { card_transaction_id: 'card-tx', unlink_transaction_id: 'bank-tx' }));
+    });
+
+    it('"Not paid" stops a statement being suggested and can be reversed', async () => {
+        await openPay();
+        fireEvent.click(screen.getByText('Aug 16 – Sep 15'));
+        fireEvent.click(await screen.findByTestId('not-paid-4'));     // May
+        expect(screen.getByTestId('cycle-row-4')).toBeDisabled();
+        expect(screen.getByTestId('cycle-row-4')).toHaveTextContent('You said not paid');
+        expect(screen.getByTestId('record-all')).toHaveTextContent('Record all 2 as paid');
+        fireEvent.click(screen.getByTestId('not-paid-4'));            // Ask me again
+        expect(screen.getByTestId('cycle-row-4')).not.toBeDisabled();
+    });
+
+    it('Record all: a failure part-way offers Retry for the rest', async () => {
+        (creditCardsAPI.payBill as any)
+            .mockResolvedValueOnce({ data: { transactions: [{ id: 'c1', credit_card_id: 1 }] } })
+            .mockRejectedValueOnce(new Error('network'))
+            .mockResolvedValue({ data: { transactions: [{ id: 'c2', credit_card_id: 1 }] } });
+        await openPay();
+        fireEvent.click(screen.getByText('Aug 16 – Sep 15'));
+        fireEvent.click(await screen.findByTestId('record-all'));
+        fireEvent.click(screen.getByRole('button', { name: 'Record ₹12,400 as paid' }));
+        expect(await screen.findByText("Recorded 1 of 3. The rest didn't save.")).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+        await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(4));
+        const amounts = (creditCardsAPI.payBill as any).mock.calls.map(([, b]: [number, any]) => b.amount);
+        expect(amounts).toEqual([5700, 4100, 4100, 2600]);
+    });
+
+    it('the card itself says when statements look unpaid, and Review opens Pay Bill on the oldest', async () => {
+        render(<AccountsPage />);
+        const note = await screen.findByTestId('card-unpaid-note-1');
+        expect(note).toHaveTextContent('3 older statements look unpaid. Already paid?');
+        fireEvent.click(note);
+        await waitFor(() => expect(screen.getByDisplayValue('5700')).toBeInTheDocument());
+        expect(screen.getByText('May 16 – Jun 15')).toBeInTheDocument();
     });
 });

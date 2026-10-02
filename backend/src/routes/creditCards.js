@@ -10,6 +10,7 @@ const { generateAmortization } = require('../utils/amortization');
 const { istDateStr } = require('../utils/istDate');
 const { fetchCyclesWithTotals } = require('../utils/creditCardCycles');
 const { withStatementRemaining } = require('../utils/cardDueAlerts');
+const { findPaymentCandidates } = require('../utils/cardPaymentMatch');
 
 router.use(auth);
 
@@ -178,7 +179,12 @@ router.delete('/:id', async (req, res) => {
 // be wrong -- it's type='income' with credit_card_id set, which is how
 // utils/creditCardBalance.js's formula reduces what's owed.
 router.post('/:id/pay', async (req, res) => {
-    const { bank_account_id, amount, date, notes, payment_method = 'Net Banking', card_only = false } = req.body;
+    const { bank_account_id, amount, date, notes, payment_method = 'Net Banking', card_only = false, link_transaction_id = null } = req.body;
+
+    // link_transaction_id: the bank debit is already in the app (found by
+    // GET /:id/payment-candidates). Link it as this payment's bank leg instead
+    // of creating one; the payment takes that debit's amount and date.
+    if (link_transaction_id) return linkExistingPayment(req, res, link_transaction_id, payment_method);
 
     if (!isPositiveNumber(amount)) return res.status(400).json({ error: 'amount must be greater than 0' });
     if (!isValidDateString(date)) return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
@@ -235,6 +241,122 @@ router.post('/:id/pay', async (req, res) => {
         await client.query('ROLLBACK');
         console.error(err);
         res.status(500).json({ error: 'Failed to record payment' });
+    } finally {
+        client.release();
+    }
+});
+
+// The bank-debit half of a card payment that's already in the app: tag it as
+// a card payment (so it stops counting as spending) and pair it with a new
+// card-side leg via a shared transfer_group_id.
+async function linkExistingPayment(req, res, txId, paymentMethod) {
+    if (!PAYMENT_METHODS.includes(paymentMethod)) return res.status(400).json({ error: `payment_method must be one of: ${PAYMENT_METHODS.join(', ')}` });
+    const client = await pool.connect();
+    try {
+        const [cardCheck, txCheck] = await Promise.all([
+            client.query(`SELECT id, bank_name, card_name FROM credit_cards WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]),
+            client.query(
+                `SELECT t.id, t.amount, t.date, t.tags, t.transfer_group_id, t.account_id, t.credit_card_id, t.type, b.name AS account_name
+                 FROM transactions t LEFT JOIN bank_accounts b ON b.id = t.account_id
+                 WHERE t.id = $1 AND t.user_id = $2`,
+                [txId, req.user.id]),
+        ]);
+        if (!cardCheck.rows.length) return res.status(404).json({ error: 'Card not found' });
+        const tx = txCheck.rows[0];
+        if (!tx) return res.status(404).json({ error: 'Transaction not found' });
+        const tags = tx.tags || [];
+        if (tx.type !== 'expense' || !tx.account_id || tx.credit_card_id || tx.transfer_group_id
+            || tags.includes('credit_card_payment') || tags.includes('transfer')) {
+            return res.status(409).json({ error: 'That transaction is already linked or is not a bank debit' });
+        }
+
+        const groupId = crypto.randomUUID();
+        await client.query('BEGIN');
+        const bankLeg = await client.query(
+            `UPDATE transactions
+             SET tags = array_append(COALESCE(tags, '{}'), 'credit_card_payment'), transfer_group_id = $1
+             WHERE id = $2 AND user_id = $3
+             RETURNING *`,
+            [groupId, tx.id, req.user.id]);
+        const cardLeg = await client.query(
+            `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, credit_card_id, payment_method, transfer_group_id)
+             VALUES ($1,'income',$2,$3,NULL,$4,$5,$6,$7,$8)
+             RETURNING *`,
+            [req.user.id, tx.amount, `Payment from ${tx.account_name || 'bank'}`, ['credit_card_payment'], tx.date, req.params.id, paymentMethod, groupId]);
+        await client.query('COMMIT');
+
+        const refreshedCard = await fetchCreditCardWithBalance(pool, req.user.id, req.params.id);
+        res.status(201).json({ transactions: [bankLeg.rows[0], cardLeg.rows[0]], card: refreshedCard, linked_transaction_id: tx.id });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Failed to link payment' });
+    } finally {
+        client.release();
+    }
+}
+
+// GET /api/credit-cards/:id/payment-candidates?from&to&amount[&due]
+// Bank debits that look like this card's bill payment, best first (max 3).
+router.get('/:id/payment-candidates', async (req, res) => {
+    const { from, to, amount, due } = req.query;
+    if (!isValidDateString(from) || !isValidDateString(to)) return res.status(400).json({ error: 'from and to are required (YYYY-MM-DD)' });
+    if (!isPositiveNumber(amount)) return res.status(400).json({ error: 'amount must be greater than 0' });
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, bank_name, card_name, last_four FROM credit_cards WHERE id = $1 AND user_id = $2`,
+            [req.params.id, req.user.id]);
+        if (!rows.length) return res.status(404).json({ error: 'Card not found' });
+        const candidates = await findPaymentCandidates(pool, req.user.id, rows[0], {
+            from, to, amount: Number(amount), dueDate: isValidDateString(due) ? due : null,
+        });
+        res.json({ candidates });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to find payments' });
+    }
+});
+
+// POST /api/credit-cards/:id/pay/undo  { card_transaction_id, unlink_transaction_id? }
+// Reverses a payment just recorded: deletes its card leg, then either
+// restores the bank debit it linked (unlink_transaction_id -- that debit
+// existed before, so it's kept, just untagged and unpaired) or deletes the
+// bank leg the payment itself created.
+router.post('/:id/pay/undo', async (req, res) => {
+    const { card_transaction_id, unlink_transaction_id = null } = req.body;
+    if (!card_transaction_id) return res.status(400).json({ error: 'card_transaction_id is required' });
+    const client = await pool.connect();
+    try {
+        const { rows } = await client.query(
+            `SELECT id, transfer_group_id, tags FROM transactions
+             WHERE id = $1 AND user_id = $2 AND credit_card_id = $3 AND type = 'income'`,
+            [card_transaction_id, req.user.id, req.params.id]);
+        const leg = rows[0];
+        if (!leg || !(leg.tags || []).includes('credit_card_payment')) return res.status(404).json({ error: 'Payment not found' });
+
+        await client.query('BEGIN');
+        if (unlink_transaction_id) {
+            const restored = await client.query(
+                `UPDATE transactions
+                 SET tags = array_remove(tags, 'credit_card_payment'), transfer_group_id = NULL
+                 WHERE id = $1 AND user_id = $2 AND transfer_group_id IS NOT DISTINCT FROM $3
+                 RETURNING id`,
+                [unlink_transaction_id, req.user.id, leg.transfer_group_id]);
+            if (!restored.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Linked transaction not found' }); }
+            await client.query(`DELETE FROM transactions WHERE id = $1 AND user_id = $2`, [leg.id, req.user.id]);
+        } else if (leg.transfer_group_id) {
+            await client.query(`DELETE FROM transactions WHERE transfer_group_id = $1 AND user_id = $2`, [leg.transfer_group_id, req.user.id]);
+        } else {
+            await client.query(`DELETE FROM transactions WHERE id = $1 AND user_id = $2`, [leg.id, req.user.id]);
+        }
+        await client.query('COMMIT');
+
+        const refreshedCard = await fetchCreditCardWithBalance(pool, req.user.id, req.params.id);
+        res.json({ card: refreshedCard });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err);
+        res.status(500).json({ error: 'Failed to undo payment' });
     } finally {
         client.release();
     }

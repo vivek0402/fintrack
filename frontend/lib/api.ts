@@ -339,8 +339,17 @@ export const creditCardsAPI = {
     delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
     // card_only: record just the card side of a bill paid outside the app whose
     // bank debit is already in the app; bank_account_id is then not needed.
-    payBill: (id: number, data: { bank_account_id?: number; card_only?: boolean; amount: number; date: string; notes?: string; payment_method?: string }) =>
+    // link_transaction_id: an existing bank debit (from paymentCandidates) to
+    // use as this payment's bank side; amount/date then come from that debit.
+    payBill: (id: number, data: { bank_account_id?: number; card_only?: boolean; link_transaction_id?: string; amount?: number; date?: string; notes?: string; payment_method?: string }) =>
         api.post(`/api/credit-cards/${id}/pay`, data),
+    // Bank debits that look like this card's bill payment (best first, max 3).
+    paymentCandidates: (id: number, params: { from: string; to: string; amount: number; due?: string }) =>
+        api.get(`/api/credit-cards/${id}/payment-candidates`, { params }),
+    // Reverse a payment just recorded. unlink_transaction_id: the existing bank
+    // debit it linked, which is kept (just unlinked) rather than deleted.
+    undoPay: (id: number, data: { card_transaction_id: string; unlink_transaction_id?: string }) =>
+        api.post(`/api/credit-cards/${id}/pay/undo`, data),
     getCycles: (cardId: number, limit?: number) =>
         api.get(`/api/credit-cards/${cardId}/cycles`, { params: limit ? { limit } : undefined }),
     convertToEmi: (cardId: number, data: {

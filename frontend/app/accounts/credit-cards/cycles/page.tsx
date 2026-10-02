@@ -2,14 +2,15 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, CalendarClock } from 'lucide-react';
+import { ArrowLeft, CalendarClock, AlertTriangle } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { creditCardsAPI } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { fmt as fmtBase } from '@/lib/utils';
-import { cycleHeadline, type PayCycle } from '@/lib/cardStatement';
+import { cycleHeadline, olderUnpaidShares, unpaidStatementIdxs, closeDateOf, type PayCycle } from '@/lib/cardStatement';
+import { getNotPaid } from '@/lib/cardNotPaid';
 
 type Cycle = PayCycle;
 
@@ -49,6 +50,10 @@ function CreditCardCyclesPageInner() {
 
     if (isLoading || !user) return <Skeleton width="100%" height={300} borderRadius={12} />;
 
+    const unpaidShares = olderUnpaidShares(cycles);
+    const notPaid = cardId ? getNotPaid(cardId) : new Set<string>();
+    const unpaidCount = unpaidStatementIdxs(cycles, notPaid).length;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '32px', animation: 'fadeUp 200ms ease forwards' }}>
 
@@ -65,6 +70,21 @@ function CreditCardCyclesPageInner() {
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>Tap a cycle to see its transactions</p>
                 </div>
             </div>
+
+            {/* Old statements that look unpaid (a bill paid outside the app and
+                never recorded): send the user to Pay Bill to record them. */}
+            {unpaidCount > 0 && (
+                <button type="button" data-testid="cycles-unpaid-note" onClick={() => router.push(`/accounts?review=${cardId}`)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 30%, transparent)' }}>
+                    <AlertTriangle size={16} color="var(--color-warn)" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{unpaidCount} older statement{unpaidCount > 1 ? 's look' : ' looks'} unpaid</span>
+                        <span style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)' }}>Paid outside the app? Record {unpaidCount > 1 ? 'them' : 'it'} so this card&apos;s balance is right.</span>
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-warn)', whiteSpace: 'nowrap' }}>Review ›</span>
+                </button>
+            )}
 
             {/* List */}
             <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -88,6 +108,7 @@ function CreditCardCyclesPageInner() {
                 ) : (
                     cycles.map((cycle, i) => {
                         const { amount, caption } = cycleHeadline(cycle);
+                        const looksUnpaid = (unpaidShares[i] ?? 0) > 0 && !notPaid.has(closeDateOf(cycle));
                         return (
                         <button
                             key={cycle.start}
@@ -112,6 +133,9 @@ function CreditCardCyclesPageInner() {
                                         </span>
                                     )}
                                 </div>
+                                {looksUnpaid && (
+                                    <span style={{ fontSize: '11px', color: 'var(--color-warn)', fontWeight: 600 }}>Looks unpaid · paid outside the app?</span>
+                                )}
                                 {cycle.charges != null && cycle.payments != null && (
                                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                                         Spent {signed(cycle.charges)} · Paid {fmt(cycle.payments)}

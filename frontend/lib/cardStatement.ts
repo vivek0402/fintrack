@@ -104,6 +104,40 @@ export function olderUnpaidShares(cycles: PayCycle[]): Record<number, number> {
     return out;
 }
 
+/** A cycle's statement close date ('YYYY-MM-DD'), or '' for the open cycle. */
+export function closeDateOf(cycle: PayCycle): string {
+    return (cycle.statement_close_date ?? cycle.end ?? '').split('T')[0];
+}
+
+/**
+ * Indexes of older statements that look unpaid, OLDEST FIRST (the order to
+ * record them in), skipping any the user marked as really not paid.
+ */
+export function unpaidStatementIdxs(cycles: PayCycle[], notPaid: Set<string> = new Set()): number[] {
+    const shares = olderUnpaidShares(cycles);
+    return Object.keys(shares).map(Number)
+        .filter(i => shares[i] > 0 && !notPaid.has(closeDateOf(cycles[i])))
+        .sort((a, b) => b - a);
+}
+
+const addDays = (ymd: string, days: number) => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d + days).toLocaleDateString('en-CA');
+};
+
+/**
+ * Where to look for the bank debit that paid a statement: from the day after
+ * it closed until a week after its due date (never past today), plus the due
+ * date itself for ranking closer matches first.
+ */
+export function statementPaymentWindow(cycle: PayCycle, dueDays: number, today = new Date()) {
+    const close = closeDateOf(cycle);
+    const todayStr = today.toLocaleDateString('en-CA');
+    const due = addDays(close, Number(dueDays) || 0);
+    const to = addDays(due, 7);
+    return { from: addDays(close, 1), to: to > todayStr ? todayStr : to, due };
+}
+
 /**
  * Date to record an older statement's payment on: its due date (close date +
  * the card's due days), or today if that's still ahead.
