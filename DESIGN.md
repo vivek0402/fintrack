@@ -328,8 +328,15 @@ layer to 35% opacity.
 
 - **Desktop:** left sidebar, collapsible, 240px
 - **Mobile:** floating glass pill docked 14px from the bottom, inset 12px each side, with the
-  add-transaction button as a **detached blue circle beside it**. The two are one flex row —
-  as the More panel opens, the button folds to zero width and the pill expands to fill it.
+  add-transaction button as a **detached blue circle beside it**.
+- **More panel (mobile):** its own glass card that springs up above the dock (440ms spring in,
+  220ms out; transform + opacity only, never a height animation on glass), contents rising in a
+  beat apart. Every page is on one screen in four labelled sections, so nothing hides behind
+  group tabs. Two layouts, the user's choice (header switch, or Profile → Appearance; saved per
+  device, grid by default): **grid** puts three pinned shortcuts (AI Chat, Goals, Accounts) above
+  4-column app-style icons, and **list** shows rows with a description and a live figure. The
+  list only fetches budgets, goals and accounts; other figures appear when another page has
+  already cached them. The header is the drag-to-close handle.
 - **Tabs:** four only — Home, Money, Insights, More. AI Chat lives in More → Tools.
 - **Active state:** a soft rounded-square (`rgba(255,255,255,0.15)`, `--radius-md`) behind the
   icon, icon switches to solid fill and `--text-primary`. Not a coloured pill — the accent

@@ -30,7 +30,7 @@ const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/pr
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-    const { loadTheme, loadSidebarCollapsed, sidebarCollapsed } = useThemeStore();
+    const { loadTheme, loadSidebarCollapsed, loadMoreMenuStyle, sidebarCollapsed } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
     const [aiFabHover, setAiFabHover] = useState(false);
@@ -44,7 +44,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     // Back/forward returns to where you were on that page.
     useScrollRestoration();
 
-    useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
+    useEffect(() => { loadTheme(); loadSidebarCollapsed(); loadMoreMenuStyle(); }, []);
 
     // The new route has committed: let a pending tab crossfade run.
     useLayoutEffect(() => { resolveViewTransition(); }, [pathname]);

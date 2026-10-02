@@ -502,6 +502,37 @@ button:active:not(:disabled) {
   .mobile-only { display: contents; }
 }
 
+/* ── Mobile More card (components/layout/MorePanel.tsx) ──
+   Its own surface above the dock. Opens on a spring and closes quickly with
+   transform + opacity only (animating height on a blurred surface stuttered).
+   Contents rise in a beat apart (--i set per item). The exit continues from
+   wherever a drag left it (--more-from). */
+.more-pop {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 10px);
+  border-radius: var(--radius-xl);
+  display: flex; flex-direction: column;
+  max-height: min(72vh, 600px);
+  transform-origin: 82% 100%;
+  overflow: hidden;
+}
+@keyframes moreIn { from { opacity: 0; transform: translateY(16px) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes moreOut { from { opacity: 1; transform: translateY(var(--more-from, 0px)); } to { opacity: 0; transform: translateY(calc(var(--more-from, 0px) + 14px)) scale(0.95); } }
+.more-pop-enter { animation: moreIn 440ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.more-pop-exit  { animation: moreOut 220ms cubic-bezier(0.4, 0, 1, 1) both; pointer-events: none; }
+@keyframes moreRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.more-pop-enter .more-rise { animation: moreRise 320ms cubic-bezier(0.32, 0.72, 0, 1) both; animation-delay: calc(60ms + min(var(--i, 0), 20) * 16ms); }
+.more-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--border-visible); margin: 10px auto 6px; flex-shrink: 0; touch-action: none; }
+.more-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 0 14px 16px; min-height: 0; }
+.more-tile { display: grid; justify-items: center; gap: 6px; background: none; border: none; cursor: pointer; padding: 2px 0;
+  font-family: var(--font-body); font-size: 11px; font-weight: 600; line-height: 1.15; text-align: center; -webkit-tap-highlight-color: transparent; }
+.more-tile-icon { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center;
+  background: var(--glass-fill-2); border: 1px solid var(--glass-border);
+  transition: transform 160ms cubic-bezier(0.32, 0.72, 0, 1); }
+.more-tile:active .more-tile-icon { transform: scale(0.92); transition-duration: 60ms; }
+.more-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 6px; background: none; border: none;
+  border-bottom: 1px solid var(--glass-border); cursor: pointer; text-align: left; border-radius: var(--radius-sm); }
+.more-row-icon { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--glass-fill-2); flex-shrink: 0; }
+
 /* Press feedback: a tap shows on the first frame, before anything loads.
    Shrink 3% (transform only, so it never re-lays out) plus an inset tint that
    works over any background. Opt in with className="pressable". */
@@ -661,6 +692,10 @@ button:active:not(:disabled) {
   @keyframes sheetDown { from { opacity: 1; } to { opacity: 0; } }
   @keyframes scaleOut { from { opacity: 1; } to { opacity: 0; } }
   .pressable:active:not(:disabled), .press-shrink:active { transform: none; }
+  @keyframes moreIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes moreOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes moreRise { from { opacity: 0; } to { opacity: 1; } }
+  .more-tile:active .more-tile-icon { transform: none; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   @keyframes emptyFloat { 0%, 100% { transform: translateY(0) scale(1); } }
   @keyframes emptySparkle { 0%, 100% { opacity: 0; } }

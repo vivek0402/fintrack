@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { syncSystemBarsStyle } from '@/lib/systemBars';
 
 export type Theme = 'dark' | 'light';
+/** How the mobile More panel lists pages: an icon grid, or rows with live figures. */
+export type MoreMenuStyle = 'grid' | 'list';
+
+const MORE_STYLE_KEY = 'fintrack-more-style';
 
 function applyAttributes(theme: Theme) {
     document.documentElement.setAttribute('data-theme', theme);
@@ -12,7 +16,10 @@ function applyAttributes(theme: Theme) {
 interface ThemeStore {
     theme: Theme;
     sidebarCollapsed: boolean;
+    moreMenuStyle: MoreMenuStyle;
     setTheme: (theme: Theme) => void;
+    setMoreMenuStyle: (style: MoreMenuStyle) => void;
+    loadMoreMenuStyle: () => void;
     toggleSidebarCollapsed: () => void;
     loadTheme: () => void;
     loadSidebarCollapsed: () => void;
@@ -21,6 +28,18 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>((set, get) => ({
     theme: 'dark',
     sidebarCollapsed: false,
+    moreMenuStyle: 'grid',
+
+    setMoreMenuStyle: (style) => {
+        try { localStorage.setItem(MORE_STYLE_KEY, style); } catch { /* storage unavailable */ }
+        set({ moreMenuStyle: style });
+    },
+
+    loadMoreMenuStyle: () => {
+        let saved: string | null = null;
+        try { saved = localStorage.getItem(MORE_STYLE_KEY); } catch { /* storage unavailable */ }
+        set({ moreMenuStyle: saved === 'list' ? 'list' : 'grid' });
+    },
 
     setTheme: (theme) => {
         localStorage.setItem('fintrack-theme', theme);

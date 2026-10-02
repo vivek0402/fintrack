@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, Palette, ChevronRight, Download, Trash2, Bell, Zap } from 'lucide-react';
+import { User, Mail, Lock, Globe, Palette, ChevronRight, Download, Trash2, Bell, Zap, LayoutGrid, List } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
 import { Badge } from '@/components/ui/Badge';
@@ -48,7 +48,7 @@ function SettingsRow({ icon, label, sub, onClick, destructive }: { icon: React.R
 export default function ProfilePage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage, setAuth, token, logout } = useAuthStore();
-    const { theme, setTheme } = useThemeStore();
+    const { theme, setTheme, moreMenuStyle, setMoreMenuStyle } = useThemeStore();
 
     const [profile, setProfile]         = useState<any>(null);
     const [loading, setLoading]         = useState(true);
@@ -277,6 +277,39 @@ export default function ProfilePage() {
                             </button>
                         ))}
                     </div>
+
+                    {/* More menu layout (phone bottom bar) -- also switchable from the menu itself */}
+                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '18px 0 8px', fontFamily: 'var(--font-body)' }}>More menu</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
+                        {([
+                            { key: 'grid' as const, label: 'Grid', Icon: LayoutGrid },
+                            { key: 'list' as const, label: 'List', Icon: List },
+                        ]).map(m => (
+                            <button
+                                key={m.key}
+                                type="button"
+                                onClick={() => setMoreMenuStyle(m.key)}
+                                aria-pressed={moreMenuStyle === m.key}
+                                style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                    padding: '9px 8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    background: moreMenuStyle === m.key ? 'var(--glass-fill-3)' : 'transparent',
+                                    boxShadow: moreMenuStyle === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
+                                    border: 'none', cursor: 'pointer',
+                                    fontSize: '13px', color: 'var(--text-primary)',
+                                    fontFamily: 'var(--font-body)',
+                                    fontWeight: moreMenuStyle === m.key ? 600 : 400,
+                                    transition: 'background-color 0.15s, box-shadow 0.15s',
+                                }}
+                            >
+                                <m.Icon size={15} /> {m.label}
+                            </button>
+                        ))}
+                    </div>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
+                        Grid is quickest to scan. List shows a live figure next to each page.
+                    </p>
                 </div>
 
                 {/* ── ACCOUNT SECTION ── */}

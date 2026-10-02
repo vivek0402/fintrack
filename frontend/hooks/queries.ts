@@ -165,11 +165,11 @@ export function usePrefetchTabData() {
     }, [userId, qc]);
 }
 
-export function useBudgets(month: number, year: number) {
+export function useBudgets(month: number, year: number, options: { enabled?: boolean } = {}) {
     const userId = useUserId();
     return useQuery({
         queryKey: queryKeys.budgets(userId, month, year),
-        enabled: !!userId,
+        enabled: !!userId && (options.enabled ?? true),
         queryFn: async (): Promise<any[]> => (await budgetsAPI.getAll({ month, year })).data.budgets ?? [],
     });
 }
