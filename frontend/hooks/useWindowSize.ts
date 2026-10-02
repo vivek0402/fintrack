@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 
@@ -34,24 +34,29 @@ export function useWindowSize() {
     return windowSize;
 }
 
+function subscribeMobile(onChange: () => void) {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
+    const mql = window.matchMedia(MOBILE_QUERY);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+}
+
+function mobileSnapshot(): boolean {
+    if (typeof window.matchMedia === 'function') return window.matchMedia(MOBILE_QUERY).matches;
+    return window.innerWidth < 768;
+}
+
+// The static export's HTML is built as desktop, so hydration must start from
+// the same answer or React throws the HTML away (error #418).
+const serverSnapshot = () => false;
+
 /**
- * True below the 768px breakpoint. Listens to a media query rather than
- * resize, so components re-render only when the breakpoint actually flips --
- * not on every keyboard open/close or address-bar show/hide.
+ * True below the 768px breakpoint. Re-renders only when the breakpoint flips
+ * (a media query, not resize events). While hydrating the pre-built HTML it
+ * reports desktop to match that HTML, then switches straight after; on later
+ * client-side navigations it is right from the first render. The app shell's
+ * own layout doesn't depend on this -- it switches by CSS (globals.css).
  */
 export function useIsMobile() {
-    const [isMobile, setIsMobile] = useState(() =>
-        typeof window !== 'undefined' ? window.innerWidth < 768 : false,
-    );
-
-    useEffect(() => {
-        if (typeof window.matchMedia !== 'function') return;
-        const mql = window.matchMedia(MOBILE_QUERY);
-        const update = () => setIsMobile(mql.matches);
-        update();
-        mql.addEventListener('change', update);
-        return () => mql.removeEventListener('change', update);
-    }, []);
-
-    return isMobile;
+    return useSyncExternalStore(subscribeMobile, mobileSnapshot, serverSnapshot);
 }

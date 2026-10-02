@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
-import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
 import { useTransitionNavigate } from '@/lib/viewTransition';
 import { InstallPWA } from '@/components/ui/InstallPWA';
@@ -71,7 +70,6 @@ export function Sidebar() {
     const navigate = useTransitionNavigate();
     const { user, logout } = useAuthStore();
     const { loadTheme, sidebarCollapsed, toggleSidebarCollapsed, loadSidebarCollapsed } = useThemeStore();
-    const isMobile = useIsMobile();
 
     const [moreOpen, setMoreOpen] = useState(false);
     const [collapseTogglePressed, setCollapseTogglePressed] = useState(false);
@@ -84,8 +82,6 @@ export function Sidebar() {
             setMoreOpen(true);
         }
     }, [pathname]);
-
-    if (isMobile) return null;
 
     const handleLogout = () => { logout(); router.push('/login'); };
 
@@ -160,7 +156,9 @@ export function Sidebar() {
         // (2026-09-16) after the fully-dense fill read as flat, not glass, in
         // practice. Border is set to a right edge only, so it overrides the
         // class's all-round border.
-        <aside className="glass-surface glass-nav glass-nav-desktop" style={{
+        // Hidden on phones by CSS (.desktop-only), so the static HTML is right
+        // for both sizes before the app loads.
+        <aside className="glass-surface glass-nav glass-nav-desktop desktop-only" style={{
             width: sidebarCollapsed ? '76px' : '240px',
             flexShrink: 0,
             height: 'calc(100vh - var(--sa-top))',

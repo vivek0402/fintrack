@@ -7,7 +7,6 @@ import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
-import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -31,7 +30,6 @@ const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/pr
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-    const isMobile = useIsMobile();
     const { loadTheme, loadSidebarCollapsed, sidebarCollapsed } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
@@ -107,38 +105,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Sidebar />
             {/* No key/entry animation on <main>: pages swap in place like native
                 tabs instead of replaying a fade-and-slide on every navigation. */}
-            <main
-                style={{
-                    marginLeft: isMobile ? '0' : sidebarCollapsed ? '76px' : '240px',
-                    flex: 1,
-                    minHeight: '100vh',
-                    overflowX: 'hidden',
-                    color: 'var(--text-primary)',
-                    // Lifts page content above the fixed ambient backdrop, which is
-                    // positioned and would otherwise paint over unpositioned content.
-                    position: 'relative',
-                    zIndex: 1,
-                    transition: 'margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-            >
-                <div style={{
-                    maxWidth: isMobile ? undefined : '1280px',
-                    margin: isMobile ? undefined : '0 auto',
-                    padding: isMobile
-                        ? '16px 16px calc(160px + var(--sa-bottom))'
-                        : '32px 40px',
-                }}>
+            {/* Phone vs desktop shell is decided by CSS media queries (.app-main
+                in globals.css), not by useIsMobile: the static export's HTML is
+                built without knowing the screen, so a JS check painted the
+                desktop layout on phones until the app loaded. */}
+            <main className="app-main" data-collapsed={sidebarCollapsed ? 'true' : undefined}>
+                <div className="app-main-inner">
                     {/* Keyed so a crashed page's error state resets when you navigate away. */}
                     <PageErrorBoundary key={pathname}><ErrorBoundary>{children}</ErrorBoundary></PageErrorBoundary>
                 </div>
             </main>
             {/* The mobile add-transaction button now lives inside BottomNav, docked
                 beside the pill, so the two move and morph as one unit. */}
-            {isMobile && <BottomNav onOpenTour={() => setShowTour(true)} />}
+            <BottomNav onOpenTour={() => setShowTour(true)} />
 
             {/* Desktop Add Transaction FAB */}
-            {!isMobile && !hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
-                <div style={{ position: 'fixed', bottom: '32px', right: '96px', zIndex: 500 }}>
+            {!hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
+                <div className="desktop-only" style={{ position: 'fixed', bottom: '32px', right: '96px', zIndex: 500 }}>
                     {addFabHover && (
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
@@ -173,8 +156,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             )}
 
             {/* Desktop AI Chat FAB */}
-            {!isMobile && !hideFabRoutes.some(r => pathname.startsWith(r)) && (
-                <div style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
+            {!hideFabRoutes.some(r => pathname.startsWith(r)) && (
+                <div className="desktop-only" style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
                     {aiFabHover && (
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',

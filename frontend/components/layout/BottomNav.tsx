@@ -255,7 +255,9 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const activeGroupItems = moreGroups.find(g => g.label === activeGroupKey)?.items ?? [];
 
     return (
-        <>
+        // Shown on phones only, by CSS (.mobile-only), so the static HTML is
+        // right for both sizes before the app loads.
+        <div className="mobile-only">
             {/* Light dismiss-on-outside-tap layer — dim only, no blur/glass */}
             <div
                 ref={backdropRef}
@@ -393,6 +395,6 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 </button>
             )}
             </div>
-        </>
+        </div>
     );
 }
