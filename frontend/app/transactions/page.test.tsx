@@ -181,3 +181,14 @@ describe('cached data', () => {
         expect(screen.getByText('Coffee')).toBeInTheDocument();
     });
 });
+
+describe('list layout', () => {
+    it('clips the list box instead of hiding overflow, so date headers can pin', async () => {
+        // overflow: hidden made the box the sticky headers' scroll container,
+        // pushing each header down by the Android status-bar height onto its
+        // first row. jsdom can't lay out sticky, so guard the property itself.
+        render(<TransactionsPage />);
+        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(screen.getByTestId('tx-list-box').style.overflow).toBe('clip');
+    });
+});

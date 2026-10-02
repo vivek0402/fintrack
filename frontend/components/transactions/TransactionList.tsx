@@ -149,7 +149,10 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                 const groupNet = visibleTxs.reduce((s, tx) => s + (tx.type === 'income' ? 1 : -1) * (parseFloat(tx.amount) || 0), 0);
                 return (
                 <div key={date}>
-                    <div style={{ position: 'sticky', top: 'var(--sa-top)', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-5) 6px', background: 'var(--glass-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)' }}>
+                    {/* Pins just below the status bar while its day scrolls past. Same
+                        dense fill as the bottom nav, so rows scrolling underneath stay
+                        unreadable instead of bleeding through the label. */}
+                    <div style={{ position: 'sticky', top: 'var(--sa-top)', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-5) 6px', background: 'var(--glass-nav-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)' }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
                         <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
                         <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>

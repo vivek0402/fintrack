@@ -409,7 +409,12 @@ function TransactionsPageInner() {
                 )}
 
                 {/* ── TRANSACTION LIST ── */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                {/* overflow: clip, not hidden: it trims the rounded corners the same
+                    way, but hidden makes this box the date headers' scroll container,
+                    so their sticky `top: var(--sa-top)` pushed every header down by
+                    the status-bar height (onto its first row) on Android, and they
+                    never pinned while scrolling anywhere. */}
+                <div className="glass-surface" data-testid="tx-list-box" style={{ borderRadius: 'var(--radius-lg)', overflow: 'clip' }}>
                     {loading ? (
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {[1, 2, 3, 4, 5].map(i => (
