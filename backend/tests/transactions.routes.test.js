@@ -454,6 +454,62 @@ describe('PUT /api/transactions/:id — credit_card_id', () => {
     });
 });
 
+describe('PUT /api/transactions/:id — account_id', () => {
+    function mockClient(queryImpl) {
+        return { query: jest.fn(queryImpl), release: jest.fn() };
+    }
+    function captureUpdate() {
+        const box = { params: null };
+        pool.connect.mockResolvedValue(mockClient(async (sql, params) => {
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.startsWith('UPDATE transactions')) { box.params = params; return { rows: [{ id: 1 }] }; }
+            throw new Error(`Unexpected client query: ${sql}`);
+        }));
+        return box;
+    }
+
+    afterEach(() => {
+        pool.query.mockReset();
+        pool.connect.mockReset();
+    });
+
+    test('sets a new bank account (after checking it belongs to the user)', async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null, amount: '450' }] }) // existing tx
+            .mockResolvedValueOnce({ rows: [{ id: 7 }] });                               // account ownership
+        const box = captureUpdate();
+        const res = await request(buildApp()).put('/api/transactions/1').send({ account_id: 7 });
+        expect(res.status).toBe(200);
+        expect(box.params[15]).toBe(true);  // account provided
+        expect(box.params[16]).toBe(7);
+    });
+
+    test('an explicit null clears it (cash and card spending stay off bank balances)', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null, amount: '450' }] });
+        const box = captureUpdate();
+        const res = await request(buildApp()).put('/api/transactions/1').send({ payment_method: 'Cash', account_id: null });
+        expect(res.status).toBe(200);
+        expect(box.params[15]).toBe(true);
+        expect(box.params[16]).toBeNull();
+    });
+
+    test('leaves it alone when omitted', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null, amount: '450' }] });
+        const box = captureUpdate();
+        await request(buildApp()).put('/api/transactions/1').send({ amount: 75 });
+        expect(box.params[15]).toBe(false);
+    });
+
+    test("rejects someone else's account", async () => {
+        pool.query
+            .mockResolvedValueOnce({ rows: [{ id: 1, goal_id: null, amount: '450' }] })
+            .mockResolvedValueOnce({ rows: [] });
+        const res = await request(buildApp()).put('/api/transactions/1').send({ account_id: 99 });
+        expect(res.status).toBe(400);
+        expect(pool.connect).not.toHaveBeenCalled();
+    });
+});
+
 describe('PUT /api/transactions/:id — category_id', () => {
     function mockClient(queryImpl) {
         return { query: jest.fn(queryImpl), release: jest.fn() };

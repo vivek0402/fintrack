@@ -24,7 +24,9 @@ import { CardUnpaidNote } from '@/components/accounts/CardUnpaidNote';
 const inr = (n: number) => n.toLocaleString('en-IN');
 
 // A bank debit that looks like a card bill payment (GET /:id/payment-candidates).
-interface PaymentCandidate { id: string; amount: number; date: string; description: string; account_name: string; score: number; reason: string }
+// account_name is null for an imported debit with no bank account set.
+interface PaymentCandidate { id: string; amount: number; date: string; description: string; account_name: string | null; score: number; reason: string }
+const candidateFrom = (c: PaymentCandidate) => c.account_name ?? 'your bank (imported)';
 // What Undo needs to reverse one recorded payment.
 interface RecordedPayment { cardTxId: string; unlinkId?: string }
 // Pre-select a found debit when it has the same amount AND card wording
@@ -1101,7 +1103,7 @@ export default function AccountsPage() {
                                                         <b style={{ color: 'var(--text-primary)' }}>Found the bank payment for {found.length} of {unpaidIdxs.length}.</b> {found.length > 1 ? 'They' : 'It'} will be linked, not added again:
                                                         {found.map(i => (
                                                             <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 3 }}>
-                                                                {fmt(allMatches[i]!.amount)} · {allMatches[i]!.account_name} · {formatDate(String(allMatches[i]!.date))}
+                                                                {fmt(allMatches[i]!.amount)} · {candidateFrom(allMatches[i]!)} · {formatDate(String(allMatches[i]!.date))}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1125,7 +1127,7 @@ export default function AccountsPage() {
                                                     : payCandidates.length ? 'We found what looks like this payment' : 'Where did the money come from?'}
                                             </span>
                                             {(payCandidates ?? []).map((c, n) => option(`link:${c.id}`,
-                                                <>{fmt(c.amount)} from {c.account_name}{n === 0 && c.score >= LINK_DEFAULT_SCORE && (
+                                                <>{fmt(c.amount)} from {candidateFrom(c)}{n === 0 && c.score >= LINK_DEFAULT_SCORE && (
                                                     <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-inc)', background: 'color-mix(in srgb, var(--color-inc) 14%, transparent)', borderRadius: 999, padding: '2px 6px', verticalAlign: 'middle' }}>Best match</span>
                                                 )}</>,
                                                 <>{formatDate(String(c.date))} · &ldquo;{c.description}&rdquo;<br /><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-muted)' }}>{c.reason}</span></>,

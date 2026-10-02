@@ -73,7 +73,8 @@ async function transferSelects() {
     return Array.from(document.querySelectorAll('select'));
 }
 
-beforeEach(() => { vi.clearAllMocks(); });
+// Each test starts with no remembered bank accounts (lib/accountMemory).
+beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
 
 describe('add transaction', () => {
     it('sends the entered amount and description to the API', async () => {
@@ -510,5 +511,40 @@ describe('holdUntilReady', () => {
     it('shows the form straight away without it', () => {
         open();
         expect(document.querySelector('form')).not.toBeNull();
+    });
+});
+
+describe('bank account (several accounts)', () => {
+    it('suggests the account last used for this description and sends it', async () => {
+        localStorage.setItem('fintrack-account-memory-u1', JSON.stringify({ byDesc: { swiggy: 2 }, byMethod: {} }));
+        open();
+        await fillBasics('450', 'Swiggy');
+        const line = await screen.findByTestId('account-line');
+        await waitFor(() => expect(line).toHaveTextContent('from ICICI'));
+        expect(line).toHaveTextContent('last used for Swiggy');
+        submit();
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ account_id: 2, payment_method: 'UPI' })));
+        // ...and remembers it for UPI in general.
+        expect(JSON.parse(localStorage.getItem('fintrack-account-memory-u1')!).byMethod.UPI).toBe(2);
+    });
+
+    it('lets you change it, and keeps your pick', async () => {
+        open();
+        await fillBasics('450', 'Groceries');
+        fireEvent.click(await screen.findByRole('button', { name: 'Change the account it was paid from' }));
+        fireEvent.click(await screen.findByTestId('account-option-2'));
+        await waitFor(() => expect(screen.getByTestId('account-line')).toHaveTextContent('from ICICI'));
+        submit();
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ account_id: 2 })));
+    });
+
+    it('cash spending carries no bank account, so it never moves a bank balance', async () => {
+        (transactionsAPI.suggest as any).mockResolvedValue({ data: { ready: true, trained: 40, category: [], payment_method: [{ method: 'Cash', prob: 0.9 }] } });
+        open();
+        await fillBasics('120', 'Chai');
+        await waitFor(() => expect(document.body.textContent).toContain("Cash doesn't touch a bank balance"));
+        expect(screen.queryByTestId('account-line')).toBeNull();
+        submit();
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'Cash', account_id: null })));
     });
 });

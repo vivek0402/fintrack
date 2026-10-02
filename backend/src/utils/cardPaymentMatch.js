@@ -6,8 +6,10 @@
 // avoids a double debit, and stops it being counted as spending (it gets the
 // credit_card_payment tag, which is what keeps it out of totals).
 //
-// Candidates are bank-account expenses in a date window around the
-// statement's due date that aren't already a card payment or a transfer.
+// Candidates are expenses in a date window around the statement's due date
+// that aren't on a card and aren't already a card payment or a transfer --
+// including imported ones with no bank account set (bank-statement and SMS
+// imports don't assign one), which is where most bill payments come from.
 // scoreCandidate ranks them; only plausible ones are returned.
 
 const CC_WORDS = /\b(credit\s*card|cc|card\s*(payment|pymt|pmt|bill)|cred|cardpay|bill\s*pay(ment)?)\b/i;
@@ -52,12 +54,11 @@ function scoreCandidate(tx, { amount, card }) {
 }
 
 const CANDIDATES_QUERY = `
-    SELECT t.id, t.amount, t.date, t.description, t.notes, t.account_id, b.name AS account_name
+    SELECT t.id, t.amount, t.date, t.description, t.notes, t.account_id, t.source, b.name AS account_name
     FROM transactions t
-    JOIN bank_accounts b ON b.id = t.account_id AND b.user_id = t.user_id
+    LEFT JOIN bank_accounts b ON b.id = t.account_id AND b.user_id = t.user_id
     WHERE t.user_id = $1
       AND t.type = 'expense'
-      AND t.account_id IS NOT NULL
       AND t.credit_card_id IS NULL
       AND t.transfer_group_id IS NULL
       AND NOT (COALESCE(t.tags, '{}') && ARRAY['transfer','credit_card_payment']::text[])
@@ -80,8 +81,10 @@ async function findPaymentCandidates(db, userId, card, { from, to, amount, dueDa
             amount: round2(Number(tx.amount)),
             date: tx.date,
             description: tx.description,
-            account_id: tx.account_id,
-            account_name: tx.account_name,
+            account_id: tx.account_id ?? null,
+            // null when the debit has no bank account (an import).
+            account_name: tx.account_name ?? null,
+            source: tx.source ?? null,
             score: m.score,
             reason: m.reason,
         }));

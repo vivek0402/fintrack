@@ -19,6 +19,7 @@ import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
 import { randomCategoryColor } from '@/lib/categoryColors';
+import { usesBankAccount, suggestAccount, rememberAccount } from '@/lib/accountMemory';
 import { haptics } from '@/lib/haptics';
 
 const NO_ITEMS: any[] = [];
@@ -150,6 +151,12 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     const [paymentSheetOpen, setPaymentSheetOpen] = useState(false);
     const [cardSheetOpen, setCardSheetOpen] = useState(false);
+    const [accountSheetOpen, setAccountSheetOpen] = useState(false);
+    // Why the bank account was picked ("last used for Swiggy"); null once the
+    // user picks one themselves, or when editing.
+    const [accountWhy, setAccountWhy] = useState<string | null>(null);
+    // Once the user picks an account, stop re-suggesting for this entry.
+    const accountTouched = useRef(false);
     const [goalSheetOpen, setGoalSheetOpen] = useState(false);
 
     // Four fields by default (amount, description, category, date) --
@@ -193,6 +200,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setMfDropdownOpen(false);
         setMlSuggest(EMPTY_SUGGEST);
         paymentTouched.current = false;
+        // Editing keeps the transaction's own account; a new entry gets suggestions.
+        accountTouched.current = !!transaction;
+        setAccountWhy(null);
         setPaymentAutoSet(false);
         setEntrySignals([]);
         // Editing an existing transaction defaults open -- its payment method,
@@ -201,12 +211,22 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setShowMore(!!transaction);
     }, [transaction, isOpen, defaultDate, prefill]);
 
-    // Default account
+    // Bank account: suggested from what this person used before for this
+    // description, then this payment method, then the default -- re-suggested
+    // as the description and method change, until they pick one themselves.
+    // Transfers keep the plain default for "From". See lib/accountMemory.ts.
     useEffect(() => {
-        if (!isOpen || accounts.length === 0 || isEditing) return;
-        const defaultAccountId = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
-        setForm(prev => prev.account_id === null ? { ...prev, account_id: defaultAccountId } : prev);
-    }, [accounts, isOpen, isEditing]);
+        if (!isOpen || accounts.length === 0 || isEditing || accountTouched.current) return;
+        if (form.type === 'transfer') {
+            const def = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
+            setForm(prev => prev.account_id === null ? { ...prev, account_id: def } : prev);
+            return;
+        }
+        const sug = suggestAccount(user?.id, { description: form.description, type: form.type, paymentMethod: form.payment_method }, accounts);
+        if (!sug) return;
+        setAccountWhy(sug.why);
+        setForm(prev => prev.account_id === sug.id ? prev : { ...prev, account_id: sug.id });
+    }, [accounts, isOpen, isEditing, form.type, form.description, form.payment_method, user?.id]);
 
     // Credit card selection: auto-pick when there's only one card, clear whenever
     // payment method moves away from 'Credit Card' so a stale card id never gets
@@ -399,7 +419,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 account_label: form.investment.account_label || undefined,
             }
             : undefined;
-        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: form.account_id ?? undefined, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, goal_id: form.goal_id, investment_details: investmentDetails };
+        const payload = { type: form.type as 'income' | 'expense', amount: parseFloat(form.amount), description: form.description, notes: form.notes || undefined, date: form.date, category_id: form.category_id || undefined, tags: form.tags.length > 0 ? form.tags : undefined, payment_method: form.type === 'expense' ? (form.payment_method || 'Cash') : undefined, account_id: usesBankAccount(form.type, form.payment_method) ? (form.account_id ?? null) : null, credit_card_id: (form.type === 'expense' && form.payment_method === 'Credit Card') ? form.credit_card_id : null, goal_id: form.goal_id, investment_details: investmentDetails };
         const submittingEmi = !isEditing && form.emi.enabled;
         let createdInvestment: { is_new_holding: boolean } | undefined;
         let savedTx: any;
@@ -426,6 +446,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 });
             }
             else { const res = await transactionsAPI.create(payload); createdInvestment = res.data.investment; savedTx = res.data.transaction; }
+            if (usesBankAccount(form.type, form.payment_method) && form.account_id && !submittingEmi) {
+                rememberAccount(user?.id, { description: form.description, type: form.type, paymentMethod: form.payment_method, accountId: form.account_id });
+            }
             // Show the saved row in every cached list right away, then refresh
             // everything the write touched (totals, budgets, goals, balances)
             // in the background -- no list reload, no skeleton.
@@ -691,6 +714,36 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </Modal>
     );
 
+    const accountSheet = (
+        <Modal isOpen={accountSheetOpen} onClose={() => setAccountSheetOpen(false)} title={form.type === 'income' ? 'Received in' : 'Paid from'} maxWidth="360px" opaque forceDialog zIndexBase={10010}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {accounts.map((a: any) => {
+                    const active = form.account_id === a.id;
+                    return (
+                        <button key={a.id} type="button" data-testid={`account-option-${a.id}`}
+                            onClick={() => { accountTouched.current = true; setAccountWhy(null); setForm(prev => ({ ...prev, account_id: a.id })); setAccountSheetOpen(false); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem',
+                                fontWeight: active ? 600 : 400, background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)',
+                                border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)' }}>
+                            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                                <span>{a.name}</span>
+                                {a.is_default && <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Default</span>}
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                {a.current_balance != null && (
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                                        ₹{Math.round(Number(a.current_balance)).toLocaleString('en-IN')}
+                                    </span>
+                                )}
+                                {active && <Check size={16} />}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </Modal>
+    );
+
     const goalSheet = (
         <Modal isOpen={goalSheetOpen} onClose={() => setGoalSheetOpen(false)} title="Add to a goal" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -742,6 +795,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         {dateSheet}
         {paymentSheet}
         {cardSheet}
+        {accountSheet}
         {goalSheet}
         <Modal
             isOpen={isOpen}
@@ -947,6 +1001,27 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <span>{(() => { const c = cards.find((c: any) => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
                             <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                         </div>
+                    </div>
+                )}
+
+                {/* ── Which bank account: one line, only when there's a choice to make ── */}
+                {!isTransfer && usesBankAccount(form.type, form.payment_method) && accounts.length > 1 && (() => {
+                    const acct = accounts.find((a: any) => a.id === form.account_id);
+                    return (
+                        <div data-testid="account-line" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: '-4px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                            {isIncome ? 'into' : 'from'} <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{acct?.name ?? 'Choose an account'}</b>
+                            {accountWhy && acct && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>· {accountWhy}</span>}
+                            <span aria-hidden>·</span>
+                            <button type="button" onClick={() => setAccountSheetOpen(true)} aria-label={isIncome ? 'Change the account it went into' : 'Change the account it was paid from'}
+                                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                change
+                            </button>
+                        </div>
+                    );
+                })()}
+                {!isTransfer && !isIncome && accounts.length > 0 && (form.payment_method === 'Cash' || form.payment_method === 'Wallet') && (
+                    <div style={{ marginTop: '-4px', fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                        {form.payment_method === 'Cash' ? 'Cash' : 'Wallet spending'} doesn&apos;t touch a bank balance.
                     </div>
                 )}
 

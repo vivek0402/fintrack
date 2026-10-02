@@ -43,4 +43,13 @@ describe('findPaymentCandidates', () => {
         expect(out[0]).toMatchObject({ amount: 2600, account_name: 'HDFC Savings', reason: 'Same amount · card in description' });
         expect(db.query.mock.calls[0][1]).toEqual(['u1', '2026-08-16', '2026-09-11']);
     });
+
+    test('includes imported debits that have no bank account', async () => {
+        const db = { query: jest.fn().mockResolvedValue({ rows: [
+            { id: 'imp', amount: '2600', date: '2026-09-03', description: 'CC PAYMENT HDFC', account_id: null, account_name: null, source: 'pdf_import' },
+        ] }) };
+        const out = await findPaymentCandidates(db, 'u1', card, { from: '2026-08-16', to: '2026-09-11', amount: 2600 });
+        expect(out[0]).toMatchObject({ id: 'imp', account_id: null, account_name: null, source: 'pdf_import' });
+        expect(db.query.mock.calls[0][0]).toContain('LEFT JOIN bank_accounts');
+    });
 });

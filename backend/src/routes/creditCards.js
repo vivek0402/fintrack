@@ -265,7 +265,8 @@ async function linkExistingPayment(req, res, txId, paymentMethod) {
         const tx = txCheck.rows[0];
         if (!tx) return res.status(404).json({ error: 'Transaction not found' });
         const tags = tx.tags || [];
-        if (tx.type !== 'expense' || !tx.account_id || tx.credit_card_id || tx.transfer_group_id
+        // No bank account is fine: imported debits (bank statement, SMS) don't have one.
+        if (tx.type !== 'expense' || tx.credit_card_id || tx.transfer_group_id
             || tags.includes('credit_card_payment') || tags.includes('transfer')) {
             return res.status(409).json({ error: 'That transaction is already linked or is not a bank debit' });
         }

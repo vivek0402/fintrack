@@ -631,6 +631,20 @@ router.put('/:id', async (req, res) => {
         const newGoalId = goalIdProvided ? (req.body.goal_id || null) : before.goal_id;
         const newAmount = amount !== undefined ? parseFloat(amount) : parseFloat(before.amount);
 
+        // account_id: same "explicit null to clear" pattern. The form sends it on
+        // every save -- the bank account for UPI/debit/net banking, null for cash
+        // and card spending (which must not move a bank balance). Omitted = keep.
+        const accountProvided = 'account_id' in req.body;
+        const newAccountId = accountProvided ? (req.body.account_id || null) : null;
+        if (newAccountId) {
+            const { rows: acctCheck } = await pool.query(
+                'SELECT id FROM bank_accounts WHERE id = $1 AND user_id = $2',
+                [newAccountId, req.user.id]
+            );
+            if (!acctCheck.length)
+                return res.status(400).json({ error: 'Invalid account_id.' });
+        }
+
         if (newGoalId && newGoalId !== before.goal_id) {
             const { rows: goalCheck } = await pool.query(
                 'SELECT id FROM savings_goals WHERE id = $1 AND user_id = $2',
@@ -653,12 +667,14 @@ router.put('/:id', async (req, res) => {
              category_id = $7,
              credit_card_id = CASE WHEN $12::boolean THEN NULL ELSE COALESCE($13,credit_card_id) END,
              goal_id = CASE WHEN $14::boolean THEN NULL ELSE COALESCE($15::uuid,goal_id) END,
+             account_id = CASE WHEN $16::boolean THEN $17::int ELSE account_id END,
              payment_method = COALESCE($8,payment_method), updated_at = NOW()
            WHERE id = $9 AND user_id = $10 RETURNING *`,
                 [type, amount, description, notes, tags, date, category_id, payment_method,
                  req.params.id, req.user.id, 'notes' in req.body && req.body.notes === null,
                  clearCreditCardId, credit_card_id || null,
-                 clearGoalId, goalIdProvided && req.body.goal_id ? req.body.goal_id : null]
+                 clearGoalId, goalIdProvided && req.body.goal_id ? req.body.goal_id : null,
+                 accountProvided, newAccountId]
             );
 
             const goalChanged = before.goal_id !== newGoalId;
