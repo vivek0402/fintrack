@@ -247,3 +247,73 @@ describe('Accounts page — Which cycle? picker (honest amounts)', () => {
         expect(screen.getByTestId('cycle-trigger-amount')).toHaveTextContent('of ₹12,000 left');
     });
 });
+
+describe('Accounts page — bills paid outside the app', () => {
+    // May, Jun and Jul paid from the bank but never recorded (own charges
+    // 5,700 / 4,100 / 2,600); the latest statement looks like 24,100 due.
+    const chainCard = {
+        ...cardWithStatement, billing_date: 15, due_days: 20,
+        statement_balance: 24100, statement_amount_due: 24100, statement_paid: 0, statement_remaining: 24100,
+        current_outstanding_balance: 42310, last_statement_close_date: '2026-09-15', statement_due_date: '2026-10-05',
+    };
+    const chain = [
+        { start: '2026-09-16', end: null, label: 'Sep 16 – present', total: '18210.00', is_current: true, payments: 0 },
+        { start: '2026-08-16', end: '2026-09-15', label: 'Aug 16 – Sep 15', total: '11700.00', is_current: false, statement_close_date: '2026-09-15', statement_balance: 24100, payments: 0 },
+        { start: '2026-07-16', end: '2026-08-15', label: 'Jul 16 – Aug 15', total: '2600.00', is_current: false, statement_close_date: '2026-08-15', statement_balance: 12400, payments: 0 },
+        { start: '2026-06-16', end: '2026-07-15', label: 'Jun 16 – Jul 15', total: '4100.00', is_current: false, statement_close_date: '2026-07-15', statement_balance: 9800, payments: 0 },
+        { start: '2026-05-16', end: '2026-06-15', label: 'May 16 – Jun 15', total: '5700.00', is_current: false, statement_close_date: '2026-06-15', statement_balance: 5700, payments: 0 },
+    ];
+
+    beforeEach(() => {
+        (accountsAPI.getAll as any).mockResolvedValue({ data: { accounts: [bank] } });
+        (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [chainCard] } });
+        (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: chain } });
+        (creditCardsAPI.payBill as any).mockResolvedValue({ data: {} });
+    });
+
+    async function openPay() {
+        render(<AccountsPage />);
+        await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+        fireEvent.click(screen.getByText('Pay Bill'));
+        return screen.findByTestId('unpaid-nudge');
+    }
+
+    it('flags the unpaid statements and Review picks the oldest, on its due date', async () => {
+        const nudge = await openPay();
+        expect(nudge).toHaveTextContent('3 older statements look unpaid');
+        fireEvent.click(nudge);
+        await waitFor(() => expect(screen.getByDisplayValue('5700')).toBeInTheDocument());
+        expect(screen.getByText('May 16 – Jun 15')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Record ₹5,700 as paid' })).toBeInTheDocument();
+        expect(screen.getByTestId('pay-effect')).toHaveTextContent('₹24,100 → ₹18,400');
+    });
+
+    it('records both sides by default, on the statement due date', async () => {
+        fireEvent.click(await openPay());
+        fireEvent.click(await screen.findByRole('button', { name: 'Record ₹5,700 as paid' }));
+        await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(1));
+        expect(creditCardsAPI.payBill).toHaveBeenCalledWith(1, expect.objectContaining({ bank_account_id: 9, amount: 5700, date: '2026-07-05' }));
+    });
+
+    it('the switch records the card side only, without a bank account', async () => {
+        fireEvent.click(await openPay());
+        fireEvent.click(await screen.findByTestId('card-only-switch'));
+        expect(screen.getByText(/Card side only/)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Record ₹5,700 as paid' }));
+        await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(1));
+        const [, body] = (creditCardsAPI.payBill as any).mock.calls[0];
+        expect(body).toMatchObject({ card_only: true, amount: 5700 });
+        expect(body).not.toHaveProperty('bank_account_id');
+    });
+
+    it('Record all: one payment per statement, oldest first, each on its own due date', async () => {
+        await openPay();
+        fireEvent.click(screen.getByText('Aug 16 – Sep 15'));        // open the picker
+        fireEvent.click(await screen.findByTestId('record-all'));
+        expect(screen.getByText('3 older statements')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Record ₹12,400 as paid' }));
+        await waitFor(() => expect(creditCardsAPI.payBill).toHaveBeenCalledTimes(3));
+        const calls = (creditCardsAPI.payBill as any).mock.calls.map(([, b]: [number, any]) => [b.amount, b.date]);
+        expect(calls).toEqual([[5700, '2026-07-05'], [4100, '2026-08-04'], [2600, '2026-09-04']]);
+    });
+});

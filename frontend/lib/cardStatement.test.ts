@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { currentCycleNewCharges, cycleHeadline, cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, payCycleRow, type PayCycle } from './cardStatement';
+import { currentCycleNewCharges, cycleHeadline, cycleSuggestedAmount, cycleStatusLabel, defaultPayCycleIdx, isCycleSelectable, olderUnpaidShares, pastPaymentDate, payCycleRow, type PayCycle } from './cardStatement';
 
 const fmtDate = (d: string) => `<${d}>`;
 
@@ -159,5 +159,52 @@ describe('cycleHeadline (Billing Cycles page)', () => {
 
     it('falls back to the net total against an older API', () => {
         expect(cycleHeadline(base)).toEqual({ amount: -2850, caption: null });
+    });
+});
+
+describe('bills paid outside the app (older statements)', () => {
+    // Mockup example: May, Jun and Jul bills paid from the bank but never
+    // recorded. Own charges 5,700 / 4,100 / 2,600; each statement's balance
+    // includes everything carried from before it. Apr was paid.
+    const chain: PayCycle[] = [
+        { start: '2026-09-16', end: null, label: 'Sep 16 – present', total: '18210.00', is_current: true, payments: 0 },
+        { start: '2026-08-16', end: '2026-09-15', label: 'Aug 16 – Sep 15', total: '11700.00', is_current: false, statement_close_date: '2026-09-15', statement_balance: 24100, payments: 0 },
+        { start: '2026-07-16', end: '2026-08-15', label: 'Jul 16 – Aug 15', total: '2600.00', is_current: false, statement_close_date: '2026-08-15', statement_balance: 12400, payments: 0 },
+        { start: '2026-06-16', end: '2026-07-15', label: 'Jun 16 – Jul 15', total: '4100.00', is_current: false, statement_close_date: '2026-07-15', statement_balance: 9800, payments: 0 },
+        { start: '2026-05-16', end: '2026-06-15', label: 'May 16 – Jun 15', total: '5700.00', is_current: false, statement_close_date: '2026-06-15', statement_balance: 5700, payments: 0 },
+        { start: '2026-04-16', end: '2026-05-15', label: 'Apr 16 – May 15', total: '0.00', is_current: false, statement_close_date: '2026-05-15', statement_balance: 6200, payments: 6200 },
+    ];
+    // Apr's 6,200 bill was paid during the window after it (index 4).
+    chain[4] = { ...chain[4], payments: 6200 };
+
+    it("gives each unpaid statement only its own share, and marks paid ones 0", () => {
+        // Apr (index 5) was paid during the May window, so it reads 0.
+        expect(olderUnpaidShares(chain)).toEqual({ 2: 2600, 3: 4100, 4: 5700, 5: 0 });
+    });
+
+    it('a recorded payment in the next window clears that statement', () => {
+        // Record May's 5,700 on its due date (5 Jul, inside the Jun window).
+        const after = chain.map((c, i) => (i === 3 ? { ...c, payments: 5700, statement_balance: 4100 } : c));
+        // Jun's balance drops by the payment; Jul's and later follow suit in reality,
+        // but even on stale figures May now reads as paid.
+        expect(olderUnpaidShares(after)[4]).toBe(0);
+    });
+
+    it('older rows become pickable with their own share, and paid ones read "Paid"', () => {
+        const shares = olderUnpaidShares(chain);
+        const row = payCycleRow(chain[4], 4, null, fmtDate, n => `₹${n}`, shares[4]);
+        expect(row).toEqual({ amount: 5700, caption: 'its own share', status: 'Looks unpaid · paid outside the app?', statusTone: 'warn', selectable: true });
+        expect(cycleSuggestedAmount(chain[4], 4, null, shares[4])).toBe('5700');
+        const paid = payCycleRow(chain[4], 4, null, fmtDate, n => `₹${n}`, 0);
+        expect(paid).toMatchObject({ status: 'Paid', statusTone: 'inc', selectable: false });
+    });
+
+    it('leaves rows as "carried forward" when the API lacks the figures', () => {
+        expect(olderUnpaidShares(cycles)).toEqual({});
+    });
+
+    it('dates a past payment on the statement due date, never in the future', () => {
+        expect(pastPaymentDate(chain[4], 20, new Date(2026, 9, 2))).toBe('2026-07-05');
+        expect(pastPaymentDate(chain[1], 20, new Date(2026, 9, 2))).toBe('2026-10-02'); // due 5 Oct is ahead
     });
 });

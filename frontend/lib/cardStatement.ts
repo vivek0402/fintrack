@@ -11,9 +11,13 @@
 //            still owed on it: the card's statement_remaining (amount due,
 //            EMI principal stripped, minus bill payments since the close),
 //            the same number the card-due push alert uses.
-//   index 2+ older statements -- shown for reference with what they billed
-//            (cycle.statement_balance from GET /:id/cycles), greyed out and
-//            not selectable: anything unpaid there is already in index 1.
+//   index 2+ older statements -- normally just for reference: anything
+//            unpaid there already rolled into index 1. But a bill paid
+//            OUTSIDE the app and never recorded leaves an older statement
+//            looking unpaid, inflating everything after it. Those rows
+//            become pickable, to record that payment after the fact, with
+//            only that statement's own unpaid share (olderUnpaidShares) so
+//            nothing is counted twice. Paid ones show "Paid".
 //
 // Every figure uses one close-day definition: a statement includes the
 // transactions dated ON its close day (see backend creditCardCycles.js).
@@ -59,6 +63,9 @@ export const LATEST_CLOSED_IDX = 1;
 export const OLDER_STATEMENTS_NOTE =
     "Older statements can't be paid separately: anything unpaid moved into the latest one.";
 
+export const OLDER_UNPAID_NOTE =
+    'Paid one outside the app? Pick it to record that payment. Unpaid amounts roll into the next statement, so each is recorded with only its own share. Record the oldest first.';
+
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
 function hasStatementRemaining(card: StatementFields | null | undefined): card is StatementFields & { statement_remaining: number } {
@@ -66,6 +73,49 @@ function hasStatementRemaining(card: StatementFields | null | undefined): card i
 }
 
 type RowKind = 'current' | 'latest' | 'older';
+
+/**
+ * For each older statement (index 2+), how much of what it billed is still
+ * unpaid and is its OWN share (not carried in from the statement before).
+ *
+ * What a statement passed on = what it billed minus bill payments made before
+ * the next statement closed: carried(i) = statement_balance(i) - payments of
+ * the window after it (cycles[i-1].payments). What it billed includes what the
+ * one before carried, so its own share is carried(i) - carried(i+1).
+ *
+ * Index -> amount (0 = looks paid). An index is left out when the cycles
+ * response lacks the figures to tell (older API), so callers fall back to
+ * the plain "carried forward" row.
+ */
+export function olderUnpaidShares(cycles: PayCycle[]): Record<number, number> {
+    const carried = (i: number): number | null => {
+        const c = cycles[i], next = cycles[i - 1];
+        if (!c || c.is_current || c.statement_balance == null || next?.payments == null) return null;
+        return Math.max(0, Number(c.statement_balance) - Number(next.payments));
+    };
+    const out: Record<number, number> = {};
+    for (let i = 2; i < cycles.length; i++) {
+        const mine = carried(i);
+        if (mine == null) continue;
+        const before = carried(i + 1) ?? 0;
+        const own = round2(Math.max(0, mine - before));
+        out[i] = own < 0.01 ? 0 : own;
+    }
+    return out;
+}
+
+/**
+ * Date to record an older statement's payment on: its due date (close date +
+ * the card's due days), or today if that's still ahead.
+ */
+export function pastPaymentDate(cycle: PayCycle, dueDays: number, today = new Date()): string {
+    const close = (cycle.statement_close_date ?? cycle.end ?? '').split('T')[0];
+    const todayStr = today.toLocaleDateString('en-CA');
+    if (!close) return todayStr;
+    const [y, m, d] = close.split('-').map(Number);
+    const due = new Date(y, m - 1, d + (Number(dueDays) || 0)).toLocaleDateString('en-CA');
+    return due > todayStr ? todayStr : due;
+}
 
 function rowKind(cycle: PayCycle, idx: number): RowKind {
     if (cycle.is_current) return 'current';
@@ -88,9 +138,9 @@ export function currentCycleNewCharges(cycle: PayCycle, card: StatementFields | 
 
 // Amount to pre-fill when this cycle is picked, or null to leave the field
 // as it is.
-export function cycleSuggestedAmount(cycle: PayCycle, idx: number, card: StatementFields | null | undefined): string | null {
+export function cycleSuggestedAmount(cycle: PayCycle, idx: number, card: StatementFields | null | undefined, ownUnpaid?: number): string | null {
     const kind = rowKind(cycle, idx);
-    if (kind === 'older') return null;
+    if (kind === 'older') return ownUnpaid != null && ownUnpaid > 0 ? String(ownUnpaid) : null;
     if (kind === 'current') {
         const charges = currentCycleNewCharges(cycle, card);
         return charges > 0 ? String(charges) : null;
@@ -105,11 +155,12 @@ export function cycleSuggestedAmount(cycle: PayCycle, idx: number, card: Stateme
 }
 
 // Whether a row can be picked. The current cycle always can; the latest
-// statement only while something is owed on it; older statements never.
-export function isCycleSelectable(cycle: PayCycle, idx: number, card: StatementFields | null | undefined): boolean {
+// statement only while something is owed on it; an older statement only when
+// it looks unpaid (to record a payment made outside the app).
+export function isCycleSelectable(cycle: PayCycle, idx: number, card: StatementFields | null | undefined, ownUnpaid?: number): boolean {
     const kind = rowKind(cycle, idx);
     if (kind === 'current') return true;
-    if (kind === 'older') return false;
+    if (kind === 'older') return ownUnpaid != null && ownUnpaid > 0;
     return cycleSuggestedAmount(cycle, idx, card) != null;
 }
 
@@ -123,11 +174,14 @@ export function defaultPayCycleIdx(cycles: PayCycle[], card: StatementFields | n
 
 export function cycleStatusLabel(
     cycle: PayCycle, idx: number, card: StatementFields | null | undefined,
-    formatDate: (d: string) => string,
+    formatDate: (d: string) => string, ownUnpaid?: number,
 ): string {
     const kind = rowKind(cycle, idx);
     if (kind === 'current') return 'Not billed yet';
-    if (kind === 'older') return 'Carried into the next statement';
+    if (kind === 'older') {
+        if (ownUnpaid == null) return 'Carried into the next statement';
+        return ownUnpaid > 0 ? 'Looks unpaid · paid outside the app?' : 'Paid';
+    }
     if (hasStatementRemaining(card)) {
         const due = Number(card.statement_amount_due) || 0;
         if (due > 0) {
@@ -158,16 +212,17 @@ export interface PayCycleRow {
 // rupee amount (the page's ₹ + en-IN fmt).
 export function payCycleRow(
     cycle: PayCycle, idx: number, card: StatementFields | null | undefined,
-    formatDate: (d: string) => string, fmtInr: (n: number) => string,
+    formatDate: (d: string) => string, fmtInr: (n: number) => string, ownUnpaid?: number,
 ): PayCycleRow {
     const kind = rowKind(cycle, idx);
-    const status = cycleStatusLabel(cycle, idx, card, formatDate);
-    const selectable = isCycleSelectable(cycle, idx, card);
+    const status = cycleStatusLabel(cycle, idx, card, formatDate, ownUnpaid);
+    const selectable = isCycleSelectable(cycle, idx, card, ownUnpaid);
     if (kind === 'current') {
         return { amount: currentCycleNewCharges(cycle, card), caption: 'new charges', status, statusTone: 'muted', selectable };
     }
     if (kind === 'older') {
-        return { amount: cycle.statement_balance ?? null, caption: 'billed', status, statusTone: 'muted', selectable };
+        if (ownUnpaid != null && ownUnpaid > 0) return { amount: ownUnpaid, caption: 'its own share', status, statusTone: 'warn', selectable };
+        return { amount: cycle.statement_balance ?? null, caption: 'billed', status, statusTone: ownUnpaid === 0 ? 'inc' : 'muted', selectable };
     }
     const statusTone: StatusTone = status.startsWith('Due ') ? 'warn' : status === 'Paid in full' ? 'inc' : 'muted';
     if (hasStatementRemaining(card)) {

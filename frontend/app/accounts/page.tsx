@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon, ChevronDown, Check } from 'lucide-react';
+import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon, ChevronDown, Check, AlertTriangle } from 'lucide-react';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -17,7 +17,7 @@ import { CountUp } from '@/components/ui/CountUp';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery } from '@/hooks/queries';
 import { fmt as fmtBase, formatDate } from '@/lib/utils';
-import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone } from '@/lib/cardStatement';
+import { cycleSuggestedAmount, defaultPayCycleIdx, payCycleRow, OLDER_STATEMENTS_NOTE, type PayCycle, type StatusTone, olderUnpaidShares, pastPaymentDate, OLDER_UNPAID_NOTE } from '@/lib/cardStatement';
 
 const inr = (n: number) => n.toLocaleString('en-IN');
 const NO_BANKS: never[] = [];
@@ -209,6 +209,9 @@ export default function AccountsPage() {
     const [payForm,     setPayForm]   = useState({ bank_account_id: '', amount: '', date: new Date().toISOString().split('T')[0], payment_method: 'UPI' });
     const [payCycles,        setPayCycles]        = useState<Cycle[]>([]);
     const [selectedCycleKey, setSelectedCycleKey] = useState<string | null>(null);
+    // Recording a bill paid outside the app: record only the card side (the
+    // bank debit is already in the app), and "record all unpaid" selection.
+    const [payCardOnly, setPayCardOnly] = useState(false);
     const [showCycleSheet,   setShowCycleSheet]   = useState(false);
     const [showPayMethodSheet, setShowPayMethodSheet] = useState(false);
     const [showPayAccountSheet, setShowPayAccountSheet] = useState(false);
@@ -289,6 +292,7 @@ export default function AccountsPage() {
         setPayCalYear(today.getFullYear());
         setPayCycles([]);
         setSelectedCycleKey(null);
+        setPayCardOnly(false);
         setShowPayModal(true);
         // A card with no billing_date returns [] here (same short-circuit
         // GET /:id/cycles already documents) -- the Cycle field just doesn't
@@ -312,10 +316,26 @@ export default function AccountsPage() {
     };
     const selectedCycle = payCycles.find(c => c.start === selectedCycleKey) || null;
     const selectedCycleIdx = payCycles.findIndex(c => c.start === selectedCycleKey);
+    // Older statements that look unpaid (a bill paid outside the app and never
+    // recorded): each one's own share, and their indexes oldest first.
+    const unpaidShares = useMemo(() => olderUnpaidShares(payCycles), [payCycles]);
+    const unpaidIdxs = Object.keys(unpaidShares).map(Number).filter(i => unpaidShares[i] > 0).sort((a, b) => b - a);
+    const unpaidTotal = Math.round(unpaidIdxs.reduce((s, i) => s + unpaidShares[i], 0) * 100) / 100;
+    const RECORD_ALL = '__record-all__';
+    const recordingAll = selectedCycleKey === RECORD_ALL;
+    const recordingPast = recordingAll || selectedCycleIdx >= 2;
+    const todayStr = () => new Date().toLocaleDateString('en-CA');
     const pickCycle = (cycle: Cycle, idx: number) => {
         setSelectedCycleKey(cycle.start);
-        const amount = cycleSuggestedAmount(cycle, idx, payingCard);
-        if (amount != null) setPayForm(f => ({ ...f, amount }));
+        const amount = cycleSuggestedAmount(cycle, idx, payingCard, unpaidShares[idx]);
+        // An older statement is recorded on its own due date, not today.
+        const date = idx >= 2 && payingCard ? pastPaymentDate(cycle, payingCard.due_days) : todayStr();
+        setPayForm(f => ({ ...f, ...(amount != null ? { amount } : {}), date }));
+        setShowCycleSheet(false);
+    };
+    const pickRecordAll = () => {
+        setSelectedCycleKey(RECORD_ALL);
+        setPayForm(f => ({ ...f, amount: String(unpaidTotal), date: todayStr() }));
         setShowCycleSheet(false);
     };
     // One description per row -- amount, caption, status, selectable --
@@ -323,8 +343,11 @@ export default function AccountsPage() {
     // idx 0 = current cycle (new charges), idx 1 = latest statement (what's
     // left on it), idx 2+ = older statements (what they billed, not payable).
     // See lib/cardStatement.ts.
-    const cycleRow = (cycle: Cycle, idx: number) => payCycleRow(cycle, idx, payingCard, formatDate, fmt);
-    const selectedRow = selectedCycle ? cycleRow(selectedCycle, selectedCycleIdx) : null;
+    const cycleRow = (cycle: Cycle, idx: number) => payCycleRow(cycle, idx, payingCard, formatDate, fmt, unpaidShares[idx]);
+    const selectedRow = recordingAll
+        ? { amount: unpaidTotal, caption: 'their own shares', status: 'Paid outside the app', statusTone: 'inc' as const, selectable: true }
+        : selectedCycle ? cycleRow(selectedCycle, selectedCycleIdx) : null;
+    const selectedLabel = recordingAll ? `${unpaidIdxs.length} older statements` : selectedCycle?.label;
 
     // Quick chips + calendar grid for the Date sheet -- same pattern as
     // TransactionModal's own dateSheet, rendered through the shared Modal
@@ -353,13 +376,33 @@ export default function AccountsPage() {
         if (monthType === 'next') { m++; if (m > 11) { m = 0;  y++; } }
         pickPayDate(`${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
     };
+    const cardOnly = recordingPast && payCardOnly;
+    const payDisabled = saving || (!cardOnly && !payForm.bank_account_id) || !payForm.amount || parseFloat(payForm.amount) <= 0;
     const savePay = async () => {
-        if (!payingCard || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) return;
+        if (!payingCard || payDisabled) return;
         setSaving(true);
+        const side = cardOnly ? { card_only: true } : { bank_account_id: parseInt(payForm.bank_account_id) };
+        const base = { ...side, payment_method: payForm.payment_method };
         try {
-            await creditCardsAPI.payBill(payingCard.id, { bank_account_id: parseInt(payForm.bank_account_id), amount: parseFloat(payForm.amount), date: payForm.date, payment_method: payForm.payment_method });
+            if (recordingAll) {
+                // One payment per statement, oldest first, each on its own due
+                // date -- so every statement in between clears in turn.
+                let done = 0;
+                try {
+                    for (const idx of unpaidIdxs) {
+                        await creditCardsAPI.payBill(payingCard.id, { ...base, amount: unpaidShares[idx], date: pastPaymentDate(payCycles[idx], payingCard.due_days) });
+                        done++;
+                    }
+                } finally {
+                    if (done > 0 && done < unpaidIdxs.length) showToast(`Recorded ${done} of ${unpaidIdxs.length}. Try the rest again.`);
+                }
+                if (done === unpaidIdxs.length) showToast(`Recorded ${done} payments`);
+            } else {
+                await creditCardsAPI.payBill(payingCard.id, { ...base, amount: parseFloat(payForm.amount), date: payForm.date });
+                showToast(recordingPast ? 'Recorded as paid' : 'Payment recorded');
+            }
             if (user) { localStorage.removeItem(`credit-utilization-cache-${user.id}`); localStorage.removeItem(`dti-cache-${user.id}`); }
-            await fetchAll(); setShowPayModal(false); showToast('Payment recorded');
+            await fetchAll(); setShowPayModal(false);
         } catch { showToast('Failed to record payment'); }
         setSaving(false);
     };
@@ -743,15 +786,17 @@ export default function AccountsPage() {
                     onClose={() => setShowPayModal(false)}
                     title={`Pay ${payingCard.bank_name} ${payingCard.card_name}`}
                     footer={
-                        <button type="button" onClick={savePay} disabled={saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0}
+                        <button type="button" onClick={savePay} disabled={payDisabled}
                             style={{
                                 width: '100%', height: 48, border: 'none', borderRadius: 'var(--radius-md)',
-                                background: (saving || !payForm.bank_account_id || !payForm.amount || parseFloat(payForm.amount) <= 0) ? 'var(--border-subtle)' : PAY_TINT,
+                                background: payDisabled ? 'var(--border-subtle)' : PAY_TINT,
                                 color: 'white', fontSize: '14.5px', fontWeight: 600, fontFamily: 'var(--font-body)',
                                 cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1,
                                 boxShadow: '0 12px 26px -10px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
                             }}>
-                            {saving ? 'Recording…' : `Pay${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''}`}
+                            {saving ? 'Recording…'
+                                : recordingPast ? `Record${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''} as paid`
+                                : `Pay${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''}`}
                         </button>
                     }
                 >
@@ -770,13 +815,32 @@ export default function AccountsPage() {
                             )}
                         </div>
 
+                        {/* Old statements that look unpaid: probably paid outside the app
+                            and never recorded, which inflates every figure after them. */}
+                        {unpaidIdxs.length > 0 && !recordingPast && (
+                            <button type="button" data-testid="unpaid-nudge" onClick={() => pickCycle(payCycles[unpaidIdxs[0]], unpaidIdxs[0])}
+                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
+                                    background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 30%, transparent)', fontFamily: 'var(--font-body)' }}>
+                                <AlertTriangle size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: 1 }} />
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                        {unpaidIdxs.length} older statement{unpaidIdxs.length > 1 ? 's look' : ' looks'} unpaid
+                                    </span>
+                                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                        Paid {unpaidIdxs.length > 1 ? 'them' : 'it'} outside the app? Record {unpaidIdxs.length > 1 ? 'them' : 'it'} so your balance is right.
+                                    </span>
+                                </span>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-warn)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Review ›</span>
+                            </button>
+                        )}
+
                         {payCycles.length > 0 && (
                             <div>
                                 <label style={labelSt}>Cycle</label>
                                 <div onClick={() => setShowCycleSheet(true)} style={triggerSt}>
                                     <div style={{ minWidth: 0 }}>
                                         <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {selectedCycle?.label || 'Select a cycle'}
+                                            {selectedLabel || 'Select a cycle'}
                                         </div>
                                         {selectedRow && <div style={{ fontSize: 10.5, color: STATUS_TONE_COLOR[selectedRow.statusTone], marginTop: 2 }}>{selectedRow.status}</div>}
                                     </div>
@@ -806,7 +870,7 @@ export default function AccountsPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <label style={labelSt}>Date</label>
                                 <div onClick={() => setShowPayDateSheet(true)} style={triggerSt}>
-                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payDateLabel}</span>
+                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recordingAll ? 'Each on its due date' : payDateLabel}</span>
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ stroke: 'var(--text-muted)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                                     </svg>
@@ -821,7 +885,12 @@ export default function AccountsPage() {
                                 <input type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0"
                                     style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--glass-fill-1)', border: `1px solid color-mix(in srgb, ${PAY_TINT} 30%, transparent)`, borderRadius: 10, fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: PAY_TINT, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' }} />
                             </div>
-                            {banks.length > 0 && (
+                            {cardOnly && (
+                                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
+                                    Card side only. Your bank balance in the app won&apos;t change.
+                                </div>
+                            )}
+                            {!cardOnly && banks.length > 0 && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
                                     from <b style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'account'}</b>
                                     {banks.length > 1 && (
@@ -833,6 +902,50 @@ export default function AccountsPage() {
                                 </div>
                             )}
                         </div>
+                        {recordingPast && (
+                            <>
+                                <button type="button" role="switch" aria-checked={payCardOnly} data-testid="card-only-switch"
+                                    onClick={() => setPayCardOnly(v => !v)}
+                                    style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
+                                        background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', fontFamily: 'var(--font-body)' }}>
+                                    <span aria-hidden style={{ width: 34, height: 20, borderRadius: 999, flexShrink: 0, marginTop: 1, position: 'relative', transition: 'background-color 0.2s',
+                                        background: payCardOnly ? PAY_TINT : 'var(--glass-fill-3)' }}>
+                                        <span style={{ position: 'absolute', top: 2, left: 2, width: 16, height: 16, borderRadius: '50%', background: '#e5e5e5', transition: 'transform 0.2s', transform: payCardOnly ? 'translateX(14px)' : 'none' }} />
+                                    </span>
+                                    <span>
+                                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>This payment already shows in my bank account in the app</span>
+                                        <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>Turn on if you imported or added it from the bank side, so it isn&apos;t counted twice.</span>
+                                    </span>
+                                </button>
+                                {(() => {
+                                    const amt = parseFloat(payForm.amount) || 0;
+                                    const due = Number(payingCard.statement_remaining ?? payingCard.statement_amount_due ?? 0);
+                                    const out = Number(payingCard.current_outstanding_balance) || 0;
+                                    return amt > 0 && (
+                                        <div data-testid="pay-effect" style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, fontFamily: 'var(--font-body)', display: 'grid', gap: 4,
+                                            background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)' }}>
+                                            <b style={{ color: 'var(--text-primary)' }}>Saving fixes:</b>
+                                            {payingCard.statement_due_date && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                    <span>Latest statement due</span>
+                                                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(due)} → {fmt(Math.max(0, due - amt))}</span>
+                                                </div>
+                                            )}
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                <span>Outstanding</span>
+                                                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(out)} → {fmt(out - amt)}</span>
+                                            </div>
+                                            {recordingAll && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                    <span>Payments recorded</span>
+                                                    <span style={{ color: 'var(--text-primary)' }}>{unpaidIdxs.length}, one per statement</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
                     </div>
                 </Modal>
             )}
@@ -842,13 +955,31 @@ export default function AccountsPage() {
                 <Modal isOpen={showCycleSheet} onClose={() => setShowCycleSheet(false)} title="Which cycle?" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {payCycles.map((cycle, idx) => {
+                            // Before the first older statement: one tap to record every
+                            // unpaid one (one payment each, oldest first, on its due date).
+                            const recordAll = idx === 2 && unpaidIdxs.length >= 2 ? (
+                                <button key="record-all" type="button" data-testid="record-all" onClick={pickRecordAll}
+                                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', margin: '6px 0 4px', padding: '11px 14px',
+                                        borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                                        background: recordingAll ? 'var(--accent-subtle)' : `color-mix(in srgb, ${PAY_TINT} 12%, transparent)`,
+                                        border: `1px dashed color-mix(in srgb, ${PAY_TINT} 40%, transparent)` }}>
+                                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Record all {unpaidIdxs.length} as paid</span>
+                                        <span style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>One payment per statement, each on its due date</span>
+                                    </span>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: PAY_TINT }}>{fmt(unpaidTotal)}</span>
+                                </button>
+                            ) : null;
                             // An older statement that billed nothing and saw no activity is just noise.
-                            if (idx >= 2 && Number(cycle.statement_balance ?? 0) === 0 && Number(cycle.total) === 0) return null;
+                            const skip = idx >= 2 && Number(cycle.statement_balance ?? 0) === 0 && Number(cycle.total) === 0;
                             const active = cycle.start === selectedCycleKey;
                             const row = cycleRow(cycle, idx);
                             const disabled = !row.selectable;
                             return (
-                                <button key={cycle.start} type="button" disabled={disabled} onClick={() => pickCycle(cycle, idx)}
+                                <Fragment key={cycle.start}>
+                                {recordAll}
+                                {!skip && (
+                                <button type="button" disabled={disabled} onClick={() => pickCycle(cycle, idx)}
                                     data-testid={`cycle-row-${idx}`}
                                     style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', padding: '11px 14px',
@@ -865,11 +996,13 @@ export default function AccountsPage() {
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{row.caption}</span>
                                     </div>
                                 </button>
+                                )}
+                                </Fragment>
                             );
                         })}
                         {payCycles.length > 2 && (
                             <p style={{ margin: 0, padding: '10px 14px 2px', fontSize: 11, lineHeight: 1.45, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                {OLDER_STATEMENTS_NOTE}
+                                {unpaidIdxs.length > 0 ? OLDER_UNPAID_NOTE : OLDER_STATEMENTS_NOTE}
                             </p>
                         )}
                     </div>

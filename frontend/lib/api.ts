@@ -337,7 +337,9 @@ export const creditCardsAPI = {
         network?: string; color?: string; balance_as_of?: string | null;
     }) => api.put(`/api/credit-cards/${id}`, data),
     delete: (id: number) => api.delete(`/api/credit-cards/${id}`),
-    payBill: (id: number, data: { bank_account_id: number; amount: number; date: string; notes?: string; payment_method?: string }) =>
+    // card_only: record just the card side of a bill paid outside the app whose
+    // bank debit is already in the app; bank_account_id is then not needed.
+    payBill: (id: number, data: { bank_account_id?: number; card_only?: boolean; amount: number; date: string; notes?: string; payment_method?: string }) =>
         api.post(`/api/credit-cards/${id}/pay`, data),
     getCycles: (cardId: number, limit?: number) =>
         api.get(`/api/credit-cards/${cardId}/cycles`, { params: limit ? { limit } : undefined }),

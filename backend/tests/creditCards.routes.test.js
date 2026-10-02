@@ -246,6 +246,40 @@ describe('POST /api/credit-cards/:id/pay', () => {
         expect(res.status).toBe(201);
     });
 
+    test('card_only records just the card leg, with no bank lookup and no transfer group', async () => {
+        const client = mockClient(async (sql, params) => {
+            if (sql.includes('FROM credit_cards')) return { rows: [{ id: 'card-1', bank_name: 'HDFC', card_name: 'Millennia' }] };
+            if (sql.includes('FROM bank_accounts')) throw new Error('card_only must not look up a bank account');
+            if (sql === 'BEGIN' || sql === 'COMMIT') return {};
+            if (sql.includes("VALUES ($1,'expense'")) throw new Error('card_only must not debit a bank account');
+            if (sql.includes("VALUES ($1,'income'")) {
+                expect(params[6]).toBe('card-1');
+                expect(params[4]).toEqual(['credit_card_payment']);  // still excluded from income totals
+                expect(params[7]).toBeNull();                         // no transfer group
+                return { rows: [{ id: 'tx-2', type: 'income', amount: 5700, credit_card_id: 'card-1' }] };
+            }
+            throw new Error(`Unexpected client query: ${sql}`);
+        });
+        pool.connect.mockResolvedValue(client);
+        pool.query.mockResolvedValueOnce({ rows: [{ id: 'card-1', current_outstanding_balance: 36610 }] });
+
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/pay')
+            .send({ card_only: true, amount: 5700, date: '2026-07-05' });
+
+        expect(res.status).toBe(201);
+        expect(res.body.transactions).toHaveLength(1);
+        expect(client.release).toHaveBeenCalledTimes(1);
+    });
+
+    test('still requires bank_account_id unless card_only', async () => {
+        const res = await request(buildApp())
+            .post('/api/credit-cards/card-1/pay')
+            .send({ amount: 300, date: '2026-06-15' });
+        expect(res.status).toBe(400);
+        expect(pool.connect).not.toHaveBeenCalled();
+    });
+
     test('rejects an unrecognized payment_method before touching the database', async () => {
         const res = await request(buildApp())
             .post('/api/credit-cards/card-1/pay')

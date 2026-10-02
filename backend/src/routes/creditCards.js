@@ -178,45 +178,59 @@ router.delete('/:id', async (req, res) => {
 // be wrong -- it's type='income' with credit_card_id set, which is how
 // utils/creditCardBalance.js's formula reduces what's owed.
 router.post('/:id/pay', async (req, res) => {
-    const { bank_account_id, amount, date, notes, payment_method = 'Net Banking' } = req.body;
+    const { bank_account_id, amount, date, notes, payment_method = 'Net Banking', card_only = false } = req.body;
 
     if (!isPositiveNumber(amount)) return res.status(400).json({ error: 'amount must be greater than 0' });
     if (!isValidDateString(date)) return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
-    if (!bank_account_id) return res.status(400).json({ error: 'bank_account_id is required' });
+    // card_only: a bill paid outside the app whose bank debit is already in
+    // the app (imported or added by hand). Record just the card side, so the
+    // bank account isn't debited twice. Otherwise the bank account is needed.
+    if (!card_only && !bank_account_id) return res.status(400).json({ error: 'bank_account_id is required' });
     if (!PAYMENT_METHODS.includes(payment_method)) return res.status(400).json({ error: `payment_method must be one of: ${PAYMENT_METHODS.join(', ')}` });
 
     const client = await pool.connect();
     try {
         const [cardCheck, bankCheck] = await Promise.all([
             client.query(`SELECT id, bank_name, card_name FROM credit_cards WHERE id = $1 AND user_id = $2`, [req.params.id, req.user.id]),
-            client.query(`SELECT id, name FROM bank_accounts WHERE id = $1 AND user_id = $2`, [bank_account_id, req.user.id]),
+            card_only
+                ? Promise.resolve(null)
+                : client.query(`SELECT id, name FROM bank_accounts WHERE id = $1 AND user_id = $2`, [bank_account_id, req.user.id]),
         ]);
         // No explicit release() here -- the finally block below always runs,
         // including on these early returns, and releasing twice logs a pg error.
         if (!cardCheck.rows.length) return res.status(404).json({ error: 'Card not found' });
-        if (!bankCheck.rows.length) return res.status(404).json({ error: 'Bank account not found' });
+        if (bankCheck && !bankCheck.rows.length) return res.status(404).json({ error: 'Bank account not found' });
         const card = cardCheck.rows[0];
-        const bank = bankCheck.rows[0];
+        const bank = bankCheck ? bankCheck.rows[0] : null;
 
-        const transferGroupId = crypto.randomUUID();
+        // Both legs share a transfer_group_id so deleting one deletes the
+        // other. A card-only payment is a single row and needs no group.
+        const transferGroupId = card_only ? null : crypto.randomUUID();
 
         await client.query('BEGIN');
-        const bankLeg = await client.query(
-            `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, account_id, payment_method, transfer_group_id)
-             VALUES ($1,'expense',$2,$3,$4,$5,$6,$7,$9,$8)
-             RETURNING *`,
-            [req.user.id, amount, `Payment to ${card.bank_name} ${card.card_name}`, notes || null, ['credit_card_payment'], date, bank_account_id, transferGroupId, payment_method]
-        );
+        const legs = [];
+        if (!card_only) {
+            const bankLeg = await client.query(
+                `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, account_id, payment_method, transfer_group_id)
+                 VALUES ($1,'expense',$2,$3,$4,$5,$6,$7,$9,$8)
+                 RETURNING *`,
+                [req.user.id, amount, `Payment to ${card.bank_name} ${card.card_name}`, notes || null, ['credit_card_payment'], date, bank_account_id, transferGroupId, payment_method]
+            );
+            legs.push(bankLeg.rows[0]);
+        }
+        // Tagged credit_card_payment either way, which is what keeps it out of
+        // income/spending totals (savingsRate.js) -- not the pairing.
         const cardLeg = await client.query(
             `INSERT INTO transactions (user_id, type, amount, description, notes, tags, date, credit_card_id, payment_method, transfer_group_id)
              VALUES ($1,'income',$2,$3,$4,$5,$6,$7,$9,$8)
              RETURNING *`,
-            [req.user.id, amount, `Payment from ${bank.name}`, notes || null, ['credit_card_payment'], date, req.params.id, transferGroupId, payment_method]
+            [req.user.id, amount, bank ? `Payment from ${bank.name}` : 'Bill payment (recorded later)', notes || null, ['credit_card_payment'], date, req.params.id, transferGroupId, payment_method]
         );
+        legs.push(cardLeg.rows[0]);
         await client.query('COMMIT');
 
         const refreshedCard = await fetchCreditCardWithBalance(pool, req.user.id, req.params.id);
-        res.status(201).json({ transactions: [bankLeg.rows[0], cardLeg.rows[0]], card: refreshedCard });
+        res.status(201).json({ transactions: legs, card: refreshedCard });
     } catch (err) {
         await client.query('ROLLBACK');
         console.error(err);
