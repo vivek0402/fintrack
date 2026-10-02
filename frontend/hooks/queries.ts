@@ -88,11 +88,11 @@ export type DashboardData = {
     summary: any; trends: any[]; transactions: any[]; budgets: any[]; goals: any[];
 };
 
-export function useDashboardData(month: number, year: number) {
+export function useDashboardData(month: number, year: number, options: { enabled?: boolean } = {}) {
     const userId = useUserId();
     return useQuery({
         queryKey: queryKeys.dashboard(userId, month, year),
-        enabled: !!userId,
+        enabled: !!userId && (options.enabled ?? true),
         queryFn: () => fetchDashboard(month, year),
     });
 }

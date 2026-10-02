@@ -55,4 +55,14 @@ describe('MorePanel', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Show as a grid' }));
         expect(onStyleChange).toHaveBeenLastCalledWith('grid');
     });
+
+    it('shows alert badges and the top line, which opens its page', () => {
+        const onNavigate = vi.fn();
+        const alert = { href: '/budgets', badge: '2 over', line: 'Food & Dining is ₹1,840 over budget', tone: 'bad' as const, urgent: true, rank: 2 };
+        render(<MorePanel {...base} onNavigate={onNavigate} style="grid" onStyleChange={vi.fn()}
+            alerts={{ byHref: { '/budgets': alert }, top: alert }} />);
+        expect(screen.getByText('2 over')).toBeInTheDocument();
+        fireEvent.click(screen.getByText('Food & Dining is ₹1,840 over budget'));
+        expect(onNavigate).toHaveBeenCalledWith('/budgets');
+    });
 });

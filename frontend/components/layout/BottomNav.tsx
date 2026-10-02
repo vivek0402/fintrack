@@ -7,6 +7,7 @@ import { useTransitionNavigate } from '@/lib/viewTransition';
 import { usePresence } from '@/hooks/usePresence';
 import { useThemeStore } from '@/store/themeStore';
 import { MorePanel } from './MorePanel';
+import { useMoreAlerts } from '@/hooks/useMoreAlerts';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
@@ -34,6 +35,8 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const [moreOpen, setMoreOpen] = useState(false);
     // The card stays mounted while it plays its exit.
     const { rendered: moreRendered, closing: moreClosing } = usePresence(moreOpen, MORE_EXIT_MS);
+    // Badges and the top line in the panel; urgent ones also dot the More tab.
+    const moreAlerts = useMoreAlerts({ panelOpen: moreOpen });
 
     const popRef        = useRef<HTMLDivElement>(null);
     const handleRef     = useRef<HTMLDivElement>(null);
@@ -171,6 +174,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     ref={popRef}
                     handleRef={handleRef}
                     closing={moreClosing}
+                    alerts={moreAlerts}
                     style={moreMenuStyle}
                     onStyleChange={setMoreMenuStyle}
                     isActive={isActive}
@@ -199,7 +203,9 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
 
                     {/* More button */}
                     <button ref={moreButtonRef} type="button" onClick={handleMoreButtonClick} aria-expanded={moreOpen} className="press-shrink"
-                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
+                        aria-label={moreAlerts.urgent ? 'More, something needs attention' : undefined}
+                        style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
+                        {moreAlerts.urgent && !moreOpen && <span className="more-tab-dot" aria-hidden />}
                         <div key={moreOpen ? 'open' : 'closed'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: moreActive || moreOpen ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: moreActive || moreOpen ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                             <MoreHorizontal size={19} color={moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)'} />
                         </div>

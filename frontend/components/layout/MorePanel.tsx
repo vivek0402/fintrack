@@ -10,6 +10,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import type { MoreMenuStyle } from '@/store/themeStore';
 import { useBudgets, useGoals, useAccounts } from '@/hooks/queries';
+import type { MoreAlert } from '@/hooks/useMoreAlerts';
 
 type Item = { href: string; icon: typeof Target; label: string; sub: string };
 
@@ -119,6 +120,8 @@ const TONE_COLOR: Record<string, string> = { good: 'var(--color-inc)', bad: 'var
 
 interface MorePanelProps {
     closing: boolean;
+    /** Attention items: a badge per page plus the top line. */
+    alerts?: { byHref: Record<string, MoreAlert>; top: MoreAlert | null };
     style: MoreMenuStyle;
     onStyleChange: (style: MoreMenuStyle) => void;
     isActive: (href: string) => boolean;
@@ -143,8 +146,10 @@ const iconBtn: CSSProperties = {
  * a live figure per page.
  */
 export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef: React.Ref<HTMLDivElement> }>(
-    function MorePanel({ closing, style, onStyleChange, isActive, onNavigate, onClose, onOpenTour, handleRef }, ref) {
+    function MorePanel({ closing, alerts, style, onStyleChange, isActive, onNavigate, onClose, onOpenTour, handleRef }, ref) {
         const live = useLiveFigures(style === 'list' && !closing);
+        const byHref = alerts?.byHref ?? {};
+        const top = alerts?.top ?? null;
         let n = 0; // stagger index across the whole card
         const rise = (): CSSProperties => ({ ['--i' as string]: n++ });
 
@@ -176,6 +181,15 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                 </div>
 
                 <div className="more-scroll">
+                    {/* The most pressing thing first, in either layout. */}
+                    {top && (
+                        <button type="button" className={`more-rise more-attn more-attn-${top.tone} pressable`} style={rise()}
+                            onClick={() => onNavigate(top.href)}>
+                            <span className="more-attn-dot" aria-hidden />
+                            <span style={{ flex: 1, minWidth: 0 }}>{top.line}</span>
+                            <span aria-hidden style={{ color: 'var(--text-muted)' }}>›</span>
+                        </button>
+                    )}
                     {style === 'grid' ? (
                         <>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', paddingBottom: '4px' }}>
@@ -185,8 +199,9 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                         padding: '10px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-2)',
                                         border: '1px solid var(--glass-border)', cursor: 'pointer', textAlign: 'left' }}
                                         onClick={() => onNavigate(href)}>
-                                        <span style={{ width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--accent-subtle)' }}>
+                                        <span style={{ position: 'relative', width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--accent-subtle)' }}>
                                             <Icon size={16} color="var(--accent)" />
+                                            {byHref[href] && <span className={`more-badge more-badge-${byHref[href].tone}`}>{byHref[href].badge}</span>}
                                         </span>
                                         <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
                                     </button>
@@ -203,6 +218,7 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                                     onClick={() => onNavigate(href)} aria-current={active ? 'page' : undefined}>
                                                     <span className="more-tile-icon" style={active ? { background: 'var(--accent-subtle)', borderColor: 'var(--accent-border)' } : undefined}>
                                                         <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-primary)'} />
+                                                        {byHref[href] && <span className={`more-badge more-badge-${byHref[href].tone}`}>{byHref[href].badge}</span>}
                                                     </span>
                                                     <span style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}>{label}</span>
                                                 </button>
@@ -218,7 +234,9 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                 <div className="more-rise" style={{ ...sectionLabel, ...rise() }}>{g.label}</div>
                                 {g.items.map(({ href, icon: Icon, label, sub }) => {
                                     const active = isActive(href);
-                                    const fig = live[href];
+                                    // An alert outranks the plain live figure.
+                                    const alert = byHref[href];
+                                    const fig: [string, Tone] | undefined = alert ? [alert.badge, alert.tone] : live[href];
                                     return (
                                         <button key={href} type="button" className="more-rise more-row pressable" style={rise()}
                                             onClick={() => onNavigate(href)} aria-current={active ? 'page' : undefined}>

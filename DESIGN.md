@@ -337,6 +337,12 @@ layer to 35% opacity.
   4-column app-style icons, and **list** shows rows with a description and a live figure. The
   list only fetches budgets, goals and accounts; other figures appear when another page has
   already cached them. The header is the drag-to-close handle.
+- **More alerts:** only when something needs attention (`hooks/useMoreAlerts.ts`): a badge on that
+  page's icon or row, the most pressing one as a tappable line at the top of the panel, and a red
+  dot on the More tab for urgent ones. Rules: a card bill with money still owed due within 5 days
+  or overdue (urgent), budgets over their limit (urgent), a personal loan past its due date, a goal
+  at 90% or more (a nudge, green). Semantic colours only (`--color-exp`, `--color-warn`,
+  `--color-inc`), never the accent.
 - **Tabs:** four only — Home, Money, Insights, More. AI Chat lives in More → Tools.
 - **Active state:** a soft rounded-square (`rgba(255,255,255,0.15)`, `--radius-md`) behind the
   icon, icon switches to solid fill and `--text-primary`. Not a coloured pill — the accent
