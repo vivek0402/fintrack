@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Sparkles, Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -18,6 +18,7 @@ import { processQueue } from '@/lib/txQueue';
 import { toast } from '@/store/toastStore';
 import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
+import { resolveViewTransition } from '@/lib/viewTransition';
 
 const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
 // /transactions used to be excluded -- it had its own header add button.
@@ -40,6 +41,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const { user } = useAuthStore();
 
     useEffect(() => { loadTheme(); loadSidebarCollapsed(); }, []);
+
+    // The new route has committed: let a pending tab crossfade run.
+    useLayoutEffect(() => { resolveViewTransition(); }, [pathname]);
 
     useEffect(() => {
         initPushNotifications();

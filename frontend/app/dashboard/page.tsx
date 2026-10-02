@@ -706,7 +706,7 @@ export default function DashboardPage() {
                             : tiles;
 
                         return visibleTiles.map(tile => (
-                            <div key={tile.label} onClick={(tile as any).onClick} style={{
+                            <div key={tile.label} onClick={(tile as any).onClick} className={(tile as any).onClick ? 'pressable' : undefined} style={{
                                 background: `color-mix(in srgb, ${tile.color} 10%, transparent)`,
                                 border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
                                 borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden',

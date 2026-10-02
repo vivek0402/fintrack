@@ -213,6 +213,7 @@ const TransactionRow = memo(function TransactionRow({
 
         const mobileRowInner = (
             <div
+                className="pressable"
                 onClick={() => selectMode ? onToggleSelect(tx.id) : onEdit(tx)}
                 role="button" tabIndex={0}
                 onKeyDown={e => {
@@ -317,6 +318,7 @@ const TransactionRow = memo(function TransactionRow({
     return (
         <div style={staggerDelay !== null ? { animation: `slideInUp 220ms cubic-bezier(0.22,1,0.36,1) ${staggerDelay}ms both` } : undefined}>
             <div
+                className={selectMode ? 'pressable' : undefined}
                 onClick={selectMode ? () => onToggleSelect(tx.id) : undefined}
                 role={selectMode ? 'button' : undefined}
                 tabIndex={selectMode ? 0 : undefined}

@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from './BottomSheet';
+import { usePresence } from '@/hooks/usePresence';
+
+// Matches .dialog-exit / .scrim-exit in globals.css.
+const DIALOG_EXIT_MS = 240;
 
 interface ModalProps {
     isOpen: boolean;
@@ -46,6 +50,8 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
     const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+    // Desktop dialog stays mounted for its exit animation after isOpen flips.
+    const { rendered, closing, generation } = usePresence(isOpen, DIALOG_EXIT_MS);
 
     useEffect(() => { setMounted(true); }, []);
 
@@ -98,8 +104,10 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
         };
     }, [isOpen]);
 
-    if (!isOpen || !mounted) return null;
+    if (!mounted) return null;
 
+    // The sheet runs its own enter/exit, so it gets isOpen as-is (it stays
+    // mounted while it slides out).
     if (isMobile && !forceDialog) {
         return (
             <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding} scrim={scrim}>
@@ -108,9 +116,12 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
         );
     }
 
+    if (!rendered) return null;
+
     return createPortal(
         <div
-            onClick={onClose}
+            onClick={closing ? undefined : onClose}
+            className={closing ? 'scrim-exit' : 'scrim-enter'}
             style={{
                 position: 'fixed',
                 top: 0,
@@ -135,7 +146,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                 aria-modal="true"
                 aria-label={title ?? ariaLabel}
                 tabIndex={-1}
-                className={`glass-surface glass-sheet${opaque ? ' glass-solid' : ''}`}
+                className={`glass-surface glass-sheet${opaque ? ' glass-solid' : ''}${closing ? ' dialog-exit' : ''}`}
                 style={{
                     // Focused programmatically on open; its children keep their own focus rings.
                     outline: 'none',
@@ -189,7 +200,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
 
                 {/* Scrollable body */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: bodyPadding, minHeight: 0 }}>
-                    {children}
+                    <Fragment key={generation}>{children}</Fragment>
                 </div>
 
                 {/* Sticky footer */}

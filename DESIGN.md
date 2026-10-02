@@ -222,7 +222,10 @@ Always use the canonical v2 tokens in new code.
   medium: 250–400ms  — panel transitions, modal open
   long:   400–700ms  — chart mount animations, page transitions
   ```
-- **Chart animation:** Mount on first render only. Never loop. In practice this means charts animate on (re)mount and on prop changes, per Recharts' default behavior — not gated to a true one-time-ever mount.
+- **Chart animation:** Once per chart per session, via `useChartAnimation(id)` (hooks/useChartAnimation.ts). Later visits draw instantly, since pages render from cached data. Never loop. Off under reduced motion.
+- **Press feedback:** Every tappable surface answers on the first frame. Plain `<button>`s get the global `button:active` shrink. Rows, clickable cards and tiles use `className="pressable"` (scale 0.97 plus an inset `--glass-fill-2` tint). Nav tabs use `press-shrink` (scale only). Transform and box-shadow only, never layout properties. Don't set an inline `transform` at rest on a pressable element; it overrides the `:active` rule.
+- **Page transitions:** A 180ms opacity crossfade (140ms out) between routes, through the View Transitions API (`useTransitionNavigate` in lib/viewTransition.ts). Opacity only. Browsers without the API, and reduced motion, swap pages instantly.
+- **Sheets and modals:** Sheets open with a 380ms spring (`cubic-bezier(0.32, 0.72, 0, 1)`) and close with a 240ms exit (`cubic-bezier(0.4, 0, 1, 1)`), however they are closed. Scrims fade in (300ms) and out (240ms). Desktop dialogs keep the 150ms scale-in and get a 160ms scale-out. `usePresence` keeps them mounted for the exit.
 
 ## Data Visualization (Recharts)
 

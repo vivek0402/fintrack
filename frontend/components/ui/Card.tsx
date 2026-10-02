@@ -35,7 +35,7 @@ export function Card({ children, padding = '18px 20px', elevated = false, onClic
 
     return (
         <div
-            className="glass-surface"
+            className={onClick ? 'glass-surface pressable' : 'glass-surface'}
             style={baseStyle}
             onClick={onClick}
             onMouseEnter={() => setHovered(true)}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Fragment, useEffect, useState, useRef } from 'react';
+import { usePresence } from '@/hooks/usePresence';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -20,26 +21,30 @@ interface BottomSheetProps {
     scrim?: boolean;
 }
 
+// Matches .sheet-exit in globals.css.
+const SHEET_EXIT_MS = 240;
+
 export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0', scrim = true }: BottomSheetProps) {
     const [mounted, setMounted] = useState(false);
-    const [closing, setClosing] = useState(false);
     const [dragY, setDragY] = useState(0);
     const touchStartY = useRef(0);
     const isDragging = useRef(false);
+    // Stays mounted for the exit animation however the sheet is closed: by
+    // its own scrim/X/drag, or by the page flipping isOpen (e.g. after Save).
+    const { rendered, closing, generation } = usePresence(isOpen, SHEET_EXIT_MS);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag to defer the createPortal render past hydration; standard SSR guard idiom.
     useEffect(() => { setMounted(true); }, []);
 
-    useEffect(() => {
-        if (isOpen) setClosing(false);
-    }, [isOpen]);
+    // A fresh open starts from the resting position.
+    const [prevOpen, setPrevOpen] = useState(isOpen);
+    if (isOpen !== prevOpen) {
+        setPrevOpen(isOpen);
+        if (isOpen) setDragY(0);
+    }
 
     const handleClose = () => {
-        setClosing(true);
-        setTimeout(() => {
-            setClosing(false);
-            setDragY(0);
-            onClose();
-        }, 220);
+        if (!closing) onClose();
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -62,13 +67,14 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
         }
     };
 
-    if (!mounted || !isOpen) return null;
+    if (!mounted || !rendered) return null;
 
     const sheet = (
         <>
             <div
                 onClick={handleClose}
                 data-testid="sheet-scrim"
+                className={closing ? 'scrim-exit' : 'scrim-enter'}
                 style={{
                     position: 'fixed',
                     inset: 0,
@@ -94,6 +100,9 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
                     transition: dragY > 0 ? 'none' : 'transform 200ms ease-out',
                     overflow: 'hidden',
+                    // The exit keyframe starts here, so a drag-to-close keeps going down.
+                    ['--sheet-from' as string]: `${dragY}px`,
+                    pointerEvents: closing ? 'none' : undefined,
                 }}
             >
                 {/* Sticky header: drag handle + title */}
@@ -147,7 +156,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
 
                 {/* Scrollable body */}
                 <div style={{ flex: 1, overflowY: 'auto', padding: bodyPadding, minHeight: 0 }}>
-                    {children}
+                    <Fragment key={generation}>{children}</Fragment>
                 </div>
 
                 {/* Sticky footer */}

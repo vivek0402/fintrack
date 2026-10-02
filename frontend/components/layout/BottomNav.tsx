@@ -12,6 +12,7 @@ import {
     FileText, Award, Brain, Plus, Handshake,
 } from 'lucide-react';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
+import { useTransitionNavigate } from '@/lib/viewTransition';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
@@ -72,6 +73,8 @@ const moreGroups = [
 export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
     const pathname  = usePathname();
     const router    = useRouter();
+    // Tab switches crossfade (lib/viewTransition.ts).
+    const navigate  = useTransitionNavigate();
 
     const [moreOpen, setMoreOpen]   = useState(false);
     const [panelMaxH, setPanelMaxH] = useState(0);
@@ -246,7 +249,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
 
     const handleNavigate = (href: string) => {
         setMoreOpen(false);
-        router.push(href);
+        navigate(href);
     };
 
     const activeGroupItems = moreGroups.find(g => g.label === activeGroupKey)?.items ?? [];
@@ -340,7 +343,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                     {mainTabs.map(({ href, icon: Icon, label }) => {
                         const active = isActive(href);
                         return (
-                            <a key={href} href={href} onClick={e => { e.preventDefault(); router.push(href); }}
+                            <a key={href} href={href} className="press-shrink" onClick={e => { e.preventDefault(); navigate(href); }}
                                 style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0 }}>
                                 <div key={active ? 'active' : 'inactive'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: active ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                                     <Icon size={19} color={active ? 'var(--text-primary)' : 'var(--text-muted)'} fill={active ? 'currentColor' : 'none'} />

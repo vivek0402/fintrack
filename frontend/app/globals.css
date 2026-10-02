@@ -446,17 +446,53 @@ button:active:not(:disabled) {
   to { transform: translateY(0); }
 }
 
+/* Exits start from wherever a drag left the sheet (--sheet-from), so a
+   drag-to-close continues down instead of snapping back up first. */
 @keyframes sheetDown {
-  from { transform: translateY(0); }
+  from { transform: translateY(var(--sheet-from, 0px)); }
   to { transform: translateY(100%); }
 }
 
+/* Sheets: a spring on the way up, a quick ease-in on the way out. */
 .sheet-enter {
-  animation: sheetUp 0.25s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  animation: sheetUp 380ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
 }
 
 .sheet-exit {
-  animation: sheetDown 0.22s ease-in forwards;
+  animation: sheetDown 240ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+/* Scrims (the dimmed layer behind sheets and modals) fade instead of popping. */
+@keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scrimOut { from { opacity: 1; } to { opacity: 0; } }
+.scrim-enter { animation: scrimIn 300ms ease-out both; }
+.scrim-exit  { animation: scrimOut 240ms ease-in both; pointer-events: none; }
+
+/* Desktop dialogs: same scale-in as before, plus a matching exit. */
+@keyframes scaleOut {
+  from { transform: scale(1); opacity: 1; }
+  to { transform: scale(0.97); opacity: 0; }
+}
+.dialog-exit { animation: scaleOut 160ms ease-in both !important; }
+
+/* Press feedback: a tap shows on the first frame, before anything loads.
+   Shrink 3% (transform only, so it never re-lays out) plus an inset tint that
+   works over any background. Opt in with className="pressable". */
+.pressable {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 160ms ease;
+}
+.pressable:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: inset 0 0 0 999px var(--glass-fill-2);
+  transition-duration: 60ms;
+}
+/* Scale-only variant for things that shouldn't tint (nav tabs). */
+.press-shrink { -webkit-tap-highlight-color: transparent; transition: transform 160ms cubic-bezier(0.32, 0.72, 0, 1); }
+.press-shrink:active { transform: scale(0.94); transition-duration: 60ms; }
+/* Glass cards keep their edge highlight while pressed. */
+.glass-surface.pressable:active:not(:disabled) {
+  box-shadow: inset 0 0 0 999px var(--glass-fill-2), var(--glass-edge);
 }
 
 .swipe-row-exit {
@@ -575,6 +611,13 @@ button:active:not(:disabled) {
   65% { opacity: 0; transform: scale(0.6); }
 }
 
+/* Tab/page switches crossfade (View Transitions API, see lib/viewTransition.ts).
+   Opacity only; browsers without the API just swap pages instantly. */
+@keyframes vtFadeIn { from { opacity: 0; } }
+@keyframes vtFadeOut { to { opacity: 0; } }
+::view-transition-old(root) { animation: vtFadeOut 140ms ease both; }
+::view-transition-new(root) { animation: vtFadeIn 180ms ease both; }
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes slideInUp { from { opacity: 0; } to { opacity: 1; } }
   @keyframes popIn { from { opacity: 0; } to { opacity: 1; } }
@@ -589,6 +632,9 @@ button:active:not(:disabled) {
   @keyframes slideInRight { from { opacity: 0; } to { opacity: 1; } }
   @keyframes sheetUp { from { opacity: 0; } to { opacity: 1; } }
   @keyframes sheetDown { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes scaleOut { from { opacity: 1; } to { opacity: 0; } }
+  .pressable:active:not(:disabled), .press-shrink:active { transform: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   @keyframes emptyFloat { 0%, 100% { transform: translateY(0) scale(1); } }
   @keyframes emptySparkle { 0%, 100% { opacity: 0; } }
 }

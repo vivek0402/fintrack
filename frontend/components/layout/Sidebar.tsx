@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { GlobalSearch } from './GlobalSearch';
+import { useTransitionNavigate } from '@/lib/viewTransition';
 import { InstallPWA } from '@/components/ui/InstallPWA';
 
 // Always-visible daily-driver set — keeps the primary nav short
@@ -67,6 +68,7 @@ const moreItems = moreGroups.flatMap(g => g.items);
 export function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const navigate = useTransitionNavigate();
     const { user, logout } = useAuthStore();
     const { loadTheme, sidebarCollapsed, toggleSidebarCollapsed, loadSidebarCollapsed } = useThemeStore();
     const isMobile = useIsMobile();
@@ -90,7 +92,14 @@ export function Sidebar() {
     const renderLink = ({ href, icon: Icon, label }: { href: string; icon: typeof LayoutDashboard; label: string }) => {
         const isActive = pathname === href || pathname.startsWith(href + '/');
         return (
-            <Link key={href} href={href} style={{ textDecoration: 'none' }} title={sidebarCollapsed ? label : undefined}>
+            <Link key={href} href={href} style={{ textDecoration: 'none' }} title={sidebarCollapsed ? label : undefined}
+                onClick={e => {
+                    // Plain left-clicks crossfade (lib/viewTransition.ts); new-tab
+                    // and modified clicks keep the browser's default.
+                    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    navigate(href);
+                }}>
                 <div
                     style={{
                         position: 'relative',

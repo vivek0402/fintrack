@@ -83,7 +83,10 @@ export function Button({
         },
     };
 
-    const transform = pressed && !disabled && !isLoading ? 'scale(0.93)' : 'scale(1)';
+    // Undefined at rest so the global button:active rule (globals.css) gives
+    // touch presses feedback too -- an inline scale(1) used to override it,
+    // and mouse events (which drive `pressed`) fire too late on phones.
+    const transform = pressed && !disabled && !isLoading ? 'scale(0.93)' : undefined;
     const variantStyle = variants[variant] || variants.primary;
     const finalOpacity = disabled || isLoading ? 0.4 : hovered && !disabled && (variant === 'primary') ? 0.88 : 1;
 
