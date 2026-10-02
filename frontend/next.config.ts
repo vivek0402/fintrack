@@ -35,6 +35,10 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: 'export',
   trailingSlash: true,
+  // React Compiler: memoizes components and hooks automatically, so a
+  // state change re-renders only what actually depends on it. Components it
+  // can't prove safe are left as they are (it bails out, it doesn't guess).
+  reactCompiler: true,
   turbopack: {},
   images: {
     unoptimized: true,
