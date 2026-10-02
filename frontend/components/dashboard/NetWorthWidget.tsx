@@ -6,7 +6,7 @@ import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
@@ -30,7 +30,7 @@ export function NetWorthWidget() {
     const [current, setCurrent] = useState<NetWorthCurrent | null>(null);
     const [history, setHistory] = useState<NetWorthSnapshot[]>([]);
     const [loading, setLoading] = useState(true);
-    const prefersReducedMotion = usePrefersReducedMotion();
+    const chartAnim = useChartAnimation('dashboard-net-worth', 600);
 
     useEffect(() => {
         analyticsAPI.getNetWorth()
@@ -81,7 +81,7 @@ export function NetWorthWidget() {
                     <div style={{ width: 110, height: 40, flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height={40}>
                             <LineChart data={last6}>
-                                <Line type="monotone" dataKey="net_worth" stroke="var(--accent)" strokeWidth={2} dot={false} animationDuration={prefersReducedMotion ? 0 : 600} />
+                                <Line type="monotone" dataKey="net_worth" stroke="var(--accent)" strokeWidth={2} dot={false} {...chartAnim} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

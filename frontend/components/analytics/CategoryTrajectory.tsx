@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { isCategorizableExpense } from '@/lib/utils';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const MN = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -10,6 +11,7 @@ const MN = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov'
 interface Props { transactions: any[]; isMobile: boolean }
 
 export function CategoryTrajectory({ transactions, isMobile }: Props) {
+    const chartAnim = useChartAnimation('analytics-category-trajectory', 600);
     const categories = useMemo(() => {
         const now = new Date();
         const months: { year: number; month: number; label: string }[] = [];
@@ -88,7 +90,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
                                         ) : null
                                     }
                                 />
-                                <Area type="monotone" dataKey="amount" stroke={stroke} strokeWidth={1.5} fill={`url(#cg-${cat.slug})`} dot={false} />
+                                <Area type="monotone" dataKey="amount" stroke={stroke} strokeWidth={1.5} fill={`url(#cg-${cat.slug})`} {...chartAnim} dot={false} />
                             </AreaChart>
                         </ResponsiveContainer>
                         <p style={{ fontSize: 9, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)', textAlign: 'right' }}>6-month trend</p>

@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '@/lib/utils';
-import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 interface Props { data: any[]; currency?: string; }
 
@@ -23,7 +23,7 @@ function CustomTooltip({ active, payload, total, currency }: { active?: boolean;
 }
 
 export function CategoryChart({ data, currency = 'INR' }: Props) {
-    const prefersReducedMotion = usePrefersReducedMotion();
+    const chartAnim = useChartAnimation('dashboard-category', 800);
     const total = data.reduce((sum, c) => sum + parseFloat(c.total), 0);
     const chartData = data.map((c, i) => ({ name: c.name, value: parseFloat(c.total), color: c.color || PALETTE[i % PALETTE.length] }));
 
@@ -43,8 +43,7 @@ export function CategoryChart({ data, currency = 'INR' }: Props) {
                                 innerRadius={50} outerRadius={76}
                                 paddingAngle={3} dataKey="value" strokeWidth={0}
                                 cornerRadius={4}
-                                isAnimationActive={true}
-                                animationDuration={prefersReducedMotion ? 0 : 800}
+                                {...chartAnim}
                                 label={({ cx, cy }) => (
                                     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
                                         <tspan x={cx} dy="-5" fontSize="10" fill="var(--text-muted)" style={{ fontFamily: 'var(--font-body)' }}>Total</tspan>

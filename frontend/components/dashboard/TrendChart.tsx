@@ -1,6 +1,7 @@
 'use client';
 
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 interface Props { trends: any[] }
 
@@ -26,6 +27,7 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export function TrendChart({ trends }: Props) {
+    const chartAnim = useChartAnimation('dashboard-trend', 700);
     const chartData = (() => {
         const map: Record<string, any> = {};
         trends.forEach(row => {
@@ -64,8 +66,8 @@ export function TrendChart({ trends }: Props) {
                         <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'k'} width={48} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend wrapperStyle={{ fontSize: '0.78rem', paddingTop: '14px' }} />
-                        <Area type="monotone" dataKey="income" name="Income" stroke="#00e5a0" strokeWidth={2} fill="url(#incomeGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                        <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="income" name="Income" stroke="#00e5a0" strokeWidth={2} fill="url(#incomeGradient)" {...chartAnim} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                        <Area type="monotone" dataKey="expenses" name="Expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#expenseGradient)" {...chartAnim} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
                     </AreaChart>
                 </ResponsiveContainer>
             )}

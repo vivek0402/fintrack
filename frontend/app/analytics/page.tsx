@@ -39,6 +39,7 @@ const CategoryTrajectory = dynamic(() => import('@/components/analytics/Category
 const CalendarTab = dynamic(() => import('@/components/analytics/CalendarTab').then(m => m.CalendarTab), { ssr: false, loading: vizSkeleton(400) });
 const HealthTab = dynamic(() => import('@/components/analytics/health/HealthTab').then(m => m.HealthTab), { ssr: false, loading: vizSkeleton(400) });
 import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 // Every section of the page is a visible chip (the row scrolls horizontally on
 // mobile). Deep links land here too: /reports, /year-review, /personality,
@@ -104,6 +105,7 @@ function SectionHead({ title }: { title: string }) {
 // OVERVIEW TAB (formerly /analytics)
 // ═══════════════════════════════════════════════════════════════════════════
 function AnalyticsOverviewTab() {
+    const chartAnim = useChartAnimation('analytics-overview', 700);
     const router = useRouter();
     const { user } = useAuthStore();
     const { theme } = useThemeStore();
@@ -498,8 +500,8 @@ function AnalyticsOverviewTab() {
                                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
                                     <YAxis hide />
                                     <Tooltip content={<ChartTooltip />} />
-                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incGrad)" dot={false} />
-                                    <Area type="monotone" dataKey="expenses" name="Expenses" stroke={cc.exp} strokeWidth={2} fill="url(#expGrad)" dot={false} />
+                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incGrad)" {...chartAnim} dot={false} />
+                                    <Area type="monotone" dataKey="expenses" name="Expenses" stroke={cc.exp} strokeWidth={2} fill="url(#expGrad)" {...chartAnim} dot={false} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         )}
@@ -528,7 +530,7 @@ function AnalyticsOverviewTab() {
                                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 10, fontFamily: 'DM Mono, monospace' }} />
                                     <YAxis hide domain={['auto', 'auto']} />
                                     <Tooltip formatter={(v: any) => [`${v}%`, 'Savings rate']} contentStyle={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
-                                    <Line type="monotone" dataKey="rate" name="Savings rate" stroke={cc.inc} strokeWidth={2} dot={{ r: 3, fill: cc.inc }} />
+                                    <Line type="monotone" dataKey="rate" name="Savings rate" stroke={cc.inc} strokeWidth={2} {...chartAnim} dot={{ r: 3, fill: cc.inc }} />
                                 </LineChart>
                             </ResponsiveContainer>
                             <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>% of income saved after expenses, month by month</p>
@@ -596,7 +598,7 @@ function AnalyticsOverviewTab() {
                                 <div style={{ flexShrink: 0 }}>
                                     <ResponsiveContainer width={120} height={120}>
                                         <PieChart>
-                                            <Pie data={categories} dataKey="total" nameKey="name" innerRadius={36} outerRadius={54} paddingAngle={2} startAngle={90} endAngle={-270}>
+                                            <Pie data={categories} dataKey="total" nameKey="name" innerRadius={36} outerRadius={54} paddingAngle={2} startAngle={90} endAngle={-270} {...chartAnim}>
                                                 {categories.map((cat: any) => (
                                                     <Cell key={cat.name} fill={cat.color || cc.exp || '#2563eb'} />
                                                 ))}
@@ -797,7 +799,7 @@ function AnalyticsOverviewTab() {
                                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
                                     <YAxis hide />
                                     <Tooltip content={<ChartTooltip />} />
-                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incTrendGrad)" dot={false} />
+                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incTrendGrad)" {...chartAnim} dot={false} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         )}

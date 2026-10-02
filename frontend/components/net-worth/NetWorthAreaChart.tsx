@@ -2,6 +2,7 @@
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fmt } from '@/lib/utils';
+import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
@@ -17,6 +18,7 @@ function CustomTooltip({ active, payload, label }: any) {
 interface Props { chartData: { date: string; value: number }[] }
 
 export function NetWorthAreaChart({ chartData }: Props) {
+    const chartAnim = useChartAnimation('networth-area', 600);
     return (
         <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={chartData}>
@@ -29,7 +31,7 @@ export function NetWorthAreaChart({ chartData }: Props) {
                 <XAxis dataKey="date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'K'} width={56} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#netWorthGradient)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#netWorthGradient)" {...chartAnim} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
             </AreaChart>
         </ResponsiveContainer>
     );
