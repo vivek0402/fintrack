@@ -11,6 +11,7 @@ import { formatCurrency, formatDate, getCategoryColor, getCategoryBg, getSmartIc
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
+import { haptics } from '@/lib/haptics';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
@@ -51,6 +52,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 
     const handleDelete = useCallback((id: string) => {
         const { onPendingDeleteChange: setPending } = latest.current;
+        haptics.delete();
         // Optimistically hide the row locally
         setPending(prev => new Set([...prev, id]));
         setConfirmId(null);

@@ -9,6 +9,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { toast } from '@/store/toastStore';
 import { exportToCSV, formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useWindowSize';
+import { haptics } from '@/lib/haptics';
 
 interface Props {
     selectedIds: Set<string>;
@@ -113,6 +114,7 @@ export function BulkOpsPanel({
         // undo window as single-row delete (TransactionList.handleDelete), so bulk
         // delete gets the same trust guarantee instead of committing immediately.
         onPendingDeleteChange(prev => new Set([...prev, ...ids]));
+        haptics.delete();
         setBulkDeleteOpen(false);
         onExit();
 

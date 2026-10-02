@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import { haptics } from '@/lib/haptics';
 
 interface SwipeableRowProps {
     children: React.ReactNode;
@@ -20,12 +21,15 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
     const axisRef = useRef<'x' | 'y' | null>(null);
     const draggingRef = useRef(false);
     const didSwipeRef = useRef(false);
+    // Buzz once when the drag passes the delete threshold, not every frame.
+    const pastThresholdRef = useRef(false);
     const rowRef = useRef<HTMLDivElement>(null);
 
     const handleTouchStart = (e: React.TouchEvent) => {
         startX.current = e.touches[0].clientX;
         startY.current = e.touches[0].clientY;
         axisRef.current = null;
+        pastThresholdRef.current = false;
         draggingRef.current = true;
         didSwipeRef.current = false;
         setTransitioning(false);
@@ -45,6 +49,9 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
             setIsDragging(true);
         }
         setDragX(Math.max(-100, Math.min(0, raw)));
+        const past = raw < -80;
+        if (past && !pastThresholdRef.current) haptics.threshold();
+        pastThresholdRef.current = past;
     };
 
     const handleTouchEnd = () => {

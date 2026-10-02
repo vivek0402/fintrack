@@ -14,6 +14,7 @@
     "@capacitor/app": "^8.1.0",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/push-notifications": "^8.1.1",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@tanstack/query-sync-storage-persister": "^5.104.0",

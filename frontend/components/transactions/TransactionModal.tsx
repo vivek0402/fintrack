@@ -19,6 +19,7 @@ import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
 import { randomCategoryColor } from '@/lib/categoryColors';
+import { haptics } from '@/lib/haptics';
 
 const NO_ITEMS: any[] = [];
 const NO_USAGE: Record<string, number> = {};
@@ -372,9 +373,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     if (saved) upsertTransactionInCache(queryClient, saved, categories);
                 }
                 invalidateAfterTransactionWrite(queryClient);
+                haptics.success();
                 toast.success('Transfer recorded');
                 onSuccess?.(); onClose();
-            } catch { setError('Transfer failed. Please try again.'); }
+            } catch { haptics.error(); setError('Transfer failed. Please try again.'); }
             finally { setLoading(false); }
             return;
         }
@@ -457,6 +459,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 const fKey = `forecast-cache-${user?.id}-${now.getFullYear()}-${now.getMonth() + 1}`;
                 localStorage.removeItem(fKey);
             } catch { /* silent */ }
+            haptics.success();
             if (submittingEmi) toast.success('EMI purchase recorded');
             else if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
             else toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
@@ -474,9 +477,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     onOfflineSave?.({ ...(payload as Record<string, any>), id: tempId, _pending: true });
                     onClose();
                 } catch {
+                    haptics.error();
                     setError('Something went wrong. Please try again.');
                 }
             } else {
+                haptics.error();
                 setError(err.response?.data?.error || 'Something went wrong.');
             }
         } finally { setLoading(false); }

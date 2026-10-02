@@ -21,6 +21,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
 import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
+import { haptics } from '@/lib/haptics';
 
 const NO_GOALS: any[] = [];
 
@@ -157,6 +158,7 @@ export default function GoalsPage() {
 
             const wasComplete = goal && parseFloat(goal.saved_amount) >= parseFloat(goal.target_amount);
             const nowComplete = goal && parseFloat(goal.saved_amount) + amount >= parseFloat(goal.target_amount);
+            haptics.success();
             if (fundsType === 'add' && goal && !wasComplete && nowComplete) {
                 setShowBurst(true);
                 toast.success(`🎯 "${goal.name}" goal reached — nicely done!`, 4500);
