@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, type CSSProperties } from 'react';
+import { forwardRef, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     Target, Trophy, X, Settings, LineChart, Briefcase, Bot, Gauge, Waves,
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import type { MoreMenuStyle } from '@/store/themeStore';
 import { useBudgets, useGoals, useAccounts } from '@/hooks/queries';
 import type { MoreAlert } from '@/hooks/useMoreAlerts';
+import { pinnedMorePages } from '@/lib/morePins';
 
 type Item = { href: string; icon: typeof Target; label: string; sub: string };
 
@@ -55,9 +56,9 @@ export const moreGroups: { label: string; items: Item[] }[] = [
     },
 ];
 
-// Pinned above the grid: the pages people jump to most from More.
-const PINNED = ['/ai-advisor', '/goals', '/accounts'];
 const allItems = moreGroups.flatMap(g => g.items);
+/** Every More page's route, for counting visits (lib/morePins). */
+export const morePageHrefs = allItems.map(i => i.href);
 
 type Tone = 'good' | 'bad' | 'warn' | undefined;
 
@@ -149,6 +150,11 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
     function MorePanel({ closing, alerts, style, onStyleChange, isActive, onNavigate, onClose, onOpenTour, handleRef }, ref) {
         const live = useLiveFigures(style === 'list' && !closing);
         const byHref = alerts?.byHref ?? {};
+        // Pinned above the grid: this person's most-opened More pages (read
+        // once per open, so the row doesn't reshuffle while it's on screen).
+        const [pinned] = useState(() => pinnedMorePages()
+            .map(href => allItems.find(i => i.href === href))
+            .filter((i): i is Item => !!i));
         const top = alerts?.top ?? null;
         let n = 0; // stagger index across the whole card
         const rise = (): CSSProperties => ({ ['--i' as string]: n++ });
@@ -193,7 +199,7 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                     {style === 'grid' ? (
                         <>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', paddingBottom: '4px' }}>
-                                {PINNED.map(href => allItems.find(i => i.href === href)!).map(({ href, icon: Icon, label }) => (
+                                {pinned.map(({ href, icon: Icon, label }) => (
                                     <button key={href} type="button" className="more-rise pressable" style={{ ...rise(),
                                         display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', minWidth: 0,
                                         padding: '10px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-2)',

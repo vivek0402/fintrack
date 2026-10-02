@@ -19,14 +19,16 @@ import { budgetsAPI } from '@/lib/api';
 
 const base = { closing: false, isActive: (h: string) => h === '/budgets', onNavigate: vi.fn(), onClose: vi.fn(), handleRef: { current: null } };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
 
 describe('MorePanel', () => {
     it('grid: pinned shortcuts plus every page, without fetching live figures', () => {
         render(<MorePanel {...base} style="grid" onStyleChange={vi.fn()} />);
-        expect(screen.getAllByText('AI Chat')).toHaveLength(2);         // pinned + in Tools
+        expect(screen.getAllByText('AI Chat')).toHaveLength(1);         // in Tools, not pinned by default
+        expect(screen.getAllByText('Goals')).toHaveLength(2);           // default pin + in Grow
         expect(screen.getByText('Personal Loans')).toBeInTheDocument();
-        expect(screen.getByText('Budgets').closest('button')).toHaveAttribute('aria-current', 'page');
+        // The section tile marks the current page (the pinned copy is a shortcut).
+        expect(screen.getAllByText('Budgets').map(el => el.closest('button')?.getAttribute('aria-current'))).toContain('page');
         expect(screen.queryByText(/over limit/)).toBeNull();
         expect(budgetsAPI.getAll).not.toHaveBeenCalled();
     });
@@ -61,8 +63,15 @@ describe('MorePanel', () => {
         const alert = { href: '/budgets', badge: '2 over', line: 'Food & Dining is ₹1,840 over budget', tone: 'bad' as const, urgent: true, rank: 2 };
         render(<MorePanel {...base} onNavigate={onNavigate} style="grid" onStyleChange={vi.fn()}
             alerts={{ byHref: { '/budgets': alert }, top: alert }} />);
-        expect(screen.getByText('2 over')).toBeInTheDocument();
+        expect(screen.getAllByText('2 over')).toHaveLength(2);   // pinned shortcut + section tile
         fireEvent.click(screen.getByText('Food & Dining is ₹1,840 over budget'));
         expect(onNavigate).toHaveBeenCalledWith('/budgets');
+    });
+
+    it('pins the pages this person opens most', () => {
+        localStorage.setItem('fintrack-more-visits', JSON.stringify({ '/ai-advisor': 9, '/net-worth': 4 }));
+        render(<MorePanel {...base} style="grid" onStyleChange={vi.fn()} />);
+        expect(screen.getAllByText('AI Chat')).toHaveLength(2);
+        expect(screen.getAllByText('Net Worth')).toHaveLength(2);
     });
 });

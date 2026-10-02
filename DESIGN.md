@@ -333,8 +333,9 @@ layer to 35% opacity.
   220ms out; transform + opacity only, never a height animation on glass), contents rising in a
   beat apart. Every page is on one screen in four labelled sections, so nothing hides behind
   group tabs. Two layouts, the user's choice (header switch, or Profile → Appearance; saved per
-  device, grid by default): **grid** puts three pinned shortcuts (AI Chat, Goals, Accounts) above
-  4-column app-style icons, and **list** shows rows with a description and a live figure. The
+  device, grid by default): **grid** puts three pinned shortcuts above 4-column app-style icons.
+  The pins are the More pages this person opens most on the device (`lib/morePins.ts`), topped
+  up with Budgets, Goals and Accounts until there's history, and **list** shows rows with a description and a live figure. The
   list only fetches budgets, goals and accounts; other figures appear when another page has
   already cached them. The header is the drag-to-close handle.
 - **More alerts:** only when something needs attention (`hooks/useMoreAlerts.ts`): a badge on that
@@ -343,7 +344,8 @@ layer to 35% opacity.
   or overdue (urgent), budgets over their limit (urgent), a personal loan past its due date, a goal
   at 90% or more (a nudge, green). Semantic colours only (`--color-exp`, `--color-warn`,
   `--color-inc`), never the accent.
-- **Tabs:** four only — Home, Money, Insights, More. AI Chat lives in More → Tools.
+- **Tabs:** four only — Home, Money, Insights, More. AI Chat lives in More → Tools, and has no
+  floating button on desktop: not every user wants it, so it's earned a pin only by being used.
 - **Active state:** a soft rounded-square (`rgba(255,255,255,0.15)`, `--radius-md`) behind the
   icon, icon switches to solid fill and `--text-primary`. Not a coloured pill — the accent
   colour is reserved for the action button, so the nav stays quiet and the action stays loud.

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Sparkles, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { WalkthroughTour } from '@/components/ui/WalkthroughTour';
@@ -19,13 +19,14 @@ import { initPushNotifications } from '@/lib/notifications';
 import { runNotificationCheck } from '@/lib/notificationTrigger';
 import { resolveViewTransition } from '@/lib/viewTransition';
 import { usePrefetchTabData } from '@/hooks/queries';
+import { recordMoreVisit } from '@/lib/morePins';
+import { morePageHrefs } from './MorePanel';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
-const hideFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor', '/profile'];
 // /transactions used to be excluded -- it had its own header add button.
 // That's gone now (removed along with the top bar's + icon), so the
 // global desktop Add FAB shows here too, same as every other page. The
-// page's own Quick Add FAB shifts to a third slot to make room (see
+// page's own Quick Add FAB sits in the next slot along (see
 // app/transactions/page.tsx).
 const hideAddFabRoutes = ['/login', '/register', '/onboarding', '/ai-advisor'];
 
@@ -33,9 +34,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const { loadTheme, loadSidebarCollapsed, loadMoreMenuStyle, sidebarCollapsed } = useThemeStore();
     const pathname = usePathname();
     const router = useRouter();
-    const [aiFabHover, setAiFabHover] = useState(false);
     const [addFabHover, setAddFabHover] = useState(false);
-    const [aiFabPressed, setAiFabPressed] = useState(false);
     const [addFabPressed, setAddFabPressed] = useState(false);
     const [showTour, setShowTour] = useState(false);
     const { user } = useAuthStore();
@@ -48,6 +47,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     // The new route has committed: let a pending tab crossfade run.
     useLayoutEffect(() => { resolveViewTransition(); }, [pathname]);
+
+    // Count visits to More pages; the most-visited become More's pinned shortcuts.
+    useEffect(() => { recordMoreVisit(pathname, morePageHrefs); }, [pathname]);
 
     useEffect(() => {
         initPushNotifications();
@@ -121,7 +123,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* Desktop Add Transaction FAB */}
             {!hideAddFabRoutes.some(r => pathname.startsWith(r)) && (
-                <div className="desktop-only" style={{ position: 'fixed', bottom: '32px', right: '96px', zIndex: 500 }}>
+                <div className="desktop-only" style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
                     {addFabHover && (
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
@@ -155,43 +157,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
             )}
 
-            {/* Desktop AI Chat FAB */}
-            {!hideFabRoutes.some(r => pathname.startsWith(r)) && (
-                <div className="desktop-only" style={{ position: 'fixed', bottom: '32px', right: '32px', zIndex: 500 }}>
-                    {aiFabHover && (
-                        <div style={{
-                            position: 'absolute', bottom: '100%', left: '50%',
-                            transform: 'translateX(-50%)', marginBottom: '8px',
-                            backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
-                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
-                        }}>
-                            AI Chat
-                        </div>
-                    )}
-                    <button
-                        onClick={() => router.push('/ai-advisor')}
-                        onMouseEnter={() => setAiFabHover(true)}
-                        onMouseLeave={() => { setAiFabHover(false); setAiFabPressed(false); }}
-                        onMouseDown={() => setAiFabPressed(true)}
-                        onMouseUp={() => setAiFabPressed(false)}
-                        aria-label="Open AI chat"
-                        style={{
-                            width: '52px', height: '52px', borderRadius: '50%',
-                            background: 'var(--accent)',
-                            border: 'none', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: aiFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
-                            transform: aiFabPressed ? 'scale(0.93)' : aiFabHover ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease',
-                            animation: 'softPulse 3s ease-in-out infinite',
-                            animationPlayState: aiFabHover ? 'paused' : 'running',
-                        }}
-                    >
-                        <Sparkles size={22} color="white" />
-                    </button>
-                </div>
-            )}
             <RedesignAnnouncement />
             <ToastContainer />
             <WalkthroughTour

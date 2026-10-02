@@ -473,11 +473,9 @@ function TransactionsPageInner() {
                 <div style={{
                     position: 'fixed',
                     bottom: isMobile ? 'calc(72px + var(--sa-bottom) + 16px)' : '32px',
-                    // Desktop: AppLayout's AI Chat FAB sits at right:32px and its
-                    // Add FAB at right:96px on every page including this one now
-                    // -- this is the third slot in that row, not a stand-in for
-                    // the (now-hidden-nowhere) Add FAB anymore.
-                    right: isMobile ? '16px' : '160px',
+                    // Desktop: AppLayout's Add FAB sits at right:32px on every page;
+                    // this is the next slot along that row.
+                    right: isMobile ? '16px' : '96px',
                     zIndex: isMobile ? 996 : 500,
                 }}>
                     {!isMobile && quickAddFabHover && (
