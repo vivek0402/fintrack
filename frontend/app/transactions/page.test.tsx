@@ -56,6 +56,11 @@ const rows = [
     { id: 'b', description: 'Salary', amount: '50000', date: '2026-08-05', type: 'income' },
 ];
 
+const thisMonthDay = (day: number) => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 const getAll = transactionsAPI.getAll as ReturnType<typeof vi.fn>;
 const cached = getCachedTransactions as ReturnType<typeof vi.fn>;
 
@@ -139,10 +144,24 @@ describe('offline fallback', () => {
         // Deliberately not routed through apiWithCache, so that a failing
         // backend stays distinguishable from an empty month.
         getAll.mockRejectedValue(new Error('network down'));
-        cached.mockResolvedValue(rows);
+        cached.mockResolvedValue([{ ...rows[0], date: thisMonthDay(10) }]);
 
         render(<TransactionsPage />);
         expect(await screen.findByText('Coffee')).toBeInTheDocument();
+    });
+
+    it('shows only the selected month from the cache, not every month ever cached', async () => {
+        // The offline cache holds rows from every month the app has fetched
+        // (and from "All time" views), so the fallback must filter them.
+        getAll.mockRejectedValue(new Error('timeout'));
+        cached.mockResolvedValue([
+            { ...rows[0], date: thisMonthDay(10) },
+            { id: 'old', description: 'Old rent', amount: '9000', date: '2020-01-05', type: 'expense' },
+        ]);
+
+        render(<TransactionsPage />);
+        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(screen.queryByText('Old rent')).not.toBeInTheDocument();
     });
 
     it('surfaces an error state only when the cache is empty too', async () => {

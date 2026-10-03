@@ -78,8 +78,10 @@ async function fetchTransactions(params: TransactionParams): Promise<Transaction
     } catch (err) {
         // Offline / backend down: fall back to the IndexedDB copy. With
         // nothing there either, surface the error so the page can tell
-        // "failed to load" apart from "no transactions this month".
-        const cached = await getCachedTransactions<Transaction>();
+        // "failed to load" apart from "no transactions this month". The cache
+        // holds every month ever fetched, so keep only rows this request covers.
+        const cached = (await getCachedTransactions<Transaction>())
+            .filter(tx => transactionMatchesParams(tx, params));
         if (cached.length > 0) return cached;
         throw err;
     }
