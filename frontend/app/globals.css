@@ -482,6 +482,11 @@ button:active:not(:disabled) {
    useIsMobile's < 768. */
 .app-main {
   flex: 1;
+  /* A flex item won't shrink below its content's width unless told to, and
+     overflow-x: clip (unlike hidden) doesn't count as a scroll container, so it
+     doesn't lift that floor. Without this, one wide child (a chart) stretched
+     <main> past the phone screen and clip cut off the right edge. */
+  min-width: 0;
   min-height: 100vh;
   /* clip, not hidden: hidden forces overflow-y to auto, which makes <main> a
      scroll container that traps every sticky element inside it (the
