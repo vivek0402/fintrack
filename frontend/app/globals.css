@@ -506,6 +506,12 @@ button:active:not(:disabled) {
   .mobile-only { display: contents; }
 }
 
+/* Dashboard loading tiles: the dashboard is what a cold start lands on, and
+   this skeleton is the only part of it in the pre-built HTML, so its 2x2
+   phone layout must come from CSS too (the loaded tiles use useIsMobile). */
+.dash-skeleton-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 767.98px) { .dash-skeleton-tiles { grid-template-columns: 1fr 1fr; } }
+
 /* ── Mobile More card (components/layout/MorePanel.tsx) ──
    Its own surface above the dock. Opens on a spring and closes quickly with
    transform + opacity only (animating height on a blurred surface stuttered).

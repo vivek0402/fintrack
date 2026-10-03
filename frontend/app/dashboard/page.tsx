@@ -468,7 +468,7 @@ export default function DashboardPage() {
     if (isLoading || !user) return (
         <>
             <SkeletonCard height={60} style={{ marginBottom: '24px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px', marginBottom: '16px' }}>
+            <div className="dash-skeleton-tiles">
                 {[1,2,3,4].map(i => <SkeletonCard key={i} height={100} />)}
             </div>
             <SkeletonCard height={220} style={{ marginBottom: '16px' }} />
