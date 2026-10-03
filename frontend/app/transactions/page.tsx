@@ -23,6 +23,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useHideOnScrollDown } from '@/hooks/useHideOnScrollDown';
 import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, periodDelta, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
@@ -62,6 +63,7 @@ function TransactionsPageInner() {
     const [filterFrom, setFilterFrom] = useState<string | null>(null);
     const [filterTo, setFilterTo]     = useState<string | null>(null);
     const [quickAddFabHover, setQuickAddFabHover] = useState(false);
+    const quickAddHidden = useHideOnScrollDown();
     // The FAB is portalled to document.body so no transformed ancestor (any
     // transform makes a containing block for position:fixed descendants) can
     // pin it to the page instead of the viewport.
@@ -483,7 +485,14 @@ function TransactionsPageInner() {
                     // this is the next slot along that row.
                     right: isMobile ? '16px' : '96px',
                     zIndex: isMobile ? 996 : 500,
-                }}>
+                    // Slides away while scrolling down so it doesn't sit over
+                    // the amounts being read; back on any scroll up.
+                    transform: quickAddHidden ? 'translateY(calc(100% + 24px))' : 'none',
+                    opacity: quickAddHidden ? 0 : 1,
+                    pointerEvents: quickAddHidden ? 'none' : undefined,
+                    transition: 'transform 240ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease',
+                }}
+                    data-testid="quick-add-fab" aria-hidden={quickAddHidden || undefined}>
                     {!isMobile && quickAddFabHover && (
                         <div style={{
                             position: 'absolute', bottom: '100%', left: '50%',
@@ -500,6 +509,7 @@ function TransactionsPageInner() {
                         onMouseEnter={() => setQuickAddFabHover(true)}
                         onMouseLeave={() => setQuickAddFabHover(false)}
                         aria-label="Quick add with AI"
+                        tabIndex={quickAddHidden ? -1 : 0}
                         style={{
                             width: '52px', height: '52px', borderRadius: '50%',
                             background: 'var(--accent)', border: 'none', cursor: 'pointer',
