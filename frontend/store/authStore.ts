@@ -142,6 +142,16 @@ export const useAuthStore = create<AuthStore>()(
                 // Cached notification toggles belong to this user; don't hand
                 // them to the next one on a shared device.
                 try { localStorage.removeItem(NOTIF_PREFS_KEY); } catch { /* storage unavailable */ }
+                // Synced app choices (lib/appPrefs.ts; not imported for the same
+                // reason): the server keeps them, the next login pulls them back.
+                try {
+                    const synced: string[] = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && (k.startsWith('fintrack-cc-not-paid-') || k.startsWith('fintrack-account-memory-'))) synced.push(k);
+                    }
+                    for (const k of synced) localStorage.removeItem(k);
+                } catch { /* storage unavailable */ }
                 // Same for every cached server response (transactions, budgets...).
                 clearQueryCache();
             },

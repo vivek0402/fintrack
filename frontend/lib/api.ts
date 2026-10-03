@@ -204,6 +204,9 @@ export const profileAPI = {
     get: () => api.get('/api/profile'),
     update: (data: object) => api.put('/api/profile', data),
     changePassword: (data: object) => api.put('/api/profile/password', data),
+    // Cross-device app choices (lib/appPrefs.ts).
+    getAppPrefs: () => api.get('/api/profile/app-prefs'),
+    patchAppPref: (key: 'cc_not_paid' | 'account_memory', value: object) => api.patch('/api/profile/app-prefs', { key, value }),
 };
 
 export const recurringAPI = {

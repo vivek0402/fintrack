@@ -20,6 +20,7 @@ import { runNotificationCheck } from '@/lib/notificationTrigger';
 import { resolveViewTransition } from '@/lib/viewTransition';
 import { usePrefetchTabData } from '@/hooks/queries';
 import { recordMoreVisit } from '@/lib/morePins';
+import { syncAppPrefs } from '@/lib/appPrefs';
 import { morePageHrefs } from './MorePanel';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 
@@ -47,6 +48,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
     // The new route has committed: let a pending tab crossfade run.
     useLayoutEffect(() => { resolveViewTransition(); }, [pathname]);
+
+    // Bring this device's synced choices ("not paid" statements, remembered
+    // bank accounts) up to date with the user's other devices.
+    useEffect(() => { if (user?.id) void syncAppPrefs(user.id); }, [user?.id]);
 
     // Count visits to More pages; the most-visited become More's pinned shortcuts.
     useEffect(() => { recordMoreVisit(pathname, morePageHrefs); }, [pathname]);

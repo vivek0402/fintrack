@@ -38,6 +38,16 @@ describe('authStore.logout', () => {
         expect(useAuthStore.getState().token).toBeNull();
     });
 
+    it('drops the synced app choices; the server keeps them for the next login', () => {
+        localStorage.setItem('fintrack-cc-not-paid-3', '["2026-07-15"]');
+        localStorage.setItem('fintrack-account-memory-u1', '{"byDesc":{},"byMethod":{}}');
+        localStorage.setItem('unrelated', 'keep');
+        useAuthStore.getState().logout();
+        expect(localStorage.getItem('fintrack-cc-not-paid-3')).toBeNull();
+        expect(localStorage.getItem('fintrack-account-memory-u1')).toBeNull();
+        expect(localStorage.getItem('unrelated')).toBe('keep');
+    });
+
     it("drops every cached server response, in memory and on disk, so the next user never sees this one's data", () => {
         queryClient.setQueryData(['transactions', 'u1', { month: 8, year: 2026 }], [{ id: 'a' }]);
         localStorage.setItem(QUERY_CACHE_STORAGE_KEY, '{"clientState":{}}');

@@ -4,7 +4,10 @@
 //   2. else the account last used for this payment method (UPI -> HDFC),
 //      or for income in general
 //   3. else the default account (or the only/first one)
-// Remembered per user on this device, updated on every save.
+// Remembered per user, updated on every save, and synced across the user's
+// devices (lib/appPrefs.ts).
+
+import { pushAppPref } from '@/lib/appPrefs';
 
 // Only these move money in or out of a bank account. Cash, wallets and card
 // spending must not touch a bank balance (the card bill payment does that).
@@ -71,4 +74,5 @@ export function rememberAccount(
     const keys = Object.keys(mem.byDesc);
     if (keys.length > 300) for (const k of keys.slice(0, keys.length - 300)) delete mem.byDesc[k];
     try { localStorage.setItem(key(userId), JSON.stringify(mem)); } catch { /* storage unavailable */ }
+    pushAppPref('account_memory', mem);
 }
