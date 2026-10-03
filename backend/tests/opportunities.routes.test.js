@@ -19,7 +19,6 @@ const {
     detectCreditCardInterest,
     detectSpendingSpike,
     detectForecastWarning,
-    detectAllocationGap,
     detectOpportunities,
     saveOpportunities,
 } = require('../src/routes/opportunities');
@@ -151,22 +150,6 @@ describe('detectForecastWarning — IST month boundary', () => {
         } finally {
             jest.useRealTimers();
         }
-    });
-});
-
-describe('detectAllocationGap — no longer queries bank balance itself', () => {
-    test('accepts bankBalance as a parameter instead of querying it', async () => {
-        pool.query.mockResolvedValueOnce({
-            rows: [{ type: 'mutual_fund', total: '900000' }],
-        });
-        const result = await detectAllocationGap('user-1', 100000);
-        // total portfolio = 100000 (bank) + 900000 (mutual_fund) = 1000000
-        // bank% = 10% (matches RECOMMENDED_PCT.bank exactly -> no gap on bank)
-        // mutual_fund% = 90% vs recommended 30% -> a 60-point gap, biggest
-        // detectAllocationGap doesn't expose a raw `category` field (only detectSpendingSpike
-        // adds that additive field) -- the biggest-gap category is only observable via title/description.
-        expect(result.title).toContain('Mutual funds');
-        expect(pool.query).toHaveBeenCalledTimes(1); // only the investments query, no bank-balance query
     });
 });
 

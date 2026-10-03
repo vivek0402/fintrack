@@ -119,7 +119,7 @@ async function detectHighInterestLoan(userId) {
         amount_saved: amountSaved,
         priority: rate > 18 ? 1 : 2,
         action_label: 'View prepayment impact',
-        action_route: '/loans',
+        action_route: '/debt-intelligence?tab=loans',
         expires_at: null,
     };
 }
@@ -180,51 +180,6 @@ async function detectSpendingSpike(userId) {
     };
 }
 
-async function detectAllocationGap(userId, bankBalance) {
-    const invRes = await pool.query(`SELECT type, COALESCE(SUM(units * current_nav_or_price), 0) AS total FROM investments WHERE user_id = $1 GROUP BY type`, [userId]);
-
-    const invTotals = {};
-    for (const row of invRes.rows) invTotals[row.type] = parseFloat(row.total);
-
-    const categories = {
-        bank: bankBalance,
-        mutual_fund: invTotals.mutual_fund || 0,
-        stock: invTotals.stock || 0,
-        fd: invTotals.fd || 0,
-        ppf: invTotals.ppf || 0,
-        nps: invTotals.nps || 0,
-        gold: invTotals.gold || 0,
-        crypto: invTotals.crypto || 0,
-        other: invTotals.other || 0,
-    };
-    const total = Object.values(categories).reduce((s, v) => s + v, 0);
-    if (total <= 0) return null;
-
-    const RECOMMENDED_PCT = { bank: 10, mutual_fund: 30, stock: 30, fd: 8.33, ppf: 8.33, nps: 8.34, gold: 5, crypto: 0, other: 0 };
-    const LABELS = { bank: 'Bank balance', mutual_fund: 'Mutual funds', stock: 'Stocks', fd: 'Fixed deposits', ppf: 'PPF', nps: 'NPS', gold: 'Gold', crypto: 'Crypto', other: 'Other' };
-
-    let biggest = null;
-    for (const [category, amount] of Object.entries(categories)) {
-        const actualPct = fmt((amount / total) * 100);
-        const deviation = fmt(actualPct - RECOMMENDED_PCT[category]);
-        if (Math.abs(deviation) > 20 && (!biggest || Math.abs(deviation) > Math.abs(biggest.deviation))) {
-            biggest = { category, actualPct, deviation, recommended: RECOMMENDED_PCT[category] };
-        }
-    }
-    if (!biggest) return null;
-
-    return {
-        type: 'allocation_gap',
-        title: `${LABELS[biggest.category]} allocation is ${biggest.actualPct}% vs ${biggest.recommended}% recommended`,
-        description: `Your portfolio allocates ${biggest.actualPct}% to ${LABELS[biggest.category].toLowerCase()}, compared to a recommended ${biggest.recommended}%. Rebalancing can reduce concentration risk and improve long-term returns.`,
-        amount_saved: null,
-        priority: 3,
-        action_label: 'View asset allocation',
-        action_route: '/wealth-intelligence',
-        expires_at: null,
-    };
-}
-
 async function detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses) {
     const targetMonths = plan.emergency_fund_target_months;
     if (avgExpenses <= 0 || bankBalance >= avgExpenses * targetMonths) return null;
@@ -242,11 +197,9 @@ async function detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses) {
 }
 
 // ─── Detectors that surface signals from other AI features ──────────────────
-// These read each feature's existing ai_cache entry (getCached, no new AI call)
-// instead of recomputing anything -- they only fire once the user has actually
-// generated that feature's data by visiting its page. Consolidation, not a new
-// ranking layer: opportunities.js already does the ranking, this just gives
-// these features a way into that feed instead of staying siloed.
+// This reads the forecast's existing ai_cache entry (getCached, no new AI call)
+// instead of recomputing anything -- it only fires once the user has actually
+// generated a forecast by visiting its page.
 
 async function detectForecastWarning(userId) {
     const cached = await getCached(pool, userId, 'forecast', 24 * 60 * 60 * 1000);
@@ -271,45 +224,10 @@ async function detectForecastWarning(userId) {
         amount_saved: null,
         priority: overPct > 30 ? 1 : 2,
         action_label: 'View forecast',
-        action_route: '/forecast',
+        action_route: '/savings-plan?tab=forecast',
         expires_at: `${istNextMonthStart(now)}T00:00:00.000Z`,
         // Additive field, same reasoning as detectSpendingSpike's pct_above.
         over_pct: overPct,
-    };
-}
-
-async function detectBehavioralPattern(userId) {
-    const cached = await getCached(pool, userId, 'behavioral_patterns', 24 * 60 * 60 * 1000);
-    if (!cached || !cached.detected_count) return null;
-
-    const top = (cached.patterns || []).find(p => p.detected);
-    if (!top) return null;
-
-    return {
-        type: 'behavioral_pattern',
-        title: `Spending pattern detected: ${top.pattern_name.replace(/_/g, ' ')}`,
-        description: cached.ai_insight || top.description,
-        amount_saved: null,
-        priority: 2,
-        action_label: 'View behavioral patterns',
-        action_route: '/analytics?tab=insights&view=behavioral',
-        expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-}
-
-async function detectSalaryIntelligenceInsight(userId) {
-    const cached = await getCached(pool, userId, 'salary_intelligence', 31 * 24 * 60 * 60 * 1000);
-    if (!cached || !cached.detected || !cached.insight) return null;
-
-    return {
-        type: 'salary_intelligence_insight',
-        title: `Salary allocation plan ready${cached.salary ? ` for ${inr(cached.salary)}/month` : ''}`,
-        description: cached.insight,
-        amount_saved: null,
-        priority: 3,
-        action_label: 'View allocation plan',
-        action_route: '/analytics',
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
 }
 
@@ -324,11 +242,8 @@ async function detectOpportunities(userId) {
         detectCreditCardInterest(userId),
         detectHighInterestLoan(userId),
         detectSpendingSpike(userId),
-        detectAllocationGap(userId, bankBalance),
         detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses),
         detectForecastWarning(userId),
-        detectBehavioralPattern(userId),
-        detectSalaryIntelligenceInsight(userId),
     ]);
     return results.filter(r => r !== null);
 }
@@ -482,6 +397,5 @@ module.exports.detectEmergencyFundLow = detectEmergencyFundLow;
 module.exports.detectCreditCardInterest = detectCreditCardInterest;
 module.exports.detectSpendingSpike = detectSpendingSpike;
 module.exports.detectForecastWarning = detectForecastWarning;
-module.exports.detectAllocationGap = detectAllocationGap;
 module.exports.detectOpportunities = detectOpportunities;
 module.exports.saveOpportunities = saveOpportunities;
