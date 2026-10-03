@@ -322,8 +322,6 @@ app.use('/api/import',           require('./routes/camsImport'));
 app.use('/api/loans',            require('./routes/loans'));
 app.use('/api/debt',             require('./routes/debt'));
 app.use('/api/planning',         require('./routes/planning'));
-app.use('/api/milestones',       require('./routes/milestones'));
-app.use('/api/documents',        require('./routes/documents'));
 app.use('/api/ai/agent',         require('./routes/agents'));
 app.use('/api/ai/opportunities', opportunitiesRoutes);
 app.use('/api/insights',     require('./routes/insights'));

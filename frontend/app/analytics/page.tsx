@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
-import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI, opportunityAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
 import { Badge } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
@@ -26,8 +26,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
     Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, ChevronLeft, ChevronDown, ChevronRight, Brain, CheckCircle2, AlertTriangle,
-    Utensils, Home, Car, Tv, ShoppingBag, HeartPulse, GraduationCap, PiggyBank,
-    FileText, Search, Camera, AlertCircle, Lightbulb, Loader2, BarChart3,
+    FileText, Search, Camera, BarChart3,
 } from 'lucide-react';
 const NO_ROWS: any[] = [];
 
@@ -46,8 +45,8 @@ import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from 
 import { useChartAnimation } from '@/hooks/useChartAnimation';
 
 // Every section of the page is a visible chip (the row scrolls horizontally on
-// mobile). Deep links land here too: /reports, /year-review, /personality,
-// /insights and /health-score all redirect to ?tab=<key>.
+// mobile). Deep links land here too: /reports, /year-review, /insights and
+// /health-score all redirect to ?tab=<key>.
 const OUTER_TABS = [
     { key: 'overview',    label: 'Overview' },
     { key: 'health',      label: 'Health' },
@@ -55,7 +54,6 @@ const OUTER_TABS = [
     { key: 'reports',     label: 'Reports' },
     { key: 'year-review', label: 'Year Review' },
     { key: 'calendar',    label: 'Calendar' },
-    { key: 'personality', label: 'Personality' },
 ];
 const ALL_TAB_KEYS = OUTER_TABS.map(t => t.key);
 
@@ -949,17 +947,6 @@ function AnalyticsOverviewTab() {
 // ═══════════════════════════════════════════════════════════════════════════
 // INSIGHTS TAB (formerly /insights)
 // ═══════════════════════════════════════════════════════════════════════════
-const GROUP_ICONS: Record<string, any> = {
-    food_dining: Utensils,
-    housing_rent: Home,
-    transport: Car,
-    entertainment_subscriptions: Tv,
-    shopping_clothing: ShoppingBag,
-    health_wellness: HeartPulse,
-    education: GraduationCap,
-    savings_investments: PiggyBank,
-};
-
 const PATTERN_LABELS: Record<string, string> = {
     budget_anchoring: 'Budget Anchoring',
     present_bias: 'Present Bias (Early-Month Spending)',
@@ -967,79 +954,18 @@ const PATTERN_LABELS: Record<string, string> = {
     idle_savings_despite_debt: 'Idle Savings Despite Debt',
 };
 
-const INCOME_BRACKET_LABELS: Record<string, string> = {
-    under_5L: 'Under ₹5L/year',
-    five_to_10L: '₹5L–10L/year',
-    ten_to_20L: '₹10L–20L/year',
-    above_20L: 'Above ₹20L/year',
-};
-
-function statusBadge(status: string, isSavings: boolean) {
-    if (status === 'below_benchmark') {
-        return isSavings
-            ? { label: 'Below', color: 'var(--color-exp)', bg: 'color-mix(in srgb, var(--color-exp) 10%, transparent)' }
-            : { label: 'Below', color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 10%, transparent)' };
-    }
-    if (status === 'above_benchmark') {
-        return isSavings
-            ? { label: 'Above', color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 10%, transparent)' }
-            : { label: 'Above', color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 10%, transparent)' };
-    }
-    return { label: 'Within', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' };
-}
-
-// ── Benchmark range bar with user position marker ───────────────────────────
-function BenchmarkBar({ userPct, min, max }: { userPct: number; min: number; max: number }) {
-    const scaleMax = Math.max(max * 1.4, userPct * 1.15, 10);
-    const minPos = (min / scaleMax) * 100;
-    const maxPos = (max / scaleMax) * 100;
-    const userPos = Math.min(100, (userPct / scaleMax) * 100);
-
-    return (
-        <div style={{ position: 'relative', height: '8px', background: 'var(--border-subtle)', borderRadius: '999px', marginTop: '6px' }}>
-            <div style={{
-                position: 'absolute', top: 0, bottom: 0,
-                left: `${minPos}%`, width: `${Math.max(maxPos - minPos, 1)}%`,
-                background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: '999px',
-            }} />
-            <div style={{
-                position: 'absolute', top: '-3px', left: `calc(${userPos}% - 2px)`,
-                width: '4px', height: '14px', borderRadius: '2px', background: 'var(--accent)',
-            }} />
-        </div>
-    );
-}
-
 function InsightsTab() {
     const { user } = useAuthStore();
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const initialView = searchParams.get('view');
-    const [tab, setTab] = useState<'benchmarks' | 'behavioral' | 'opportunities'>(
-        initialView === 'opportunities' || initialView === 'behavioral' ? initialView : 'benchmarks'
-    );
 
     // Cached: reopening Insights shows the last results at once. A failed
     // load settles to "nothing to show", as before.
     const queryClient = useQueryClient();
-    const benchmarksQuery = useUserQuery('insights', ['benchmarks'],
-        () => insightsAPI.getPeerBenchmarks().then(res => res.data).catch(() => null));
-    const benchmarks = benchmarksQuery.data ?? null;
-    const benchmarksLoading = benchmarksQuery.isPending;
-
     const patternsKey = ['insights', user?.id, 'patterns'];
     const patternsQuery = useUserQuery('insights', ['patterns'],
         () => insightsAPI.getBehavioralPatterns().then(res => res.data).catch(() => null));
     const patterns = patternsQuery.data ?? null;
     const patternsLoading = patternsQuery.isPending;
     const [refreshing, setRefreshing] = useState(false);
-
-    const opportunitiesKey = ['insights', user?.id, 'opportunities'];
-    const opportunitiesQuery = useUserQuery('insights', ['opportunities'],
-        () => opportunityAPI.getAll().then(res => res.data?.opportunities ?? []).catch(() => []));
-    const opportunities: any[] = opportunitiesQuery.data ?? NO_ROWS;
-    const opportunitiesLoading = opportunitiesQuery.isPending;
-    const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
 
     const refreshPatterns = async () => {
         setRefreshing(true);
@@ -1049,17 +975,6 @@ function InsightsTab() {
         } catch { toast.error('Failed to refresh patterns — try again'); } finally { setRefreshing(false); }
     };
 
-    const handleDismissOpportunity = async (id: string) => {
-        setDismissingIds(prev => new Set(prev).add(id));
-        try { await opportunityAPI.dismiss(id); } catch {}
-        setTimeout(() => queryClient.setQueryData<any[]>(opportunitiesKey, prev => (prev ?? []).filter((o: any) => o.id !== id)), 250);
-    };
-
-    const handleActOnOpportunity = async (opp: any) => {
-        try { await opportunityAPI.markActedOn(opp.id); } catch {}
-        if (opp.action_route) router.push(opp.action_route);
-    };
-
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
@@ -1067,227 +982,75 @@ function InsightsTab() {
                     Insights
                 </h1>
                 <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    How you compare to peers, and patterns in your spending behavior.
+                    Patterns in your spending behavior.
                 </p>
             </div>
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
-                {[
-                    { key: 'opportunities', label: 'Opportunities' },
-                    { key: 'benchmarks', label: 'Peer Benchmarks' },
-                    { key: 'behavioral', label: 'Behavioral Patterns' },
-                ].map(t => {
-                    const isActive = tab === t.key;
-                    return (
-                        <button
-                            key={t.key}
-                            type="button"
-                            onClick={() => setTab(t.key as any)}
-                            className={isActive ? undefined : 'glass-field'}
-                            style={{
-                                padding: '7px 15px', borderRadius: 999, border: 'none',
-                                background: isActive ? 'var(--accent)' : undefined,
-                                color: isActive ? '#fff' : 'var(--text-secondary)',
-                                fontSize: '13px', fontWeight: isActive ? 600 : 500, fontFamily: 'var(--font-body)',
-                                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                                transition: 'all var(--transition-fast)',
-                            }}
-                        >
-                            {t.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* ── TAB 0: OPPORTUNITIES ── */}
-            {tab === 'opportunities' && (
-                opportunitiesLoading ? (
-                    <SkeletonCard height={400} />
-                ) : opportunities.length === 0 ? (
-                    <EmptyState icon={Lightbulb} title="No opportunities right now" subtitle="We'll surface savings, debt, and investment opportunities here as we spot them in your data." />
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {opportunities.map((opp: any) => {
-                            const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
-                            const isDismissing = dismissingIds.has(opp.id);
-                            return (
-                                <div key={opp.id} className="glass-surface" style={{
-                                    borderLeft: `3px solid ${borderColor}`,
-                                    borderRadius: 'var(--radius-lg)', padding: '14px 18px',
-                                    opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
-                                    transition: 'opacity 250ms ease, transform 250ms ease',
-                                }}>
-                                    <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                        {opp.title}
-                                    </p>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                        {opp.description}
-                                    </p>
-                                    {opp.amount_saved != null && (
-                                        <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
-                                                Save {fmt(parseFloat(opp.amount_saved))}/year
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
-                                        <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
-                                        <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+            {/* ── BEHAVIORAL PATTERNS ── */}
+            {patternsLoading ? (
+                <SkeletonCard height={400} />
+            ) : !patterns ? (
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Could not load behavioral patterns.</p>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* AI insight card */}
+                    <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--glass-border))', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Brain size={18} color="white" />
+                        </div>
+                        <div>
+                            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
+                                AI Insight
+                            </p>
+                            <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
+                                {patterns.ai_insight}
+                            </p>
+                        </div>
                     </div>
-                )
-            )}
 
-            {/* ── TAB 1: PEER BENCHMARKS ── */}
-            {tab === 'benchmarks' && (
-                benchmarksLoading ? (
-                    <SkeletonCard height={400} />
-                ) : !benchmarks ? (
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Could not load peer benchmarks.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'var(--font-body)' }}>
-                                Based on your income bracket: {INCOME_BRACKET_LABELS[benchmarks.income_bracket] || benchmarks.income_bracket}
-                            </span>
-                        </div>
-
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{benchmarks.summary}</p>
-                        </div>
-
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                            {benchmarks.benchmark_groups.map((g: any, idx: number) => {
-                                const Icon = GROUP_ICONS[g.group] || PiggyBank;
-                                const badge = statusBadge(g.status, false);
-                                return (
-                                    <div key={g.group} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', borderBottom: idx < benchmarks.benchmark_groups.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                        <div className="glass-field" style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            <Icon size={16} color="var(--text-secondary)" />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{g.label}</span>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{g.user_pct}%</span>
-                                            </div>
-                                            <BenchmarkBar userPct={g.user_pct} min={g.benchmark_min} max={g.benchmark_max} />
-                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                Benchmark: {g.benchmark_min}% – {g.benchmark_max}%
-                                            </span>
-                                        </div>
-                                        <span style={{ fontSize: '11px', fontWeight: 700, color: badge.color, background: badge.bg, padding: '3px 10px', borderRadius: '20px', flexShrink: 0, fontFamily: 'var(--font-body)' }}>
-                                            {badge.label}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Savings rate comparison */}
-                        {benchmarks.savings_rate_comparison && (() => {
-                            const s = benchmarks.savings_rate_comparison;
-                            const badge = statusBadge(s.status, true);
-                            return (
-                                <div>
-                                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Savings Rate</h2>
-                                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 18px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                            <div className="glass-field" style={{ width: 36, height: 36, borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                <PiggyBank size={16} color="var(--text-secondary)" />
-                                            </div>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Your savings rate</span>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{s.user_pct}%</span>
-                                                </div>
-                                                <BenchmarkBar userPct={s.user_pct} min={s.benchmark_min} max={s.benchmark_max} />
-                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                    Benchmark: {s.benchmark_min}% – {s.benchmark_max}%
-                                                </span>
-                                            </div>
-                                            <span style={{ fontSize: '11px', fontWeight: 700, color: badge.color, background: badge.bg, padding: '3px 10px', borderRadius: '20px', flexShrink: 0, fontFamily: 'var(--font-body)' }}>
-                                                {badge.label}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
+                    <div className="glass-field" style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                            {patterns.detected_count} of 5 patterns detected in your spending
+                        </span>
                     </div>
-                )
-            )}
 
-            {/* ── TAB 2: BEHAVIORAL PATTERNS ── */}
-            {tab === 'behavioral' && (
-                patternsLoading ? (
-                    <SkeletonCard height={400} />
-                ) : !patterns ? (
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Could not load behavioral patterns.</p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {/* AI insight card */}
-                        <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--glass-border))', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                            <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Brain size={18} color="white" />
-                            </div>
-                            <div>
-                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
-                                    AI Insight
-                                </p>
-                                <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
-                                    {patterns.ai_insight}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="glass-field" style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                {patterns.detected_count} of 5 patterns detected in your spending
-                            </span>
-                        </div>
-
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                            {patterns.patterns.map((p: any, idx: number) => (
-                                <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: p.detected ? 'color-mix(in srgb, var(--color-warn) 12%, transparent)' : 'color-mix(in srgb, var(--color-inc) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        {p.detected
-                                            ? <AlertTriangle size={15} color="var(--color-warn)" />
-                                            : <CheckCircle2 size={15} color="var(--color-inc)" />}
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                            {PATTERN_LABELS[p.pattern_name] || p.pattern_name}
-                                        </p>
-                                        {p.detected ? (
-                                            <>
-                                                {patternContext(p) && (
-                                                    <p style={{ fontSize: '12px', color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                                        {patternContext(p)}
-                                                    </p>
-                                                )}
-                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
-                                                    {p.description}
+                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                        {patterns.patterns.map((p: any, idx: number) => (
+                            <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: p.detected ? 'color-mix(in srgb, var(--color-warn) 12%, transparent)' : 'color-mix(in srgb, var(--color-inc) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    {p.detected
+                                        ? <AlertTriangle size={15} color="var(--color-warn)" />
+                                        : <CheckCircle2 size={15} color="var(--color-inc)" />}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                        {PATTERN_LABELS[p.pattern_name] || p.pattern_name}
+                                    </p>
+                                    {p.detected ? (
+                                        <>
+                                            {patternContext(p) && (
+                                                <p style={{ fontSize: '12px', color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                                                    {patternContext(p)}
                                                 </p>
-                                            </>
-                                        ) : (
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                                No signs of this pattern in your recent data.
+                                            )}
+                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
+                                                {p.description}
                                             </p>
-                                        )}
-                                    </div>
+                                        </>
+                                    ) : (
+                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                                            No signs of this pattern in your recent data.
+                                        </p>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-
-                        <Button onClick={refreshPatterns} isLoading={refreshing} variant="secondary" style={{ alignSelf: 'flex-start' }}>
-                            <RefreshCw size={14} /> Refresh
-                        </Button>
+                            </div>
+                        ))}
                     </div>
-                )
+
+                    <Button onClick={refreshPatterns} isLoading={refreshing} variant="secondary" style={{ alignSelf: 'flex-start' }}>
+                        <RefreshCw size={14} /> Refresh
+                    </Button>
+                </div>
             )}
         </div>
     );
@@ -1495,7 +1258,6 @@ function YearReviewTab() {
     const [selectedYear, setSelectedYear]   = useState(cy - 1);
     const [allTxs, setAllTxs]               = useState<any[]>([]);
     const [loading, setLoading]             = useState(true);
-    const [personality, setPersonality]     = useState('');
     const [screenshotMsg, setScreenshotMsg] = useState(false);
 
     useEffect(() => {
@@ -1505,14 +1267,6 @@ function YearReviewTab() {
             .then(res => setAllTxs(res.data.transactions ?? []))
             .catch(() => toast.error('Failed to load transaction data'))
             .finally(() => setLoading(false));
-        // Try to read cached personality label
-        try {
-            const raw = localStorage.getItem('fintrack-personality') ?? localStorage.getItem('fintrack-personality-label');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                setPersonality(typeof parsed === 'string' ? parsed : (parsed?.label ?? parsed?.personality_type ?? ''));
-            }
-        } catch {}
     }, [user]);
 
     const yearTxs = useMemo(() =>
@@ -1681,15 +1435,6 @@ function YearReviewTab() {
                                     </div>
                                 )}
 
-                                {personality && (
-                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--accent)' }}>
-                                        <span style={{ fontSize: 24, flexShrink: 0 }}>🧠</span>
-                                        <div>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Your Money Personality</p>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-primary)', margin: 0 }}>{personality}</p>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -1740,260 +1485,6 @@ function YearReviewTab() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PERSONALITY TAB (formerly /personality)
-// ═══════════════════════════════════════════════════════════════════════════
-const DIMENSION_META: Record<string, { color: string; icon: string }> = {
-    consistency:   { color: 'var(--color-inc)',  icon: '📊' },
-    discipline:    { color: 'var(--accent)',      icon: '🎯' },
-    goal_focus:    { color: 'var(--color-warn)',  icon: '🏆' },
-    risk_appetite: { color: 'var(--color-exp)',   icon: '⚡' },
-    savings_habit: { color: 'var(--accent)',    icon: '💰' },
-};
-
-const DIMENSION_LABELS: Record<string, string> = {
-    consistency:   'Consistency',
-    discipline:    'Discipline',
-    goal_focus:    'Goal Focus',
-    risk_appetite: 'Risk Appetite',
-    savings_habit: 'Savings Habit',
-};
-
-function scoreColor(score: number) {
-    if (score >= 70) return 'var(--color-inc)';
-    if (score >= 40) return 'var(--color-warn)';
-    return 'var(--color-exp)';
-}
-function scoreLabel(score: number) {
-    if (score >= 80) return 'Excellent';
-    if (score >= 60) return 'Good';
-    if (score >= 40) return 'Average';
-    return 'Needs Work';
-}
-
-const personalityCardSt: React.CSSProperties = {
-    borderRadius: 'var(--radius-lg)',
-    padding: '20px 24px',
-};
-
-function PersonalityTab() {
-    const [data, setData]         = useState<any>(null);
-    const [loading, setLoading]   = useState(true);
-    const [generated, setGenerated] = useState(false);
-    const [error, setError]       = useState('');
-
-    const generate = async () => {
-        setLoading(true); setError('');
-        try {
-            const res = await aiAPI.personality();
-            setData(res.data); setGenerated(true);
-        } catch (err: any) {
-            setError(err?.response?.data?.message || err?.response?.data?.error || 'Failed to generate profile. Please try again.');
-            setData(null);
-        } finally { setLoading(false); }
-    };
-
-    // Auto-fetch on open instead of waiting for a manual click -- the backend
-    // already caches this per-user for 24h (backend/src/utils/aiCache.js), so
-    // this transparently returns the cached profile on repeat visits instead
-    // of showing an empty state that makes it look like nothing was saved.
-    useEffect(() => { generate(); }, []);
-
-    const dims = data?.dimensions ? Object.entries(data.dimensions) : [];
-    const strengths = dims.filter(([, d]: [string, any]) => d.score >= 65);
-    const watchOuts = dims.filter(([, d]: [string, any]) => d.score < 50);
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* Header */}
-            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Personality</h1>
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>AI spending profile</p>
-                    </div>
-                    {generated && !loading && (
-                        <Button variant="secondary" size="md" onClick={generate}>Refresh</Button>
-                    )}
-                </div>
-            </div>
-
-            {/* Empty state */}
-            {!generated && !loading && !error && (
-                <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                    <p style={{ fontSize: '48px', marginBottom: '12px' }}>🧠</p>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px' }}>No analysis yet</p>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Add some transactions first, then generate your personality report</p>
-                    <Button variant="primary" size="md" onClick={generate}><Brain size={15} /> Analyse My Personality</Button>
-                </div>
-            )}
-
-            {/* Loading */}
-            {loading && (
-                <div className="glass-surface" style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '16px' }}>
-                    <Loader2 size={28} color="var(--accent)" style={{ animation: 'spin 1s linear infinite' }} />
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>Building your financial profile…</p>
-                </div>
-            )}
-
-            {/* Error */}
-            {error && !loading && (
-                <div className="glass-surface" style={{ ...personalityCardSt, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', padding: '40px' }}>
-                    <AlertTriangle size={28} color="var(--color-exp)" />
-                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>{error}</p>
-                    <button type="button" onClick={generate} style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '8px 20px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Try again</button>
-                </div>
-            )}
-
-            {/* Result */}
-            {generated && data && !loading && (
-                <>
-                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                        {/* LEFT: Hero card */}
-                        <div style={{ flex: '1.2 1 300px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent-3) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent-3) 26%, var(--glass-border))', borderRadius: 'var(--radius-lg)', padding: '28px 24px' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                    <Badge color="var(--accent-3)" bg="color-mix(in srgb, var(--accent-3) 15%, transparent)">✦ FINANCIAL PROFILE</Badge>
-                                    {data.from_cache && <Badge>Cached</Badge>}
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '16px' }}>
-                                    <div style={{ fontSize: '40px', lineHeight: 1 }}>{data.personality_emoji || '🧠'}</div>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, lineHeight: 1.1 }}>
-                                        {data.personality_type}
-                                    </p>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '14px' }}>
-                                    <div style={{ background: `color-mix(in srgb, ${scoreColor(data.overall_score)} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${scoreColor(data.overall_score)} 30%, transparent)`, borderRadius: '20px', padding: '5px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: scoreColor(data.overall_score), fontVariantNumeric: 'tabular-nums' }}>{data.overall_score}</span>
-                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>/100</span>
-                                    </div>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{scoreLabel(data.overall_score)}</span>
-                                </div>
-                                <div style={{ height: '1px', background: 'var(--glass-border)', margin: '20px 0' }} />
-                                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0, fontFamily: 'var(--font-body)' }}>{data.summary}</p>
-                            </div>
-
-                            {/* Dimension scores */}
-                            <div className="glass-surface" style={personalityCardSt}>
-                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 14px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Dimension scores</p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {dims.map(([key, dim]: [string, any]) => {
-                                        const meta = DIMENSION_META[key] || { color: 'var(--text-muted)', icon: '•' };
-                                        return (
-                                            <div key={key}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                        <span style={{ fontSize: '13px' }}>{meta.icon}</span>
-                                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{DIMENSION_LABELS[key] || key}</span>
-                                                        <Badge color={meta.color} bg={`color-mix(in srgb, ${meta.color} 12%, transparent)`}>{dim.label}</Badge>
-                                                    </div>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: scoreColor(dim.score), fontVariantNumeric: 'tabular-nums' }}>{dim.score}</span>
-                                                </div>
-                                                <div style={{ height: '6px', background: 'var(--border-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                    <div style={{ height: '100%', width: `${dim.score}%`, background: meta.color, borderRadius: '3px', transition: 'width 0.8s ease' }} />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <button type="button" onClick={() => { setGenerated(false); setData(null); }}
-                                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', textAlign: 'left', padding: '0', fontFamily: 'var(--font-body)' }}>
-                                ↻ Regenerate profile
-                            </button>
-                        </div>
-
-                        {/* RIGHT */}
-                        <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div className="glass-surface" style={personalityCardSt}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                    <Sparkles size={16} color="var(--accent)" />
-                                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Traits</span>
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {dims.map(([key, dim]: [string, any]) => (
-                                        <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--accent)', flexShrink: 0, marginTop: '5px' }} />
-                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>{dim.description}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {strengths.length > 0 && (
-                                <div className="glass-surface" style={personalityCardSt}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                        <TrendingUp size={16} color="var(--color-inc)" />
-                                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Strengths</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {strengths.map(([key, dim]: [string, any]) => (
-                                            <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--color-inc)', flexShrink: 0, marginTop: '5px' }} />
-                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
-                                                    Strong {DIMENSION_LABELS[key] || key} ({dim.score}/100) — {dim.label}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {watchOuts.length > 0 && (
-                                <div className="glass-surface" style={personalityCardSt}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                                        <AlertCircle size={16} color="var(--color-warn)" />
-                                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Watch Outs</span>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                        {watchOuts.map(([key, dim]: [string, any]) => (
-                                            <div key={key} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '3px', background: 'var(--color-warn)', flexShrink: 0, marginTop: '5px' }} />
-                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
-                                                    {DIMENSION_LABELS[key] || key} needs attention ({dim.score}/100) — {dim.label}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Tips */}
-                    <GCard style={{ background: 'color-mix(in srgb, var(--accent) 6%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 18%, var(--glass-border))' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                            <Lightbulb size={16} color="var(--accent)" />
-                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>What to focus on</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {dims.map(([key, dim]: [string, any], i: number) => (
-                                <div key={key} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                    <div style={{ width: '24px', height: '24px', flexShrink: 0, borderRadius: '12px', background: 'var(--accent-subtle)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: 'var(--font-mono)' }}>
-                                        {i + 1}
-                                    </div>
-                                    <div>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-display)' }}>{DIMENSION_LABELS[key] || key}</p>
-                                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                                            {dim.score >= 70 ? `You're doing well here. Maintain your ${dim.label.toLowerCase()} habits.` : dim.score >= 50 ? `Good foundation — push to improve ${DIMENSION_LABELS[key]?.toLowerCase()} toward 70+.` : `Focus area: ${dim.description}`}
-                                        </p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </GCard>
-
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', fontFamily: 'var(--font-body)' }}>
-                        AI-generated analysis based on your last 90 days of transactions. Results update every 24 hours.
-                    </p>
-                </>
-            )}
-        </div>
-    );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // OUTER SHELL
 // ═══════════════════════════════════════════════════════════════════════════
 function AnalyticsPageInner() {
@@ -2038,7 +1529,6 @@ function AnalyticsPageInner() {
                 {tab === 'reports' && <ReportsTab />}
                 {tab === 'year-review' && <YearReviewTab />}
                 {tab === 'calendar' && <CalendarTab />}
-                {tab === 'personality' && <PersonalityTab />}
             </div>
     );
 }

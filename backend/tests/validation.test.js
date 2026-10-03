@@ -84,8 +84,6 @@ describe('allow-list validators', () => {
         ['isValidInvestmentType',     v.INVESTMENT_TYPES,      'nft'],
         ['isValidLoanType',           v.LOAN_TYPES,            'payday_loan'],
         ['isValidRiskProfile',        v.RISK_PROFILES,         'aggressive'],
-        ['isValidMilestoneStatus',    v.MILESTONE_STATUSES,    'pending'],
-        ['isValidDocumentType',       v.DOCUMENT_TYPES,        'passport'],
         ['isValidPersonalLoanDirection',    v.PERSONAL_LOAN_DIRECTIONS,     'gifted'],
         ['isValidPersonalLoanInterestType', v.PERSONAL_LOAN_INTEREST_TYPES, 'compound'],
     ];
@@ -111,20 +109,5 @@ describe('allow-list validators', () => {
         // branch and isNonSavingsExpense.
         expect(v.TRANSACTION_TYPES).toEqual(['income', 'expense']);
         expect(v.isValidTransactionType('transfer')).toBe(false);
-    });
-});
-
-describe('isValidFinancialYear', () => {
-    it('accepts the YYYY-YY form the Documents page emits', () => {
-        expect(v.isValidFinancialYear('2025-26')).toBe(true);
-        expect(v.isValidFinancialYear('1999-00')).toBe(true);
-    });
-
-    it('rejects full years, single years and junk', () => {
-        expect(v.isValidFinancialYear('2025-2026')).toBe(false);
-        expect(v.isValidFinancialYear('2025')).toBe(false);
-        expect(v.isValidFinancialYear('25-26')).toBe(false);
-        expect(v.isValidFinancialYear(null)).toBe(false);
-        expect(v.isValidFinancialYear(2025)).toBe(false);
     });
 });

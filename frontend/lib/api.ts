@@ -270,7 +270,6 @@ export const aiAPI = {
     },
     parseSplit: (text: string) => api.post('/api/ai/parse-split', { text }),
     salaryIntelligence: () => api.get('/api/ai/salary-intelligence'),
-    personality: () => api.post('/api/ai/personality'),
     salaryAllocation: (force?: boolean) => api.post(`/api/ai/salary-allocation${force ? '?force=true' : ''}`),
     lifeEvent: (data: { event_type: string; target_amount: number; target_date: string }) =>
         api.post('/api/ai/life-event', data),
@@ -449,39 +448,6 @@ export const planningAPI = {
     getCashflow: () => api.get('/api/planning/cashflow'),
 };
 
-export const milestoneAPI = {
-    getAll: () => api.get('/api/milestones'),
-    create: (data: {
-        name: string; description?: string; target_date: string; target_amount?: number;
-        current_amount?: number; parent_id?: string; priority?: number; notes?: string;
-    }) => api.post('/api/milestones', data),
-    update: (id: string, data: {
-        name?: string; description?: string; target_date?: string; target_amount?: number;
-        current_amount?: number; parent_id?: string | null; priority?: number; notes?: string; status?: string;
-    }) => api.patch(`/api/milestones/${id}`, data),
-    updateProgress: (id: string, data: { current_amount?: number; status?: string }) =>
-        api.patch(`/api/milestones/${id}/progress`, data),
-    delete: (id: string) => api.delete(`/api/milestones/${id}`),
-};
-
-export const documentAPI = {
-    upload: (file: File, metadata: { name: string; type: string; financial_year?: string; description?: string }) => {
-        const form = new FormData();
-        form.append('file', file);
-        form.append('name', metadata.name);
-        form.append('type', metadata.type);
-        if (metadata.financial_year) form.append('financial_year', metadata.financial_year);
-        if (metadata.description) form.append('description', metadata.description);
-        return api.post('/api/documents', form, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-    },
-    getAll: (filters?: { type?: string; financial_year?: string }) =>
-        api.get('/api/documents', { params: filters }),
-    getDownloadUrl: (id: string) => api.get(`/api/documents/${id}/download-url`),
-    delete: (id: string) => api.delete(`/api/documents/${id}`),
-};
-
 export const agentAPI = {
     sendMessage: (message: string, conversation_id?: string) =>
         api.post('/api/ai/agent/message', { message, conversation_id }),
@@ -509,7 +475,6 @@ export const dailyBriefingAPI = {
 };
 
 export const insightsAPI = {
-    getPeerBenchmarks: () => api.get('/api/insights/peer-benchmarks'),
     getBehavioralPatterns: (force?: boolean) => api.get(`/api/insights/behavioral-patterns${force ? '?force=true' : ''}`),
 };
 

@@ -28,7 +28,7 @@ describe('Insights page tabs', () => {
     it('shows every tab as a chip, in order', async () => {
         search = 'tab=calendar';
         render(<AnalyticsPage />);
-        const labels = ['Overview', 'Health', 'Insights', 'Reports', 'Year Review', 'Calendar', 'Personality'];
+        const labels = ['Overview', 'Health', 'Insights', 'Reports', 'Year Review', 'Calendar'];
         const chips = screen.getAllByRole('button').filter(b => labels.includes(b.textContent ?? ''));
         expect(chips.map(b => b.textContent)).toEqual(labels);
         expect(await screen.findByText('calendar-tab-body')).toBeInTheDocument();

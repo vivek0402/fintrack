@@ -166,7 +166,7 @@ export default function ProfilePage() {
         setClearingCache(true);
         try {
             const results = await Promise.allSettled(
-                ['forecast', 'personality', 'salary_intelligence', 'behavioral_patterns'].map(k => aiAPI.clearCache(k))
+                ['forecast', 'salary_intelligence', 'behavioral_patterns'].map(k => aiAPI.clearCache(k))
             );
             const failed = results.filter(r => r.status === 'rejected').length;
             if (failed > 0) toast.error(`AI cache partially cleared (${failed} failed)`);

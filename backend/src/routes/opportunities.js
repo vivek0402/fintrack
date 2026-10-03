@@ -278,22 +278,6 @@ async function detectForecastWarning(userId) {
     };
 }
 
-async function detectPersonalityInsight(userId) {
-    const cached = await getCached(pool, userId, 'personality', 30 * 24 * 60 * 60 * 1000);
-    if (!cached || !cached.personality_type) return null;
-
-    return {
-        type: 'personality_insight',
-        title: `Your financial personality: ${cached.personality_type}${cached.personality_emoji ? ' ' + cached.personality_emoji : ''}`,
-        description: cached.summary || 'View your full financial personality profile for tailored tips.',
-        amount_saved: null,
-        priority: 3,
-        action_label: 'View personality profile',
-        action_route: '/personality',
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-}
-
 async function detectBehavioralPattern(userId) {
     const cached = await getCached(pool, userId, 'behavioral_patterns', 24 * 60 * 60 * 1000);
     if (!cached || !cached.detected_count) return null;
@@ -343,7 +327,6 @@ async function detectOpportunities(userId) {
         detectAllocationGap(userId, bankBalance),
         detectEmergencyFundLow(userId, plan, bankBalance, avgExpenses),
         detectForecastWarning(userId),
-        detectPersonalityInsight(userId),
         detectBehavioralPattern(userId),
         detectSalaryIntelligenceInsight(userId),
     ]);

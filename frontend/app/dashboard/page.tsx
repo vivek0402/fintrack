@@ -908,7 +908,7 @@ export default function DashboardPage() {
                         </button>
                         {opportunitiesOpen && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px 16px' }}>
-                                {opportunities.slice(0, 3).map((opp: any) => {
+                                {opportunities.map((opp: any) => {
                                     const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
                                     const isDismissing = dismissingIds.has(opp.id);
                                     return (
@@ -941,11 +941,6 @@ export default function DashboardPage() {
                                         </div>
                                     );
                                 })}
-                                {opportunities.length > 3 && (
-                                    <Link href="/analytics?tab=insights&view=opportunities" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-body)', paddingTop: '4px' }}>
-                                        See all <ChevronRight size={12} />
-                                    </Link>
-                                )}
                             </div>
                         )}
                     </div>

@@ -60,7 +60,6 @@ const ROUTES = {
     'cams-import':        { model: MODELS.GPT_OSS_120B, maxTokens: 6000, temp: 0 },
     'forecast-insight':   { model: MODELS.GPT_OSS_120B, nimModel: MODELS.LLAMA_3B, maxTokens: 256,  temp: 0.5 },
     'salary-allocation':  { model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },
-    'personality':        { model: MODELS.GPT_OSS_120B, nimModel: MODELS.NEMOTRON_49B,      maxTokens: 2048, temp: 0.7 },
     'report':             { model: MODELS.GPT_OSS_120B,          maxTokens: 400,  temp: 0.6 },
     'forecast':           { model: MODELS.QWEN27B,  maxTokens: 1600, temp: 0.5 },
     'salary-intelligence':{ model: MODELS.GPT_OSS_120B, nimModel: MODELS.DEEPSEEK_V4_FLASH, maxTokens: 1024, temp: 0.4 },

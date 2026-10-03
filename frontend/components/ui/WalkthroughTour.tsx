@@ -40,7 +40,7 @@ const STEPS = [
         iconGradient: 'linear-gradient(135deg, #be185d, #ec4899)',
         Icon: BrainCircuit,
         title: 'Your Personal Finance AI',
-        description: 'Ask your AI advisor anything about your finances. Parse bank SMS messages automatically, generate detailed monthly reports, scan receipts, predict if you can afford something, and get your Financial Personality Profile.',
+        description: 'Ask your AI advisor anything about your finances. Parse bank SMS messages automatically, generate detailed monthly reports, scan receipts, and predict if you can afford something.',
     },
     {
         iconGradient: 'linear-gradient(135deg, #0f766e, #14b8a6)',

@@ -478,124 +478,6 @@ Base percentages and amounts on their actual spending. Data: ${context}`,
     }
 });
 
-// ─── FEATURE: Financial Personality Profile ─────────────────────────
-router.post('/personality', authMiddleware, async (req, res) => {
-    try {
-        console.log('Personality route hit for user:', req.user.id);
-        const userId = req.user.id;
-
-        if (!req.query.force) {
-            const cached = await getCached(pool, userId, 'personality', 24 * 60 * 60 * 1000);
-            if (cached && cached.dimensions && typeof cached.overall_score === 'number') {
-                return res.json({ ...cached, from_cache: true });
-            }
-        }
-
-        const result = await pool.query(`
-            SELECT t.amount, t.type, t.date, t.goal_id, t.tags,
-                COALESCE(c.name, 'Uncategorized') as category, c.is_investment_category
-            FROM transactions t
-            LEFT JOIN categories c ON c.id = t.category_id
-            WHERE t.user_id = $1 AND t.date >= NOW() - INTERVAL '90 days'
-            ORDER BY t.date DESC LIMIT 200
-        `, [userId]);
-
-        console.log('Transactions fetched:', result.rows.length);
-
-        if (result.rows.length < 3) {
-            return res.status(400).json({
-                error: 'Not enough data',
-                message: 'Add at least a few transactions before generating your personality profile.',
-            });
-        }
-
-        const txns = result.rows;
-        const expensesByCategory = {};
-        let totalExpenses = 0;
-        let totalIncome = 0;
-
-        txns.forEach(t => {
-            if (isNonSavingsExpense(t)) {
-                expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + Number(t.amount);
-                totalExpenses += Number(t.amount);
-            } else if (isRealIncome(t)) {
-                totalIncome += Number(t.amount);
-            }
-        });
-
-        const topCategories = Object.entries(expensesByCategory)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 6)
-            .map(([cat, amt]) => ({
-                category: cat,
-                amount: Math.round(amt),
-                percentage: totalExpenses > 0 ? ((amt / totalExpenses) * 100).toFixed(1) : 0,
-            }));
-
-        const savingsRate = totalIncome > 0
-            ? (((totalIncome - totalExpenses) / totalIncome) * 100).toFixed(1) : 0;
-
-        const prompt = `Analyse this person's spending and create a financial personality profile.
-
-SPENDING DATA (last 90 days):
-Total Income:      ₹${Math.round(totalIncome).toLocaleString('en-IN')}
-Total Expenses:    ₹${Math.round(totalExpenses).toLocaleString('en-IN')}
-Savings Rate:      ${savingsRate}%
-Transaction Count: ${txns.length}
-
-TOP SPENDING CATEGORIES:
-${topCategories.map(c => `${c.category}: ₹${c.amount.toLocaleString('en-IN')} (${c.percentage}%)`).join('\n')}
-
-Return ONLY valid JSON with NO markdown, NO backticks:
-{
-  "personality_type": "<2-3 word type e.g. The Mindful Spender>",
-  "personality_emoji": "<single emoji that represents this type>",
-  "overall_score": <number 0-100 representing overall financial health>,
-  "summary": "<2 sentences summarising their financial personality using real numbers>",
-  "dimensions": {
-    "consistency": { "score": <0-100>, "label": "<2-word label e.g. Steady Eddie>", "description": "<1 sentence based on their data>" },
-    "discipline": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
-    "goal_focus": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
-    "risk_appetite": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" },
-    "savings_habit": { "score": <0-100>, "label": "<2-word label>", "description": "<1 sentence>" }
-  }
-}`;
-
-        console.log('Sending to Groq...');
-
-        const raw = await aiComplete('personality', [{ role: 'user', content: prompt }]);
-
-        console.log('AI response received. Preview:', raw.slice(0, 200));
-
-        const clean = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-        let personality;
-        try {
-            personality = JSON.parse(clean);
-        } catch (parseErr) {
-            console.error('JSON parse error:', parseErr.message);
-            console.error('Raw was:', raw);
-            return res.status(500).json({
-                error: 'Failed to parse personality response',
-                raw: clean.slice(0, 500),
-            });
-        }
-
-        console.log('Personality generated successfully');
-        await setCached(pool, userId, 'personality', personality);
-        res.json({ ...personality, from_cache: false });
-    } catch (err) {
-        console.error('Personality generation error:', err?.message || err);
-        const is429 = err?.status === 429 || err?.response?.status === 429;
-        res.status(500).json({
-            error: is429
-                ? 'AI is busy. Please wait a few minutes and try again.'
-                : 'Failed to generate personality profile',
-            message: err?.message,
-        });
-    }
-});
-
 // ─── FEATURE: Life Event Planning ────────────────────────────────────
 router.post('/life-event', authMiddleware, async (req, res) => {
     try {
@@ -2074,7 +1956,7 @@ router.get('/briefing/daily/latest', authMiddleware, async (req, res) => {
 });
 
 // ─── Cache-bust endpoint ─────────────────────────────────────────────
-const ALLOWED_CACHE_KEYS = new Set(['forecast', 'personality', 'salary_intelligence', 'behavioral_patterns', 'health_report']);
+const ALLOWED_CACHE_KEYS = new Set(['forecast', 'salary_intelligence', 'behavioral_patterns', 'health_report']);
 
 router.delete('/cache/:key', authMiddleware, async (req, res) => {
     try {

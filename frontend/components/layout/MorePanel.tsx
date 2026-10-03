@@ -4,8 +4,8 @@ import { forwardRef, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
     Target, Trophy, X, Settings, LineChart, Briefcase, Bot, Gauge, Waves,
-    PiggyBank, Compass, CreditCard, FolderOpen, Users, HelpCircle,
-    FileText, Award, Brain, Handshake, LayoutGrid, List,
+    PiggyBank, Compass, CreditCard, Users, HelpCircle,
+    FileText, Award, Handshake, LayoutGrid, List,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { MoreMenuStyle } from '@/store/themeStore';
@@ -26,7 +26,6 @@ export const moreGroups: { label: string; items: Item[] }[] = [
             { href: '/cash-flow',   icon: Waves,     label: 'Cash Flow',   sub: '12-month projection' },
             { href: '/reports',     icon: FileText,  label: 'Reports',     sub: 'Statements by period' },
             { href: '/year-review', icon: Award,     label: 'Year Review', sub: 'Your year in numbers' },
-            { href: '/personality', icon: Brain,     label: 'Personality', sub: 'Money habits' },
         ],
     },
     {
@@ -49,7 +48,6 @@ export const moreGroups: { label: string; items: Item[] }[] = [
         items: [
             { href: '/ai-advisor',     icon: Bot,        label: 'AI Chat',        sub: 'Ask Fin anything' },
             { href: '/accounts',       icon: CreditCard, label: 'Accounts',       sub: 'Banks, cards, wallets' },
-            { href: '/documents',      icon: FolderOpen, label: 'Documents',      sub: 'Statements & receipts' },
             { href: '/groups',         icon: Users,      label: 'Groups',         sub: 'Shared expenses' },
             { href: '/personal-loans', icon: Handshake,  label: 'Personal Loans', sub: 'Lent & borrowed' },
             { href: '/profile',        icon: Settings,   label: 'Profile',        sub: 'Account & app settings' },

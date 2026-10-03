@@ -7,7 +7,7 @@ import {
     LayoutDashboard, ArrowLeftRight, PieChart, Target,
     LogOut, LineChart, Flag, Briefcase, Gauge, Bot, Settings,
     Waves, PiggyBank, Compass,
-    CreditCard, FolderOpen, Users, Handshake,
+    CreditCard, Users, Handshake,
     MoreHorizontal, ChevronUp,
     PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
@@ -55,7 +55,6 @@ const moreGroups = [
         label: 'Tools',
         items: [
             { href: '/ai-advisor', icon: Bot,        label: 'AI Chat' },
-            { href: '/documents',  icon: FolderOpen, label: 'Documents' },
             { href: '/groups',     icon: Users,      label: 'Groups' },
             { href: '/personal-loans', icon: Handshake, label: 'Personal Loans' },
         ],

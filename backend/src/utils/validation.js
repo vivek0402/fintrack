@@ -5,10 +5,6 @@ const LOAN_TYPES = ['home_loan', 'car_loan', 'personal_loan', 'education_loan', 
 const PERSONAL_LOAN_DIRECTIONS = ['lent', 'borrowed'];
 const PERSONAL_LOAN_INTEREST_TYPES = ['none', 'flat', 'percent_per_month'];
 const RISK_PROFILES = ['safety', 'balanced', 'growth'];
-const MILESTONE_STATUSES = ['not_started', 'in_progress', 'achieved', 'missed'];
-const DOCUMENT_TYPES = [
-    'salary_slip', 'bank_statement', 'insurance_policy', 'investment_proof', 'other',
-];
 
 const isPositiveNumber = (value) => {
     const n = parseFloat(value);
@@ -39,33 +35,19 @@ const isValidPersonalLoanInterestType = (value) => PERSONAL_LOAN_INTEREST_TYPES.
 
 const isValidRiskProfile = (value) => RISK_PROFILES.includes(value);
 
-const isValidMilestoneStatus = (value) => MILESTONE_STATUSES.includes(value);
-
-const isValidFinancialYear = (value) => {
-    if (typeof value !== 'string') return false;
-    return /^\d{4}-\d{2}$/.test(value);
-};
-
-const isValidDocumentType = (value) => DOCUMENT_TYPES.includes(value);
-
 module.exports = {
     TRANSACTION_TYPES,
     RECURRING_FREQUENCIES,
     INVESTMENT_TYPES,
     LOAN_TYPES,
-    MILESTONE_STATUSES,
-    DOCUMENT_TYPES,
     RISK_PROFILES,
     isValidRiskProfile,
-    isValidMilestoneStatus,
-    isValidDocumentType,
     isPositiveNumber,
     isNonNegativeNumber,
     isValidDateString,
     isValidTransactionType,
     isValidRecurringFrequency,
     isValidInvestmentType,
-    isValidFinancialYear,
     isValidLoanType,
     PERSONAL_LOAN_DIRECTIONS,
     PERSONAL_LOAN_INTEREST_TYPES,
