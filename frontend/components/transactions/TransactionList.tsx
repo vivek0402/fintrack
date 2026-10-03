@@ -12,13 +12,14 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { haptics } from '@/lib/haptics';
+import { toAmount, type Transaction } from '@/types/finance';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 interface Props {
-    transactions: any[];
+    transactions: Transaction[];
     currency?: string;
-    onEdit: (tx: any) => void;
+    onEdit: (tx: Transaction) => void;
     onRefresh: () => void;
     selectMode?: boolean;
     selectedIds?: Set<string>;
@@ -106,7 +107,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
         }, 4200);
     }, [queryClient]);
 
-    const handleEdit = useCallback((tx: any) => latest.current.onEdit(tx), []);
+    const handleEdit = useCallback((tx: Transaction) => latest.current.onEdit(tx), []);
     const handleToggle = useCallback((id: string) => latest.current.onToggleSelect?.(id), []);
     const handleCancelConfirm = useCallback(() => setConfirmId(null), []);
 
@@ -115,7 +116,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     const groups = useMemo(() => {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-        const byDate = new Map<string, any[]>();
+        const byDate = new Map<string, Transaction[]>();
         transactions.forEach(tx => {
             const dateKey = (tx.date || '').split('T')[0];
             const bucket = byDate.get(dateKey);
@@ -146,7 +147,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
             {groups.map(({ date, label, txs }) => {
                 const visibleTxs = txs.filter(tx => !pendingDelete.has(tx.id));
                 if (visibleTxs.length === 0) return null;
-                const groupNet = visibleTxs.reduce((s, tx) => s + (tx.type === 'income' ? 1 : -1) * (parseFloat(tx.amount) || 0), 0);
+                const groupNet = visibleTxs.reduce((s, tx) => s + (tx.type === 'income' ? 1 : -1) * toAmount(tx.amount), 0);
                 return (
                 <div key={date}>
                     {/* Pins just below the status bar while its day scrolls past. Same
@@ -185,7 +186,7 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
 }
 
 interface RowProps {
-    tx: any;
+    tx: Transaction;
     isMobile: boolean;
     currency: string;
     selectMode: boolean;
@@ -194,7 +195,7 @@ interface RowProps {
     isDeleting: boolean;
     /** Entry-animation delay in ms, or null for no entry animation. */
     staggerDelay: number | null;
-    onEdit: (tx: any) => void;
+    onEdit: (tx: Transaction) => void;
     onToggleSelect: (id: string) => void;
     onDelete: (id: string) => void;
     onConfirm: (id: string) => void;
@@ -269,7 +270,7 @@ const TransactionRow = memo(function TransactionRow({
                             {tx.description}
                         </span>
                         <span style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                            {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
+                            {isIncome ? '+' : '−'}{fmt(toAmount(tx.amount))}
                         </span>
                     </div>
                     {/* Line 2: category + payment/tags, or an amber "Uncategorised" flag */}
@@ -370,7 +371,7 @@ const TransactionRow = memo(function TransactionRow({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                        {isIncome ? '+' : '−'}{formatCurrency(parseFloat(tx.amount), currency)}
+                        {isIncome ? '+' : '−'}{formatCurrency(toAmount(tx.amount), currency)}
                     </p>
                     {tx._pending ? (
                         <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>

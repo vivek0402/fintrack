@@ -262,7 +262,7 @@ function AnalyticsOverviewTab() {
 
     // KPI computations
     const totalExpenses     = categories.reduce((s, c) => s + parseFloat(c.total ?? 0), 0);
-    const savingsRate       = summary?.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
+    const savingsRate       = summary && summary.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
     const lastMonthKey      = (() => { let m = currentMonth - 1, y = currentYear; if (m === 0) { m = 12; y--; } return `${y}-${m}`; })();
     const lastMonthExp      = trendsMap[lastMonthKey]?.expenses ?? 0;
     const lastMonthInc      = trendsMap[lastMonthKey]?.income ?? 0;

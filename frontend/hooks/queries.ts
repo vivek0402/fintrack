@@ -7,6 +7,7 @@ import {
     transactionsAPI, budgetsAPI, goalsAPI, accountsAPI, creditCardsAPI, analyticsAPI, recurringAPI,
 } from '@/lib/api';
 import { cacheTransactions, getCachedTransactions } from '@/lib/offlineCache';
+import type { Transaction, Budget, Goal, BankAccount, CreditCard, MonthSummary, TrendRow } from '@/types/finance';
 
 // Server data shared across pages through the TanStack Query cache. Every key
 // starts with the resource name and then the user id, so invalidating a
@@ -68,24 +69,24 @@ export function useTransactions(params: TransactionParams) {
     });
 }
 
-async function fetchTransactions(params: TransactionParams): Promise<any[]> {
+async function fetchTransactions(params: TransactionParams): Promise<Transaction[]> {
     try {
         const res = await transactionsAPI.getAll(params);
-        const txs: any[] = res.data?.transactions ?? [];
+        const txs: Transaction[] = res.data?.transactions ?? [];
         cacheTransactions(txs).catch(() => {});
         return txs;
     } catch (err) {
         // Offline / backend down: fall back to the IndexedDB copy. With
         // nothing there either, surface the error so the page can tell
         // "failed to load" apart from "no transactions this month".
-        const cached = await getCachedTransactions();
+        const cached = await getCachedTransactions<Transaction>();
         if (cached.length > 0) return cached;
         throw err;
     }
 }
 
 export type DashboardData = {
-    summary: any; trends: any[]; transactions: any[]; budgets: any[]; goals: any[];
+    summary: MonthSummary; trends: TrendRow[]; transactions: Transaction[]; budgets: Budget[]; goals: Goal[];
 };
 
 export function useDashboardData(month: number, year: number, options: { enabled?: boolean } = {}) {
@@ -125,10 +126,11 @@ export async function fetchAnalyticsOverview(month: number, year: number) {
         analyticsAPI.paymentMethods({ month, year }),
     ]);
     return {
-        summary:         summaryRes.data.summary,
+        summary:         summaryRes.data.summary as MonthSummary,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- category breakdown rows are untyped for now
         categories:      (summaryRes.data.category_breakdown ?? []) as any[],
-        trends:          (trendsRes.data.trends ?? []) as any[],
-        allTransactions: (allTxRes.data.transactions ?? []) as any[],
+        trends:          (trendsRes.data.trends ?? []) as TrendRow[],
+        allTransactions: (allTxRes.data.transactions ?? []) as Transaction[],
         yearlyData:      yearlyRes.data,
         paymentMethods:  (pmRes.data.breakdown ?? []) as any[],
         paymentTotal:    (pmRes.data.total ?? 0) as number,
@@ -170,7 +172,7 @@ export function useBudgets(month: number, year: number, options: { enabled?: boo
     return useQuery({
         queryKey: queryKeys.budgets(userId, month, year),
         enabled: !!userId && (options.enabled ?? true),
-        queryFn: async (): Promise<any[]> => (await budgetsAPI.getAll({ month, year })).data.budgets ?? [],
+        queryFn: async (): Promise<Budget[]> => (await budgetsAPI.getAll({ month, year })).data.budgets ?? [],
     });
 }
 
@@ -179,7 +181,7 @@ export function useGoals(options: { enabled?: boolean } = {}) {
     return useQuery({
         queryKey: queryKeys.goals(userId),
         enabled: !!userId && (options.enabled ?? true),
-        queryFn: async (): Promise<any[]> => (await goalsAPI.getAll()).data.goals ?? [],
+        queryFn: async (): Promise<Goal[]> => (await goalsAPI.getAll()).data.goals ?? [],
     });
 }
 
@@ -188,7 +190,7 @@ export function useAccounts(options: { enabled?: boolean } = {}) {
     return useQuery({
         queryKey: queryKeys.accounts(userId),
         enabled: !!userId && (options.enabled ?? true),
-        queryFn: async (): Promise<any[]> => (await accountsAPI.getAll()).data.accounts ?? [],
+        queryFn: async (): Promise<BankAccount[]> => (await accountsAPI.getAll()).data.accounts ?? [],
     });
 }
 
@@ -197,7 +199,7 @@ export function useCreditCards(options: { enabled?: boolean } = {}) {
     return useQuery({
         queryKey: queryKeys.creditCards(userId),
         enabled: !!userId && (options.enabled ?? true),
-        queryFn: async (): Promise<any[]> => (await creditCardsAPI.getAll()).data.cards ?? [],
+        queryFn: async (): Promise<CreditCard[]> => (await creditCardsAPI.getAll()).data.cards ?? [],
     });
 }
 
@@ -210,7 +212,7 @@ export function usePaymentMethodUsage(options: { enabled?: boolean } = {}) {
         queryFn: async (): Promise<Record<string, number>> => {
             const res = await analyticsAPI.paymentMethods();
             const map: Record<string, number> = {};
-            (res.data.breakdown || []).forEach((b: any) => { map[b.method] = b.count; });
+            (res.data.breakdown || []).forEach((b: { method: string; count: number }) => { map[b.method] = b.count; });
             return map;
         },
     });
@@ -220,10 +222,10 @@ export function usePaymentMethodUsage(options: { enabled?: boolean } = {}) {
 
 export { invalidateAfterTransactionWrite } from '@/lib/queryClient';
 
-const txDay = (tx: any) => String(tx?.date ?? '').split('T')[0];
+const txDay = (tx: Pick<Transaction, 'date'>) => String(tx?.date ?? '').split('T')[0];
 
 /** Would `tx` appear in the list fetched with `params`? */
-export function transactionMatchesParams(tx: any, params: TransactionParams): boolean {
+export function transactionMatchesParams(tx: Pick<Transaction, 'date' | 'credit_card_id'>, params: TransactionParams): boolean {
     if (params.credit_card_id && tx.credit_card_id !== params.credit_card_id) return false;
     const day = txDay(tx);
     if (params.from || params.to) {
@@ -246,12 +248,12 @@ type CategoryLike = { id: string | number; name: string; icon?: string | null; c
  * returns -- no refetch, no skeleton. The server row has no category join, so
  * the display fields are filled from the categories list.
  */
-export function upsertTransactionInCache(qc: QueryClient, saved: any, categories: CategoryLike[] = []) {
+export function upsertTransactionInCache(qc: QueryClient, saved: Transaction, categories: CategoryLike[] = []) {
     const cat = categories.find(c => String(c.id) === String(saved.category_id));
     const row = cat
         ? { ...saved, category_name: cat.name, category_icon: cat.icon ?? null, category_color: cat.color ?? null }
         : saved;
-    for (const [key, list] of qc.getQueriesData<any[]>({ queryKey: ['transactions'] })) {
+    for (const [key, list] of qc.getQueriesData<Transaction[]>({ queryKey: ['transactions'] })) {
         if (!Array.isArray(list)) continue;
         const params = (key[2] ?? {}) as TransactionParams;
         const without = list.filter(t => t.id !== row.id);
@@ -266,7 +268,7 @@ export function upsertTransactionInCache(qc: QueryClient, saved: any, categories
 /** Drop transactions from every cached list (after a confirmed delete). */
 export function removeTransactionsFromCache(qc: QueryClient, ids: string[]) {
     const idSet = new Set(ids);
-    qc.setQueriesData<any[]>({ queryKey: ['transactions'] }, list =>
+    qc.setQueriesData<Transaction[]>({ queryKey: ['transactions'] }, list =>
         Array.isArray(list) ? list.filter(t => !idSet.has(t.id)) : list,
     );
 }

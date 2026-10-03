@@ -26,9 +26,10 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useHideOnScrollDown } from '@/hooks/useHideOnScrollDown';
 import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
 import { pruneSelectedIds, sortTransactions, periodDelta, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
+import { toAmount, type Transaction } from '@/types/finance';
 
 // Stable empty list, so a missing query result doesn't change identity per render.
-const NO_TRANSACTIONS: any[] = [];
+const NO_TRANSACTIONS: never[] = [];
 
 const getNowYear  = () => new Date().getFullYear();
 const getNowMonth = () => new Date().getMonth() + 1;
@@ -39,10 +40,10 @@ function TransactionsPageInner() {
     const { user, isLoading, loadFromStorage } = useAuthStore();
     const isMobile     = useIsMobile();
 
-    const [filtered, setFiltered]           = useState<any[]>([]);
+    const [filtered, setFiltered]           = useState<Transaction[]>([]);
     const [sortKey, setSortKey]             = useState<SortKey>(DEFAULT_SORT);
     const [modalOpen, setModalOpen]         = useState(false);
-    const [editingTx, setEditingTx]         = useState<any>(null);
+    const [editingTx, setEditingTx]         = useState<Transaction | null>(null);
     const [prefillData, setPrefillData]     = useState<any>(null);
     const [selectedMonth, setSelectedMonth] = useState<number | null>(getNowMonth);
     const [selectedYear, setSelectedYear]   = useState(getNowYear);
@@ -226,7 +227,7 @@ function TransactionsPageInner() {
     // Powers the filter bar's Account section and resolves filterCreditCardId
     // (set from a ?credit_card_id= deep link) to a human-readable chip label.
     const accounts: { id: number; name: string }[] = useAccounts().data ?? NO_TRANSACTIONS;
-    const creditCards: any[] = useCreditCards().data ?? NO_TRANSACTIONS;
+    const creditCards = useCreditCards().data ?? NO_TRANSACTIONS;
 
     const handleOfflineSave = (pendingTx: any) => {
         queryClient.setQueryData<any[]>(queryKeys.transactions(user?.id, txParams), prev => [pendingTx, ...(prev ?? [])]);
@@ -278,8 +279,8 @@ function TransactionsPageInner() {
     const sortedFiltered = useMemo(() => sortTransactions(filtered, sortKey), [filtered, sortKey]);
 
     const { totalIncome, totalExpense } = useMemo(() => ({
-        totalIncome:  filtered.filter(isRealIncome).reduce((s, tx) => s + parseFloat(tx.amount), 0),
-        totalExpense: filtered.filter(isNonSavingsExpense).reduce((s, tx) => s + parseFloat(tx.amount), 0),
+        totalIncome:  filtered.filter(isRealIncome).reduce((s, tx) => s + toAmount(tx.amount), 0),
+        totalExpense: filtered.filter(isNonSavingsExpense).reduce((s, tx) => s + toAmount(tx.amount), 0),
     }), [filtered]);
     const netAmount    = totalIncome - totalExpense;
     const visibleTransactions = sortedFiltered.slice(0, displayCount);
@@ -307,7 +308,7 @@ function TransactionsPageInner() {
     const netDelta  = periodDelta(netAmount, prevNet);
 
     const handleModalClose = () => { setModalOpen(false); setEditingTx(null); setPrefillData(null); };
-    const openEdit = useCallback((tx: any) => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }, []);
+    const openEdit = useCallback((tx: Transaction) => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }, []);
 
     // ── Select mode ──────────────────────────────────────────────────────────
     const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
@@ -328,7 +329,7 @@ function TransactionsPageInner() {
     }, []);
 
     const selectAll = useCallback(() => {
-        setSelectedIds(new Set(filtered.map((tx: any) => tx.id)));
+        setSelectedIds(new Set(filtered.map(tx => tx.id)));
     }, [filtered]);
 
     const removeIds = useCallback((ids: string[]) => {
@@ -342,7 +343,7 @@ function TransactionsPageInner() {
         </>
     );
 
-    const filteredCard = filterCreditCardId ? creditCards.find((c: any) => c.id === filterCreditCardId) : null;
+    const filteredCard = filterCreditCardId ? creditCards.find(c => c.id === filterCreditCardId) : null;
     const creditCardChips = filterCreditCardId ? [{
         label: filteredCard
             ? `Card: ${filteredCard.bank_name} ${filteredCard.card_name}${filteredCard.last_four ? ' ••' + filteredCard.last_four : ''}`

@@ -12,6 +12,7 @@ import type { MoreMenuStyle } from '@/store/themeStore';
 import { useBudgets, useGoals, useAccounts } from '@/hooks/queries';
 import type { MoreAlert } from '@/hooks/useMoreAlerts';
 import { pinnedMorePages } from '@/lib/morePins';
+import { toAmount } from '@/types/finance';
 
 type Item = { href: string; icon: typeof Target; label: string; sub: string };
 
@@ -88,12 +89,12 @@ function useLiveFigures(enabled: boolean): Record<string, [string, Tone]> {
 
     const out: Record<string, [string, Tone]> = {};
     if (budgets?.length) {
-        const over = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount)).length;
+        const over = budgets.filter(b => toAmount(b.spent) > toAmount(b.amount)).length;
         out['/budgets'] = over ? [`${over} over limit`, 'bad'] : ['On track', 'good'];
     }
     if (goals?.length) {
-        const active = goals.filter(g => parseFloat(g.saved_amount) < parseFloat(g.target_amount));
-        const near = active.filter(g => parseFloat(g.saved_amount) >= 0.9 * parseFloat(g.target_amount)).length;
+        const active = goals.filter(g => toAmount(g.saved_amount) < toAmount(g.target_amount));
+        const near = active.filter(g => toAmount(g.saved_amount) >= 0.9 * toAmount(g.target_amount)).length;
         out['/goals'] = near ? [`${active.length} active · ${near} near`, 'good'] : [`${active.length} active`, undefined];
     }
     if (accounts?.length) out['/accounts'] = [`${accounts.length} linked`, undefined];

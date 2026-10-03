@@ -7,7 +7,7 @@ export function fmt(n: number, currency = 'INR'): string {
 // keep both definitions in sync. An expense only counts as "real spending" (and
 // income only counts as "real income") when it's not investing, not a goal
 // contribution, and not an internal transfer.
-export function isNonSavingsExpense(tx: { type: string; is_investment_category?: boolean; goal_id?: string | null; personal_loan_id?: string | null; tags?: string[] | null }): boolean {
+export function isNonSavingsExpense(tx: { type: string; is_investment_category?: boolean | null; goal_id?: string | null; personal_loan_id?: string | null; tags?: string[] | null }): boolean {
     if (tx.type !== 'expense') return false;
     if (tx.is_investment_category) return false;
     if (tx.goal_id) return false;

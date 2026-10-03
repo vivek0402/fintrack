@@ -380,7 +380,7 @@ describe('EMI conversion', () => {
 
     it('does not show the EMI section while editing an existing transaction', async () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
-        open({ transaction: { id: 't1', type: 'expense', amount: 1000, description: 'Laptop', date: '2026-09-01', payment_method: 'Credit Card', credit_card_id: 5 } });
+        open({ transaction: { id: 't1', type: 'expense', amount: 1000, description: 'Laptop', date: '2026-09-01', payment_method: 'Credit Card', credit_card_id: 5, category_id: null } });
         await waitFor(() => expect(creditCardsAPI.getAll).toHaveBeenCalled());
         expect(screen.queryByLabelText(/convert to emi/i)).toBeNull();
     });

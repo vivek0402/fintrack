@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { createTestQueryClient } from '@/lib/test-utils';
-import { upsertTransactionInCache, removeTransactionsFromCache, transactionMatchesParams } from './queries';
+import { upsertTransactionInCache, removeTransactionsFromCache, transactionMatchesParams } from './queries';import type { Transaction } from '@/types/finance';
+
 
 const aug = { month: 8, year: 2026 };
 const sep = { month: 9, year: 2026 };
-const coffee = { id: 'a', description: 'Coffee', amount: '250', date: '2026-08-10', type: 'expense' };
+const coffee: Transaction = { id: 'a', description: 'Coffee', amount: '250', date: '2026-08-10', type: 'expense', category_id: null };
 
 function seed() {
     const qc = createTestQueryClient();
@@ -29,7 +30,7 @@ describe('transactionMatchesParams', () => {
 describe('upsertTransactionInCache', () => {
     it('adds a new row to the lists it belongs to, with category display fields filled in', () => {
         const qc = seed();
-        const saved = { id: 'b', description: 'Lunch', amount: '400', date: '2026-08-12T00:00:00.000Z', type: 'expense', category_id: 'c1' };
+        const saved: Transaction = { id: 'b', description: 'Lunch', amount: '400', date: '2026-08-12T00:00:00.000Z', type: 'expense', category_id: 'c1' };
         upsertTransactionInCache(qc, saved, [{ id: 'c1', name: 'Food', icon: '🍔', color: '#f00' }]);
         expect(list(qc, aug)!.map(t => t.id)).toEqual(['b', 'a']);
         expect(list(qc, aug)![0]).toMatchObject({ category_name: 'Food', category_icon: '🍔', category_color: '#f00' });

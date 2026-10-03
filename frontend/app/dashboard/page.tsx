@@ -23,6 +23,7 @@ import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { calculateHealthScore, monthlySeriesFromTrends } from '@/lib/healthScore';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { CoachAlerts } from '@/components/coach/CoachAlerts';
+import { toAmount } from '@/types/finance';
 
 // Lazy-loaded: each of these pulls in recharts, same pattern as
 // app/analytics/page.tsx's dynamic imports -- keeps recharts out of the
@@ -37,7 +38,9 @@ const WealthVelocityWidget = dynamic(() => import('@/components/dashboard/Wealth
 const AssetAllocationWidget = dynamic(() => import('@/components/dashboard/AssetAllocationWidget').then(m => m.AssetAllocationWidget), { ssr: false, loading: vizSkeleton(120) });
 const CreditUtilizationWidget = dynamic(() => import('@/components/dashboard/CreditUtilizationWidget').then(m => m.CreditUtilizationWidget), { ssr: false, loading: vizSkeleton(120) });
 
-const NO_ROWS: any[] = [];
+// Shared empty list (stable identity for memo deps); never[] so each use
+// takes the type of the data it stands in for.
+const NO_ROWS: never[] = [];
 
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -285,7 +288,7 @@ export default function DashboardPage() {
 
     const hour     = new Date().getHours();
     const greeting = `Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${user?.full_name?.split(' ')[0] ?? 'there'}`;
-    const savingsPct = summary?.total_income > 0
+    const savingsPct = summary && summary.total_income > 0
         ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100))
         : 0;
     const netBalance = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
@@ -443,23 +446,26 @@ export default function DashboardPage() {
     }, [budgets]);
 
     // Over-budget count
-    const overBudget = budgets.filter((b: any) => parseFloat(b.spent) > parseFloat(b.amount)).length;
+    const overBudget = budgets.filter(b => toAmount(b.spent) > toAmount(b.amount)).length;
 
     // Guilt-free budget computation
     const guiltFreeData = useMemo(() => {
-        if (!isCurrentMonth || !summary || parseFloat(summary.total_income) <= 0) return null;
-        const income = parseFloat(summary.total_income);
-        const totalBudgeted = budgets.reduce((s: number, b: any) => s + parseFloat(b.amount), 0);
+        if (!isCurrentMonth || !summary || summary.total_income <= 0) return null;
+        const income = summary.total_income;
+        const totalBudgeted = budgets.reduce((s, b) => s + toAmount(b.amount), 0);
         if (totalBudgeted === 0) return null;
-        const goalMonthly = goals.filter((g: any) => g.target_date && !g.is_completed).reduce((s: number, g: any) => {
-            const remaining = parseFloat(g.target_amount) - parseFloat(g.current_amount);
+        // Set aside this month's share of each dated goal still short of its
+        // target (a finished goal has nothing remaining, so it adds nothing).
+        const goalMonthly = goals.reduce((s, g) => {
+            if (!g.deadline) return s;
+            const remaining = toAmount(g.target_amount) - toAmount(g.saved_amount);
             if (remaining <= 0) return s;
-            const months = Math.max(1, Math.ceil((new Date(g.target_date).getTime() - Date.now()) / (30.44 * 24 * 3600 * 1000)));
+            const months = Math.max(1, Math.ceil((new Date(g.deadline).getTime() - Date.now()) / (30.44 * 24 * 3600 * 1000)));
             return s + remaining / months;
         }, 0);
         const pool = Math.max(0, income - totalBudgeted - Math.round(goalMonthly));
-        const budgetedSpent = budgets.reduce((s: number, b: any) => s + parseFloat(b.spent), 0);
-        const unbudgetedSpent = Math.max(0, (parseFloat(summary.total_expenses) || 0) - budgetedSpent);
+        const budgetedSpent = budgets.reduce((s, b) => s + toAmount(b.spent), 0);
+        const unbudgetedSpent = Math.max(0, (summary.total_expenses || 0) - budgetedSpent);
         const remaining = Math.max(0, pool - unbudgetedSpent);
         const usedPct = pool > 0 ? Math.min(100, (unbudgetedSpent / pool) * 100) : 0;
         return { income, totalBudgeted, goalMonthly: Math.round(goalMonthly), pool, unbudgetedSpent, remaining, usedPct };

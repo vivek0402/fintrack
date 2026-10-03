@@ -20,7 +20,8 @@ export interface HealthInput {
   income: number;
   expenses: number;
   budgets: { amount: string | number; spent: string | number }[];
-  goals: { current_amount: string | number; target_amount: string | number; deadline?: string | null }[];
+  // Savings goals (GET /api/goals): saved_amount, not the milestones' current_amount.
+  goals: { saved_amount: string | number | null; target_amount: string | number; deadline?: string | null }[];
   monthlyIncome: number[];      // last N months, chronological (index 0 = oldest)
   monthlyExpenses: number[];    // same length, same order
   investedThisMonth: number;
@@ -188,7 +189,7 @@ export function calculateHealthScore(input: HealthInput): HealthScoreResult {
                       'Debt looks manageable. Keep utilization and repayments in check.';
 
   // ── 7. Goal Progress (10pts) ────────────────────────────────────────────
-  const active = goals.filter(g => Number(g.target_amount) > 0 && Number(g.current_amount) < Number(g.target_amount));
+  const active = goals.filter(g => Number(g.target_amount) > 0 && Number(g.saved_amount ?? 0) < Number(g.target_amount));
   let goalScore: number;
   let goalTip: string;
   if (active.length === 0) {
@@ -201,7 +202,7 @@ export function calculateHealthScore(input: HealthInput): HealthScoreResult {
     for (const g of active) {
       if (g.deadline) {
         goalsWithDeadline++;
-        const actual   = Number(g.current_amount) / Number(g.target_amount);
+        const actual   = Number(g.saved_amount ?? 0) / Number(g.target_amount);
         const deadline = new Date(g.deadline).getTime();
         const start    = deadline - 365 * 24 * 60 * 60 * 1000;
         const expected = Math.min(1, Math.max(0, (now - start) / (deadline - start)));

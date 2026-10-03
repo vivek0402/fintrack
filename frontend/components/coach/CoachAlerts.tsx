@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { recurringAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { toAmount, type Goal } from '@/types/finance';
 
 const SS_KEY = 'fintrack-coach-dismissed';
 const fmt = (n: number) => '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN');
@@ -18,14 +19,14 @@ interface Alert {
 export interface CoachAlertsProps {
   summary: { total_income: number | string; total_expenses: number | string } | null;
   budgets: any[];
-  goals: any[];
+  goals: Goal[];
   loading: boolean;
 }
 
 function buildAlerts(
   summary: CoachAlertsProps['summary'],
   budgets: any[],
-  goals: any[],
+  goals: Goal[],
   recurring: any[],
 ): Alert[] {
   if (!summary) return [];
@@ -55,8 +56,8 @@ function buildAlerts(
 
   // c) Goal behind — deadline < 60 days and progress < 50%
   for (const g of goals) {
-    const current = parseFloat(g.current_amount ?? 0);
-    const target  = parseFloat(g.target_amount  ?? 0);
+    const current = toAmount(g.saved_amount);
+    const target  = toAmount(g.target_amount);
     if (target <= 0 || !g.deadline) continue;
     const pct           = (current / target) * 100;
     const daysToDeadline = Math.ceil(

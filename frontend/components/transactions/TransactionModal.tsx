@@ -21,8 +21,9 @@ import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investme
 import { randomCategoryColor } from '@/lib/categoryColors';
 import { usesBankAccount, suggestAccount, rememberAccount } from '@/lib/accountMemory';
 import { haptics } from '@/lib/haptics';
+import type { Transaction } from '@/types/finance';
 
-const NO_ITEMS: any[] = [];
+const NO_ITEMS: never[] = [];
 const NO_USAGE: Record<string, number> = {};
 
 // ─── Calendar grid helper ────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ interface Props {
     /** Optional: the modal updates the shared query cache itself. */
     onSuccess?: () => void;
     onOfflineSave?: (tx: any) => void;
-    transaction?: any;
+    transaction?: Transaction | null;
     prefill?: any;
     defaultDate?: string;
     // The Android widget add sheet (app/widget-add): no dimming layer (its
@@ -128,10 +129,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // it, later opens show it instantly (refreshing in the background if stale).
     const queryClient = useQueryClient();
     const accountsQuery = useAccounts({ enabled: isOpen });
-    const accounts: any[] = accountsQuery.data ?? NO_ITEMS;
+    const accounts = accountsQuery.data ?? NO_ITEMS;
     const accountsLoaded = !accountsQuery.isPending;
-    const cards: any[] = useCreditCards({ enabled: isOpen }).data ?? NO_ITEMS;
-    const goals: any[] = useGoals({ enabled: isOpen }).data ?? NO_ITEMS;
+    const cards = useCreditCards({ enabled: isOpen }).data ?? NO_ITEMS;
+    const goals = useGoals({ enabled: isOpen }).data ?? NO_ITEMS;
     const paymentUsage: Record<string, number> = usePaymentMethodUsage({ enabled: isOpen }).data ?? NO_USAGE;
     const [loading, setLoading]       = useState(false);
     const [error, setError]           = useState('');
@@ -185,7 +186,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: transaction.amount, description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment, emi: blankEmi });
+            setForm({ type: transaction.type, amount: String(transaction.amount), description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment, emi: blankEmi });
         } else if (prefill) {
             setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment, emi: blankEmi });
             setTagInput('');
@@ -218,7 +219,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (!isOpen || accounts.length === 0 || isEditing || accountTouched.current) return;
         if (form.type === 'transfer') {
-            const def = accounts.find((a: any) => a.is_default)?.id ?? accounts[0]?.id ?? null;
+            const def = accounts.find(a => a.is_default)?.id ?? accounts[0]?.id ?? null;
             setForm(prev => prev.account_id === null ? { ...prev, account_id: def } : prev);
             return;
         }
@@ -699,7 +700,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const cardSheet = (
         <Modal isOpen={cardSheetOpen} onClose={() => setCardSheetOpen(false)} title="Which card?" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {cards.map((c: any) => {
+                {cards.map(c => {
                     const active = form.credit_card_id === c.id;
                     const label = `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}`;
                     return (
@@ -717,7 +718,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     const accountSheet = (
         <Modal isOpen={accountSheetOpen} onClose={() => setAccountSheetOpen(false)} title={form.type === 'income' ? 'Received in' : 'Paid from'} maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                {accounts.map((a: any) => {
+                {accounts.map(a => {
                     const active = form.account_id === a.id;
                     return (
                         <button key={a.id} type="button" data-testid={`account-option-${a.id}`}
@@ -752,7 +753,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     — None —
                     {!form.goal_id && <Check size={16} />}
                 </button>
-                {goals.map((g: any) => {
+                {goals.map(g => {
                     const active = form.goal_id === String(g.id);
                     return (
                         <button key={g.id} type="button" onClick={() => { setForm({ ...form, goal_id: String(g.id) }); setGoalSheetOpen(false); }}
@@ -907,7 +908,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
                                 style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
                                 <option value="">Select account</option>
-                                {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'center', margin: '-6px 0' }}>
@@ -920,7 +921,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
                                 style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
                                 <option value="">Select account</option>
-                                {accounts.filter((a: any) => a.id !== form.account_id).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                {accounts.filter(a => a.id !== form.account_id).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                             </select>
                         </div>
                     </div>
@@ -998,7 +999,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
                             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
                             style={{ ...inputBase, padding: '10px 12px', color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                            <span>{(() => { const c = cards.find((c: any) => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
+                            <span>{(() => { const c = cards.find(c => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
                             <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                         </div>
                     </div>
@@ -1006,7 +1007,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
                 {/* ── Which bank account: one line, only when there's a choice to make ── */}
                 {!isTransfer && usesBankAccount(form.type, form.payment_method) && accounts.length > 1 && (() => {
-                    const acct = accounts.find((a: any) => a.id === form.account_id);
+                    const acct = accounts.find(a => a.id === form.account_id);
                     return (
                         <div data-testid="account-line" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: '-4px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                             {isIncome ? 'into' : 'from'} <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{acct?.name ?? 'Choose an account'}</b>
@@ -1171,7 +1172,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             <div onClick={() => setGoalSheetOpen(true)} role="button" tabIndex={0}
                                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGoalSheetOpen(true); } }}
                                 style={{ ...inputBase, padding: '10px 12px', color: form.goal_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                                <span>{goals.find((g: any) => String(g.id) === form.goal_id)?.name ?? '— None —'}</span>
+                                <span>{goals.find(g => String(g.id) === form.goal_id)?.name ?? '— None —'}</span>
                                 <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                             </div>
                         </div>

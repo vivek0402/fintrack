@@ -120,7 +120,7 @@ describe('label banding', () => {
             monthlyIncome: [100000, 100000, 100000],
             monthlyExpenses: [40000, 35000, 30000],
             budgets: [{ amount: 10000, spent: 5000 }],
-            goals: [{ current_amount: 90, target_amount: 100 }],
+            goals: [{ saved_amount: 90, target_amount: 100 }],
         }));
         const weak = calculateHealthScore(input({
             income: 10000, expenses: 30000, dtiRatio: 90, ccUtilizationPct: 95,
@@ -130,5 +130,14 @@ describe('label banding', () => {
         expect(['Excellent', 'Good']).toContain(strong.label);
         expect(['Critical', 'Needs Attention']).toContain(weak.label);
         expect(weak.color).toBe('var(--color-exp)');
+    });
+});
+
+describe('goal progress', () => {
+    it('counts savings goals by saved_amount (GET /api/goals has no current_amount)', () => {
+        const r = calculateHealthScore(input({ goals: [{ saved_amount: '200.00', target_amount: '1000.00' }] }));
+        const goals = r.breakdown.find(f => f.id === 'goals')!;
+        expect(goals.tip).not.toMatch(/Set a savings goal/);
+        expect(goals.score).toBe(6); // active, no deadline
     });
 });
