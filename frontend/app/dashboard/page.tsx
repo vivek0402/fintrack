@@ -811,7 +811,8 @@ export default function DashboardPage() {
                 )}
 
                 {/* ── DEBT ALERTS ── */}
-                {!utilAlertDismissed && creditUtilization && creditUtilization.aggregate.overall_utilization_pct > 50 && (
+                {/* Tolerates an incomplete response (no aggregate): no alert, not a crashed dashboard. */}
+                {!utilAlertDismissed && (creditUtilization?.aggregate?.overall_utilization_pct ?? 0) > 50 && (
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)' }}>
                         <AlertTriangle size={16} color="var(--color-exp)" style={{ flexShrink: 0, marginTop: '1px' }} />
                         <div style={{ flex: 1 }}>

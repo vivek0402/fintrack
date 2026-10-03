@@ -537,7 +537,8 @@ function DebtIntelligencePageInner() {
                                 <Card>
                                     <p style={sectionTitleSt}><CreditCard size={16} /> Credit Utilization</p>
                                     <p style={sectionSubSt}>Keeping utilization under 30% helps your credit profile</p>
-                                    {utilization.per_card.length === 0 ? (
+                                    {/* Incomplete response (no aggregate): treat as nothing to show. */}
+                                    {!utilization.aggregate || !utilization.per_card?.length ? (
                                         <EmptyState icon={CreditCard} title="No credit cards tracked" subtitle="Add a credit card to monitor your utilization." />
                                     ) : (
                                         <>

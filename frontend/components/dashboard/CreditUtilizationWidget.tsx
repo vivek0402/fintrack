@@ -56,7 +56,8 @@ export function CreditUtilizationWidget() {
         );
     }
 
-    if (!data || data.per_card.length === 0) return null;
+    // An incomplete response (missing per_card/aggregate) hides the widget rather than crashing the dashboard.
+    if (!data?.aggregate || !data.per_card?.length) return null;
 
     const pct = data.aggregate.overall_utilization_pct;
     const color = utilColor(pct);

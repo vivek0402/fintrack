@@ -925,3 +925,41 @@ describe('goal-linked contributions (POST stores goal_id; DELETE/PUT reconcile i
         expect(saved(GOAL)).toBe(1000);
     });
 });
+
+describe('DELETE /api/transactions/:id — card payment pairs', () => {
+    function run(deletedRow) {
+        const sqls = [];
+        const client = {
+            query: jest.fn(async (sql, params) => {
+                sqls.push({ sql, params });
+                if (sql.startsWith('DELETE FROM transactions WHERE id')) return { rows: [deletedRow] };
+                return { rows: [] };
+            }),
+            release: jest.fn(),
+        };
+        pool.connect.mockResolvedValue(client);
+        return { sqls, req: request(buildApp()).delete('/api/transactions/card-tx') };
+    }
+
+    afterEach(() => { pool.connect.mockReset(); pool.query.mockReset(); });
+
+    test("deleting a payment's card side keeps a linked bank debit (unlinks it first)", async () => {
+        const createdAt = '2026-10-02 10:00:00.123456';   // exact, microseconds kept
+        const { sqls, req } = run({ id: 'card-tx', transfer_group_id: 'g1', credit_card_id: 3, tags: ['credit_card_payment'], created_at: new Date(), created_at_exact: createdAt, amount: '2600', source: 'manual' });
+        const res = await req;
+        expect(res.status).toBe(200);
+        const unlink = sqls.find(q => q.sql.includes("array_remove(tags, 'credit_card_payment')"));
+        expect(unlink.params).toEqual(['g1', 'user-123', createdAt]);
+        const unlinkAt = sqls.indexOf(unlink);
+        const groupDelete = sqls.findIndex(q => q.sql.startsWith('DELETE FROM transactions WHERE transfer_group_id'));
+        expect(unlinkAt).toBeLessThan(groupDelete);   // unlinked before the group delete runs
+    });
+
+    test('deleting the bank debit itself still removes the whole payment', async () => {
+        const { sqls, req } = run({ id: 'bank-tx', transfer_group_id: 'g1', credit_card_id: null, account_id: 9, tags: ['credit_card_payment'], created_at: new Date(), amount: '2600', source: 'pdf_import' });
+        await req;
+        expect(sqls.some(q => q.sql.includes('array_remove'))).toBe(false);
+        expect(sqls.some(q => q.sql.startsWith('DELETE FROM transactions WHERE transfer_group_id'))).toBe(true);
+    });
+});
+

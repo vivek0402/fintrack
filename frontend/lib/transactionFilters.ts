@@ -132,3 +132,12 @@ export function countActiveFilters(freeText: string, panel: PanelFilters): numbe
     if (panel.hasNotes) n++;
     return n;
 }
+
+// Percent change vs the previous period, or null (hidden) when it wouldn't
+// mean anything: no previous figure, or a previous figure under ₹1,000 --
+// growing from ₹30 to ₹385 is "+1183%", which reads as alarming noise.
+export const MIN_DELTA_BASE = 1000;
+export function periodDelta(current: number, previous: number | null | undefined): number | null {
+    if (previous == null || Math.abs(previous) < MIN_DELTA_BASE) return null;
+    return ((current - previous) / Math.abs(previous)) * 100;
+}

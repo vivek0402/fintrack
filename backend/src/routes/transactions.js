@@ -713,7 +713,9 @@ router.delete('/:id', async (req, res) => {
         try {
             await client.query('BEGIN');
             const result = await client.query(
-                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING *',
+                // created_at as text too: exact to the microsecond (a JS Date
+                // would round it to milliseconds), for the linked-debit check below.
+                'DELETE FROM transactions WHERE id = $1 AND user_id = $2 RETURNING *, created_at::text AS created_at_exact',
                 [req.params.id, req.user.id]
             );
             if (result.rows.length === 0) {
@@ -724,10 +726,28 @@ router.delete('/:id', async (req, res) => {
             // pair) is two rows sharing one group id -- deleting one leg without
             // the other would leave an orphaned half-transaction, so delete any
             // sibling too.
-            if (result.rows[0].transfer_group_id) {
+            //
+            // Except a bank debit that was LINKED to the payment (POST
+            // /credit-cards/:id/pay with link_transaction_id): it existed before
+            // the payment -- usually an imported bank-statement line -- so
+            // deleting the payment's card side must keep it, just unlinked.
+            // Rows written in one DB transaction share created_at (Postgres
+            // CURRENT_TIMESTAMP is the transaction start), so a sibling with a
+            // different created_at predates the payment.
+            const deleted = result.rows[0];
+            if (deleted.transfer_group_id) {
+                const isCardSideOfPayment = deleted.credit_card_id != null && (deleted.tags || []).includes('credit_card_payment');
+                if (isCardSideOfPayment) {
+                    await client.query(
+                        `UPDATE transactions
+                         SET tags = array_remove(tags, 'credit_card_payment'), transfer_group_id = NULL
+                         WHERE transfer_group_id = $1 AND user_id = $2 AND created_at IS DISTINCT FROM $3::timestamp`,
+                        [deleted.transfer_group_id, req.user.id, deleted.created_at_exact]
+                    );
+                }
                 await client.query(
                     'DELETE FROM transactions WHERE transfer_group_id = $1 AND user_id = $2',
-                    [result.rows[0].transfer_group_id, req.user.id]
+                    [deleted.transfer_group_id, req.user.id]
                 );
             }
             await client.query(

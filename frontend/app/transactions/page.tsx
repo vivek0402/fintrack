@@ -24,7 +24,7 @@ import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
-import { pruneSelectedIds, sortTransactions, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
+import { pruneSelectedIds, sortTransactions, periodDelta, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 
 // Stable empty list, so a missing query result doesn't change identity per render.
 const NO_TRANSACTIONS: any[] = [];
@@ -140,15 +140,21 @@ function TransactionsPageInner() {
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     // ── Read ?q= from URL (set by GlobalSearch navigation) ───────────────────
+    // Once a parameter is read, drop it from the address bar with the browser
+    // history API, not router.replace: that ran a real navigation which, on a
+    // cold load straight into /transactions?add=true, reloaded the page and
+    // threw away the form it had just opened. Next keeps useSearchParams in
+    // sync with history.replaceState.
+    const clearQuery = () => window.history.replaceState(window.history.state, '', window.location.pathname);
     useEffect(() => {
         const q = searchParams.get('q');
         if (q) {
             setInitialQuery(q);
-            router.replace('/transactions');
+            clearQuery();
         }
         if (searchParams.get('add') === 'true') {
             setModalOpen(true);
-            router.replace('/transactions');
+            clearQuery();
         }
         // ?quickAdd=1: the Android widgets' "+". Opens the natural-language
         // quick-add sheet directly, same as tapping the page's FAB.
@@ -157,13 +163,13 @@ function TransactionsPageInner() {
             setQuickAddError('');
             setQuickAddFailed(false);
             setQuickAddOpen(true);
-            router.replace('/transactions');
+            clearQuery();
         }
         const ccId = searchParams.get('credit_card_id');
         if (ccId) {
             setFilterCreditCardId(Number(ccId));
             setSelectedMonth(null); // show all-time activity for this card, not just the current month
-            router.replace('/transactions');
+            clearQuery();
         }
         // from/to (e.g. deep-linked from a billing cycle row) override month/year
         // entirely on the backend, so mirror that here -- clear the month pager
@@ -174,7 +180,7 @@ function TransactionsPageInner() {
             setFilterFrom(from);
             setFilterTo(to);
             setSelectedMonth(null);
-            router.replace('/transactions');
+            clearQuery();
         }
     }, [searchParams]);
 
@@ -293,10 +299,10 @@ function TransactionsPageInner() {
     const prevExpense = prevPeriodSummary?.summary?.total_expenses;
     // null = hide the delta (no prior-period data, or nothing to compare against --
     // a percentage change from zero is undefined, not "0%" or "∞%").
-    const incomeDelta  = prevIncome  != null && prevIncome  > 0 ? ((totalIncome  - prevIncome)  / prevIncome)  * 100 : null;
-    const expenseDelta = prevExpense != null && prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : null;
+    const incomeDelta  = periodDelta(totalIncome, prevIncome);
+    const expenseDelta = periodDelta(totalExpense, prevExpense);
     const prevNet   = prevIncome != null && prevExpense != null ? prevIncome - prevExpense : null;
-    const netDelta  = prevNet != null && prevNet !== 0 ? ((netAmount - prevNet) / Math.abs(prevNet)) * 100 : null;
+    const netDelta  = periodDelta(netAmount, prevNet);
 
     const handleModalClose = () => { setModalOpen(false); setEditingTx(null); setPrefillData(null); };
     const openEdit = useCallback((tx: any) => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }, []);
