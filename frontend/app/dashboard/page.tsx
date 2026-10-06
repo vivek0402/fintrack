@@ -6,14 +6,15 @@ import { useRouter } from 'next/navigation';
 import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
-import { useDashboardData } from '@/hooks/queries';
-import { analyticsAPI, accountsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
+import { useDashboardData, useAccounts, useUserQuery } from '@/hooks/queries';
+import { analyticsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
 import { fmt, getSmartIcon } from '@/lib/utils';
 import { getCached, setCached } from '@/lib/apiCache';
 import { CountUp } from '@/components/ui/CountUp';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { toast } from '@/store/toastStore';
+import { loadErrorMessage } from '@/lib/loadErrorMessage';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
@@ -222,26 +223,51 @@ export default function DashboardPage() {
     const budgets      = dashQuery.data?.budgets ?? NO_ROWS;
     const goals        = dashQuery.data?.goals ?? NO_ROWS;
     const dataLoading  = dashQuery.isPending;
-    // Bumped by mobile pull-to-refresh to re-run the secondary-widget fetch
-    // effect below (accounts, investments, ratios...).
+    // Bumped by mobile pull-to-refresh to re-run the opportunities/briefing
+    // fetch effect below.
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // Accounts and the secondary widgets live in the shared query cache, not
+    // their own localStorage TTL cache, so a transaction save (which marks
+    // every query stale) refreshes balances and ratios too -- they used to
+    // stay up to 15 minutes old. allSettled: one failing call blanks only
+    // its own widget.
+    const accountsQuery = useAccounts();
+    const extrasQuery = useUserQuery('dashboard-extras', [], async () => {
+        const [inv, ratio, util, dtiRes, loans] = await Promise.allSettled([
+            investmentAPI.getAll(), analyticsAPI.getInvestmentRatio(), debtAPI.getCreditUtilization(),
+            debtAPI.getDti(), loanAPI.getAll(true),
+        ]);
+        const ok = <T,>(r: PromiseSettledResult<{ data: T }>) => (r.status === 'fulfilled' ? r.value.data : null);
+        return {
+            investments:       (ok<any>(inv)?.investments ?? []) as any[],
+            investmentRatio:   ok<any>(ratio),
+            creditUtilization: ok<any>(util),
+            dti:               ok<any>(dtiRes),
+            activeLoanCount:   ((ok<any>(loans)?.loans ?? []) as any[]).length,
+        };
+    });
+    const accounts          = accountsQuery.data ?? NO_ROWS;
+    const investments       = extrasQuery.data?.investments ?? NO_ROWS;
+    const investmentRatio   = extrasQuery.data?.investmentRatio ?? null;
+    const creditUtilization = extrasQuery.data?.creditUtilization ?? null;
+    const dti               = extrasQuery.data?.dti ?? null;
+    const activeLoanCount   = extrasQuery.data?.activeLoanCount ?? 0;
+
     // Pull-to-refresh is the user explicitly asking for fresh data: refetch
-    // the month bundle (resolving when it lands) and re-run the secondary
-    // fetches, bypassing their short localStorage caches.
+    // everything on the page, resolving when the month bundle lands.
     const refetchDashboard = dashQuery.refetch;
+    const refetchAccounts  = accountsQuery.refetch;
+    const refetchExtras    = extrasQuery.refetch;
     useEffect(() => {
-        if (dashQuery.isError && !dashQuery.data) toast.error('Failed to load dashboard data');
-    }, [dashQuery.isError, dashQuery.data]);
+        if (dashQuery.isError && !dashQuery.data) toast.error(loadErrorMessage(dashQuery.error, 'Dashboard data'));
+    }, [dashQuery.isError, dashQuery.data, dashQuery.error]);
     const handleDashboardRefresh = useCallback(() => {
-        if (user) {
-            for (const k of ['accounts', 'investments', 'investment-ratio', 'credit-utilization', 'dti', 'active-loan-count']) {
-                try { localStorage.removeItem(`${k}-cache-${user.id}`); } catch { /* ignore */ }
-            }
-        }
         setRefreshKey(k => k + 1);
+        refetchAccounts();
+        refetchExtras();
         return refetchDashboard().then(() => {});
-    }, [user, refetchDashboard]);
+    }, [refetchDashboard, refetchAccounts, refetchExtras]);
     const { containerRef: pullToRefreshRef, pullDistance, refreshing: ptrRefreshing } = usePullToRefresh(handleDashboardRefresh, isMobile);
     const [dailyBrief, setDailyBrief]   = useState<any>(null);
     const [dailyBriefLoading, setDailyBriefLoading] = useState(true);
@@ -254,12 +280,6 @@ export default function DashboardPage() {
     const dailyBriefCooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const dailyBriefRefreshTimesRef = useRef<number[]>([]);
     const [coachEnabled, setCoachEnabled] = useState(true);
-    const [accounts, setAccounts]       = useState<any[]>([]);
-    const [investments, setInvestments] = useState<any[]>([]);
-    const [investmentRatio, setInvestmentRatio] = useState<any>(null);
-    const [creditUtilization, setCreditUtilization] = useState<any>(null);
-    const [dti, setDti] = useState<any>(null);
-    const [activeLoanCount, setActiveLoanCount] = useState(0);
     const [utilAlertDismissed, setUtilAlertDismissed] = useState(false);
     const [dtiAlertDismissed, setDtiAlertDismissed] = useState(false);
     const [opportunities, setOpportunities] = useState<any[]>([]);
@@ -341,28 +361,8 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!user) return;
-        // Data that doesn't need to be fresh on every single dashboard open --
-        // cache it client-side so a repeat visit within the TTL costs nothing.
-        // Opportunities and the weekly briefing are deliberately NOT cached
-        // here: opportunities is now already a single cheap SELECT (detection
-        // itself runs on a daily cron, not per-request), and the briefing has
-        // its own weekly-scoped freshness logic already.
-        function fetchCached<T>(key: string, ttlMs: number, fetcher: () => Promise<{ data: T }>, onData: (data: T) => void) {
-            const cached = getCached<T>(key, ttlMs);
-            if (cached !== null) { onData(cached); return; }
-            fetcher().then(res => { onData(res.data); setCached(key, res.data); }).catch(() => {});
-        }
-
-        const TEN_MIN = 10 * 60 * 1000;
-        const FIFTEEN_MIN = 15 * 60 * 1000;
-
-        fetchCached(`accounts-cache-${user.id}`, TEN_MIN, () => accountsAPI.getAll(), data => setAccounts(data.accounts ?? data ?? []));
-        fetchCached(`investments-cache-${user.id}`, TEN_MIN, () => investmentAPI.getAll(), data => setInvestments(data.investments ?? []));
-        fetchCached(`investment-ratio-cache-${user.id}`, FIFTEEN_MIN, () => analyticsAPI.getInvestmentRatio(), data => setInvestmentRatio(data));
-        fetchCached(`credit-utilization-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getCreditUtilization(), data => setCreditUtilization(data));
-        fetchCached(`dti-cache-${user.id}`, FIFTEEN_MIN, () => debtAPI.getDti(), data => setDti(data));
-        fetchCached(`active-loan-count-cache-${user.id}`, FIFTEEN_MIN, () => loanAPI.getAll(true), data => setActiveLoanCount((data.loans || []).length));
-
+        // Opportunities is a single cheap SELECT (detection runs on a daily
+        // cron), and the briefing has its own weekly-scoped freshness logic.
         opportunityAPI.getAll().then(res => setOpportunities(res.data?.opportunities ?? [])).catch(() => {});
         briefingAPI.getLatest().then(res => setBriefing(res.data)).catch(() => setBriefing(null));
     }, [user, month, year, refreshKey]);
