@@ -211,3 +211,22 @@ describe('list layout', () => {
         expect(screen.getByTestId('tx-list-box').style.overflow).toBe('clip');
     });
 });
+
+describe('URL params', () => {
+    it('clears ?add=true without handing Next its own history state back', async () => {
+        // Next only syncs useSearchParams with a replaceState call whose state
+        // lacks its __NA marker. Passing window.history.state (which carries
+        // it) left Next believing ?add=true was still current, so a second
+        // "+" tap pushed the same URL and the form never reopened.
+        window.history.replaceState({ __NA: true }, '', '/transactions?add=true');
+        const spy = vi.spyOn(window.history, 'replaceState');
+        searchParams = new URLSearchParams('add=true');
+        render(<TransactionsPage />);
+
+        await waitFor(() => expect(spy).toHaveBeenCalled());
+        for (const [state] of spy.mock.calls) {
+            expect((state as { __NA?: boolean } | null)?.__NA).toBeUndefined();
+        }
+        spy.mockRestore();
+    });
+});

@@ -147,8 +147,12 @@ function TransactionsPageInner() {
     // history API, not router.replace: that ran a real navigation which, on a
     // cold load straight into /transactions?add=true, reloaded the page and
     // threw away the form it had just opened. Next keeps useSearchParams in
-    // sync with history.replaceState.
-    const clearQuery = () => window.history.replaceState(window.history.state, '', window.location.pathname);
+    // sync with history.replaceState, but only when the state passed in lacks
+    // its own __NA marker: handing back window.history.state made Next skip
+    // the sync, so it still believed ?add=true was current and a second "+"
+    // tap (same URL) never re-ran the effect. Pass null; Next fills in its
+    // internal state itself.
+    const clearQuery = () => window.history.replaceState(null, '', window.location.pathname);
     useEffect(() => {
         const q = searchParams.get('q');
         if (q) {
