@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
-const jwt = require('jsonwebtoken');
+const { rateLimit } = require('express-rate-limit');
+const { userOrIpKey } = require('./middleware/rateLimitKey');
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
@@ -138,10 +138,14 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ─── Rate limiting ────────────────────────────────────────────────────────────
-// General API limiter
+// General API limiter. Keyed per signed-in user (IP when signed out): one
+// dashboard open fans out ~30 reads and every transaction write refetches
+// whatever is on screen, so an active user used to exhaust an IP-wide 200
+// and 429 every call -- seen as "Failed to load dashboard data" with zeros.
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 200,
+    max: 600,
+    keyGenerator: userOrIpKey('api'),
     standardHeaders: true,
     legacyHeaders: false,
     // /transactions/suggest and /transactions/context each have their own
@@ -194,17 +198,7 @@ const aiLimiter = rateLimit({
     // shouldn't spend a slot every time the Health tab opens.
     skip: (req) => req.path.startsWith('/agent')
         || (req.path === '/health-report' && req.body?.peek === true),
-    keyGenerator: (req) => {
-        // Try to use authenticated user id; fall back to IP
-        const auth = req.headers['authorization'];
-        if (auth && auth.startsWith('Bearer ')) {
-            try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
-                return `ai:user:${decoded.id}`;
-            } catch { /* fall through to IP */ }
-        }
-        return ipKeyGenerator(req);
-    },
+    keyGenerator: userOrIpKey('ai'),
     message: { error: 'AI request limit reached. Please wait before making more AI requests.' },
 });
 
@@ -217,16 +211,7 @@ const suggestLimiter = rateLimit({
     max: 60,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => {
-        const auth = req.headers['authorization'];
-        if (auth && auth.startsWith('Bearer ')) {
-            try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
-                return `suggest:user:${decoded.id}`;
-            } catch { /* fall through to IP */ }
-        }
-        return ipKeyGenerator(req);
-    },
+    keyGenerator: userOrIpKey('suggest'),
 });
 
 // Entry-feedback endpoint limiter -- same reasoning as suggestLimiter: this
@@ -238,16 +223,7 @@ const contextLimiter = rateLimit({
     max: 60,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => {
-        const auth = req.headers['authorization'];
-        if (auth && auth.startsWith('Bearer ')) {
-            try {
-                const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
-                return `context:user:${decoded.id}`;
-            } catch { /* fall through to IP */ }
-        }
-        return ipKeyGenerator(req);
-    },
+    keyGenerator: userOrIpKey('context'),
 });
 
 app.use('/api', apiLimiter);

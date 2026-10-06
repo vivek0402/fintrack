@@ -96,25 +96,31 @@ export function useDashboardData(month: number, year: number, options: { enabled
     return useQuery({
         queryKey: queryKeys.dashboard(userId, month, year),
         enabled: !!userId && (options.enabled ?? true),
-        queryFn: () => fetchDashboard(month, year),
+        queryFn: ({ client, queryKey }) => fetchDashboard(month, year, client.getQueryData<DashboardData>(queryKey)),
     });
 }
 
-async function fetchDashboard(month: number, year: number): Promise<DashboardData> {
+/** Only the summary is required. If any of the other four calls fails, that
+ *  part keeps its last good value (or is empty) instead of failing the whole
+ *  bundle, which used to blank every total to ₹0 over one bad request. */
+export async function fetchDashboard(month: number, year: number, previous?: DashboardData): Promise<DashboardData> {
     recurringAPI.process().catch(() => {});
-    const [summaryRes, trendsRes, txRes, budgetsRes, goalsRes] = await Promise.all([
+    const [summaryRes, trendsRes, txRes, budgetsRes, goalsRes] = await Promise.allSettled([
         analyticsAPI.summary({ month, year }),
         analyticsAPI.trends(),
         transactionsAPI.getAll({ month, year }),
         budgetsAPI.getAll({ month, year }),
         goalsAPI.getAll(),
     ]);
+    if (summaryRes.status === 'rejected') throw summaryRes.reason;
+    const part = <T,>(res: PromiseSettledResult<{ data: Record<string, T[] | undefined> }>, field: string, prev: T[] | undefined): T[] =>
+        res.status === 'fulfilled' ? (res.value.data[field] ?? []) : (prev ?? []);
     return {
-        summary:      summaryRes.data.summary,
-        trends:       trendsRes.data.trends ?? [],
-        transactions: txRes.data.transactions ?? [],
-        budgets:      budgetsRes.data.budgets ?? [],
-        goals:        goalsRes.data.goals ?? [],
+        summary:      summaryRes.value.data.summary,
+        trends:       part<TrendRow>(trendsRes, 'trends', previous?.trends),
+        transactions: part<Transaction>(txRes, 'transactions', previous?.transactions),
+        budgets:      part<Budget>(budgetsRes, 'budgets', previous?.budgets),
+        goals:        part<Goal>(goalsRes, 'goals', previous?.goals),
     };
 }
 
@@ -157,7 +163,7 @@ export function usePrefetchTabData() {
             const now = new Date();
             const month = now.getMonth() + 1;
             const year = now.getFullYear();
-            qc.prefetchQuery({ queryKey: queryKeys.dashboard(userId, month, year), queryFn: () => fetchDashboard(month, year) });
+            qc.prefetchQuery({ queryKey: queryKeys.dashboard(userId, month, year), queryFn: ({ client, queryKey }) => fetchDashboard(month, year, client.getQueryData<DashboardData>(queryKey)) });
             qc.prefetchQuery({
                 queryKey: queryKeys.transactions(userId, { month, year }),
                 queryFn: () => fetchTransactions({ month, year }),
