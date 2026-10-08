@@ -142,9 +142,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // dashboard open fans out ~30 reads and every transaction write refetches
 // whatever is on screen, so an active user used to exhaust an IP-wide 200
 // and 429 every call -- seen as "Failed to load dashboard data" with zeros.
+// 600 still tripped in heavy sessions (category picker came up empty), so
+// this is sized well above normal use and only bounds runaway clients.
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 600,
+    max: 2000,
     keyGenerator: userOrIpKey('api'),
     standardHeaders: true,
     legacyHeaders: false,
