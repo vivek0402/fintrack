@@ -270,7 +270,9 @@ Every component uses CSS variables only — no hardcoded hex values.
 | Component | File | Description |
 |---|---|---|
 | `PageShell` | `components/layout/PageShell.tsx` | Universal page wrapper — title, subtitle, headerRight slot, responsive padding |
-| `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon |
+| `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon. 14px, weight 500 at every size |
+| `Tabs` | `components/ui/Tabs.tsx` | Page tabs as a segmented control; selection via `aria-pressed` |
+| `Switch` | `components/ui/CardParts.tsx` | On/off switch with an optional label on either side |
 | `Card` | `components/ui/Card.tsx` | The one card: glass, `--radius-lg`, padding from `.fin-card` (20px, 16 on phones) |
 | `CardHeader` / `TextAction` / `Rows` / `NoticeRow` / `Stat` / `StatusDot` | `components/ui/CardParts.tsx` | What goes inside a card: one header pattern, one link style, hairline rows, notices as rows, label-figure-context stats |
 | `StatTile` | `components/ui/StatTile.tsx` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
@@ -344,7 +346,7 @@ layer to 35% opacity.
 
 ## The card (v4, approved 2026-11-14)
 
-One container for the whole app. Rolling out page by page; the dashboard is done.
+One container for the whole app. Rolling out page by page; the dashboard and the Budgets tab are done.
 
 - **One surface.** `Card` (or `.glass-surface .fin-card` by hand): glass, `--radius-lg`,
   20px padding (16 on phones), `--space-4` between cards.
@@ -358,6 +360,24 @@ One container for the whole app. Rolling out page by page; the dashboard is done
 - **Notices are rows.** `NoticeRow`: a dot, a plain sentence, one action. No tinted
   banners, no side-stripe borders, no emoji prefixes.
 - **Each figure appears once per page.**
+
+### Page order (approved 2026-11-15)
+
+Sort a page's content by relationship before styling it.
+
+1. **Actions first.** The page's actions sit in the page header (`.fin-page-head` /
+   `.fin-page-actions`): one primary `Button`, secondaries beside it. Never repeat an
+   action lower down the page.
+2. **Totals share one card.** Figures that describe the same thing (budgeted, spent, left,
+   unallocated) live together, with a mode switch in that card's corner if one applies.
+3. **Group by state, most urgent first.** Lists are split into what needs the user and what
+   does not, instead of one flat grid with filter chips.
+4. **What is about an item sits on the item.** A suggestion, a warning or an edit control
+   for one row renders inside that row, not in a banner or side card elsewhere.
+5. **Row controls appear when asked for.** Tap a row to open its editor in place; no
+   always-visible icon-button clusters. A delete lives in that editor (and on hover on
+   desktop), confirms inline, then offers Undo.
+6. **Tabs are a segmented control** (`Tabs`): raised fill for the selected tab, never accent.
 
 ## Navigation
 
@@ -532,3 +552,5 @@ and colouring it red read as money lost.
 | 2026-09-16 | **Desktop sidebar made collapsible, closing a doc/implementation gap** | This section already documented the desktop sidebar as "collapsible" since the original v1 layout spec, but `Sidebar.tsx` never implemented it — fixed 240px, no toggle. Added a collapsed state (76px, icon-only) toggled by a small circular button floating on the sidebar's right border (`PanelLeftClose`/`PanelLeftOpen`), chosen over cramming a toggle into the header row so it doesn't compete with the wordmark/bell at either width. Collapsed state hides labels (nav items get a `title` tooltip instead), the search trigger (Ctrl+K still works globally), the tour button, notification bell, user name/email, and `InstallPWA`, keeping just icons, the avatar, and the More toggle. State lives in `themeStore` (`sidebarCollapsed`, persisted to `localStorage` as `fintrack-sidebar-collapsed`) so `AppLayout`'s content margin can react too — this also repurposed that store's `sidebarWidth`/`setSidebarWidth` fields, which had no consumers anywhere and still held a stale 220px default against the sidebar's real 240px |
 | 2026-11-14 | **One type scale, one card (v4)** | The code had 73 font sizes, 99 faux-bold figures, 107 uppercase labels with 15 trackings, and 61 tinted boxes beside the glass cards. Seven sizes, three weights, sentence-case labels, one neutral card; hero figure 40px (was 52 in this doc, 38 in code). Mocked and approved before build |
 | 2026-11-14 | **Dashboard: 20 boxes to 7 cards** | Net balance was shown twice and income/expenses three times. Duplicate tiles removed; daily brief, weekly brief, coach alerts, debt banners and opportunities merged into one Brief card; guilt-free budget renamed Free to spend; health detail widgets open as sibling cards under the grid |
+| 2026-11-15 | **Page order: actions first, group by relationship** | The first Budgets mock unified the styling but kept a widget-type layout (suggestions in a side card, Copy in a footer, zero-based in its own card). Re-sorted so actions lead, totals share a card, categories group by state and a suggestion sits on its row. Filter chips, the over-budget banner and 18 per-row icon buttons went with it |
+| 2026-11-15 | **Tabs become a segmented control; Button text is 14/500** | Accent-filled bouncing pills competed with the page's primary action. Applies to every page that uses `Tabs` |

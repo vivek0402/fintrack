@@ -424,6 +424,54 @@ aside, aside nav {
 .fin-link-quiet { color: var(--text-secondary); }
 .fin-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
 
+.fin-link-danger { color: var(--color-exp-text); }
+
+/* Page header: title on the left, the page's actions on the right. On phones
+   the actions drop under the title and share the width. */
+.fin-page-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.fin-page-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 767.98px) {
+  .fin-page-actions { width: 100%; }
+  .fin-page-actions > * { flex: 1 1 0; }
+}
+
+/* Two equal columns of cards, one on phones. */
+.fin-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+@media (max-width: 767.98px) { .fin-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* A row action that only shows on hover or keyboard focus. Hidden on touch
+   screens, where the row's own editor carries the same action. */
+.fin-row-hover-action { opacity: 0; }
+.fin-rows > *:hover .fin-row-hover-action, .fin-row-hover-action:focus-visible { opacity: 1; }
+@media (hover: none) { .fin-row-hover-action { display: none; } }
+
+/* Page tabs (components/ui/Tabs.tsx): a segmented control. */
+.fin-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--radius-md); background: var(--glass-fill-1); min-width: max-content; }
+.fin-tab {
+  border: none; background: transparent; cursor: pointer; white-space: nowrap;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: var(--text-body); font-weight: 500; color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.fin-tab:hover { color: var(--text-primary); }
+.fin-tab[aria-pressed="true"] { background: var(--glass-fill-3); color: var(--text-primary); }
+.fin-tab:focus-visible, .fin-switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+@media (max-width: 767.98px) {
+  .fin-tabs { display: flex; min-width: 100%; width: max-content; }
+  .fin-tab { flex: 1 0 auto; padding-inline: var(--space-3); }
+}
+
+/* Switch (CardParts.Switch). */
+.fin-switch {
+  display: inline-flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0;
+  background: none; border: none; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: var(--font-body); font-size: var(--text-caption); font-weight: 500; color: var(--text-secondary);
+}
+.fin-switch-track { position: relative; width: 32px; height: 18px; flex-shrink: 0; border-radius: var(--radius-full); background: var(--glass-fill-3); transition: background var(--transition-base); }
+.fin-switch-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-primary); transition: transform var(--transition-base); }
+.fin-switch[aria-checked="true"] .fin-switch-track { background: var(--accent); }
+.fin-switch[aria-checked="true"] .fin-switch-track::after { transform: translateX(14px); background: #fff; }
+
 /* Square icon button (month stepper, dismiss, refresh). */
 .fin-icon-btn {
   width: 32px; height: 32px; flex-shrink: 0; display: grid; place-items: center;

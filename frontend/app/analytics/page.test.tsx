@@ -22,7 +22,7 @@ describe('Insights page tabs', () => {
         search = 'tab=health';
         render(<AnalyticsPage />);
         expect(await screen.findByText('health-tab-body')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Health' })).toHaveStyle({ background: 'var(--accent)' });
+        expect(screen.getByRole('button', { name: 'Health' })).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('shows every tab as a chip, in order', async () => {

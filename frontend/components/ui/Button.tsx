@@ -11,7 +11,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const HEIGHTS: Record<string, number> = { sm: 32, md: 40, lg: 48 };
 const PADDINGS: Record<string, string> = { sm: '0 12px', md: '0 20px', lg: '0 24px' };
-const FONT_SIZES: Record<string, string> = { sm: '13px', md: '14px', lg: '15px' };
+// One size on the type scale for every button; height and padding carry the size.
+const FONT_SIZES: Record<string, string> = { sm: 'var(--text-body)', md: 'var(--text-body)', lg: 'var(--text-body)' };
 const SPINNER_SIZES: Record<string, number> = { sm: 14, md: 16, lg: 16 };
 
 export function Button({
@@ -36,7 +37,7 @@ export function Button({
         justifyContent: 'center',
         gap: '8px',
         fontFamily: 'var(--font-body)',
-        fontWeight: 600,
+        fontWeight: 500,
         fontSize: FONT_SIZES[size],
         height: HEIGHTS[size],
         borderRadius: 'var(--radius-md)',

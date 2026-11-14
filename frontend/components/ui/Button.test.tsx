@@ -90,25 +90,18 @@ describe('Tabs', () => {
         expect(onChange).toHaveBeenCalledWith('recurring');
     });
 
-    it('paints the active pill accent and leaves inactive ones to the glass class', () => {
+    it('marks the selected tab through aria-pressed and styles it by class alone', () => {
         render(<Tabs tabs={tabs} active="budgets" onChange={vi.fn()} />);
         const active = screen.getByRole('button', { name: 'Budgets' });
         const inactive = screen.getByRole('button', { name: 'Recurring' });
 
-        expect(active).toHaveStyle({ background: 'var(--accent)' });
-        expect(inactive).toHaveClass('glass-field');
-        expect(active).not.toHaveClass('glass-field');
-        // An inline background here would shadow .glass-field's fill.
-        expect(inactive.style.background).toBe('');
-    });
-
-    it('clears the inline hover on leave so the class fill returns', () => {
-        render(<Tabs tabs={tabs} active="budgets" onChange={vi.fn()} />);
-        const inactive = screen.getByRole('button', { name: 'Recurring' });
-
-        fireEvent.mouseEnter(inactive);
-        expect(inactive).toHaveStyle({ background: 'var(--glass-fill-2)' });
-        fireEvent.mouseLeave(inactive);
-        expect(inactive.style.background).toBe('');
+        // .fin-tab[aria-pressed="true"] in globals.css paints the selected fill.
+        expect(active).toHaveAttribute('aria-pressed', 'true');
+        expect(inactive).toHaveAttribute('aria-pressed', 'false');
+        expect(active).toHaveClass('fin-tab');
+        // An inline background or colour would shadow the class, and the old
+        // accent-filled pill is gone: accent is kept for the page's primary action.
+        expect(active.getAttribute('style')).toBeNull();
+        expect(inactive.getAttribute('style')).toBeNull();
     });
 });

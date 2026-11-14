@@ -28,17 +28,36 @@ export function CardHeader({ title, sub, action, flush = false }: {
     );
 }
 
-/** The one link style inside cards. `quiet` is for secondary actions such as Dismiss. */
-export function TextAction({ children, onClick, quiet = false, disabled, 'aria-label': ariaLabel }: {
+/** The one link style inside cards. `quiet` is for secondary actions such as Dismiss; `tone="danger"` for deletes. */
+export function TextAction({ children, onClick, quiet = false, tone, disabled, 'aria-label': ariaLabel }: {
     children: React.ReactNode;
     onClick: () => void;
     quiet?: boolean;
+    tone?: 'danger';
     disabled?: boolean;
     'aria-label'?: string;
 }) {
+    const cls = ['fin-link', quiet && 'fin-link-quiet', tone === 'danger' && 'fin-link-danger'].filter(Boolean).join(' ');
     return (
-        <button type="button" className={quiet ? 'fin-link fin-link-quiet' : 'fin-link'} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
+        <button type="button" className={cls} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
             {children}
+        </button>
+    );
+}
+
+/** On/off switch. Give it a visible `label`, or an `aria-label` when the surrounding text already names it. */
+export function Switch({ checked, onChange, label, labelSide = 'right', 'aria-label': ariaLabel }: {
+    checked: boolean;
+    onChange: (next: boolean) => void;
+    label?: string;
+    labelSide?: 'left' | 'right';
+    'aria-label'?: string;
+}) {
+    return (
+        <button type="button" role="switch" aria-checked={checked} aria-label={ariaLabel} className="fin-switch" onClick={() => onChange(!checked)}>
+            {label && labelSide === 'left' && label}
+            <span className="fin-switch-track" aria-hidden="true" />
+            {label && labelSide === 'right' && label}
         </button>
     );
 }

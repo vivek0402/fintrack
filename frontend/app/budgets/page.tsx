@@ -4,9 +4,9 @@ import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    Plus, Trash2, Pencil, AlertCircle, BarChart2, CopyPlus,
+    Plus, Trash2, Pencil,
     RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkles, X, Brain,
-    Check, Calendar, Target, Repeat,
+    Check, Calendar, Target,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,18 +15,19 @@ import { useBudgets, queryKeys } from '@/hooks/queries';
 import { CategoryField, type CategoryOption } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
 import { GCard } from '@/components/ui/GCard';
-import { StatTile } from '@/components/ui/StatTile';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui/Skeleton';
-import { useIsMobile } from '@/hooks/useWindowSize';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
-import { SuggestionsBanner, SuggestionItem } from '@/components/budgets/SuggestionsBanner';
+import type { SuggestionItem } from '@/components/budgets/SuggestionsBanner';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, NoticeRow, Stat, Switch, TONE_TEXT, type Tone } from '@/components/ui/CardParts';
+import { type, truncate } from '@/lib/typography';
 import { Tabs } from '@/components/ui/Tabs';
 import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
@@ -48,8 +49,7 @@ const TABS = [
 // Shared by all four tabs — Recurring/Splits/One-Time inherit the glass-field
 // recipe from here rather than each redeclaring it.
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const labelSt: React.CSSProperties = { ...type.label, marginBottom: 6, display: 'block' };
 // For GCard/tiles nested inside an already-glass parent (modals): the lighter
 // .glass-field wash, since glass-on-glass reads muddy.
 const glassFieldStyle: React.CSSProperties = { background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)' };
@@ -131,11 +131,42 @@ const otEmptyItemForm = () => ({
     credit_card_id: null as number | null,
 });
 
+// How one budget is doing this month. `willExceed` projects the month's spend
+// from the daily rate so far (only after day 3, when the rate means something).
+// A budget spent exactly to its limit is "fully used", not "running out": a
+// fixed cost such as rent hits 100% on day one and stays there.
+interface BudgetView {
+    spent: number; limit: number; pct: number;
+    isOver: boolean; willExceed: boolean; runOutDay: number;
+    status: string; tone: Tone;
+}
+
+function budgetView(b: any, month: number, year: number): BudgetView {
+    const spent = parseFloat(b.spent);
+    const limit = parseFloat(b.amount);
+    const pct   = limit > 0 ? (spent / limit) * 100 : 0;
+    const isOver    = spent > limit;
+    const fullyUsed = !isOver && limit > 0 && spent >= limit;
+    const today = new Date().getDate();
+    const dim   = new Date(year, month, 0).getDate();
+    const rate  = today > 0 ? spent / today : 0;
+    const proj  = Math.round(rate * dim);
+    const willExceed = !isOver && !fullyUsed && today > 3 && proj > limit;
+    const runOutDay  = rate > 0 ? Math.ceil(limit / rate) : dim + 1;
+    const runOutStr  = runOutDay <= dim
+        ? new Date(year, month - 1, runOutDay).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+        : null;
+    const status = isOver ? `${fmt(spent - limit)} over`
+        : fullyUsed ? 'Fully used'
+        : willExceed ? (runOutStr ? `Runs out ~${runOutStr}` : `${fmt(proj)} projected`)
+        : `${fmt(limit - spent)} left`;
+    return { spent, limit, pct, isOver, willExceed, runOutDay, status, tone: isOver ? 'bad' : willExceed ? 'caution' : 'neutral' };
+}
+
 function BudgetsPageInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const isMobile = useIsMobile();
 
     const initialTab = searchParams.get('tab');
     const [tab, setTab] = useState(TABS.some(t => t.key === initialTab) ? initialTab! : 'budgets');
@@ -178,7 +209,6 @@ function BudgetsPageInner() {
     const [dismissed, setDismissed]                 = useState<Set<string>>(new Set());
     const [rolloverEnabled, setRolloverEnabled]     = useState<Record<string, boolean>>({});
     const [zeroBasedMode, setZeroBasedMode]         = useState(false);
-    const [healthFilter, setHealthFilter]           = useState<'all'|'on-track'|'over'|'suggestion'>('all');
     const [adjusting, setAdjusting]                 = useState<string | null>(null);
     const [copying, setCopying]                      = useState(false);
 
@@ -358,9 +388,7 @@ function BudgetsPageInner() {
     const totalSpent      = spendingBudgets.reduce((s, b) => s + parseFloat(b.spent),  0);
     const totalRemaining  = Math.max(totalBudgeted - totalSpent, 0);
     const overallRawPct   = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
-    const overBudgetList  = budgets.filter(b => parseFloat(b.spent) > parseFloat(b.amount));
     const isOverTotal     = totalSpent > totalBudgeted;
-    const onTrackCount    = budgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount)).length;
     // Zero-based budgeting's "unallocated" tracks every dollar given a job --
     // an Investments budget is still a job for that money, so this counts all
     // budgets, not just spendingBudgets.
@@ -368,19 +396,121 @@ function BudgetsPageInner() {
     const unallocated     = monthlyIncome - totalAllocated;
     const copyableCount   = prevMonthBudgets.filter(pb => !budgets.find(b => b.category_id === pb.category_id)).length;
     const visibleBudgets  = budgets.filter(b => !pendingDeleteBudget.has(b.id));
-    const filteredBudgets = healthFilter === 'all'       ? visibleBudgets
-        : healthFilter === 'on-track'                    ? visibleBudgets.filter(b => parseFloat(b.spent) <= parseFloat(b.amount))
-        : healthFilter === 'over'                        ? visibleBudgets.filter(b => parseFloat(b.spent) >  parseFloat(b.amount))
-        : visibleBudgets.filter(b => suggestions.some(s => s.categoryId === b.category_id));
+
+    // ── Categories grouped by state ──
+    // "Needs attention" is over the limit or on pace to run out before month
+    // end; everything else is on track. Over comes first (largest overrun on
+    // top), then the earliest projected run-out.
+    const dayOfMonth  = new Date().getDate();
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const budgetViews = visibleBudgets.map(b => ({ budget: b, view: budgetView(b, currentMonth, currentYear) }));
+    const attentionBudgets = budgetViews
+        .filter(x => x.view.isOver || x.view.willExceed)
+        .sort((a, b) => a.view.isOver !== b.view.isOver
+            ? (a.view.isOver ? -1 : 1)
+            : a.view.isOver ? (b.view.spent - b.view.limit) - (a.view.spent - a.view.limit) : a.view.runOutDay - b.view.runOutDay);
+    const onTrackBudgets  = budgetViews.filter(x => !x.view.isOver && !x.view.willExceed);
+    const overCount       = attentionBudgets.filter(x => x.view.isOver).length;
+    const runningOutCount = attentionBudgets.length - overCount;
 
     const openAdd = () => { setShowForm(true); setFormError(''); setFormCategory(''); setFormAmount(''); };
-    const chipStyle = (active: boolean): React.CSSProperties => ({
-        fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: 'none',
-        cursor: 'pointer', fontFamily: 'var(--font-body)', fontWeight: active ? 600 : 400,
-        background: active ? 'var(--accent)' : undefined,
-        color: active ? 'white' : 'var(--text-secondary)',
-        transition: 'all var(--transition-fast)',
-    });
+
+    const closeEditor = () => { setEditingId(null); setEditError(''); setConfirmDeleteId(null); };
+
+    // One budget as a row: tap to open its limit and rollover in place. A
+    // suggestion about this category sits on the row, next to its numbers.
+    const renderBudgetRow = ({ budget, view }: { budget: any; view: BudgetView }) => {
+        const editing     = editingId === budget.id;
+        const confirming  = confirmDeleteId === budget.id;
+        const rollover    = !!rolloverEnabled[budget.category_id];
+        const prevB       = prevMonthBudgets.find(p => p.category_id === budget.category_id);
+        const rolloverAmt = prevB ? Math.max(0, parseFloat(prevB.amount) - parseFloat(prevB.spent)) : 0;
+        const suggestion  = suggestions.find(s => s.categoryId === budget.category_id);
+        const toggle = () => {
+            if (editing) { closeEditor(); return; }
+            setEditingId(budget.id); setEditAmount(String(view.limit)); setEditError(''); setConfirmDeleteId(null);
+        };
+        const inset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+
+        return (
+            <div key={budget.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} aria-expanded={editing} className="pressable" onClick={toggle}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                        <div aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 'var(--text-title)' }}>
+                            {[budget.category_icon, budget.category_emoji].find(looksLikeEmoji) || '📊'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{budget.category_name}</p>
+                            <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>
+                                Limit {fmt(view.limit)}
+                                {rollover && (rolloverAmt > 0 ? ` · +${fmt(rolloverAmt)} rolled over` : ' · rollover on')}
+                            </p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ ...type.num, margin: 0 }}>{fmt(view.spent)}</p>
+                            <p style={{ ...type.meta, margin: 0, color: TONE_TEXT[view.tone] }}>{view.status}</p>
+                        </div>
+                    </div>
+                    <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${budget.category_name} budget`}
+                        onClick={() => { setEditingId(null); setConfirmDeleteId(budget.id); }} disabled={!!deletingId}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+
+                <ProgressBar pct={view.pct} height={4} color={view.pct >= 85 ? 'var(--color-warn)' : 'var(--text-secondary)'} />
+
+                {confirming && (
+                    <div style={inset}>
+                        <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete the {budget.category_name} budget?</span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction tone="danger" onClick={() => { setEditingId(null); handleDelete(budget.id); }} disabled={deletingId === budget.id}>Delete budget</TextAction>
+                            <TextAction quiet onClick={() => setConfirmDeleteId(null)}>Keep it</TextAction>
+                        </span>
+                    </div>
+                )}
+
+                {suggestion && !editing && !confirming && (
+                    <div style={inset}>
+                        <span style={{ ...type.meta, flex: '1 1 200px' }}>
+                            You&apos;ve averaged {fmt(suggestion.avgSpend)} a month. {suggestion.type === 'over' ? 'Raise' : 'Lower'} the limit to {fmt(suggestion.suggestedAmount)}?
+                        </span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction onClick={() => handleAdjust(suggestion)} disabled={adjusting === suggestion.id}>{adjusting === suggestion.id ? 'Saving…' : 'Adjust'}</TextAction>
+                            <TextAction quiet onClick={() => handleDismiss(suggestion.id)}>Dismiss</TextAction>
+                        </span>
+                    </div>
+                )}
+
+                {editing && !confirming && (
+                    <div style={{ ...inset, alignItems: 'flex-end', gap: 'var(--space-3) var(--space-4)', padding: 'var(--space-3)' }}>
+                        <div>
+                            <label htmlFor={`limit-${budget.id}`} style={{ ...type.label, display: 'block', marginBottom: 6 }}>Monthly limit</label>
+                            <div style={{ position: 'relative' }}>
+                                <span aria-hidden="true" style={{ ...type.num, position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}>₹</span>
+                                <input id={`limit-${budget.id}`} type="number" min="1" inputMode="decimal" value={editAmount} autoFocus
+                                    onChange={e => setEditAmount(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleEditSave(budget); if (e.key === 'Escape') closeEditor(); }}
+                                    style={{ ...type.num, fontSize: 'var(--text-title)', width: 140, height: 40, padding: '0 10px 0 26px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-fill-1)', border: '1px solid var(--border-visible)', outline: 'none' }} />
+                            </div>
+                        </div>
+                        <div style={{ height: 40, display: 'flex', alignItems: 'center' }}>
+                            <Switch checked={rollover} onChange={() => toggleRollover(budget.category_id)} label="Roll over unspent" />
+                        </div>
+                        <div style={{ height: 40, display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                            <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save limit</Button>
+                            <TextAction quiet onClick={closeEditor}>Cancel</TextAction>
+                        </div>
+                        <div style={{ height: 40, display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
+                            <TextAction tone="danger" onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId}>Delete budget</TextAction>
+                        </div>
+                        {editError && <p role="alert" style={{ ...type.meta, margin: 0, flexBasis: '100%', color: 'var(--color-exp-text)' }}>{editError}</p>}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     // ════════════════════════════════════════════════════════════════════════
     // ── RECURRING TAB STATE ──
@@ -955,14 +1085,26 @@ function BudgetsPageInner() {
     return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── PAGE HEADER ── */}
-                <div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        Budgets
-                    </h1>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Monthly limits, recurring bills, shared expenses, and one-off spends
-                    </p>
+                {/* ── PAGE HEADER: title, then the page's actions ── */}
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>
+                            {tab === 'budgets'
+                                ? `${MONTH_NAMES[currentMonth]} ${currentYear} · ${budgets.length} ${budgets.length === 1 ? 'category' : 'categories'}`
+                                : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
+                        </p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>Budgets</h1>
+                    </div>
+                    {tab === 'budgets' && (
+                        <div className="fin-page-actions">
+                            {!budgetsLoading && copyableCount > 0 && (
+                                <Button variant="secondary" onClick={handleCopyFromLastMonth} disabled={copying}>
+                                    {copying ? 'Copying…' : `Copy ${copyableCount} from last month`}
+                                </Button>
+                            )}
+                            <Button onClick={openAdd}>Add budget</Button>
+                        </div>
+                    )}
                 </div>
 
                 <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -972,297 +1114,80 @@ function BudgetsPageInner() {
                 {/* ══════════════════════════════════════════════════════════ */}
                 {tab === 'budgets' && (
                     <>
-                        {/* ── HEADER ── */}
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                        {MONTH_NAMES[currentMonth]} {currentYear} · {budgets.length} {budgets.length === 1 ? 'category' : 'categories'}
-                                    </p>
+                        {budgetsLoading ? (
+                            <>
+                                <SkeletonCard height={190} />
+                                <div className="fin-two">
+                                    <SkeletonCard height={260} />
+                                    <SkeletonCard height={260} />
                                 </div>
-                                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                                    <button type="button" onClick={() => setZeroBasedMode(v => !v)}
-                                        className={zeroBasedMode ? undefined : 'glass-field'}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '7px 10px', background: zeroBasedMode ? 'var(--accent-subtle)' : undefined, border: zeroBasedMode ? '1px solid var(--accent-border)' : 'none', borderRadius: 'var(--radius-md)', color: zeroBasedMode ? 'var(--accent)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        <BarChart2 size={12} /> {isMobile ? '0-base' : 'Zero-based'}
-                                    </button>
-                                    <button type="button" onClick={openAdd}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        <Plus size={14} /> {isMobile ? 'Add' : 'Add Budget'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* ── BUDGET HEALTH CHIPS ── */}
-                            {!budgetsLoading && budgets.length > 0 && (
-                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--glass-border)' }}>
-                                    {([
-                                        { id: 'all',        label: 'All',           count: budgets.length },
-                                        { id: 'on-track',   label: '✅ On track',   count: onTrackCount },
-                                        { id: 'over',       label: '🔴 Over budget', count: overBudgetList.length },
-                                        { id: 'suggestion', label: '💡 Suggestions', count: suggestions.length },
-                                    ] as const).filter(chip => chip.id === 'all' || chip.count > 0).map(chip => (
-                                        <button key={chip.id} type="button"
-                                            onClick={() => setHealthFilter(healthFilter === chip.id ? 'all' : chip.id)}
-                                            className={healthFilter === chip.id ? undefined : 'glass-field'}
-                                            style={chipStyle(healthFilter === chip.id)}>
-                                            {chip.label} · {chip.count}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* ── BUDGET SUMMARY (hero numbers) ── */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <StatTile label="Total Budget" value={fmt(totalBudgeted)} accentColor="var(--accent)" />
-                            <StatTile label="Spent So Far" value={fmt(totalSpent)} accentColor={isOverTotal ? 'var(--color-exp)' : undefined} />
-                        </div>
-
-                        {budgets.length > 0 && (
-                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Usage</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 800, color: isOverTotal ? 'var(--color-exp)' : 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                        {Math.round(Math.min(overallRawPct, 100))}%
+                            </>
+                        ) : budgets.length === 0 ? (
+                            <EmptyState
+                                icon={Target}
+                                title="No budgets set"
+                                subtitle="Set monthly limits to stay on track"
+                                action={<Button onClick={openAdd}>Set your first budget</Button>}
+                            />
+                        ) : (
+                            <>
+                                {/* ── THE MONTH: every total in one card ── */}
+                                <Card>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                        <p style={{ ...type.label, margin: 0 }}>Spent of {fmt(totalBudgeted)} budgeted</p>
+                                        <Switch checked={zeroBasedMode} onChange={setZeroBasedMode} label="Zero-based" labelSide="left" />
+                                    </div>
+                                    <p className="type-display" style={{ ...type.display, margin: '6px 0 14px', color: isOverTotal ? 'var(--color-exp-text)' : 'var(--text-primary)' }}>
+                                        {fmt(totalSpent)}
                                     </p>
-                                </div>
-                                <ProgressBar pct={overallRawPct} height={8} />
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                                    {isOverTotal
-                                        ? <span style={{ color: 'var(--color-exp)' }}>{fmt(totalSpent - totalBudgeted)} over total budget</span>
-                                        : <span>{fmt(totalRemaining)} remaining across all categories</span>
-                                    }
-                                </p>
-                            </div>
-                        )}
-
-                        {/* ── ZERO-BASED MODE BANNER ── */}
-                        {zeroBasedMode && monthlyIncome > 0 && (
-                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
-                                <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Zero-based Budget</p>
-                                <p style={{ fontSize: '14px', color: 'var(--text-primary)', margin: '0 0 10px', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)' }}>{fmt(monthlyIncome)}</span> income allocated: {' '}
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmt(totalBudgeted)}</span> budgeted, {' '}
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: unallocated >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
-                                        {unallocated >= 0 ? `${fmt(unallocated)} unallocated` : `${fmt(-unallocated)} over-allocated`}
-                                    </span>
-                                </p>
-                                {unallocated > 0 && (
-                                    <button type="button" onClick={openAdd}
-                                        style={{ padding: '7px 16px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        + Allocate {fmt(unallocated)}
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* ── OVER-BUDGET ALERT BANNER ── */}
-                        {overBudgetList.length > 0 && (
-                            <div style={{ background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 28%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                <AlertCircle size={18} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                                <div>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--color-warn)', margin: '0 0 3px' }}>
-                                        {overBudgetList.length} {overBudgetList.length === 1 ? 'category is' : 'categories are'} over budget
-                                    </p>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                        {overBudgetList.map(b => b.category_name).join(', ')}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── SMART SUGGESTIONS BANNER ── */}
-                        {suggestions.length > 0 && (
-                            <SuggestionsBanner items={suggestions} adjusting={adjusting} onAdjust={handleAdjust} onDismiss={handleDismiss} />
-                        )}
-
-                        {/* ── GOAL SURPLUS NUDGE ── */}
-                        {goalSurplusNudge && (
-                            <div style={{ background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                <span style={{ fontSize: '20px', flexShrink: 0 }}>🎯</span>
-                                <div style={{ flex: 1 }}>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--color-inc)', margin: '0 0 3px' }}>
-                                        Month-end surplus: {fmt(goalSurplusNudge.surplusTotal)}
-                                    </p>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 10px', fontFamily: 'var(--font-body)' }}>
-                                        {goalSurplusNudge.daysLeft === 0 ? 'Last day of the month!' : `${goalSurplusNudge.daysLeft} day${goalSurplusNudge.daysLeft !== 1 ? 's' : ''} left`} — consider putting {fmt(goalSurplusNudge.surplusTotal)} unspent toward your goals.
-                                    </p>
-                                    <button type="button" onClick={() => router.push('/goals')}
-                                        style={{ padding: '6px 14px', background: 'var(--color-inc)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        View Goals →
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* ── BUDGET CATEGORY CARDS ── */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                    Budget Categories {healthFilter !== 'all' && <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px' }}>({filteredBudgets.length} shown)</span>}
-                                </h2>
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                    {!budgetsLoading && copyableCount > 0 && (
-                                        <button type="button" onClick={handleCopyFromLastMonth} disabled={copying} className="glass-field"
-                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: copying ? 0.6 : 1 }}>
-                                            <CopyPlus size={12} /> {copying ? 'Copying…' : `Copy last month (${copyableCount})`}
-                                        </button>
+                                    <ProgressBar pct={overallRawPct} height={6} color={overallRawPct >= 85 ? 'var(--color-warn)' : 'var(--text-secondary)'} />
+                                    <div className="dash-stats">
+                                        {isOverTotal
+                                            ? <Stat className="dash-stat" label="Over" value={fmt(totalSpent - totalBudgeted)} sub="Above the total budget" subTone="bad" />
+                                            : <Stat className="dash-stat" label="Left" value={fmt(totalRemaining)} sub="Across all categories" />}
+                                        <Stat className="dash-stat" label="Used" value={`${Math.round(overallRawPct)}%`} sub={`Day ${dayOfMonth} of ${daysInMonth}`} />
+                                        <Stat className="dash-stat" label="Needs attention" value={`${attentionBudgets.length}`}
+                                            sub={attentionBudgets.length === 0 ? 'Nothing to fix'
+                                                : [overCount > 0 && `${overCount} over`, runningOutCount > 0 && `${runningOutCount} running out early`].filter(Boolean).join(', ')}
+                                            subTone={overCount > 0 ? 'bad' : runningOutCount > 0 ? 'caution' : 'neutral'} />
+                                        {zeroBasedMode && monthlyIncome > 0 ? (
+                                            unallocated >= 0
+                                                ? <Stat className="dash-stat" label="Unallocated income" value={fmt(unallocated)}
+                                                    sub={unallocated > 0 ? <TextAction onClick={openAdd}>Allocate it</TextAction> : `All of ${fmt(monthlyIncome)} has a job`} />
+                                                : <Stat className="dash-stat" label="Over-allocated" value={fmt(-unallocated)} sub={`More than ${fmt(monthlyIncome)} income`} subTone="bad" />
+                                        ) : (
+                                            <Stat className="dash-stat" label="On track" value={`${onTrackBudgets.length}`}
+                                                sub={zeroBasedMode ? 'No income recorded this month' : `of ${visibleBudgets.length} ${visibleBudgets.length === 1 ? 'category' : 'categories'}`} />
+                                        )}
+                                    </div>
+                                    {goalSurplusNudge && (
+                                        <Rows style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--glass-border)' }}>
+                                            <NoticeRow tone="good"
+                                                title={`${fmt(goalSurplusNudge.surplusTotal)} unspent with ${goalSurplusNudge.daysLeft === 0 ? 'the month ending today' : `${goalSurplusNudge.daysLeft} day${goalSurplusNudge.daysLeft !== 1 ? 's' : ''} left`}`}
+                                                sub="Consider putting it toward your goals">
+                                                <TextAction onClick={() => router.push('/goals')}>View goals</TextAction>
+                                            </NoticeRow>
+                                        </Rows>
                                     )}
-                                    <button type="button" onClick={openAdd}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        <Plus size={12} /> Add Budget
-                                    </button>
+                                </Card>
+
+                                {/* ── CATEGORIES, grouped by state: what needs you first ── */}
+                                <div className={attentionBudgets.length > 0 && onTrackBudgets.length > 0 ? 'fin-two' : undefined}>
+                                    {attentionBudgets.length > 0 && (
+                                        <Card>
+                                            <CardHeader title="Needs attention" sub="Over the limit, or on pace to run out before month end" />
+                                            <Rows>{attentionBudgets.map(renderBudgetRow)}</Rows>
+                                        </Card>
+                                    )}
+                                    {onTrackBudgets.length > 0 && (
+                                        <Card>
+                                            <CardHeader title="On track" sub="Inside the limit at the current pace" />
+                                            <Rows>{onTrackBudgets.map(renderBudgetRow)}</Rows>
+                                        </Card>
+                                    )}
                                 </div>
-                            </div>
-
-                            {budgetsLoading ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {[1, 2, 3].map(i => <SkeletonCard key={i} height={110} />)}
-                                </div>
-                            ) : budgets.length === 0 ? (
-                                <EmptyState
-                                    icon={Target}
-                                    title="No budgets set"
-                                    subtitle="Set monthly limits to stay on track"
-                                    action={
-                                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                            {prevMonthBudgets.length > 0 && (
-                                                <button type="button" onClick={handleCopyFromLastMonth} disabled={copying} className="glass-field"
-                                                    style={{ padding: '10px 20px', border: 'none', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: copying ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px', opacity: copying ? 0.6 : 1 }}>
-                                                    <CopyPlus size={14} /> {copying ? 'Copying…' : `Copy from last month (${prevMonthBudgets.length})`}
-                                                </button>
-                                            )}
-                                            <button type="button" onClick={openAdd} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                Set your first budget
-                                            </button>
-                                        </div>
-                                    }
-                                />
-                            ) : filteredBudgets.length === 0 ? (
-                                <div className="glass-surface" style={{ textAlign: 'center', padding: '32px 24px', borderRadius: 'var(--radius-lg)' }}>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No budgets match this filter</p>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '12px' }}>
-                                    {filteredBudgets.map(budget => {
-                                        const spent    = parseFloat(budget.spent);
-                                        const limit    = parseFloat(budget.amount);
-                                        const rawPct   = limit > 0 ? (spent / limit) * 100 : 0;
-                                        const isOver   = spent > limit;
-                                        const overAmt  = isOver ? spent - limit : 0;
-                                        const leftAmt  = isOver ? 0 : limit - spent;
-                                        const barColor = isOver ? 'var(--color-exp)' : 'var(--accent)';
-                                        const emojiBg  = isOver ? 'color-mix(in srgb, var(--color-exp) 12%, transparent)' : 'var(--accent-subtle)';
-                                        const rollover = rolloverEnabled[budget.category_id];
-                                        const prevB    = prevMonthBudgets.find(p => p.category_id === budget.category_id);
-                                        const rolloverAmt = prevB ? Math.max(0, parseFloat(prevB.amount) - parseFloat(prevB.spent)) : 0;
-                                        const _today = new Date().getDate();
-                                        const _dim   = new Date(currentYear, currentMonth, 0).getDate();
-                                        const _rate  = _today > 0 ? spent / _today : 0;
-                                        const _proj  = Math.round(_rate * _dim);
-                                        const _willExceed = !isOver && _today > 3 && _proj > limit;
-                                        const _runOutDay  = _rate > 0 ? Math.ceil(limit / _rate) : _dim + 1;
-                                        const _runOutStr  = _runOutDay <= _dim
-                                            ? new Date(currentYear, currentMonth - 1, _runOutDay).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-                                            : null;
-
-                                        return (
-                                            <div key={budget.id} className="glass-surface" style={{ border: `1px solid ${isOver ? 'color-mix(in srgb, var(--color-exp) 20%, transparent)' : 'var(--glass-border)'}`, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', gap: '10px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
-                                                        <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: emojiBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '18px' }}>
-                                                            {[budget.category_icon, budget.category_emoji].find(looksLikeEmoji) || '📊'}
-                                                        </div>
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {budget.category_name}
-                                                            </p>
-                                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
-                                                                Budget: {fmt(limit)}
-                                                                {rollover && rolloverAmt > 0 && (
-                                                                    <span style={{ color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}> · +{fmt(rolloverAmt)} rolled over</span>
-                                                                )}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                                        <div style={{ textAlign: 'right' }}>
-                                                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: isOver ? 'var(--color-exp)' : 'var(--text-primary)', margin: '0 0 3px', fontVariantNumeric: 'tabular-nums' }}>
-                                                                {fmt(spent)}
-                                                            </p>
-                                                            {isOver ? (
-                                                                <Badge color="var(--color-exp)" bg="color-mix(in srgb, var(--color-exp) 10%, transparent)">
-                                                                    +{fmt(overAmt)} over
-                                                                </Badge>
-                                                            ) : _today > 3 && _willExceed ? (
-                                                                <p style={{ fontSize: '11px', color: 'var(--color-warn)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                                                    {_runOutStr ? `Runs out ~${_runOutStr}` : `${fmt(_proj)} projected`}
-                                                                </p>
-                                                            ) : (
-                                                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
-                                                                    {fmt(leftAmt)} left
-                                                                </p>
-                                                            )}
-                                                        </div>
-
-                                                        <button type="button" onClick={() => toggleRollover(budget.category_id)}
-                                                            title={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
-                                                            aria-label={rollover ? 'Rollover enabled — click to disable' : 'Enable rollover'}
-                                                            style={{ ...iconBtn, color: rollover ? 'var(--accent)' : 'var(--text-muted)', borderColor: rollover ? 'var(--accent-border)' : 'var(--glass-border)', background: rollover ? 'var(--accent-subtle)' : 'transparent' }}>
-                                                            <Repeat size={13} />
-                                                        </button>
-
-                                                        {confirmDeleteId === budget.id ? (
-                                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                                <button type="button" onClick={() => handleDelete(budget.id)} disabled={deletingId === budget.id}
-                                                                    style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                                    {deletingId === budget.id ? '…' : 'Delete'}
-                                                                </button>
-                                                                <button type="button" onClick={() => setConfirmDeleteId(null)} className="glass-field"
-                                                                    style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: 'none', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                                    Cancel
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ display: 'flex', gap: '4px' }}>
-                                                                <button type="button" onClick={() => { setEditingId(budget.id); setEditAmount(String(parseFloat(budget.amount))); setEditError(''); }} aria-label={`Edit ${budget.category_name} budget`} style={iconBtn}
-                                                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
-                                                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                                    <Pencil size={13} />
-                                                                </button>
-                                                                <button type="button" onClick={() => setConfirmDeleteId(budget.id)} disabled={!!deletingId} aria-label={`Delete ${budget.category_name} budget`} style={iconBtn}
-                                                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
-                                                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                                    <Trash2 size={13} />
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <ProgressBar pct={rawPct} color={barColor} height={6} />
-
-                                                {/* Inline edit */}
-                                                {editingId === budget.id && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                                                        <div style={{ position: 'relative', flexShrink: 0 }}>
-                                                            <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 13 }}>₹</span>
-                                                            <input type="number" min="1" value={editAmount} onChange={e => setEditAmount(e.target.value)} autoFocus
-                                                                style={{ width: 120, padding: '6px 8px 6px 22px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', border: '1px solid var(--accent)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'var(--font-mono)', outline: 'none', fontVariantNumeric: 'tabular-nums' }} />
-                                                        </div>
-                                                        <Button size="sm" onClick={() => handleEditSave(budget)} isLoading={editLoading}>Save</Button>
-                                                        <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>Cancel</button>
-                                                        {editError && <span style={{ fontSize: 12, color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>{editError}</span>}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
+                            </>
+                        )}
 
                         {/* ── ADD BUDGET MODAL ── */}
                         <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); }} title={`Set Budget — ${MONTH_NAMES[currentMonth]}`} maxWidth="440px"
