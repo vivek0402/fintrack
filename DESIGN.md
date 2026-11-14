@@ -50,17 +50,25 @@ because unconditional glass is what makes an interface look generated:
   --font-body:    'Satoshi', sans-serif            /* body, UI labels, buttons */
   --font-mono:    'DM Mono', monospace             /* numbers, currency, code */
   ```
-- **Scale:**
+- **Scale (v4, approved 2026-11-14):** seven sizes, each a token in `globals.css`. Never
+  write a literal `fontSize`. `lib/typography.ts` exports them as inline style objects
+  (`type.label`, `type.title`, `type.figure`, ...); spread those instead.
   ```
-  xs:    11px / 1.4  — labels, timestamps, captions
-  sm:    12px / 1.5  — secondary UI, form labels
-  base:  14px / 1.6  — body, buttons, inputs
-  md:    15px / 1.65 — primary body text
-  lg:    20px / 1.4  — subheadings
-  xl:    28px / 1.2  — section headings (Cabinet Grotesk 700)
-  2xl:   40px / 1.1  — page headings (Cabinet Grotesk 800)
-  hero:  52px / 1.0  — display numbers, net position (DM Mono)
+  --text-micro    11px  chart axes and badges only (DM Mono)
+  --text-caption  12px  labels, metadata, links inside cards
+  --text-body     14px  running text, row titles, buttons, inputs
+  --text-title    16px  card titles (Cabinet Grotesk 700)
+  --text-heading  20px  page title (Cabinet Grotesk 700), stat-strip numbers
+  --text-figure   28px  a card's key number (DM Mono)
+  --text-display  40px  the one hero figure per page (DM Mono); 28px on phones via `.type-display`
   ```
+  13px is retired: it was the most used size in the code and was never in this scale.
+  Text that was 13px becomes 14 (rows, body) or 12 (metadata).
+- **Weights:** three. 400 for text, 500 for labels, row titles and every figure, 700 for
+  Cabinet Grotesk headings. Never set DM Mono above 500: only 300/400/500 are loaded, so
+  600-800 renders as a browser-faked bold. Size carries the hierarchy for numbers.
+- **Labels:** sentence case, `--text-caption`, 500, `--text-secondary`. No uppercase and no
+  letter-spacing, form labels included.
 
 ## Color
 
@@ -160,6 +168,15 @@ should be treated as ordinary tokens rather than legacy:
 
 Always use the canonical v2 tokens in new code.
 
+### Text-role tokens (v4, approved 2026-11-14)
+The semantic hues miss WCAG AA as small text on some surfaces (blue about 3.8:1 and red
+about 4.1:1 on dark; green about 3.3:1 and amber about 3.2:1 on light). Coloured *text*
+uses these variants; bars, dots, fills and charts keep the base tokens.
+```css
+/* dark */  --color-inc-text: #22b455;  --color-exp-text: #ef4444;  --color-warn-text: #e08a1a;  --accent-text: #5b8ef2;
+/* light */ --color-inc-text: #15803d;  --color-exp-text: #c81e1e;  --color-warn-text: #b45309;  --accent-text: #1d4ed8;
+```
+
 ### Semantic Rules
 - Positive values, income, savings: always `--color-inc`
 - Negative values, expenses, deficits: always `--color-exp`
@@ -254,7 +271,8 @@ Every component uses CSS variables only — no hardcoded hex values.
 |---|---|---|
 | `PageShell` | `components/layout/PageShell.tsx` | Universal page wrapper — title, subtitle, headerRight slot, responsive padding |
 | `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon |
-| `Card` | `components/ui/Card.tsx` | `--bg-surface-1` container with optional hover lift |
+| `Card` | `components/ui/Card.tsx` | The one card: glass, `--radius-lg`, padding from `.fin-card` (20px, 16 on phones) |
+| `CardHeader` / `TextAction` / `Rows` / `NoticeRow` / `Stat` / `StatusDot` | `components/ui/CardParts.tsx` | What goes inside a card: one header pattern, one link style, hairline rows, notices as rows, label-figure-context stats |
 | `StatTile` | `components/ui/StatTile.tsx` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
 | `TransactionList` | `components/transactions/TransactionList.tsx` | Swipe-left to delete (mobile), hover-edit (desktop) |
 | `EmptyState` | `components/ui/EmptyState.tsx` | Standardised empty state: Lucide icon, title, optional CTA |
@@ -284,7 +302,7 @@ font-size:     14px              /* minimum — prevents iOS zoom */
 font-family:   var(--font-body)
 ```
 
-Labels: `11px / 600 / var(--text-secondary) / uppercase / 0.5px letter-spacing`
+Labels: `12px / 500 / var(--text-secondary)`, sentence case (`type.label`)
 
 Error text: `11px / var(--color-exp)`
 
@@ -323,6 +341,23 @@ All four hues are existing semantic tokens, kept from the curve version — the 
 means something even though the shape no longer traces real data. Deliberately dim
 (0.28–0.32 peak stop-opacity) so it reads as light, not paint. Light theme drops the whole
 layer to 35% opacity.
+
+## The card (v4, approved 2026-11-14)
+
+One container for the whole app. Rolling out page by page; the dashboard is done.
+
+- **One surface.** `Card` (or `.glass-surface .fin-card` by hand): glass, `--radius-lg`,
+  20px padding (16 on phones), `--space-4` between cards.
+- **No tinted or outlined variants.** Status shows as a coloured figure, an 8px `StatusDot`
+  or a bar. The box stays neutral.
+- **No card inside a card.** Content inside a card is `Rows` split by a hairline. Detail
+  that needs its own cards opens as sibling cards, not nested ones.
+- **One header pattern.** `CardHeader`: 16px title on the left, one `TextAction` on the
+  right. No decorative icons, no arrows in link text.
+- **Labels sit above figures.** 12px label, the number, one line of context (`Stat`).
+- **Notices are rows.** `NoticeRow`: a dot, a plain sentence, one action. No tinted
+  banners, no side-stripe borders, no emoji prefixes.
+- **Each figure appears once per page.**
 
 ## Navigation
 
@@ -391,6 +426,9 @@ and colouring it red read as money lost.
 - No drop shadows on tooltips
 - No vertical gridlines in charts
 - No alternating row colors in tables
+- No literal font sizes, no uppercase labels, no DM Mono above weight 500 (see Typography)
+- No tinted or outlined card variants, no side-stripe borders, no card inside a card (see The card)
+- No `--color-inc/exp/warn` or `--accent` as small text colour; use the `-text` variants
 - No using legacy `--bg-primary`, `--accent-mint`, etc. token names in new code
 - No `color-mix()` inline — define a semantic token if you need a derived color.
   For translucent fills over glass the tokens already exist: **`--glass-fill-1`** (fields,
@@ -492,3 +530,5 @@ and colouring it red read as money lost.
 | 2026-09-16 | **Desktop sidebar split from the mobile nav's glass density (`--glass-sidebar-surface` added)** | User feedback on a screenshot: the sidebar read as flat, not glass, even though it already carried `.glass-surface .glass-nav`. That fill (`--glass-nav-surface`, 0.88 dark / 0.90 light) was two separately-made legibility calls — mobile pill (2026-08-25), then desktop sidebar reusing the same token (2026-08-26) — both reverted from a lighter treatment after busy scrolling content made it unreadable. Rather than re-litigate blind, five candidates (today's fill, plus four variants — boosted blur/edge at the same opacity, a fully translucent fill, a middle-ground opacity, and a hybrid) were mocked side by side over the real ambient backdrop and a busy transaction list. **Middle ground was chosen** for the desktop sidebar only: `--glass-sidebar-surface: rgba(10,10,10,0.55)` dark / `rgba(255,255,255,0.65)` light, applied via a new `.glass-nav-desktop` modifier (wins over `.glass-nav` by source order, same convention as `.glass-nav` over `.glass-surface`) so the mobile `BottomNav` pill keeps its own separately-tuned 0.88/0.90 density untouched — explicitly scoped to desktop only, since the mobile pill's density was its own tuned decision with the identical failure history and wasn't up for re-litigation here |
 | 2026-09-16 | **`EmptyState` icon gets a continuous idle float + sparkle loop, an intentional exception to "only comprehension-aiding motion"** | Part of a small motion-polish batch. Approved via a user-reviewed HTML/CSS prototype rather than designed fresh in code. This is the first continuous/infinite loop added to ordinary page content that is purely decorative — the Motion section's default ("only transitions that aid comprehension or signal state") does not cover it, so it's recorded here as a deliberate, scoped exception rather than a silent departure. Justification for the exception: low-amplitude (±4px float, brief sub-second sparkle pulse per 2.4s cycle) and sitting on an already-muted `--text-muted` icon, so it reads as ambient texture rather than an attention-grabbing effect; respects `prefers-reduced-motion` (unlike loading spinners, which are informational and stay exempt). New `animated?: boolean` prop (default `true`) is the escape hatch for call sites where the loop doesn't fit — `EmptyState` is also used for genuine error/failed-load states (e.g. `app/personal-loans/page.tsx`'s "Couldn't load your personal loans"), where an idly floating, sparkling icon reads wrong; that one site was switched to `animated={false}`, other call sites left on the default. Sparkle uses `var(--accent)`, not `var(--color-warn)` — `--color-warn` is the app's semantic warning/alert token used across ~30 files (BudgetAlerts, CoachAlerts, DTI widgets) and borrowing it for a permanent decorative accent would be a semantic mismatch |
 | 2026-09-16 | **Desktop sidebar made collapsible, closing a doc/implementation gap** | This section already documented the desktop sidebar as "collapsible" since the original v1 layout spec, but `Sidebar.tsx` never implemented it — fixed 240px, no toggle. Added a collapsed state (76px, icon-only) toggled by a small circular button floating on the sidebar's right border (`PanelLeftClose`/`PanelLeftOpen`), chosen over cramming a toggle into the header row so it doesn't compete with the wordmark/bell at either width. Collapsed state hides labels (nav items get a `title` tooltip instead), the search trigger (Ctrl+K still works globally), the tour button, notification bell, user name/email, and `InstallPWA`, keeping just icons, the avatar, and the More toggle. State lives in `themeStore` (`sidebarCollapsed`, persisted to `localStorage` as `fintrack-sidebar-collapsed`) so `AppLayout`'s content margin can react too — this also repurposed that store's `sidebarWidth`/`setSidebarWidth` fields, which had no consumers anywhere and still held a stale 220px default against the sidebar's real 240px |
+| 2026-11-14 | **One type scale, one card (v4)** | The code had 73 font sizes, 99 faux-bold figures, 107 uppercase labels with 15 trackings, and 61 tinted boxes beside the glass cards. Seven sizes, three weights, sentence-case labels, one neutral card; hero figure 40px (was 52 in this doc, 38 in code). Mocked and approved before build |
+| 2026-11-14 | **Dashboard: 20 boxes to 7 cards** | Net balance was shown twice and income/expenses three times. Duplicate tiles removed; daily brief, weekly brief, coach alerts, debt banners and opportunities merged into one Brief card; guilt-free budget renamed Free to spend; health detail widgets open as sibling cards under the grid |

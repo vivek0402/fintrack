@@ -18,14 +18,21 @@
   --font-body: 'Satoshi', sans-serif;
   --font-mono: 'DM Mono', monospace;
 
-  /* Typography scale */
-  --text-display: 52px;
-  --text-h1: 28px;
-  --text-h2: 20px;
-  --text-h3: 16px;
-  --text-label: 11px;
-  --text-body: 14px;
-  --text-caption: 12px;
+  /* Typography scale -- the only seven sizes (DESIGN.md "Typography").
+     Never write a literal font-size in new code; lib/typography.ts wraps
+     these as ready-made inline style objects. */
+  --text-display: 40px;   /* the one hero figure per page (28 on phones, via .type-display) */
+  --text-figure: 28px;    /* a card's key number */
+  --text-heading: 20px;   /* page title, stat-strip numbers */
+  --text-title: 16px;     /* card title */
+  --text-body: 14px;      /* running text, row titles, buttons, inputs */
+  --text-caption: 12px;   /* labels, metadata, links inside cards */
+  --text-micro: 11px;     /* chart axes and badges only */
+  /* Older names, kept for existing call sites. */
+  --text-h1: var(--text-figure);
+  --text-h2: var(--text-heading);
+  --text-h3: var(--text-title);
+  --text-label: var(--text-micro);
 
   /* Spacing */
   --space-1: 4px;
@@ -135,6 +142,14 @@ h1, h2, h3, h4, h5, h6 {
 
   --color-bill-due: #f97316;
 
+  /* Text-role variants: the semantic hues tuned to clear WCAG AA (4.5:1) as
+     small text on this theme's surfaces. Use these for coloured *text*; keep
+     --color-inc/exp/warn and --accent for bars, dots, fills and charts. */
+  --color-inc-text: #22b455;
+  --color-exp-text: #ef4444;
+  --color-warn-text: #e08a1a;
+  --accent-text: #5b8ef2;
+
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.7);
 
@@ -228,6 +243,13 @@ h1, h2, h3, h4, h5, h6 {
   --color-info-subtle: rgba(8, 145, 178, 0.10);
 
   --color-bill-due: #f97316;
+
+  /* Text-role variants (see dark theme): darker here, since green and amber
+     at full strength sit near 3.2:1 on white. */
+  --color-inc-text: #15803d;
+  --color-exp-text: #c81e1e;
+  --color-warn-text: #b45309;
+  --accent-text: #1d4ed8;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.15);
@@ -357,6 +379,85 @@ aside, aside nav {
 .glass-field {
   background: var(--glass-fill-1);
   border: 1px solid var(--glass-border);
+}
+
+/* ── The card (v4) ────────────────────────────────────────────────────────
+   One container for the whole app: glass, --radius-lg, 20px padding (16 on
+   phones). components/ui/Card.tsx applies it; pair with .glass-surface when
+   writing a card by hand. No tinted or outlined variants, and no card inside
+   a card: content inside is .fin-rows split by hairlines. */
+.fin-card {
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  min-width: 0;
+}
+@media (max-width: 767.98px) {
+  .fin-card { padding: var(--space-4); }
+}
+
+/* Rows inside a card: hairline between, none above the first. */
+.fin-rows > * {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--glass-border);
+  min-width: 0;
+}
+.fin-rows > *:first-child { border-top: 0; padding-top: 0; }
+.fin-rows > *:last-child { padding-bottom: 0; }
+/* A row that navigates. The hover wash extends 8px past the text on each
+   side through box-shadow, so the row's content stays on the card's grid. */
+.fin-row-link { cursor: pointer; transition: background var(--transition-fast), box-shadow var(--transition-fast); }
+@media (hover: hover) {
+  .fin-row-link:hover { background: var(--glass-fill-1); box-shadow: -8px 0 0 var(--glass-fill-1), 8px 0 0 var(--glass-fill-1); }
+}
+
+/* Text action: the one link style inside cards. */
+.fin-link {
+  background: none; border: none; padding: 6px 0; cursor: pointer; white-space: nowrap; text-decoration: none;
+  font-family: var(--font-body); font-size: var(--text-caption); font-weight: 500; line-height: 1.4;
+  color: var(--accent-text);
+}
+.fin-link:hover { text-decoration: underline; }
+.fin-link:focus-visible, .fin-icon-btn:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; border-radius: var(--radius-sm); }
+.fin-link-quiet { color: var(--text-secondary); }
+.fin-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+
+/* Square icon button (month stepper, dismiss, refresh). */
+.fin-icon-btn {
+  width: 32px; height: 32px; flex-shrink: 0; display: grid; place-items: center;
+  background: none; border: none; border-radius: var(--radius-md); cursor: pointer;
+  color: var(--text-secondary); transition: background var(--transition-fast), color var(--transition-fast);
+}
+.fin-icon-btn:hover:not(:disabled) { background: var(--glass-fill-1); color: var(--text-primary); }
+.fin-icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+/* The page's single display figure: 40px, stepping down to 28 on phones. */
+.type-display { font-size: var(--text-display); }
+@media (max-width: 767.98px) {
+  .type-display { font-size: var(--text-figure); }
+}
+
+/* ── Dashboard layout ── two columns on desktop, one on phones. On phones the
+   columns dissolve (display: contents) so cards can interleave by `order`. */
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.dash-col { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.dash-net { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: var(--space-6); align-items: end; }
+.dash-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--glass-border); }
+.dash-stat { padding-left: var(--space-4); border-left: 1px solid var(--glass-border); min-width: 0; }
+.dash-stat:first-child { padding-left: 0; border-left: 0; }
+.dash-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.dash-detail > .wide { grid-column: 1 / -1; }
+@media (max-width: 767.98px) {
+  .dash-grid { grid-template-columns: minmax(0, 1fr); }
+  .dash-col { display: contents; }
+  .dash-net { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .dash-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: var(--space-4); }
+  .dash-stat:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .dash-detail { grid-template-columns: minmax(0, 1fr); }
+  .dash-o1 { order: 1; } .dash-o2 { order: 2; } .dash-o3 { order: 3; } .dash-o4 { order: 4; }
+  .dash-o5 { order: 5; } .dash-o6 { order: 6; } .dash-o7 { order: 7; }
 }
 
 /* Ambient backdrop — two soft light pools in the income/expense colour
