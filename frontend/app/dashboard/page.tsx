@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback, type RefObject } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, type ReactNode, type RefObject } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, TrendingDown, Wallet, Award, Sparkles, RefreshCw, PiggyBank, AlertTriangle, X, Lightbulb, ChevronLeft, ChevronRight, ChevronDown, CalendarClock, Flame, Heart } from 'lucide-react';
-import Link from 'next/link';
+import { RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useDashboardData, useAccounts, useUserQuery } from '@/hooks/queries';
 import { analyticsAPI, investmentAPI, debtAPI, loanAPI, opportunityAPI, briefingAPI, dailyBriefingAPI } from '@/lib/api';
@@ -16,14 +15,16 @@ import { useThemeStore } from '@/store/themeStore';
 import { toast } from '@/store/toastStore';
 import { loadErrorMessage } from '@/lib/loadErrorMessage';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, NoticeRow, Stat, StatusDot, type Tone } from '@/components/ui/CardParts';
+import { type, truncate } from '@/lib/typography';
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { HealthScoreWidget } from '@/components/dashboard/HealthScoreWidget';
 import { calculateHealthScore, monthlySeriesFromTrends } from '@/lib/healthScore';
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
-import { CoachAlerts } from '@/components/coach/CoachAlerts';
+import { useCoachAlerts } from '@/components/coach/CoachAlerts';
 import { toAmount } from '@/types/finance';
 
 // Lazy-loaded: each of these pulls in recharts, same pattern as
@@ -66,7 +67,7 @@ function BezierSparkline({ data, incColor, expColor }: {
 
     if (!data.length) return (
         <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No data yet</p>
+            <p style={{ ...type.meta, margin: 0 }}>No data yet</p>
         </div>
     );
 
@@ -130,7 +131,7 @@ function BezierSparkline({ data, incColor, expColor }: {
                 <path d={linePath(expPts)} fill="none" stroke={expColor} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
                 {tipIdx !== null && (
                     <line x1={tipXInViewBox} y1={0} x2={tipXInViewBox} y2={H}
-                        stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+                        stroke="var(--border-visible)" strokeWidth={1} />
                 )}
             </svg>
             {/* Hover tooltip */}
@@ -140,7 +141,7 @@ function BezierSparkline({ data, incColor, expColor }: {
                     top: '-4px',
                     left: `${tipXPct}%`,
                     transform: tipXPct > 75 ? 'translateX(-100%)' : tipXPct < 10 ? 'translateX(0)' : 'translateX(-50%)',
-                    background: 'var(--glass-fill-1)',
+                    background: 'var(--bg-surface-2)',
                     border: '1px solid var(--border-visible)',
                     borderRadius: 'var(--radius-md)',
                     padding: '6px 10px',
@@ -148,10 +149,10 @@ function BezierSparkline({ data, incColor, expColor }: {
                     zIndex: 10,
                     whiteSpace: 'nowrap',
                 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '10px', color: 'var(--text-muted)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{data[tipIdx].month}</p>
+                    <p style={{ ...type.micro, margin: '0 0 4px' }}>{data[tipIdx].month}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: incColor, fontVariantNumeric: 'tabular-nums' }}>↑ {fmt(data[tipIdx].income)}</span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: expColor, fontVariantNumeric: 'tabular-nums' }}>↓ {fmt(data[tipIdx].expenses)}</span>
+                        <span style={{ ...type.numSmall, color: 'var(--color-inc-text)' }}>↑ {fmt(data[tipIdx].income)}</span>
+                        <span style={{ ...type.numSmall, color: 'var(--color-exp-text)' }}>↓ {fmt(data[tipIdx].expenses)}</span>
                     </div>
                 </div>
             )}
@@ -161,25 +162,17 @@ function BezierSparkline({ data, incColor, expColor }: {
                     const xPct = n === 1 ? 50 : (i / (n - 1)) * 100;
                     return (
                         <span key={i} style={{
+                            ...type.micro,
                             position: 'absolute',
                             left: `${xPct}%`,
-                            transform: 'translateX(-50%)',
-                            fontSize: '10px',
-                            color: 'var(--text-muted)',
-                            fontFamily: 'var(--font-body)',
+                            // End labels hug the chart's edges instead of overhanging the card.
+                            transform: i === 0 && n > 1 ? 'none' : i === n - 1 && n > 1 ? 'translateX(-100%)' : 'translateX(-50%)',
                             whiteSpace: 'nowrap',
                         }}>{d.month}</span>
                     );
                 })}
             </div>
-            <div style={{ display: 'flex', gap: '14px', marginTop: '6px' }}>
-                {[{ label: 'Income', color: incColor }, { label: 'Expenses', color: expColor }].map(l => (
-                    <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <div style={{ width: 16, height: 2, background: l.color, borderRadius: 1 }} />
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
-                    </div>
-                ))}
-            </div>
+            {/* No legend here: the in / out line beside the net figure carries it. */}
         </div>
     );
 }
@@ -288,6 +281,9 @@ export default function DashboardPage() {
     const [briefingExpanded, setBriefingExpanded] = useState(false);
     const [healthDetailsOpen, setHealthDetailsOpen] = useState(false);
     const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
+    const [briefTab, setBriefTab] = useState<'today' | 'week'>('today');
+    // Coach alerts render as rows in the Brief card (see briefCard below).
+    const coach = useCoachAlerts({ summary, budgets, goals, loading: dataLoading }, coachEnabled);
 
     // Chart colours (read from CSS vars) -- initial/fallback values match
     // DESIGN.md's --color-inc/--color-exp dark-theme (default) tokens.
@@ -311,16 +307,8 @@ export default function DashboardPage() {
     const savingsPct = summary && summary.total_income > 0
         ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100))
         : 0;
-    const netBalance = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
 
-    // Savings rate badge
-    const savingsBadge = savingsPct >= 20
-        ? { label: `${savingsPct}% · Good`, color: 'var(--color-inc)', bg: 'color-mix(in srgb, var(--color-inc) 12%, transparent)' }
-        : savingsPct >= 10
-        ? { label: `${savingsPct}% · Fair`, color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)' }
-        : { label: 'Needs work',            color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)'  };
-
-    // Row-2 tile computed values
+    // Stat-strip computed values
     const today       = new Date();
     const daysInMonth = new Date(year, month, 0).getDate();
     const daysElapsed = isCurrentMonth ? Math.max(today.getDate(), 1) : daysInMonth;
@@ -483,399 +471,445 @@ export default function DashboardPage() {
         </>
     );
 
-    // ── Net Balance hero (rendered above tiles on mobile, below on desktop) ──
-    const netBalanceHero = (
-        <div className="glass-surface" style={{ borderColor: 'var(--accent-border)', borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '32px 36px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
-                Net balance · {MONTH_NAMES[month]}
-            </p>
-            {dataLoading ? (
-                <Skeleton width="320px" height={56} borderRadius={6} style={{ marginBottom: '12px' }} />
-            ) : (
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '28px' : '38px', fontWeight: 800, color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp)', margin: '0 0 12px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1, animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                    <CountUp value={heroNet} format={n => (n >= 0 ? '' : '−') + fmt(Math.abs(n))} />
-                </p>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: heroNet >= 0 ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'color-mix(in srgb, var(--color-exp) 12%, transparent)' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: heroNet >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
-                        <CountUp value={heroNet} format={n => (n >= 0 ? '+' : '') + fmt(n)} /> this month
-                    </span>
-                </div>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                    <CountUp value={heroIncome} format={fmt} /> in · <CountUp value={heroExpenses} format={fmt} /> out
-                </p>
-            </div>
-        </div>
+    // ── Brief card inputs ─────────────────────────────────────────────────────
+    // One card carries what used to be five blocks: the daily brief, the weekly
+    // brief (as a tab), coach alerts, the two debt banners and opportunities.
+    const hasDaily  = isCurrentMonth && !!(dailyBriefLoading || dailyBrief || dailyBriefError);
+    const hasWeekly = !!showBriefing;
+    const activeBriefTab: 'today' | 'week' | null =
+        hasDaily && (briefTab === 'today' || !hasWeekly) ? 'today' : hasWeekly ? 'week' : null;
+
+    const utilPct  = creditUtilization?.aggregate?.overall_utilization_pct ?? 0;
+    const showUtil = !utilAlertDismissed && utilPct > 50;
+    const showDti  = !dtiAlertDismissed && !!dti && dti.dti_ratio > 35;
+    const oppSavings = opportunities.reduce((s: number, o: any) => s + (o.amount_saved != null ? parseFloat(o.amount_saved) || 0 : 0), 0);
+
+    const todayAction = activeBriefTab === 'today' ? dailyBrief?.action_of_the_day : null;
+    const weekAction  = activeBriefTab === 'week' ? briefing?.action_of_the_week : null;
+    const hasNotices  = !!todayAction || !!weekAction || coach.alerts.length > 0 || showUtil || showDti || opportunities.length > 0;
+
+    const refreshDailyBrief = async () => {
+        if (dailyBriefCooldown > 0) return;
+        const now = Date.now();
+        const recent = dailyBriefRefreshTimesRef.current.filter(t => now - t < 60000);
+        if (recent.length >= 2) {
+            startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
+            return;
+        }
+        setDailyBriefRefreshing(true);
+        try {
+            const res = await dailyBriefingAPI.generate();
+            setDailyBrief(res.data);
+            if (user) setCached(`daily-brief-cache-${user.id}`, res.data);
+            recent.push(now);
+            dailyBriefRefreshTimesRef.current = recent;
+            if (recent.length >= 2) {
+                startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
+            }
+        } catch (err: any) {
+            const wait = err.response?.data?.wait;
+            if (wait) startDailyBriefCooldown(wait);
+            toast.error(err.response?.data?.error || 'Unable to refresh right now.');
+        } finally { setDailyBriefRefreshing(false); }
+    };
+
+    const dismissButton = (label: string, onClick: () => void) => (
+        <button type="button" className="fin-icon-btn" aria-label={label} onClick={onClick}>
+            <X size={14} />
+        </button>
     );
 
-    // ── 6-month trend (own card, rendered below the hero + daily brief) ──
-    const sixMonthTrendCard = (
-        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
-                6-month trend
-            </p>
-            {dataLoading ? (
-                <Skeleton width="100%" height={50} borderRadius={6} />
-            ) : (
-                <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />
-            )}
-        </div>
+    // "Label: value" pairs under a brief's narrative.
+    const briefPoints = (points: any[]) => points.length > 0 && (
+        <p style={{ ...type.meta, margin: '0 0 var(--space-4)', display: 'flex', flexWrap: 'wrap', gap: '4px var(--space-4)' }}>
+            {points.map((pt: any) => (
+                <span key={pt.key}>{pt.label}: <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{pt.value}</span></span>
+            ))}
+        </p>
     );
 
-    // ── Daily Brief — replaces the old monthly AI insight ──
-    const dailyBriefCard = isCurrentMonth && (dailyBriefLoading || dailyBrief || dailyBriefError) && (
-        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                <div>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Your Daily Brief</h2>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    <button type="button" title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
-                        aria-label={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
-                        onClick={async () => {
-                            if (dailyBriefCooldown > 0) return;
-                            const now = Date.now();
-                            const recent = dailyBriefRefreshTimesRef.current.filter(t => now - t < 60000);
-                            if (recent.length >= 2) {
-                                startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
-                                return;
-                            }
-                            setDailyBriefRefreshing(true);
-                            try {
-                                const res = await dailyBriefingAPI.generate();
-                                setDailyBrief(res.data);
-                                if (user) setCached(`daily-brief-cache-${user.id}`, res.data);
-                                recent.push(now);
-                                dailyBriefRefreshTimesRef.current = recent;
-                                if (recent.length >= 2) {
-                                    startDailyBriefCooldown(Math.ceil((60000 - (now - recent[0])) / 1000));
-                                }
-                            } catch (err: any) {
-                                const wait = err.response?.data?.wait;
-                                if (wait) startDailyBriefCooldown(wait);
-                                toast.error(err.response?.data?.error || 'Unable to refresh right now.');
-                            } finally { setDailyBriefRefreshing(false); }
-                        }}
-                        disabled={dailyBriefRefreshing || dailyBriefCooldown > 0}
-                        style={{ background: 'none', border: 'none', cursor: (dailyBriefRefreshing || dailyBriefCooldown > 0) ? 'default' : 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', opacity: (dailyBriefRefreshing || dailyBriefCooldown > 0) ? 0.5 : 1 }}>
-                        <RefreshCw size={13} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
-                    </button>
-                    <Sparkles size={16} color="var(--accent)" />
-                </div>
+    const briefBody = activeBriefTab === 'today' ? (
+        dailyBriefLoading && !dailyBrief ? (
+            <Skeleton width="100%" height={60} borderRadius={6} style={{ marginBottom: 'var(--space-4)' }} />
+        ) : dailyBriefError && !dailyBrief ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: hasNotices ? 'var(--space-4)' : 0 }}>
+                <p style={{ ...type.body, margin: 0 }}>Couldn&apos;t load today&apos;s brief.</p>
+                <TextAction onClick={() => fetchDailyBrief({ skipCache: true })}>Try again</TextAction>
             </div>
+        ) : dailyBrief ? (
+            <>
+                <p style={{ ...type.body, margin: '0 0 var(--space-4)', maxWidth: '68ch' }}>{dailyBrief.narrative}</p>
+                {/* Two of the brief's points are shown: today's budget status and the
+                    merged bills/risk heads-up. The rest only feed the narrative. */}
+                {Array.isArray(dailyBrief.points) && briefPoints(
+                    ['today_status', 'heads_up'].map(key => dailyBrief.points.find((pt: any) => pt.key === key)).filter(Boolean),
+                )}
+            </>
+        ) : null
+    ) : activeBriefTab === 'week' ? (
+        <>
+            <p style={{ ...type.body, margin: '0 0 var(--space-2)', maxWidth: '68ch' }}>
+                {(() => {
+                    const narrative: string = briefing.narrative || '';
+                    if (briefingExpanded) return narrative;
+                    const sentences = narrative.match(/[^.!?]+[.!?]+/g) || [narrative];
+                    const truncated = sentences.slice(0, 2).join(' ').trim();
+                    return sentences.length > 2 ? `${truncated}...` : truncated;
+                })()}
+            </p>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+                <TextAction onClick={() => setBriefingExpanded(v => !v)}>{briefingExpanded ? 'Show less' : 'Read full brief'}</TextAction>
+            </div>
+            {Array.isArray(briefing.points) && briefPoints(briefing.points)}
+        </>
+    ) : null;
 
-            {dailyBriefLoading && !dailyBrief ? (
-                <Skeleton width="100%" height={60} borderRadius={6} />
-            ) : dailyBriefError && !dailyBrief ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Couldn&apos;t load today&apos;s brief.
-                    </p>
-                    <button type="button" onClick={() => fetchDailyBrief({ skipCache: true })}
-                        style={{ padding: '6px 14px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                        Retry
-                    </button>
-                </div>
-            ) : dailyBrief ? (
-                <>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', fontFamily: 'var(--font-body)' }}>
-                        {dailyBrief.narrative}
-                    </p>
-
-                    {Array.isArray(dailyBrief.points) && (() => {
-                        // Daily Brief now shows exactly two chips -- Today (budget
-                        // status) and Heads up (bills/risk merged) -- computed
-                        // server-side in buildDailyBriefPoints(). The other eight
-                        // points still exist in dailyBrief.points (they feed the
-                        // narrative prompt) but are no longer rendered here at all.
-                        const chips = ['today_status', 'heads_up']
-                            .map(key => dailyBrief.points.find((pt: any) => pt.key === key))
-                            .filter(Boolean);
-
-                        if (chips.length === 0) return null;
-
-                        return (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                                {chips.map((pt: any) => (
-                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        );
-                    })()}
-
-                    {dailyBrief.action_of_the_day && (
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 22%, transparent)' }}>
-                            <Lightbulb size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                <strong>Today:</strong> {dailyBrief.action_of_the_day}
-                            </p>
+    const briefCard = (activeBriefTab || hasNotices) && (
+        <Card className="dash-o3">
+            <CardHeader
+                title={activeBriefTab ? 'Brief' : 'Needs attention'}
+                sub={activeBriefTab === 'today'
+                    ? new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
+                    : activeBriefTab === 'week'
+                    ? `Week of ${new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}`
+                    : undefined}
+                action={<>
+                    {activeBriefTab === 'today' && (
+                        <button type="button" className="fin-icon-btn"
+                            title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
+                            aria-label={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
+                            onClick={refreshDailyBrief}
+                            disabled={dailyBriefRefreshing || dailyBriefCooldown > 0}>
+                            <RefreshCw size={14} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
+                        </button>
+                    )}
+                    {hasDaily && hasWeekly && (
+                        <div role="tablist" aria-label="Brief period" style={{ display: 'inline-flex', gap: 2, padding: 2, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                            {(['today', 'week'] as const).map(k => {
+                                const on = activeBriefTab === k;
+                                return (
+                                    <button key={k} type="button" role="tab" aria-selected={on} onClick={() => setBriefTab(k)}
+                                        style={{ ...type.label, border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 'var(--radius-sm)', background: on ? 'var(--glass-fill-3)' : 'transparent', color: on ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'background var(--transition-fast), color var(--transition-fast)' }}>
+                                        {k === 'today' ? 'Today' : 'This week'}
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
-                </>
-            ) : null}
-        </div>
+                </>}
+                flush={!briefBody && !hasNotices}
+            />
+
+            {briefBody}
+
+            {hasNotices && (
+                <Rows style={briefBody ? { borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-3)' } : undefined}>
+                    {todayAction && <NoticeRow tone="info" title={todayAction} sub="Suggested for today" />}
+                    {weekAction && <NoticeRow tone="info" title={weekAction} sub="Suggested for this week" />}
+
+                    {coach.alerts.map(a => (
+                        <NoticeRow key={a.id} tone={a.severity === 'danger' ? 'bad' : a.severity === 'warning' ? 'caution' : 'info'} title={a.message} sub={a.sub}>
+                            {dismissButton(`Dismiss: ${a.message}`, () => coach.dismiss(a.id))}
+                        </NoticeRow>
+                    ))}
+
+                    {/* Tolerates an incomplete response (no aggregate): no notice, not a crashed dashboard. */}
+                    {showUtil && (
+                        <NoticeRow tone="bad" title={`Credit utilization is at ${Math.round(utilPct)}%`} sub="Above 50% can affect your credit score and loan eligibility">
+                            <TextAction onClick={() => router.push('/net-worth')}>Pay down</TextAction>
+                            {dismissButton('Dismiss credit utilization notice', () => setUtilAlertDismissed(true))}
+                        </NoticeRow>
+                    )}
+                    {showDti && (
+                        <NoticeRow tone="caution" title={`Debt payments take ${Math.round(dti.dti_ratio)}% of your income`} sub="The payoff optimizer can shorten this">
+                            <TextAction onClick={() => router.push('/debt-intelligence')}>Open optimizer</TextAction>
+                            {dismissButton('Dismiss debt-to-income notice', () => setDtiAlertDismissed(true))}
+                        </NoticeRow>
+                    )}
+
+                    {opportunities.length > 0 && (
+                        <NoticeRow
+                            title={oppSavings > 0
+                                ? `${opportunities.length} ${opportunities.length === 1 ? 'way' : 'ways'} to save ${fmt(oppSavings)} a year`
+                                : `${opportunities.length} ${opportunities.length === 1 ? 'opportunity' : 'opportunities'} to review`}
+                            sub="Found in your spending">
+                            <TextAction onClick={() => setOpportunitiesOpen(v => !v)}>{opportunitiesOpen ? 'Hide' : 'Review'}</TextAction>
+                        </NoticeRow>
+                    )}
+                    {opportunitiesOpen && opportunities.map((opp: any) => {
+                        const isDismissing = dismissingIds.has(opp.id);
+                        return (
+                            <div key={opp.id} style={{ alignItems: 'flex-start', opacity: isDismissing ? 0 : 1, transition: 'opacity 250ms ease' }}>
+                                <span style={{ paddingTop: 6, display: 'flex' }}>
+                                    <StatusDot tone={opp.priority === 1 ? 'bad' : opp.priority === 2 ? 'caution' : 'neutral'} />
+                                </span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, margin: 0 }}>{opp.title}</p>
+                                    <p style={{ ...type.meta, margin: '2px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                        {opp.description}
+                                    </p>
+                                    {opp.amount_saved != null && (
+                                        <p style={{ ...type.numSmall, margin: '4px 0 0', color: 'var(--color-inc-text)' }}>
+                                            Save {fmt(parseFloat(opp.amount_saved))} a year
+                                        </p>
+                                    )}
+                                    <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 2 }}>
+                                        <TextAction onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</TextAction>
+                                        <TextAction quiet onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</TextAction>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </Rows>
+            )}
+        </Card>
     );
+
+    // ── Stat strip under the net figure ───────────────────────────────────────
+    const dailyIncome = heroIncome > 0 ? heroIncome / daysInMonth : 0;
+    const loadingValue = <Skeleton width="70%" height={22} borderRadius={4} />;
+    const stats: { label: string; value: ReactNode; sub: string; tone?: Tone }[] = [
+        {
+            label: 'Savings rate',
+            value: `${savingsPct}%`,
+            sub: savingsPct >= 20 ? 'Good' : savingsPct >= 10 ? 'Fair' : 'Needs work',
+            tone: savingsPct >= 20 ? 'good' : savingsPct >= 10 ? 'caution' : 'bad',
+        },
+        {
+            label: 'Daily spend',
+            value: fmt(dailyBurn),
+            sub: dailyBurn === 0 ? 'No spending yet'
+                : dailyIncome === 0 ? 'per day so far'
+                : dailyBurn > dailyIncome ? `${fmt(dailyBurn - dailyIncome)} above daily income` : 'Below daily income',
+            tone: dailyIncome > 0 && dailyBurn > dailyIncome ? 'caution' : 'neutral',
+        },
+        {
+            label: 'Days left',
+            value: `${daysLeft}`,
+            sub: runway >= 0 ? `${fmt(runway)} left` : `${fmt(Math.abs(runway))} deficit`,
+            tone: runway >= 0 ? 'neutral' : 'bad',
+        },
+        {
+            label: 'Invested',
+            value: !investmentRatio || investmentRatio.income_this_month === 0 ? '—' : `${Math.round(investmentRatio.ratio_pct)}%`,
+            sub: investmentRatio ? `${fmt(investmentRatio.invested_this_month)} of income` : 'No investment data',
+        },
+    ];
+
+    const hasCards = (creditUtilization?.per_card?.length ?? 0) > 0;
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
             <div ref={pullToRefreshRef as RefObject<HTMLDivElement>}>
             {isMobile && <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER (no card) ── */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                            {greeting} 👋
-                        </h1>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                            <button onClick={goToPrevMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous month">
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>
-                                {MONTH_NAMES[month]} {year} — Overview
-                            </span>
-                            <button onClick={goToNextMonth} disabled={isCurrentMonth} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next month">
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-1)' }}>
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>{greeting}</p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>{MONTH_NAMES[month]} {year}</h1>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <button type="button" className="fin-icon-btn" onClick={goToPrevMonth} aria-label="Previous month">
+                            <ChevronLeft size={16} />
+                        </button>
+                        <button type="button" className="fin-icon-btn" onClick={goToNextMonth} disabled={isCurrentMonth} aria-label="Next month">
+                            <ChevronRight size={16} />
+                        </button>
                     </div>
                 </div>
 
-                {/* ── COACH ALERTS ── */}
-                {coachEnabled && (
-                    <CoachAlerts
-                        summary={summary}
-                        budgets={budgets}
-                        goals={goals}
-                        loading={dataLoading}
-                    />
-                )}
+                <div className="dash-grid">
+                    <div className="dash-col">
 
-                {netBalanceHero}
-                {dailyBriefCard}
-
-                {/* ── STAT TILES — 4×2 grid (desktop) / 2×3 (mobile) ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: '12px' }}>
-                    {(() => {
-                        // Row 1
-                        const investColor = !investmentRatio
-                            ? 'var(--text-muted)'
-                            : investmentRatio.ratio_pct >= 20 ? 'var(--color-inc)' : investmentRatio.ratio_pct >= 10 ? 'var(--color-warn)' : 'var(--color-exp)';
-
-                        const runwayColor  = runway >= 0 ? 'var(--color-inc)' : 'var(--color-exp)';
-                        const burnColor    = dailyBurn === 0 ? 'var(--text-muted)' : dailyBurn > (summary?.total_income ?? 0) / daysInMonth ? 'var(--color-exp)' : 'var(--color-warn)';
-
-                        const tiles = [
-                            // ── Row 1 ──
-                            { label: 'Total Income',   value: <CountUp value={heroIncome} format={fmt} />,   sub: MONTH_NAMES[month],          color: 'var(--color-inc)', Icon: TrendingUp   },
-                            { label: 'Total Expenses', value: <CountUp value={heroExpenses} format={fmt} />, sub: MONTH_NAMES[month],          color: 'var(--color-exp)', Icon: TrendingDown },
-                            { label: 'Net Balance',    value: <CountUp value={Math.abs(heroNet)} format={fmt} />, sub: netBalance < 0 ? 'Deficit' : 'All time', color: 'var(--accent)', Icon: Wallet },
-                            { label: 'Savings Rate',   value: `${savingsPct}%`, sub: savingsBadge.label,           color: savingsBadge.color, Icon: Award        },
-                            // ── Row 2 ──
-                            {
-                                label: 'Investing This Month',
-                                value: !investmentRatio ? 'N/A' : investmentRatio.income_this_month === 0 ? 'N/A' : `${Math.round(investmentRatio.ratio_pct)}%`,
-                                sub: investmentRatio ? `${fmt(investmentRatio.invested_this_month)} of ${fmt(investmentRatio.income_this_month)} income` : 'No investment data',
-                                color: investColor, Icon: PiggyBank,
-                            },
-                            {
-                                label: 'Days Remaining',
-                                value: dataLoading ? '—' : `${daysLeft}d left`,
-                                sub: runway === 0 ? `${fmt(0)} runway` : `${fmt(Math.abs(runway))} ${runway >= 0 ? 'remaining' : 'deficit'}`,
-                                color: runwayColor, Icon: CalendarClock,
-                            },
-                            {
-                                label: 'Daily Burn',
-                                value: dataLoading ? '—' : dailyBurn === 0 ? fmt(0) : fmt(dailyBurn),
-                                sub: 'per day so far',
-                                color: burnColor, Icon: Flame,
-                            },
-                            {
-                                label: 'Health Score',
-                                value: !healthScoreTeaser ? 'N/A' : `${healthScoreTeaser.score}/100`,
-                                sub: !healthScoreTeaser ? 'Add transactions to see your score' : healthScoreTeaser.label,
-                                color: healthScoreTeaser?.color ?? 'var(--text-muted)', Icon: Heart,
-                                onClick: () => router.push('/analytics?tab=health'),
-                            },
-                        ];
-
-                        const visibleTiles = isMobile
-                            ? tiles.filter(t => t.label !== 'Net Balance' && t.label !== 'Investing This Month')
-                            : tiles;
-
-                        return visibleTiles.map(tile => (
-                            <div key={tile.label} onClick={(tile as any).onClick} className={(tile as any).onClick ? 'pressable' : undefined} style={{
-                                background: `color-mix(in srgb, ${tile.color} 10%, transparent)`,
-                                border: `1px solid color-mix(in srgb, ${tile.color} 22%, transparent)`,
-                                borderRadius: 'var(--radius-lg)', padding: '16px 18px', position: 'relative', overflow: 'hidden',
-                                cursor: (tile as any).onClick ? 'pointer' : 'default',
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-body)' }}>{tile.label}</span>
-                                    <div style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: `color-mix(in srgb, ${tile.color} 15%, transparent)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <tile.Icon size={14} color={tile.color} />
-                                    </div>
-                                </div>
-                                {dataLoading ? (
-                                    <Skeleton width="70%" height={28} borderRadius={4} />
-                                ) : (
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: tile.color, margin: '0 0 4px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                        {tile.value}
+                        {/* ── NET: the page's one display figure, the 6-month trend, four stats ── */}
+                        <Card className="dash-o1">
+                            <div className="dash-net">
+                                <div>
+                                    <p style={{ ...type.label, margin: 0 }}>{isCurrentMonth ? 'Net this month' : `Net in ${MONTH_NAMES[month]}`}</p>
+                                    {dataLoading ? (
+                                        <Skeleton width="220px" height={40} borderRadius={6} style={{ margin: '6px 0 10px' }} />
+                                    ) : (
+                                        <p className="type-display" style={{ ...type.display, margin: '6px 0 10px', color: heroNet >= 0 ? 'var(--text-primary)' : 'var(--color-exp-text)', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                            <CountUp value={heroNet} format={n => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n))} />
+                                        </p>
+                                    )}
+                                    {/* Doubles as the chart's legend. */}
+                                    <p style={{ ...type.numSmall, margin: 0, display: 'flex', flexWrap: 'wrap', gap: '4px var(--space-4)' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <span aria-hidden="true" style={{ width: 8, height: 2, borderRadius: 1, background: 'var(--color-inc)' }} />
+                                            <span><CountUp value={heroIncome} format={fmt} /> in</span>
+                                        </span>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <span aria-hidden="true" style={{ width: 8, height: 2, borderRadius: 1, background: 'var(--color-exp)' }} />
+                                            <span><CountUp value={heroExpenses} format={fmt} /> out</span>
+                                        </span>
                                     </p>
-                                )}
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tile.sub}</p>
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    {dataLoading
+                                        ? <Skeleton width="100%" height={72} borderRadius={6} />
+                                        : <BezierSparkline data={sparklineData} incColor={incColor} expColor={expColor} />}
+                                </div>
                             </div>
-                        ));
-                    })()}
-                </div>
-
-                {/* ── GUILT-FREE BUDGET CARD ── */}
-                {!dataLoading && guiltFreeData && (
-                    <div style={{ background: guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : 'color-mix(in srgb, var(--color-warn) 8%, transparent)', border: `1px solid ${guiltFreeData.remaining > 0 ? 'color-mix(in srgb, var(--color-inc) 22%, transparent)' : 'color-mix(in srgb, var(--color-warn) 22%, transparent)'}`, borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                            <div>
-                                <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                    Guilt-free budget
-                                </p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 800, color: guiltFreeData.remaining > 0 ? 'var(--color-inc)' : 'var(--color-warn)', margin: 0, fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                    {fmt(guiltFreeData.remaining)}
-                                </p>
-                            </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>pool</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(guiltFreeData.pool)}</p>
-                            </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div style={{ height: 6, background: 'var(--glass-fill-1)', borderRadius: 99, overflow: 'hidden', marginBottom: '8px' }}>
-                            <div style={{ height: '100%', width: `${guiltFreeData.usedPct}%`, background: guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)', borderRadius: 99, transition: 'width 0.6s ease' }} />
-                        </div>
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                            {fmt(guiltFreeData.income)} income − {fmt(guiltFreeData.totalBudgeted)} budgets{guiltFreeData.goalMonthly > 0 ? ` − ${fmt(guiltFreeData.goalMonthly)} goals` : ''} = {fmt(guiltFreeData.pool)} pool
-                            {guiltFreeData.unbudgetedSpent > 0 && ` · ${fmt(guiltFreeData.unbudgetedSpent)} spent outside budgets`}
-                        </p>
-                    </div>
-                )}
-
-                {sixMonthTrendCard}
-
-                {/* ── WEEKLY BRIEFING WIDGET ── */}
-                {showBriefing && (
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                            <div>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>Your Weekly Brief</h2>
-                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                    Week of {new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}
-                                </p>
-                            </div>
-                            <Sparkles size={16} color="var(--accent)" />
-                        </div>
-
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 14px', fontFamily: 'var(--font-body)' }}>
-                            {(() => {
-                                const narrative: string = briefing.narrative || '';
-                                if (briefingExpanded) return narrative;
-                                const sentences = narrative.match(/[^.!?]+[.!?]+/g) || [narrative];
-                                const truncated = sentences.slice(0, 2).join(' ').trim();
-                                return sentences.length > 2 ? `${truncated}...` : truncated;
-                            })()}
-                        </p>
-
-                        {Array.isArray(briefing.points) && briefing.points.length > 0 && (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
-                                {briefing.points.map((pt: any) => (
-                                    <div key={pt.key} style={{ padding: '6px 12px', borderRadius: '20px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pt.label}: </span>
-                                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{pt.value}</span>
-                                    </div>
+                            <div className="dash-stats">
+                                {stats.map(s => (
+                                    <Stat key={s.label} className="dash-stat" label={s.label} value={dataLoading ? loadingValue : s.value} sub={s.sub} subTone={s.tone} />
                                 ))}
                             </div>
-                        )}
+                        </Card>
 
-                        {briefing.action_of_the_week && (
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 22%, transparent)', marginBottom: '10px' }}>
-                                <Lightbulb size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                    <strong>This week:</strong> {briefing.action_of_the_week}
+                        {briefCard}
+
+                        {/* ── RECENT TRANSACTIONS ── */}
+                        <Card className="dash-o5">
+                            <CardHeader title="Recent transactions" action={<TextAction onClick={() => router.push('/transactions')}>View all</TextAction>} flush={!dataLoading && transactions.length === 0} />
+                            {dataLoading ? (
+                                <Rows>
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <div key={i}>
+                                            <Skeleton width={32} height={32} borderRadius={10} />
+                                            <div style={{ flex: 1 }}>
+                                                <Skeleton width="55%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} />
+                                                <Skeleton width="35%" height={10} borderRadius={4} />
+                                            </div>
+                                            <Skeleton width={60} height={14} borderRadius={4} />
+                                        </div>
+                                    ))}
+                                </Rows>
+                            ) : transactions.length === 0 ? (
+                                <p style={{ ...type.body, margin: 'var(--space-2) 0 0' }}>No transactions yet. Tap + to add your first one.</p>
+                            ) : (
+                                <Rows>
+                                    {transactions.slice(0, 5).map((tx: any) => {
+                                        const amount   = parseFloat(String(tx.amount));
+                                        const isIncome = tx.type === 'income';
+                                        return (
+                                            <div key={tx.id} className="fin-row-link pressable" role="button" tabIndex={0}
+                                                onClick={() => router.push('/transactions')}
+                                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); router.push('/transactions'); } }}>
+                                                <div aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 'var(--text-title)' }}>
+                                                    {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                                                    <p style={{ ...type.meta, ...truncate, margin: '2px 0 0' }}>
+                                                        {tx.category_name || 'Uncategorized'} · {getDateLabel(tx.date)}
+                                                    </p>
+                                                </div>
+                                                <span style={{ ...type.num, color: isIncome ? 'var(--color-inc-text)' : 'var(--text-primary)', flexShrink: 0 }}>
+                                                    {isIncome ? '+' : '−'}{fmt(amount)}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </Rows>
+                            )}
+                        </Card>
+                    </div>
+
+                    <div className="dash-col">
+
+                        {/* ── FREE TO SPEND (what is left after budgets and goal savings) ── */}
+                        {!dataLoading && guiltFreeData && (
+                            <Card className="dash-o2">
+                                <p style={{ ...type.label, margin: 0 }}>Free to spend</p>
+                                <p style={{ ...type.figure, margin: '4px 0 14px', color: guiltFreeData.remaining > 0 ? 'var(--text-primary)' : 'var(--color-warn-text)', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                    {fmt(guiltFreeData.remaining)}
                                 </p>
-                            </div>
+                                <ProgressBar pct={guiltFreeData.usedPct} height={6} color={guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)'} />
+                                <p style={{ ...type.meta, margin: '10px 0 0' }}>
+                                    {fmt(guiltFreeData.unbudgetedSpent)} of a {fmt(guiltFreeData.pool)} pool used.
+                                    {' '}The pool is {fmt(guiltFreeData.income)} income minus {fmt(guiltFreeData.totalBudgeted)} in budgets{guiltFreeData.goalMonthly > 0 ? ` and ${fmt(guiltFreeData.goalMonthly)} for goals` : ''}.
+                                </p>
+                            </Card>
                         )}
 
-                        <button type="button" onClick={() => setBriefingExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
-                            {briefingExpanded ? 'Show less' : 'View full brief'}
-                        </button>
-                    </div>
-                )}
-
-                {/* ── DEBT ALERTS ── */}
-                {/* Tolerates an incomplete response (no aggregate): no alert, not a crashed dashboard. */}
-                {!utilAlertDismissed && (creditUtilization?.aggregate?.overall_utilization_pct ?? 0) > 50 && (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 22%, transparent)' }}>
-                        <AlertTriangle size={16} color="var(--color-exp)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                        <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                Your credit utilization is above 50%. This may affect your credit score and loan eligibility.
-                            </p>
-                            <Link href="/net-worth" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-exp)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                                Pay down credit →
-                            </Link>
-                        </div>
-                        <button type="button" onClick={() => setUtilAlertDismissed(true)} aria-label="Dismiss credit utilization alert" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
-                            <X size={14} />
-                        </button>
-                    </div>
-                )}
-                {!dtiAlertDismissed && dti && dti.dti_ratio > 35 && (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', borderRadius: 'var(--radius-lg)', background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 22%, transparent)' }}>
-                        <AlertTriangle size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: '1px' }} />
-                        <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                Your debt obligations are taking up over 35% of your income. Consider the payoff optimizer to accelerate debt freedom.
-                            </p>
-                            <Link href="/debt-intelligence" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-warn)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                                View optimizer →
-                            </Link>
-                        </div>
-                        <button type="button" onClick={() => setDtiAlertDismissed(true)} aria-label="Dismiss debt-to-income alert" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}>
-                            <X size={14} />
-                        </button>
-                    </div>
-                )}
-
-                {/* ── FINANCIAL HEALTH DETAILS (collapsed by default) ── */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                    <button
-                        type="button"
-                        onClick={() => setHealthDetailsOpen(v => !v)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                        <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Financial Health Details</span>
-                        <ChevronDown size={16} color="var(--text-muted)" style={{ transform: healthDetailsOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} />
-                    </button>
-                    {healthDetailsOpen && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 20px 20px' }}>
-                            {(accounts.length > 0 || investments.length > 0) && <NetWorthWidget />}
-                            {investments.length > 0 && (
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
-                                    <WealthVelocityWidget />
-                                    <AssetAllocationWidget />
+                        {/* ── BUDGETS ── */}
+                        <Card className="dash-o4">
+                            <CardHeader title="Budgets"
+                                sub={overBudget > 0 ? <span style={{ color: 'var(--color-exp-text)' }}>{overBudget} over limit</span> : undefined}
+                                action={<TextAction onClick={() => router.push('/budgets')}>{!dataLoading && budgets.length === 0 ? 'Set budgets' : 'See all'}</TextAction>}
+                                flush={!dataLoading && budgets.length === 0} />
+                            {dataLoading ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                                    {[1, 2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={4} borderRadius={999} /></div>)}
                                 </div>
+                            ) : budgets.length === 0 ? (
+                                <p style={{ ...type.body, margin: 'var(--space-2) 0 0' }}>No budgets for this month yet.</p>
+                            ) : (
+                                <Rows>
+                                    {budgets.slice(0, 4).map((b: any) => {
+                                        const spent = parseFloat(b.spent), limit = parseFloat(b.amount);
+                                        const pct  = limit > 0 ? (spent / limit) * 100 : 0;
+                                        const over = pct > 100;
+                                        return (
+                                            <div key={b.id ?? b.category_id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                                    <span style={{ ...type.bodyStrong, ...truncate, minWidth: 0 }}>{b.name ?? b.category_name}</span>
+                                                    <span style={{ ...type.numSmall, flexShrink: 0, color: over ? 'var(--color-exp-text)' : 'var(--text-secondary)' }}>
+                                                        {over ? `${fmt(spent - limit)} over` : `${fmt(spent)} / ${fmt(limit)}`}
+                                                    </span>
+                                                </div>
+                                                <ProgressBar pct={pct} height={4} color={pct >= 85 ? 'var(--color-warn)' : 'var(--text-secondary)'} />
+                                            </div>
+                                        );
+                                    })}
+                                </Rows>
                             )}
-                            {(activeLoanCount > 0 || (creditUtilization?.per_card?.length ?? 0) > 0) && (
-                                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '16px' }}>
-                                    <CreditUtilizationWidget />
-                                    <DtiWidget hasLoans={activeLoanCount > 0} hasCards={(creditUtilization?.per_card?.length ?? 0) > 0} />
+                        </Card>
+
+                        {/* ── TOP CATEGORIES ── */}
+                        <Card className="dash-o6">
+                            <CardHeader title="Top categories" action={<TextAction onClick={() => router.push('/analytics')}>See all</TextAction>} flush={!dataLoading && topCategories.length === 0} />
+                            {dataLoading ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                                    {[1, 2, 3].map(i => <Skeleton key={i} width="100%" height={14} borderRadius={4} />)}
                                 </div>
+                            ) : topCategories.length === 0 ? (
+                                <p style={{ ...type.body, margin: 'var(--space-2) 0 0' }}>No spending recorded yet.</p>
+                            ) : (
+                                <Rows>
+                                    {topCategories.map((b: any) => (
+                                        <div key={b.id ?? b.category_id}>
+                                            <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{b.name ?? b.category_name}</span>
+                                            <span style={{ ...type.num, flexShrink: 0 }}>{fmt(parseFloat(b.spent))}</span>
+                                        </div>
+                                    ))}
+                                </Rows>
                             )}
+                        </Card>
+
+                        {/* ── FINANCIAL HEALTH: score here, the detail widgets open below the grid ── */}
+                        <Card className="dash-o7">
+                            <CardHeader flush title="Financial health"
+                                sub={healthScoreTeaser
+                                    ? <>{healthScoreTeaser.label} · <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{healthScoreTeaser.score} / 100</span></>
+                                    : 'Add transactions to see your score'}
+                                action={<TextAction onClick={() => setHealthDetailsOpen(v => !v)}>{healthDetailsOpen ? 'Hide details' : 'Details'}</TextAction>} />
+                        </Card>
+                    </div>
+                </div>
+
+                {/* ── FINANCIAL HEALTH DETAILS ── sibling cards under the grid, never cards inside a card ── */}
+                {healthDetailsOpen && (
+                    <div className="dash-detail">
+                        {(accounts.length > 0 || investments.length > 0) && <div className="wide"><NetWorthWidget /></div>}
+                        {investments.length > 0 && (
+                            <>
+                                <WealthVelocityWidget />
+                                <AssetAllocationWidget />
+                            </>
+                        )}
+                        {(activeLoanCount > 0 || hasCards) && (
+                            <>
+                                <CreditUtilizationWidget />
+                                <DtiWidget hasLoans={activeLoanCount > 0} hasCards={hasCards} />
+                            </>
+                        )}
+                        <div className="wide">
                             <HealthScoreWidget
                                 summary={summary}
                                 budgets={budgets}
@@ -887,194 +921,8 @@ export default function DashboardPage() {
                                 creditUtilization={creditUtilization}
                             />
                         </div>
-                    )}
-                </div>
-
-                {/* ── OPPORTUNITIES (collapsed by default) ── */}
-                {opportunities.length > 0 && (
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                        <button
-                            type="button"
-                            onClick={() => setOpportunitiesOpen(v => !v)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>Opportunities</span>
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent)', background: 'var(--accent-subtle)', padding: '1px 8px', borderRadius: '20px', fontFamily: 'var(--font-mono)' }}>
-                                    {opportunities.length}
-                                </span>
-                            </div>
-                            <ChevronDown size={16} color="var(--text-muted)" style={{ transform: opportunitiesOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition-fast)' }} />
-                        </button>
-                        {opportunitiesOpen && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 16px 16px' }}>
-                                {opportunities.map((opp: any) => {
-                                    const borderColor = opp.priority === 1 ? 'var(--color-exp)' : opp.priority === 2 ? 'var(--color-warn)' : 'var(--text-muted)';
-                                    const isDismissing = dismissingIds.has(opp.id);
-                                    return (
-                                        <div key={opp.id} style={{
-                                            background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderLeft: `3px solid ${borderColor}`,
-                                            borderRadius: 'var(--radius-lg)', padding: '14px 16px',
-                                            opacity: isDismissing ? 0 : 1, transform: isDismissing ? 'translateX(8px)' : 'none',
-                                            transition: 'opacity 250ms ease, transform 250ms ease',
-                                        }}>
-                                            <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                                {opp.title}
-                                            </p>
-                                            <p style={{
-                                                fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', fontFamily: 'var(--font-body)',
-                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                            }}>
-                                                {opp.description}
-                                            </p>
-                                            {opp.amount_saved != null && (
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: '20px', background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', marginBottom: '10px' }}>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--color-inc)' }}>
-                                                        Save {fmt(parseFloat(opp.amount_saved))}/year
-                                                    </span>
-                                                </div>
-                                            )}
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: opp.amount_saved != null ? 0 : '4px' }}>
-                                                <Button size="sm" onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</Button>
-                                                <Button size="sm" variant="ghost" onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</Button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
                     </div>
                 )}
-
-                {/* ── 3-COLUMN: BUDGETS / CATEGORIES / RECENT TRANSACTIONS ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
-
-                    {/* Budgets */}
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: budgets.length > 0 ? '14px' : '0' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Budgets</h2>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                {overBudget > 0 && (
-                                    <span style={{ fontSize: '11px', color: 'var(--color-exp)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', padding: '2px 8px', borderRadius: '20px', fontFamily: 'var(--font-body)' }}>
-                                        {overBudget} over
-                                    </span>
-                                )}
-                                <button type="button" onClick={() => router.push('/budgets')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
-                                    See all →
-                                </button>
-                            </div>
-                        </div>
-                        {dataLoading ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {[1,2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
-                            </div>
-                        ) : budgets.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>All budgets on track ✅</p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {budgets.slice(0, 4).map((b: any) => {
-                                    const pct = parseFloat(b.amount) > 0 ? (parseFloat(b.spent) / parseFloat(b.amount)) * 100 : 0;
-                                    const over = pct > 100;
-                                    return (
-                                        <div key={b.id ?? b.category_id}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: over ? 'var(--color-exp)' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                                                    {fmt(parseFloat(b.spent))} / {fmt(parseFloat(b.amount))}
-                                                </span>
-                                            </div>
-                                            <ProgressBar pct={pct} height={4} />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Categories (top spending breakdown) */}
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '18px 20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: topCategories.length > 0 ? '14px' : '0' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Top Categories</h2>
-                            <button type="button" onClick={() => router.push('/analytics')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
-                                See all →
-                            </button>
-                        </div>
-                        {dataLoading ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {[1,2,3].map(i => <div key={i}><Skeleton width="60%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={5} borderRadius={999} /></div>)}
-                            </div>
-                        ) : topCategories.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No spending data yet</p>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {topCategories.map((b: any) => {
-                                    const pct = parseFloat(b.amount) > 0 ? Math.round((parseFloat(b.spent) / parseFloat(b.amount)) * 100) : 0;
-                                    return (
-                                        <div key={b.id ?? b.category_id}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '5px' }}>
-                                                <div style={{ width: 7, height: 7, borderRadius: '50%', background: b.category_color || expColor, flexShrink: 0 }} />
-                                                <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{b.name ?? b.category_name}</span>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{fmt(parseFloat(b.spent))}</span>
-                                            </div>
-                                            <ProgressBar pct={pct} height={4} color={b.category_color || expColor} />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Recent Transactions */}
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 20px', paddingBottom: transactions.length === 0 && !dataLoading ? '18px' : '14px' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Recent Transactions</h2>
-                            <button type="button" onClick={() => router.push('/transactions')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, padding: 0, fontFamily: 'var(--font-body)' }}>
-                                View all →
-                            </button>
-                        </div>
-                        {dataLoading ? (
-                            [1,2,3,4,5].map(i => (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderTop: '1px solid var(--border-subtle)' }}>
-                                    <Skeleton width={32} height={32} borderRadius={999} />
-                                    <div style={{ flex: 1 }}>
-                                        <Skeleton width="55%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} />
-                                        <Skeleton width="35%" height={10} borderRadius={4} />
-                                    </div>
-                                    <Skeleton width={60} height={14} borderRadius={4} />
-                                </div>
-                            ))
-                        ) : transactions.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '0 20px 18px', textAlign: 'center', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                No transactions yet — add your first one!
-                            </p>
-                        ) : (
-                            transactions.slice(0, 5).map((tx: any) => {
-                                const amount   = parseFloat(String(tx.amount));
-                                const isIncome = tx.type === 'income';
-                                return (
-                                    <div key={tx.id} onClick={() => router.push('/transactions')}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 20px', borderTop: '1px solid var(--border-subtle)', cursor: 'pointer', transition: 'background var(--transition-fast)' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '15px' }}>
-                                            {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
-                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                {tx.category_name || 'Uncategorized'} · {getDateLabel(tx.date)}
-                                            </p>
-                                        </div>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                            {isIncome ? '+' : '−'}{fmt(amount)}
-                                        </span>
-                                    </div>
-                                );
-                            })
-                        )}
-                        {transactions.length > 0 && <div style={{ paddingBottom: '8px' }} />}
-                    </div>
-                </div>
 
             </div>
             </div>

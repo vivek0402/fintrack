@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { recurringAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { toAmount, type Goal } from '@/types/finance';
@@ -9,7 +8,7 @@ import { toAmount, type Goal } from '@/types/finance';
 const SS_KEY = 'fintrack-coach-dismissed';
 const fmt = (n: number) => '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN');
 
-interface Alert {
+export interface CoachAlert {
   id: string;
   severity: 'danger' | 'warning' | 'info';
   message: string;
@@ -28,7 +27,7 @@ function buildAlerts(
   budgets: any[],
   goals: Goal[],
   recurring: any[],
-): Alert[] {
+): CoachAlert[] {
   if (!summary) return [];
 
   const income   = Number(summary.total_income);
@@ -37,7 +36,7 @@ function buildAlerts(
   const daysElapsed = today.getDate();
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const daysLeft    = daysInMonth - daysElapsed;
-  const all: Alert[] = [];
+  const all: CoachAlert[] = [];
 
   // a) Budget breach — any category > 85% spent
   for (const b of budgets) {
@@ -48,7 +47,7 @@ function buildAlerts(
       all.push({
         id: `budget-${b.category_id ?? b.id}`,
         severity: pct >= 100 ? 'danger' : 'warning',
-        message: `⚠️ ${b.name ?? b.category_name} budget is ${Math.round(pct)}% used`,
+        message: `${b.name ?? b.category_name} budget is ${Math.round(pct)}% used`,
         sub: `${daysLeft} days left this month`,
       });
     }
@@ -69,7 +68,7 @@ function buildAlerts(
       all.push({
         id: `goal-${g.id}`,
         severity: 'warning',
-        message: `🎯 ${g.name} goal is ${Math.round(pct)}% funded`,
+        message: `${g.name} goal is ${Math.round(pct)}% funded`,
         sub: `Needs ${fmt(monthlyNeeded)}/mo to hit deadline`,
       });
     }
@@ -85,7 +84,7 @@ function buildAlerts(
       all.push({
         id: `rec-${r.id}`,
         severity: 'info',
-        message: `📅 ${r.description} ${fmt(parseFloat(r.amount))} due ${daysUntil === 0 ? 'today' : `in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`}`,
+        message: `${r.description} ${fmt(parseFloat(r.amount))} due ${daysUntil === 0 ? 'today' : `in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`}`,
       });
     }
   }
@@ -99,28 +98,24 @@ function buildAlerts(
       all.push({
         id: 'big-week',
         severity: 'warning',
-        message: `📊 Spending ~${Math.round(weekPct)}% of monthly budget per week`,
+        message: `Spending ~${Math.round(weekPct)}% of monthly budget per week`,
         sub: `${fmt(expenses)} spent in ${daysElapsed} days`,
       });
     }
   }
 
-  const order: Record<Alert['severity'], number> = { danger: 0, warning: 1, info: 2 };
+  const order: Record<CoachAlert['severity'], number> = { danger: 0, warning: 1, info: 2 };
   all.sort((a, b) => order[a.severity] - order[b.severity]);
   return all;
 }
 
-const borderCol = (s: Alert['severity']) =>
-  s === 'danger' ? 'var(--color-exp)' : s === 'warning' ? 'var(--color-warn)' : 'var(--accent)';
-
-const bgCol = (s: Alert['severity']) =>
-  s === 'danger'
-    ? 'color-mix(in srgb, var(--color-exp) 6%, transparent)'
-    : s === 'warning'
-    ? 'color-mix(in srgb, var(--color-warn) 6%, transparent)'
-    : 'color-mix(in srgb, var(--accent) 6%, transparent)';
-
-export function CoachAlerts({ summary, budgets, goals, loading }: CoachAlertsProps) {
+/**
+ * The coach's alerts for the dashboard, at most three, most severe first.
+ * Returns data rather than markup: the dashboard renders them as rows in its
+ * Brief card, next to the other notices, instead of as separate banners.
+ * Dismissals last for the browser session.
+ */
+export function useCoachAlerts({ summary, budgets, goals, loading }: CoachAlertsProps, enabled = true) {
   const { user } = useAuthStore();
   const [recurring, setRecurring] = useState<any[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -135,18 +130,16 @@ export function CoachAlerts({ summary, budgets, goals, loading }: CoachAlertsPro
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !enabled) return;
     recurringAPI.getAll()
       .then(res => setRecurring(res.data?.recurring ?? []))
       .catch(() => {});
-  }, [user]);
+  }, [user, enabled]);
 
-  if (!ready || loading) return null;
-
-  const allAlerts = buildAlerts(summary, budgets, goals, recurring);
-  const visible   = allAlerts.filter(a => !dismissed.has(a.id)).slice(0, 3);
-
-  if (!visible.length) return null;
+  const alerts = useMemo(() => {
+    if (!enabled || !ready || loading) return [];
+    return buildAlerts(summary, budgets, goals, recurring).filter(a => !dismissed.has(a.id)).slice(0, 3);
+  }, [enabled, ready, loading, summary, budgets, goals, recurring, dismissed]);
 
   const dismiss = (id: string) => {
     const next = new Set(dismissed);
@@ -155,43 +148,5 @@ export function CoachAlerts({ summary, budgets, goals, loading }: CoachAlertsPro
     try { sessionStorage.setItem(SS_KEY, JSON.stringify([...next])); } catch {}
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', animation: 'fadeUp 200ms ease forwards' }}>
-      {visible.map(alert => (
-        <div
-          key={alert.id}
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '10px',
-            padding: '11px 14px',
-            background: bgCol(alert.severity),
-            borderRadius: 'var(--radius-md)',
-            borderLeft: `4px solid ${borderCol(alert.severity)}`,
-          }}
-        >
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-              {alert.message}
-            </p>
-            {alert.sub && (
-              <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '3px 0 0', fontFamily: 'var(--font-body)' }}>
-                {alert.sub}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => dismiss(alert.id)}
-            aria-label="Dismiss"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex', flexShrink: 0, borderRadius: '4px', transition: 'color var(--transition-fast)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
-    </div>
-  );
+  return { alerts, dismiss };
 }
