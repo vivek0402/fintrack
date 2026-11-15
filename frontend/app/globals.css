@@ -425,6 +425,7 @@ aside, aside nav {
 .fin-link:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
 
 .fin-link-danger { color: var(--color-exp-text); }
+.fin-link-good { color: var(--color-inc-text); }
 
 /* Page header: title on the left, the page's actions on the right. On phones
    the actions drop under the title and share the width. */

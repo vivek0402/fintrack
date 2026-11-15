@@ -4,9 +4,8 @@ import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    Plus, Trash2, Pencil,
-    RefreshCw, Sparkles, X,
-    Check, Calendar, Target,
+    Trash2, RefreshCw, X,
+    Calendar, Target, Receipt,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,8 +13,6 @@ import { budgetsAPI, analyticsAPI, recurringAPI, aiAPI, splitsAPI } from '@/lib/
 import { useBudgets, queryKeys } from '@/hooks/queries';
 import { CategoryField, type CategoryOption } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
-import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
@@ -32,6 +29,7 @@ import { Tabs } from '@/components/ui/Tabs';
 import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 import { groupRecurring, recurringSummary, daysUntil, dueLabel, dueTone } from '@/lib/recurring';
+import { groupSplits, whoOwes, splitsSummary, owedOn } from '@/lib/splits';
 
 const NO_BUDGETS: any[] = [];
 
@@ -51,9 +49,6 @@ const TABS = [
 // recipe from here rather than each redeclaring it.
 const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
 const labelSt: React.CSSProperties = { ...type.label, marginBottom: 6, display: 'block' };
-// For GCard/tiles nested inside an already-glass parent (modals): the lighter
-// .glass-field wash, since glass-on-glass reads muddy.
-const glassFieldStyle: React.CSSProperties = { background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)' };
 
 // ── One-Time Expenses: local types & constants ──────────────────────────────
 
@@ -767,6 +762,8 @@ function BudgetsPageInner() {
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [editingSplit, setEditingSplit] = useState<any | null>(null);
     const [splitDeletingId, setSplitDeletingId] = useState<string | null>(null);
+    const [splitConfirmDeleteId, setSplitConfirmDeleteId] = useState<string | null>(null);
+    const [splitModalConfirmDelete, setSplitModalConfirmDelete] = useState(false);
     const [nlInput,      setNlInput]     = useState('');
     const [nlLoading,    setNlLoading]   = useState(false);
     const [splitForm,    setSplitForm]   = useState({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] });
@@ -793,9 +790,26 @@ function BudgetsPageInner() {
         try {
             const res = await aiAPI.parseSplit(nlInput);
             const p = res.data.parsed;
-            if (p) setSplitForm({ description: p.description || '', total_amount: p.total_amount ? String(p.total_amount) : '', participants: p.participants?.length ? p.participants : [{ name: '' }], date: new Date().toISOString().split('T')[0] });
-        } catch { /* silent */ }
-        finally { setNlLoading(false); }
+            if (p) {
+                setSplitForm({ description: p.description || '', total_amount: p.total_amount ? String(p.total_amount) : '', participants: p.participants?.length ? p.participants : [{ name: '' }], date: new Date().toISOString().split('T')[0] });
+                setSplitFormError('');
+                setEditingSplit(null);
+                setShowSplitModal(true);
+                setNlInput('');
+            } else {
+                toast.error("Couldn't read that. Add the split by hand instead.");
+            }
+        } catch {
+            toast.error("Couldn't read that. Add the split by hand instead.");
+        } finally { setNlLoading(false); }
+    };
+
+    const openSplitAdd = () => {
+        setSplitForm({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] });
+        setSplitFormError('');
+        setEditingSplit(null);
+        setSplitModalConfirmDelete(false);
+        setShowSplitModal(true);
     };
 
     const addParticipant    = () => setSplitForm({ ...splitForm, participants: [...splitForm.participants, { name: '' }] });
@@ -808,10 +822,10 @@ function BudgetsPageInner() {
     const openEditSplit = (split: any) => {
         setEditingSplit(split);
         setSplitForm({ description: split.description, total_amount: String(parseFloat(split.total_amount)), participants: (split.participants || []).map((p: any) => ({ name: p.name })), date: split.date?.split('T')[0] || new Date().toISOString().split('T')[0] });
-        setNlInput(''); setSplitFormError(''); setShowSplitModal(true);
+        setNlInput(''); setSplitFormError(''); setSplitModalConfirmDelete(false); setShowSplitModal(true);
     };
 
-    const closeSplitModal = () => { setShowSplitModal(false); setEditingSplit(null); setNlInput(''); setSplitForm({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] }); setSplitFormError(''); };
+    const closeSplitModal = () => { setShowSplitModal(false); setEditingSplit(null); setSplitModalConfirmDelete(false); setNlInput(''); setSplitForm({ description: '', total_amount: '', participants: [{ name: '' }], date: new Date().toISOString().split('T')[0] }); setSplitFormError(''); };
 
     const handleSplitSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setSplitFormError(''); setSplitFormLoading(true);
@@ -858,9 +872,109 @@ function BudgetsPageInner() {
         }, 4000);
     };
 
-    const allSettled = (split: any) => split.participants.every((p: any) => p.settled);
+    const visibleSplits = splits.filter(s => !pendingDeleteSplit.has(s.id));
+    const splitGroups = groupSplits(visibleSplits);
+    const splitDebtors = whoOwes(splitGroups.open);
+    const splitSum = splitsSummary(visibleSplits);
 
-    const splitInputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 10, fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
+    const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const oldestOpenLabel = (() => {
+        const m = splitSum.oldestOpenDate ? /^(\d{4})-(\d{2})-(\d{2})/.exec(splitSum.oldestOpenDate) : null;
+        return m ? `${Number(m[3])} ${SHORT_MONTHS[Number(m[2]) - 1]}` : null;
+    })();
+
+    const splitInset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+
+    const confirmSplitDelete = (id: string) => { setSplitConfirmDeleteId(null); handleSplitDelete(id); };
+
+    // One open split: the top line opens the editor; the people underneath are
+    // settled one by one without leaving the row.
+    const renderOpenSplit = (split: any) => {
+        const confirming = splitConfirmDeleteId === split.id;
+        const people = split.participants || [];
+        const openEditor = () => openEditSplit(split);
+        return (
+            <div key={split.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} className="pressable" onClick={openEditor}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditor(); } }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{split.description}</p>
+                            <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>
+                                {formatDate(split.date)} · {fmt(parseFloat(split.total_amount))} split {people.length + 1} ways · your share {fmt(parseFloat(split.your_share))}
+                            </p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ ...type.num, margin: 0 }}>{fmt(owedOn(split))}</p>
+                            <p style={{ ...type.meta, margin: 0 }}>still owed</p>
+                        </div>
+                    </div>
+                    <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${split.description} split`}
+                        onClick={() => setSplitConfirmDeleteId(split.id)} disabled={splitDeletingId === split.id}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+
+                {confirming && (
+                    <div style={splitInset}>
+                        <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete the {split.description} split? Its linked transaction goes too.</span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction tone="danger" onClick={() => confirmSplitDelete(split.id)}>Delete split</TextAction>
+                            <TextAction quiet onClick={() => setSplitConfirmDeleteId(null)}>Keep it</TextAction>
+                        </span>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 'var(--space-3)', borderLeft: '1px solid var(--glass-border)' }}>
+                    {people.map((p: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 32 }}>
+                            <p style={{ ...type.body, ...truncate, margin: 0, flex: 1 }}>{p.name}</p>
+                            <span style={type.numSmall}>{fmt(parseFloat(p.share))}</span>
+                            {p.settled
+                                ? <TextAction tone="good" aria-label={`Mark ${p.name} as not settled`} onClick={() => handleSettle(split.id, i)}>Settled</TextAction>
+                                : <TextAction onClick={() => handleSettle(split.id, i)}>Mark settled</TextAction>}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    // A fully paid split: one line.
+    const renderSettledSplit = (split: any) => {
+        const confirming = splitConfirmDeleteId === split.id;
+        const n = (split.participants || []).length;
+        const openEditor = () => openEditSplit(split);
+        return (
+            <div key={split.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} className="pressable" onClick={openEditor}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditor(); } }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{split.description}</p>
+                            <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>{formatDate(split.date)} · {n} {n === 1 ? 'person' : 'people'} paid</p>
+                        </div>
+                        <p style={{ ...type.num, margin: 0, flexShrink: 0 }}>{fmt(parseFloat(split.total_amount))}</p>
+                    </div>
+                    <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${split.description} split`}
+                        onClick={() => setSplitConfirmDeleteId(split.id)} disabled={splitDeletingId === split.id}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+                {confirming && (
+                    <div style={splitInset}>
+                        <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete the {split.description} split? Its linked transaction goes too.</span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction tone="danger" onClick={() => confirmSplitDelete(split.id)}>Delete split</TextAction>
+                            <TextAction quiet onClick={() => setSplitConfirmDeleteId(null)}>Keep it</TextAction>
+                        </span>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     // ════════════════════════════════════════════════════════════════════════
     // ── ONE-TIME EXPENSES TAB STATE ──
@@ -1194,7 +1308,11 @@ function BudgetsPageInner() {
                                     ? (visibleRecurring.length > 0
                                         ? `${activeCount} active schedule${activeCount !== 1 ? 's' : ''}${pausedCount > 0 ? ` · ${pausedCount} paused` : ''}`
                                         : !recurringLoading ? 'Automate your regular income and expenses' : 'Monthly limits, recurring bills, shared expenses and one-off spends')
-                                    : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
+                                    : tab === 'splits'
+                                        ? (visibleSplits.length > 0
+                                            ? `${splitSum.openCount} open split${splitSum.openCount !== 1 ? 's' : ''}${splitSum.settledCount > 0 ? ` · ${splitSum.settledCount} settled` : ''}`
+                                            : !splitsLoading ? 'Track shared expenses and who owes you' : 'Monthly limits, recurring bills, shared expenses and one-off spends')
+                                        : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
                         </p>
                         <h1 style={{ ...type.heading, margin: 0 }}>Budgets</h1>
                     </div>
@@ -1212,6 +1330,11 @@ function BudgetsPageInner() {
                         <div className="fin-page-actions">
                             <Button variant="secondary" onClick={handleProcessRecurring} isLoading={processingRecurring}>Process due now</Button>
                             <Button onClick={openRecAdd}>Add recurring</Button>
+                        </div>
+                    )}
+                    {tab === 'splits' && (
+                        <div className="fin-page-actions">
+                            <Button onClick={openSplitAdd}>Add split</Button>
                         </div>
                     )}
                 </div>
@@ -1473,178 +1596,160 @@ function BudgetsPageInner() {
                 {/* ══ SPLITS TAB ══ */}
                 {/* ══════════════════════════════════════════════════════════ */}
                 {tab === 'splits' && (
-                    splitsLoading ? (
-                        <>
-                            <SkeletonCard height={64} style={{ marginBottom: '4px' }} />
-                            {[1, 2, 3].map(i => <SkeletonCard key={i} height={120} />)}
-                        </>
-                    ) : (
-                        <>
-                            {/* ── HEADER ── */}
-                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div>
-                                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                            {splits.length > 0 ? `${splits.length} split${splits.length !== 1 ? 's' : ''}` : 'Track shared expenses and who owes you'}
-                                        </p>
+                    <>
+                        {/* ── DESCRIBE IT: type a sentence, review the filled-in form ── */}
+                        {!splitsLoading && (
+                            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                <input type="text" aria-label="Describe a split" placeholder="Or describe it: Dinner ₹2400 split 4 ways with Raj, Priya, Sam"
+                                    value={nlInput} onChange={e => setNlInput(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleNlParse(); } }}
+                                    style={{ ...inputSt, flex: 1, minWidth: 0, height: 40 }} />
+                                <Button variant="secondary" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}>
+                                    {nlLoading ? 'Filling in…' : 'Fill in'}
+                                </Button>
+                            </div>
+                        )}
+
+                        {splitsLoading ? (
+                            <>
+                                <SkeletonCard height={150} />
+                                <div className="fin-two">
+                                    <SkeletonCard height={220} />
+                                    <SkeletonCard height={220} />
+                                </div>
+                            </>
+                        ) : visibleSplits.length === 0 ? (
+                            <EmptyState
+                                icon={Receipt}
+                                title="No splits yet"
+                                subtitle="Add a split to track shared expenses and who owes you"
+                                action={<Button onClick={openSplitAdd}>Add first split</Button>}
+                            />
+                        ) : (
+                            <>
+                                {/* ── WHAT YOU ARE OWED ── */}
+                                <Card>
+                                    <p style={{ ...type.label, margin: 0 }}>Owed to you</p>
+                                    <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmt(splitSum.owed)}</p>
+                                    <div className="dash-stats">
+                                        <Stat className="dash-stat" label="From" value={splitSum.people} sub={splitSum.people === 1 ? 'person' : 'people'} />
+                                        <Stat className="dash-stat" label="Open splits" value={splitSum.openCount}
+                                            sub={oldestOpenLabel ? `Oldest from ${oldestOpenLabel}` : 'None open'} />
+                                        <Stat className="dash-stat" label="Collected" value={fmt(splitSum.collected)} sub="Marked settled" />
+                                        <Stat className="dash-stat" label="Your share" value={fmt(splitSum.yourShareOpen)} sub="Of open splits" />
                                     </div>
-                                    <button type="button" onClick={() => setShowSplitModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        <Plus size={14} /> Add Split
-                                    </button>
-                                </div>
-                            </div>
+                                </Card>
 
-                            {/* ── AI PARSE STRIP ── */}
-                            <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                                    <Sparkles size={14} color="var(--color-info)" />
-                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-info)', fontFamily: 'var(--font-display)' }}>AI Parse Split</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
-                                        value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                        style={{ flex: 1, padding: '9px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 9, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none', transition: 'border-color var(--transition-fast)' }}
-                                        onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                                        onBlur={e => (e.target.style.borderColor = 'var(--glass-border)')}
-                                    />
-                                    <button type="button" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}
-                                        style={{ padding: '9px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 9, color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: nlLoading || !nlInput.trim() ? 'not-allowed' : 'pointer', opacity: nlLoading || !nlInput.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
-                                        {nlLoading ? '…' : 'Parse'}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* ── SPLITS LIST ── */}
-                            {splits.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '40px 24px' }}>
-                                    <p style={{ fontSize: '40px', marginBottom: '10px' }}>🧾</p>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No splits yet</p>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Add a split to track shared expenses and who owes you</p>
-                                    <button type="button" onClick={() => setShowSplitModal(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Add first split</button>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {splits.filter(split => !pendingDeleteSplit.has(split.id)).map(split => {
-                                        const settled = allSettled(split);
-                                        return (
-                                            <div key={split.id} className="glass-surface" style={{ border: `1px solid ${settled ? 'color-mix(in srgb, var(--color-inc) 20%, transparent)' : 'var(--glass-border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                                {/* Header */}
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '14px 16px 10px', gap: '10px' }}>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
-                                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{split.description}</span>
-                                                            <Badge color={settled ? 'var(--color-inc)' : 'var(--color-warn)'} bg={settled ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
-                                                                {settled ? 'Settled' : 'Pending'}
-                                                            </Badge>
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(split.total_amount))}</span>
-                                                            <span style={{ fontSize: '12px', color: 'var(--color-inc)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>Your share: {fmt(parseFloat(split.your_share))}</span>
-                                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{formatDate(split.date)}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                                                        <button type="button" onClick={() => openEditSplit(split)} aria-label={`Edit ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}
-                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
-                                                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                            <Pencil size={13} />
-                                                        </button>
-                                                        <button type="button" onClick={() => handleSplitDelete(split.id)} disabled={splitDeletingId === split.id} aria-label={`Delete ${split.description} split`} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer', opacity: splitDeletingId === split.id ? 0.5 : 1 }}
-                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
-                                                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                            <Trash2 size={13} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* Participants */}
-                                                <div style={{ borderTop: '1px solid var(--glass-border)', padding: '8px 16px 10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                    {split.participants.map((p: any, i: number) => (
-                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: p.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--glass-fill-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: p.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
-                                                                {p.name?.[0]?.toUpperCase() || '?'}
+                                {/* ── THE SPLITS, and who owes you ── */}
+                                {(() => {
+                                    const hasLeft = splitGroups.open.length > 0;
+                                    const hasRight = splitDebtors.length > 0 || splitGroups.settled.length > 0;
+                                    const left = hasLeft && (
+                                        <Card>
+                                            <CardHeader title="Waiting on people" sub="Newest first" />
+                                            <Rows>{splitGroups.open.map(renderOpenSplit)}</Rows>
+                                        </Card>
+                                    );
+                                    const right = hasRight && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                                            {splitDebtors.length > 0 && (
+                                                <Card>
+                                                    <CardHeader title="Who owes you" sub="Across all open splits" />
+                                                    <Rows>
+                                                        {splitDebtors.map(d => (
+                                                            <div key={d.name.toLowerCase()}>
+                                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{d.name}</p>
+                                                                    <p style={{ ...type.meta, ...truncate, margin: 0 }}>{d.count} {d.count === 1 ? 'split' : 'splits'}</p>
+                                                                </div>
+                                                                <p style={{ ...type.num, margin: 0, flexShrink: 0 }}>{fmt(d.amount)}</p>
                                                             </div>
-                                                            <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.name}</span>
-                                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(p.share))}</span>
-                                                            <button type="button" onClick={() => handleSettle(split.id, i)}
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: 6, border: `1px solid ${p.settled ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : 'var(--glass-border)'}`, background: p.settled ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : 'transparent', color: p.settled ? 'var(--color-inc)' : 'var(--text-muted)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
-                                                                {p.settled ? <><Check size={11} /> Settled</> : 'Mark settled'}
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
+                                                        ))}
+                                                    </Rows>
+                                                </Card>
+                                            )}
+                                            {splitGroups.settled.length > 0 && (
+                                                <Card>
+                                                    <CardHeader title="Settled" sub="Everyone has paid" />
+                                                    <Rows>{splitGroups.settled.map(renderSettledSplit)}</Rows>
+                                                </Card>
+                                            )}
+                                        </div>
+                                    );
+                                    return (
+                                        <div className={hasLeft && hasRight ? 'fin-two' : undefined}>
+                                            {left}
+                                            {right}
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
 
-                            {/* ── NEW/EDIT SPLIT MODAL ── */}
-                            <Modal isOpen={showSplitModal} onClose={closeSplitModal} title={editingSplit ? 'Edit Split' : 'New Split'} maxWidth="500px">
-                                {/* AI Parse */}
-                                <GCard style={{ ...glassFieldStyle, marginBottom: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                        <Sparkles size={13} color="var(--color-info)" />
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-info)', fontFamily: 'var(--font-display)' }}>AI Parse</span>
+                        {/* ── NEW/EDIT SPLIT DIALOG ── */}
+                        {!splitsLoading && (
+                            <Modal isOpen={showSplitModal} onClose={closeSplitModal} title={editingSplit ? 'Edit split' : 'New split'} maxWidth="500px"
+                                footer={
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                        <Button type="button" variant="secondary" onClick={closeSplitModal}>Cancel</Button>
+                                        <Button type="submit" form="split-form" isLoading={splitFormLoading}>{editingSplit ? 'Save changes' : 'Create split'}</Button>
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <input type="text" placeholder='"Dinner ₹2400 split 4 ways with Raj, Priya, Sam"'
-                                            value={nlInput} onChange={e => setNlInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleNlParse()}
-                                            style={{ flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)', outline: 'none' }} />
-                                        <button type="button" onClick={handleNlParse} disabled={nlLoading || !nlInput.trim()}
-                                            style={{ padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 8, color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: nlLoading || !nlInput.trim() ? 'not-allowed' : 'pointer', opacity: nlLoading || !nlInput.trim() ? 0.6 : 1, fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
-                                            {nlLoading ? '…' : 'Parse'}
-                                        </button>
+                                }
+                            >
+                                <form id="split-form" onSubmit={handleSplitSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <div>
+                                        <label htmlFor="split-description" style={labelSt}>Description</label>
+                                        <input id="split-description" type="text" placeholder="e.g. Dinner at restaurant" value={splitForm.description} onChange={e => setSplitForm({ ...splitForm, description: e.target.value })} required style={inputSt} />
                                     </div>
-                                </GCard>
-
-                                <form onSubmit={handleSplitSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Description</label>
-                                        <input type="text" placeholder="e.g. Dinner at restaurant" value={splitForm.description} onChange={e => setSplitForm({ ...splitForm, description: e.target.value })} required style={splitInputSt} />
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Total Amount *</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label htmlFor="split-total" style={labelSt}>Total amount</label>
                                             <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 14 }}>₹</span>
-                                                <input type="number" placeholder="2400" min="1" step="0.01" value={splitForm.total_amount} onChange={e => setSplitForm({ ...splitForm, total_amount: e.target.value })} required style={{ ...splitInputSt, paddingLeft: 30, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }} />
+                                                <span aria-hidden="true" style={{ ...type.num, color: 'var(--text-secondary)', position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}>₹</span>
+                                                <input id="split-total" type="number" placeholder="2400" min="1" step="0.01" value={splitForm.total_amount} onChange={e => setSplitForm({ ...splitForm, total_amount: e.target.value })} required style={{ ...inputSt, ...type.num, paddingLeft: 30 }} />
                                             </div>
                                         </div>
                                         <DatePicker label="Date" value={splitForm.date} onChange={date => setSplitForm({ ...splitForm, date })} />
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontFamily: 'var(--font-body)' }}>Participants (excl. you)</label>
-                                            <button type="button" onClick={addParticipant} style={{ fontSize: '12px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>+ Add person</button>
+                                            <span style={{ ...labelSt, marginBottom: 0 }}>People (not counting you)</span>
+                                            <TextAction onClick={addParticipant}>Add person</TextAction>
                                         </div>
                                         {splitForm.participants.map((p, i) => (
-                                            <div key={i} style={{ display: 'flex', gap: '8px' }}>
-                                                <input type="text" placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 8, fontSize: '13px', fontFamily: 'var(--font-body)', outline: 'none' }} />
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <input type="text" aria-label={`Person ${i + 1} name`} placeholder={`Person ${i + 1} name`} value={p.name} onChange={e => updateParticipant(i, e.target.value)} style={{ ...inputSt, flex: 1, minWidth: 0 }} />
                                                 {splitForm.participants.length > 1 && (
-                                                    <button type="button" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-muted)', cursor: 'pointer' }}><X size={13} /></button>
+                                                    <button type="button" className="fin-icon-btn" onClick={() => removeParticipant(i)} aria-label={`Remove ${p.name || `person ${i + 1}`}`}><X size={14} /></button>
                                                 )}
                                             </div>
                                         ))}
                                     </div>
                                     {splitForm.total_amount && (
-                                        <GCard style={glassFieldStyle}>
-                                            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                Split {splitCount} ways → <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(yourShare)} each</strong>
-                                            </p>
-                                        </GCard>
+                                        <p style={{ ...type.meta, margin: 0 }}>
+                                            Split {splitCount} ways, <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{fmt(yourShare)}</span> each
+                                        </p>
                                     )}
-                                    {splitFormError && (
-                                        <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 8, fontSize: '13px', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>{splitFormError}</div>
-                                    )}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                        <Button type="button" variant="secondary" size="lg" onClick={closeSplitModal}>Cancel</Button>
-                                        <Button type="submit" size="lg" isLoading={splitFormLoading}>{editingSplit ? 'Save Changes' : 'Create Split'}</Button>
-                                    </div>
+                                    {splitFormError && <p role="alert" style={{ ...type.meta, margin: 0, color: 'var(--color-exp-text)' }}>{splitFormError}</p>}
                                 </form>
+                                {editingSplit && (
+                                    <div style={{ marginTop: 'var(--space-4)' }}>
+                                        {splitModalConfirmDelete ? (
+                                            <div style={splitInset}>
+                                                <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete this split? Its linked transaction goes too.</span>
+                                                <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                                                    <TextAction tone="danger" onClick={() => { const id = editingSplit.id; closeSplitModal(); handleSplitDelete(id); }}>Delete split</TextAction>
+                                                    <TextAction quiet onClick={() => setSplitModalConfirmDelete(false)}>Keep it</TextAction>
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <TextAction tone="danger" onClick={() => setSplitModalConfirmDelete(true)}>Delete split</TextAction>
+                                        )}
+                                    </div>
+                                )}
                             </Modal>
-                        </>
-                    )
+                        )}
+                    </>
                 )}
 
                 {/* ══════════════════════════════════════════════════════════ */}

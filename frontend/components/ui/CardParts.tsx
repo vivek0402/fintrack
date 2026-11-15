@@ -33,11 +33,11 @@ export function TextAction({ children, onClick, quiet = false, tone, disabled, '
     children: React.ReactNode;
     onClick: () => void;
     quiet?: boolean;
-    tone?: 'danger';
+    tone?: 'danger' | 'good';
     disabled?: boolean;
     'aria-label'?: string;
 }) {
-    const cls = ['fin-link', quiet && 'fin-link-quiet', tone === 'danger' && 'fin-link-danger'].filter(Boolean).join(' ');
+    const cls = ['fin-link', quiet && 'fin-link-quiet', tone === 'danger' && 'fin-link-danger', tone === 'good' && 'fin-link-good'].filter(Boolean).join(' ');
     return (
         <button type="button" className={cls} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
             {children}
