@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Plus, Trash2, Pencil,
-    RefreshCw, Pause, Play, TrendingUp, TrendingDown, Sparkles, X, Brain,
+    RefreshCw, Sparkles, X,
     Check, Calendar, Target,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { Skeleton, SkeletonCard, SkeletonCircle } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -31,6 +31,7 @@ import { type, truncate } from '@/lib/typography';
 import { Tabs } from '@/components/ui/Tabs';
 import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
+import { groupRecurring, recurringSummary, daysUntil, dueLabel, dueTone } from '@/lib/recurring';
 
 const NO_BUDGETS: any[] = [];
 
@@ -528,6 +529,7 @@ function BudgetsPageInner() {
     const [recEditForm, setRecEditForm]     = useState({ type: 'expense' as 'income' | 'expense', amount: '', description: '', frequency: 'monthly', day_of_month: '', category_id: '' });
     const [recEditLoading, setRecEditLoading] = useState(false);
     const [recEditError, setRecEditError]   = useState('');
+    const [recConfirmDeleteId, setRecConfirmDeleteId] = useState<string | null>(null);
     const [patterns, setPatterns]           = useState<any[]>([]);
     const [dismissedPatterns, setDismissedPatterns] = useState<Set<number>>(new Set());
     const [patternsLoading, setPatternsLoading]     = useState(false);
@@ -632,32 +634,129 @@ function BudgetsPageInner() {
         finally { setAddingPattern(null); }
     };
 
-    const formatNextDate = (dateStr: string) => {
-        if (!dateStr) return 'Not set';
-        try { const [year, month, day] = dateStr.split('T')[0].split('-').map(Number); const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${day} ${months[month]} ${year}`; }
-        catch { return 'Not set'; }
-    };
-
     const freqLabel = (r: any) => {
         if (r.frequency === 'monthly' && r.day_of_month) { const s = r.day_of_month===1?'st':r.day_of_month===2?'nd':r.day_of_month===3?'rd':'th'; return `Monthly on the ${r.day_of_month}${s}`; }
         return r.frequency.charAt(0).toUpperCase() + r.frequency.slice(1);
     };
 
     const visiblePatterns = patterns.filter((_, i) => !dismissedPatterns.has(i));
-    const activeCount = recurring.filter(r => r.is_active).length;
+    const visibleRecurring = recurring.filter(r => !pendingDeleteRecurring.has(r.id));
+    const activeCount = visibleRecurring.filter(r => r.is_active).length;
+    const pausedCount = visibleRecurring.length - activeCount;
+    const recToday = new Date();
+    const recGroups = groupRecurring(visibleRecurring, recToday);
+    const recSummary = recurringSummary(visibleRecurring, recToday);
 
-    const recInputSt: React.CSSProperties = { padding: '10px 14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', cursor: 'pointer' };
-    const recIconBt: React.CSSProperties = { width: '32px', height: '32px', borderRadius: '8px', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all var(--transition-fast)' };
+    const openRecAdd = () => {
+        setRecForm({ type: 'expense', amount: '', description: '', frequency: 'monthly', day_of_month: '', category_id: '' });
+        setRecFormError('');
+        setShowRecForm(true);
+    };
 
+    const closeRecEditor = () => { setRecEditingId(null); setRecEditError(''); setRecConfirmDeleteId(null); };
+
+    // Neutral two-option segmented control: no red/green, the selected side is a lighter fill.
     const TypeToggle = ({ value, onChange }: { value: string; onChange: (v: 'income' | 'expense') => void }) => (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-            {(['expense', 'income'] as const).map(t => (
-                <button key={t} type="button" onClick={() => onChange(t)} className={value === t ? undefined : 'glass-field'} style={{ padding: '8px', borderRadius: '8px', border: value === t ? `1px solid ${t === 'income' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)'}` : 'none', background: value === t ? (t === 'income' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : undefined, color: value === t ? (t === 'income' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'var(--font-body)' }}>
-                    {t}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, padding: 2, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+            {([['expense', 'Expense'], ['income', 'Income']] as const).map(([t, text]) => (
+                <button key={t} type="button" aria-pressed={value === t} onClick={() => onChange(t)}
+                    style={{ ...type.label, border: 'none', borderRadius: 'var(--radius-sm)', padding: '8px', cursor: 'pointer', background: value === t ? 'var(--glass-fill-3)' : 'transparent', color: value === t ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                    {text}
                 </button>
             ))}
         </div>
     );
+
+    // One schedule as a row: tap to open its editor in place. The due line
+    // carries the urgency; the amount stays the default colour.
+    const renderRecRow = (r: any) => {
+        const editing    = recEditingId === r.id;
+        const confirming = recConfirmDeleteId === r.id;
+        const isIncome   = r.type === 'income';
+        const days       = daysUntil(r.next_due_date, recToday);
+        const dueText    = r.is_active ? dueLabel(days, r.next_due_date, recToday) : 'Paused';
+        const dueColor   = r.is_active ? TONE_TEXT[dueTone(days)] : TONE_TEXT.neutral;
+        const toggle = () => {
+            if (editing) { closeRecEditor(); return; }
+            setRecEditingId(r.id);
+            setRecEditForm({ type: r.type, amount: String(r.amount), description: r.description, frequency: r.frequency, day_of_month: r.day_of_month ? String(r.day_of_month) : '', category_id: r.category_id || '' });
+            setRecEditError(''); setRecConfirmDeleteId(null);
+        };
+        const confirmDelete = () => { setRecEditingId(null); setRecConfirmDeleteId(null); handleRecDelete(r.id); };
+        const inset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+
+        return (
+            <div key={r.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} aria-expanded={editing} className="pressable" onClick={toggle}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{r.description}</p>
+                            <p style={{ ...type.meta, ...truncate, margin: 0 }}>{freqLabel(r)}{r.category_name ? ` · ${r.category_name}` : ''}</p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ ...type.num, margin: 0, ...(isIncome ? { color: 'var(--color-inc-text)' } : {}) }}>{isIncome ? '+' : '−'}{fmt(parseFloat(r.amount))}</p>
+                            <p style={{ ...type.meta, margin: 0, color: dueColor }}>{dueText}</p>
+                        </div>
+                    </div>
+                    {r.is_active ? (
+                        <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${r.description}`}
+                            onClick={() => { setRecEditingId(null); setRecConfirmDeleteId(r.id); }} disabled={recDeletingId === r.id}>
+                            <Trash2 size={14} />
+                        </button>
+                    ) : (
+                        <TextAction onClick={() => handleRecToggle(r.id)} disabled={togglingId === r.id}>Resume</TextAction>
+                    )}
+                </div>
+
+                {confirming && (
+                    <div style={inset}>
+                        <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete the {r.description} schedule?</span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction tone="danger" onClick={confirmDelete} disabled={recDeletingId === r.id}>Delete schedule</TextAction>
+                            <TextAction quiet onClick={() => setRecConfirmDeleteId(null)}>Keep it</TextAction>
+                        </span>
+                    </div>
+                )}
+
+                {editing && !confirming && (
+                    <div style={{ background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                        <form onSubmit={handleRecEditSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                            <div>
+                                <label style={labelSt}>Type</label>
+                                <TypeToggle value={recEditForm.type} onChange={t => setRecEditForm({ ...recEditForm, type: t })} />
+                            </div>
+                            <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={recEditForm.amount} onChange={e => setRecEditForm({ ...recEditForm, amount: e.target.value })} required />
+                            <Input label="Description" type="text" placeholder="Monthly salary" value={recEditForm.description} onChange={e => setRecEditForm({ ...recEditForm, description: e.target.value })} required />
+                            <div>
+                                <label htmlFor={`rec-freq-${r.id}`} style={labelSt}>Repeats</label>
+                                <select id={`rec-freq-${r.id}`} value={recEditForm.frequency} onChange={e => setRecEditForm({ ...recEditForm, frequency: e.target.value })} style={inputSt}>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            {recEditForm.frequency === 'monthly' && <Input label="Day of month" type="number" placeholder="1" min="1" max="31" value={recEditForm.day_of_month} onChange={e => setRecEditForm({ ...recEditForm, day_of_month: e.target.value })} />}
+                            <div>
+                                <label style={labelSt}>Category</label>
+                                <CategoryField value={recEditForm.category_id} onChange={v => setRecEditForm({ ...recEditForm, category_id: v })} categories={categories} placeholder="Select category" />
+                            </div>
+                            <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+                                <Button type="submit" size="sm" isLoading={recEditLoading}>Save changes</Button>
+                                <TextAction quiet onClick={closeRecEditor}>Cancel</TextAction>
+                                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                                    <Switch label="Active" checked={r.is_active} onChange={() => handleRecToggle(r.id)} />
+                                    <TextAction tone="danger" onClick={() => setRecConfirmDeleteId(r.id)}>Delete schedule</TextAction>
+                                </div>
+                            </div>
+                            {recEditError && <p role="alert" style={{ ...type.meta, margin: 0, gridColumn: '1 / -1', color: 'var(--color-exp-text)' }}>{recEditError}</p>}
+                        </form>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     // ════════════════════════════════════════════════════════════════════════
     // ── SPLITS TAB STATE ──
@@ -1091,7 +1190,11 @@ function BudgetsPageInner() {
                         <p style={{ ...type.meta, margin: 0 }}>
                             {tab === 'budgets'
                                 ? `${MONTH_NAMES[currentMonth]} ${currentYear} · ${budgets.length} ${budgets.length === 1 ? 'category' : 'categories'}`
-                                : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
+                                : tab === 'recurring'
+                                    ? (visibleRecurring.length > 0
+                                        ? `${activeCount} active schedule${activeCount !== 1 ? 's' : ''}${pausedCount > 0 ? ` · ${pausedCount} paused` : ''}`
+                                        : !recurringLoading ? 'Automate your regular income and expenses' : 'Monthly limits, recurring bills, shared expenses and one-off spends')
+                                    : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
                         </p>
                         <h1 style={{ ...type.heading, margin: 0 }}>Budgets</h1>
                     </div>
@@ -1103,6 +1206,12 @@ function BudgetsPageInner() {
                                 </Button>
                             )}
                             <Button onClick={openAdd}>Add budget</Button>
+                        </div>
+                    )}
+                    {tab === 'recurring' && (
+                        <div className="fin-page-actions">
+                            <Button variant="secondary" onClick={handleProcessRecurring} isLoading={processingRecurring}>Process due now</Button>
+                            <Button onClick={openRecAdd}>Add recurring</Button>
                         </div>
                     )}
                 </div>
@@ -1228,217 +1337,136 @@ function BudgetsPageInner() {
                 {/* ══ RECURRING TAB ══ */}
                 {/* ══════════════════════════════════════════════════════════ */}
                 {tab === 'recurring' && (
-                    recurringLoading ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            {[1,2,3].map(i => <div key={i} className="glass-surface" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, borderRadius: 'var(--radius-lg)' }}>
-                                <SkeletonCircle size={40} />
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <Skeleton width="50%" height={14} borderRadius={4} />
-                                    <Skeleton width="30%" height={12} borderRadius={4} />
+                    <>
+                        {recurringLoading ? (
+                            <>
+                                <SkeletonCard height={150} />
+                                <div className="fin-two">
+                                    <SkeletonCard height={220} />
+                                    <SkeletonCard height={220} />
                                 </div>
-                                <Skeleton width={72} height={20} borderRadius={6} />
-                            </div>)}
-                        </div>
-                    ) : (
-                        <>
-                            {/* Header */}
-                            <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div>
-                                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                            {recurring.length > 0 ? `${activeCount} active schedule${activeCount !== 1 ? 's' : ''}` : 'Automate your regular income and expenses'}
-                                        </p>
+                            </>
+                        ) : visibleRecurring.length === 0 ? (
+                            <EmptyState
+                                icon={RefreshCw}
+                                title="No recurring transactions"
+                                subtitle="Schedule bills, subscriptions and EMIs to track them automatically"
+                                action={<Button onClick={openRecAdd}>Add your first one</Button>}
+                            />
+                        ) : (
+                            <>
+                                {/* ── THE MONTH: what the schedules add up to ── */}
+                                <Card>
+                                    <p style={{ ...type.label, margin: 0 }}>Scheduled to go out each month</p>
+                                    <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmt(recSummary.outMonthly)}</p>
+                                    <div className="dash-stats">
+                                        <Stat className="dash-stat" label="Scheduled in" value={fmt(recSummary.inMonthly)}
+                                            sub={`${recSummary.inCount} ${recSummary.inCount === 1 ? 'schedule' : 'schedules'}`} />
+                                        {recSummary.left >= 0
+                                            ? <Stat className="dash-stat" label="Left after schedules" value={fmt(recSummary.left)} sub="Each month" />
+                                            : <Stat className="dash-stat" label="Short each month" value={fmt(-recSummary.left)} sub="Schedules exceed scheduled income" subTone="bad" />}
+                                        <Stat className="dash-stat" label="Due in 7 days" value={fmt(recSummary.dueSoonTotal)}
+                                            sub={recSummary.dueSoonCount > 0 ? `${recSummary.dueSoonCount} ${recSummary.dueSoonCount === 1 ? 'payment' : 'payments'}` : 'Nothing due'} />
+                                        <Stat className="dash-stat" label="Next" value={recSummary.next ? recSummary.next.label : '—'}
+                                            sub={recSummary.next ? recSummary.next.description : 'No upcoming schedule'} />
                                     </div>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <Button onClick={handleProcessRecurring} isLoading={processingRecurring} variant="secondary" size="md">
-                                            <RefreshCw size={16} />Process now
-                                        </Button>
-                                        <Button onClick={() => setShowRecForm(!showRecForm)} size="md"><Plus size={16} />Add Recurring</Button>
-                                    </div>
-                                </div>
-                            </div>
+                                </Card>
 
-                            {/* AI Detect Patterns strip */}
-                            {(patternsLoading || visiblePatterns.length > 0) && (
-                                <div style={{ background: 'color-mix(in srgb, var(--color-info) 8%, transparent)', border: '1.5px solid color-mix(in srgb, var(--color-info) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
-                                    {patternsLoading ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <Brain size={16} color="var(--color-info)" />
-                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>AI is scanning your transactions for recurring patterns…</span>
-                                            <div style={{ width: '14px', height: '14px', border: '2px solid var(--accent)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginLeft: 'auto' }} />
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                                                <Sparkles size={16} color="var(--color-info)" />
-                                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                    AI found {visiblePatterns.length} potential recurring transaction{visiblePatterns.length !== 1 ? 's' : ''}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                {visiblePatterns.map((p) => {
+                                {/* ── SCHEDULES, grouped by when they are due ── */}
+                                {(recGroups.dueSoon.length > 0 || recGroups.later.length > 0) && (
+                                    <div className={recGroups.dueSoon.length > 0 && recGroups.later.length > 0 ? 'fin-two' : undefined}>
+                                        {recGroups.dueSoon.length > 0 && (
+                                            <Card>
+                                                <CardHeader title="Due in the next 7 days" sub="Soonest first" />
+                                                <Rows>{recGroups.dueSoon.map(renderRecRow)}</Rows>
+                                            </Card>
+                                        )}
+                                        {recGroups.later.length > 0 && (
+                                            <Card>
+                                                <CardHeader title="Later" sub="Nothing to do yet" />
+                                                <Rows>{recGroups.later.map(renderRecRow)}</Rows>
+                                            </Card>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* ── FOUND + PAUSED ── */}
+                        {!recurringLoading && ((patternsLoading || visiblePatterns.length > 0) || (visibleRecurring.length > 0 && recGroups.paused.length > 0)) && (
+                            <div className={(patternsLoading || visiblePatterns.length > 0) && recGroups.paused.length > 0 ? 'fin-two' : undefined}>
+                                {(patternsLoading || visiblePatterns.length > 0) && (
+                                    <Card>
+                                        <CardHeader title="Found in your transactions" sub="Payments that repeat but have no schedule yet" />
+                                        {patternsLoading ? (
+                                            <p style={{ ...type.body, margin: 0 }}>Scanning your transactions for repeats…</p>
+                                        ) : (
+                                            <Rows>
+                                                {visiblePatterns.map(p => {
                                                     const realIdx = patterns.indexOf(p);
                                                     return (
-                                                        <div key={realIdx} className="glass-field" style={{ borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-md)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                                                        <div key={realIdx}>
                                                             <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{p.merchant || p.description}</span>
-                                                                    <Badge color={p.confidence === 'high' ? 'var(--color-inc)' : 'var(--color-warn)'} bg={p.confidence === 'high' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
-                                                                        {p.confidence}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div style={{ display: 'flex', gap: '10px', marginTop: '3px' }}>
-                                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.amount)}</span>
-                                                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{p.frequency}</span>
-                                                                </div>
+                                                                <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{p.merchant || p.description}</p>
+                                                                <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>
+                                                                    {fmt(p.amount)} · {p.frequency}{p.confidence ? ` · ${p.confidence} confidence` : ''}
+                                                                </p>
                                                             </div>
-                                                            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                                                                <button type="button" onClick={() => handleAddPattern(p, realIdx)} disabled={addingPattern === realIdx}
-                                                                    style={{ padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-sm)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', opacity: addingPattern === realIdx ? 0.6 : 1, fontFamily: 'var(--font-body)' }}>
-                                                                    {addingPattern === realIdx ? 'Adding…' : '+ Add'}
-                                                                </button>
-                                                                <button type="button" onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))} aria-label="Dismiss suggestion" style={{ ...recIconBt, border: '1px solid var(--glass-border)' }}><X size={13} /></button>
-                                                            </div>
+                                                            <span style={{ display: 'flex', gap: 'var(--space-3)', flexShrink: 0 }}>
+                                                                <TextAction onClick={() => handleAddPattern(p, realIdx)} disabled={addingPattern === realIdx}>
+                                                                    {addingPattern === realIdx ? 'Adding…' : 'Add schedule'}
+                                                                </TextAction>
+                                                                <TextAction quiet onClick={() => setDismissedPatterns(prev => new Set([...prev, realIdx]))}>Dismiss</TextAction>
+                                                            </span>
                                                         </div>
                                                     );
                                                 })}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                                            </Rows>
+                                        )}
+                                    </Card>
+                                )}
+                                {recGroups.paused.length > 0 && (
+                                    <Card>
+                                        <CardHeader title="Paused" sub="Not posting until resumed" />
+                                        <Rows>{recGroups.paused.map(renderRecRow)}</Rows>
+                                    </Card>
+                                )}
+                            </div>
+                        )}
 
-                            {/* Add form */}
-                            {showRecForm && (
-                                <div className="glass-surface" style={{ border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
-                                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>New Recurring Transaction</h3>
-                                    <form onSubmit={handleRecSubmit}>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</label>
-                                                <TypeToggle value={recForm.type} onChange={t => setRecForm({ ...recForm, type: t })} />
-                                            </div>
-                                            <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={recForm.amount} onChange={e => setRecForm({ ...recForm, amount: e.target.value })} required />
-                                            <Input label="Description" type="text" placeholder="Monthly Salary" value={recForm.description} onChange={e => setRecForm({ ...recForm, description: e.target.value })} required />
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Frequency</label>
-                                                <select value={recForm.frequency} onChange={e => setRecForm({ ...recForm, frequency: e.target.value })} style={recInputSt}>
-                                                    <option value="daily">Daily</option>
-                                                    <option value="weekly">Weekly</option>
-                                                    <option value="monthly">Monthly</option>
-                                                </select>
-                                            </div>
-                                            {recForm.frequency === 'monthly' && <Input label="Day of Month" type="number" placeholder="1" min="1" max="31" value={recForm.day_of_month} onChange={e => setRecForm({ ...recForm, day_of_month: e.target.value })} />}
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</label>
-                                                <CategoryField
-                                                    value={recForm.category_id}
-                                                    onChange={v => setRecForm({ ...recForm, category_id: v })}
-                                                    categories={categories}
-                                                    placeholder="Select category"
-                                                />
-                                            </div>
-                                        </div>
-                                        {recFormError && <p style={{ fontSize: '12px', color: 'var(--color-exp)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>{recFormError}</p>}
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <Button type="submit" isLoading={recFormLoading} size="md">Save</Button>
-                                            <Button type="button" variant="secondary" size="md" onClick={() => setShowRecForm(false)}>Cancel</Button>
-                                        </div>
-                                    </form>
+                        {/* ── ADD RECURRING MODAL ── */}
+                        <Modal isOpen={showRecForm} onClose={() => { setShowRecForm(false); setRecFormError(''); }} title="New recurring transaction" maxWidth="440px"
+                            footer={
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <Button type="button" variant="secondary" onClick={() => { setShowRecForm(false); setRecFormError(''); }}>Cancel</Button>
+                                    <Button type="submit" form="add-recurring-form" isLoading={recFormLoading}>Add recurring</Button>
                                 </div>
-                            )}
-
-                            {/* List */}
-                            {recurring.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                                    <p style={{ fontSize: '40px', marginBottom: '10px' }}>🔄</p>
-                                    <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No recurring transactions</p>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Schedule bills, subscriptions, and EMIs to track them automatically</p>
-                                    <button type="button" onClick={() => setShowRecForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Add your first one</button>
+                            }
+                        >
+                            <form id="add-recurring-form" onSubmit={handleRecSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <div>
+                                    <label style={labelSt}>Type</label>
+                                    <TypeToggle value={recForm.type} onChange={t => setRecForm({ ...recForm, type: t })} />
                                 </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {recurring.filter(r => !pendingDeleteRecurring.has(r.id)).map(r => {
-                                        const isIncome = r.type === 'income';
-                                        return (
-                                            <div key={r.id}>
-                                                <div className="glass-surface" style={{ borderRadius: recEditingId === r.id ? 'var(--radius-lg) var(--radius-lg) 0 0' : 'var(--radius-lg)', padding: '14px 18px', opacity: r.is_active ? 1 : 0.55, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                                        <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                            {isIncome ? <TrendingUp size={16} color="var(--color-inc)" /> : <TrendingDown size={16} color="var(--color-exp)" />}
-                                                        </div>
-                                                        <div>
-                                                            <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{r.description}</p>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', flexWrap: 'wrap' }}>
-                                                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{freqLabel(r)}</span>
-                                                                {r.category_name && <Badge color={r.category_color || 'var(--text-muted)'} bg={r.category_color ? `${r.category_color}20` : 'var(--glass-fill-2)'}>{r.category_name}</Badge>}
-                                                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Next: {formatNextDate(r.next_due_date)}</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{isIncome ? '+' : '−'}{fmt(parseFloat(r.amount))}</p>
-                                                        <button type="button" onClick={() => handleRecToggle(r.id)} disabled={togglingId === r.id} title={r.is_active ? 'Pause' : 'Resume'} aria-label={r.is_active ? `Pause ${r.description}` : `Resume ${r.description}`}
-                                                            style={{ ...recIconBt, background: r.is_active ? 'color-mix(in srgb, var(--color-warn) 10%, transparent)' : 'color-mix(in srgb, var(--color-inc) 10%, transparent)', border: `1px solid ${r.is_active ? 'color-mix(in srgb, var(--color-warn) 20%, transparent)' : 'color-mix(in srgb, var(--color-inc) 20%, transparent)'}`, color: r.is_active ? 'var(--color-warn)' : 'var(--color-inc)', opacity: togglingId === r.id ? 0.5 : 1 }}>
-                                                            {r.is_active ? <Pause size={13} /> : <Play size={13} />}
-                                                        </button>
-                                                        <button type="button" onClick={() => { setRecEditingId(r.id); setRecEditForm({ type: r.type, amount: String(r.amount), description: r.description, frequency: r.frequency, day_of_month: r.day_of_month ? String(r.day_of_month) : '', category_id: r.category_id || '' }); setRecEditError(''); }} aria-label={`Edit ${r.description}`} style={recIconBt}
-                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'var(--accent-subtle)'; el.style.color = 'var(--accent)'; }}
-                                                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button type="button" onClick={() => handleRecDelete(r.id)} disabled={recDeletingId === r.id} aria-label={`Delete ${r.description}`} style={{ ...recIconBt, opacity: recDeletingId === r.id ? 0.5 : 1 }}
-                                                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
-                                                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                {recEditingId === r.id && (
-                                                    <div className="glass-surface" style={{ border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)', borderTop: 'none', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', padding: '20px' }}>
-                                                        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Edit Recurring Transaction</h3>
-                                                        <form onSubmit={handleRecEditSubmit}>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</label>
-                                                                    <TypeToggle value={recEditForm.type} onChange={t => setRecEditForm({ ...recEditForm, type: t })} />
-                                                                </div>
-                                                                <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={recEditForm.amount} onChange={e => setRecEditForm({ ...recEditForm, amount: e.target.value })} required />
-                                                                <Input label="Description" type="text" placeholder="Monthly Salary" value={recEditForm.description} onChange={e => setRecEditForm({ ...recEditForm, description: e.target.value })} required />
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Frequency</label>
-                                                                    <select value={recEditForm.frequency} onChange={e => setRecEditForm({ ...recEditForm, frequency: e.target.value })} style={recInputSt}>
-                                                                        <option value="daily">Daily</option>
-                                                                        <option value="weekly">Weekly</option>
-                                                                        <option value="monthly">Monthly</option>
-                                                                    </select>
-                                                                </div>
-                                                                {recEditForm.frequency === 'monthly' && <Input label="Day of Month" type="number" placeholder="1" min="1" max="31" value={recEditForm.day_of_month} onChange={e => setRecEditForm({ ...recEditForm, day_of_month: e.target.value })} />}
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600, fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Category</label>
-                                                                    <CategoryField
-                                                                        value={recEditForm.category_id}
-                                                                        onChange={v => setRecEditForm({ ...recEditForm, category_id: v })}
-                                                                        categories={categories}
-                                                                        placeholder="Select category"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            {recEditError && <p style={{ fontSize: '12px', color: 'var(--color-exp)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>{recEditError}</p>}
-                                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                                <Button type="submit" isLoading={recEditLoading} size="md">Save</Button>
-                                                                <Button type="button" variant="secondary" size="md" onClick={() => { setRecEditingId(null); setRecEditError(''); }}>Cancel</Button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={recForm.amount} onChange={e => setRecForm({ ...recForm, amount: e.target.value })} required />
+                                <Input label="Description" type="text" placeholder="Monthly salary" value={recForm.description} onChange={e => setRecForm({ ...recForm, description: e.target.value })} required />
+                                <div>
+                                    <label htmlFor="rec-add-freq" style={labelSt}>Repeats</label>
+                                    <select id="rec-add-freq" value={recForm.frequency} onChange={e => setRecForm({ ...recForm, frequency: e.target.value })} style={inputSt}>
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
                                 </div>
-                            )}
-                        </>
-                    )
+                                {recForm.frequency === 'monthly' && <Input label="Day of month" type="number" placeholder="1" min="1" max="31" value={recForm.day_of_month} onChange={e => setRecForm({ ...recForm, day_of_month: e.target.value })} />}
+                                <div>
+                                    <label style={labelSt}>Category</label>
+                                    <CategoryField value={recForm.category_id} onChange={v => setRecForm({ ...recForm, category_id: v })} categories={categories} placeholder="Select category" />
+                                </div>
+                                {recFormError && <p role="alert" style={{ ...type.meta, margin: 0, color: 'var(--color-exp-text)' }}>{recFormError}</p>}
+                            </form>
+                        </Modal>
+                    </>
                 )}
 
                 {/* ══════════════════════════════════════════════════════════ */}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { type } from '@/lib/typography';
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
     label?: string;
@@ -19,14 +20,7 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }}>
             {label && (
-                <label style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 'var(--text-label)',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-secondary)',
-                }}>
+                <label style={type.label}>
                     {label}
                 </label>
             )}

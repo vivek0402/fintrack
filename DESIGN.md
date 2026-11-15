@@ -346,7 +346,7 @@ layer to 35% opacity.
 
 ## The card (v4, approved 2026-11-14)
 
-One container for the whole app. Rolling out page by page; the dashboard and the Budgets tab are done.
+One container for the whole app. Rolling out page by page; the dashboard and the Budgets and Recurring tabs are done.
 
 - **One surface.** `Card` (or `.glass-surface .fin-card` by hand): glass, `--radius-lg`,
   20px padding (16 on phones), `--space-4` between cards.
@@ -554,3 +554,4 @@ and colouring it red read as money lost.
 | 2026-11-14 | **Dashboard: 20 boxes to 7 cards** | Net balance was shown twice and income/expenses three times. Duplicate tiles removed; daily brief, weekly brief, coach alerts, debt banners and opportunities merged into one Brief card; guilt-free budget renamed Free to spend; health detail widgets open as sibling cards under the grid |
 | 2026-11-15 | **Page order: actions first, group by relationship** | The first Budgets mock unified the styling but kept a widget-type layout (suggestions in a side card, Copy in a footer, zero-based in its own card). Re-sorted so actions lead, totals share a card, categories group by state and a suggestion sits on its row. Filter chips, the over-budget banner and 18 per-row icon buttons went with it |
 | 2026-11-15 | **Tabs become a segmented control; Button text is 14/500** | Accent-filled bouncing pills competed with the page's primary action. Applies to every page that uses `Tabs` |
+| 2026-11-15 | **Recurring tab: grouped by due date, with totals** | The list was in server order with no totals, three icon buttons per row and red expense amounts. Now a summary card (monthly out, in, left, due in 7 days; daily and weekly schedules converted to monthly in `lib/recurring.ts`), then Due in the next 7 days / Later / Found in your transactions / Paused. Scheduled expenses are not coloured red: a planned bill is not an error. `Input` labels are sentence case everywhere |
