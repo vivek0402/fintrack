@@ -367,14 +367,9 @@ describe('EMI conversion', () => {
         fireEvent.click(cardOption);
     }
 
-    function openMoreDetails() {
-        fireEvent.click(screen.getByRole('button', { name: /more details/i }));
-    }
-
     it('does not show the EMI section for the default (non-card) payment method', async () => {
         open();
         await fillBasics('1000', 'Laptop');
-        openMoreDetails();
         expect(screen.queryByLabelText(/convert to emi/i)).toBeNull();
     });
 
@@ -389,7 +384,6 @@ describe('EMI conversion', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
         open();
         await fillBasics('1000', 'Laptop');
-        openMoreDetails();
         await selectCreditCardPaymentMethod();
 
         const checkbox = await waitFor(() => screen.getByLabelText(/convert to emi/i));
@@ -407,7 +401,6 @@ describe('EMI conversion', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
         open();
         await fillBasics('1000', 'Laptop');
-        openMoreDetails();
         await selectCreditCardPaymentMethod();
         fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
 
@@ -432,7 +425,6 @@ describe('EMI conversion', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
         const { onSuccess } = open();
         await fillBasics('12000', 'New phone');
-        openMoreDetails();
         await selectCreditCardPaymentMethod();
         fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
 
@@ -461,7 +453,6 @@ describe('EMI conversion', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [oneCard] } });
         open();
         await fillBasics('12000', 'New phone');
-        openMoreDetails();
         await selectCreditCardPaymentMethod();
         fireEvent.click(await waitFor(() => screen.getByLabelText(/convert to emi/i)));
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { FileText, ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { transactionsAPI, categoriesAPI, creditCardsAPI, marketDataAPI } from '@/lib/api';
 import {
@@ -9,12 +9,13 @@ import {
     upsertTransactionInCache, invalidateAfterTransactionWrite,
 } from '@/hooks/queries';
 import { addToQueue } from '@/lib/txQueue';
-import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { TextAction } from '@/components/ui/CardParts';
+import { type } from '@/lib/typography';
 import { Modal } from '@/components/ui/Modal';
 import { CategoryField, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
 import { EntryFeedback, EntrySignal } from '@/components/transactions/EntryFeedback';
 import { useCategories } from '@/hooks/useCategories';
-import { useIsMobile } from '@/hooks/useWindowSize';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
 import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investments';
@@ -98,7 +99,6 @@ interface Props {
 export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, transaction, prefill, defaultDate, scrim = true, holdUntilReady = false }: Props) {
     const isEditing = !!transaction;
     const { user } = useAuthStore();
-    const isMobile = useIsMobile();
     const [form, setForm] = useState({
         type: 'expense' as 'income' | 'expense' | 'transfer',
         amount: '', description: '', notes: '',
@@ -547,8 +547,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     const isIncome = form.type === 'income';
     const isTransfer = form.type === 'transfer';
-    // A transfer is neither a gain nor a loss — colouring it red read as a loss.
-    const amountColor = isTransfer ? 'var(--accent)' : isIncome ? 'var(--color-inc)' : 'var(--color-exp)';
     // Ordering, grouping and search all live in CategoryPickerDialog now.
     const safeCats = categories || [];
     const selectedCat = safeCats.find(c => String(c.id) === form.category_id);
@@ -557,12 +555,6 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // specific card -- not for editing an existing transaction, matching how
     // the investment section above also excludes isEditing.
     const showEmiSection = form.type === 'expense' && form.payment_method === 'Credit Card' && !!form.credit_card_id && !isEditing;
-
-    // Investment fields live inside "More details" like everything else non-
-    // essential, but hiding them behind a collapsed toggle right after the
-    // user deliberately picked an investment category would just be
-    // confusing -- so picking one auto-opens the section.
-    useEffect(() => { if (isInvestmentCategory) setShowMore(true); }, [isInvestmentCategory]);
 
     const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -602,20 +594,24 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setCalOpen(false);
     };
 
-    const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-body)' };
-    // Glass field -- a light theme-adaptive wash (color-mix keeps it correct
-    // in both themes without a second token) plus the shared glass border,
-    // matching the approved mockup's fields rather than the opaque surfaces
-    // the rest of the app's routine forms use.
-    const inputBase: React.CSSProperties  = { background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none' };
-    // Per-type tint for the active segment and the transfer swap/CTA --
-    // violet has no semantic token in the app yet, so this reuses the same
-    // hardcoded #8b5cf6 AdvancedSearchBar already uses for tag pills.
-    const typeTint: Record<'expense' | 'income' | 'transfer', { fg: string; bg: string; border: string }> = {
-        expense:  { fg: '#f87171', bg: 'var(--color-exp-subtle)', border: 'color-mix(in srgb, var(--color-exp) 30%, transparent)' },
-        income:   { fg: '#4ade80', bg: 'var(--color-inc-subtle)', border: 'color-mix(in srgb, var(--color-inc) 30%, transparent)' },
-        transfer: { fg: '#a78bfa', bg: 'rgba(139,92,246,0.12)',   border: 'rgba(139,92,246,0.3)' },
-    };
+    const labelStyle: React.CSSProperties = { ...type.label, display: 'block', marginBottom: 6 };
+    // Glass field: the shared glass wash and border, body type. Every select,
+    // input and trigger in the dialog builds on this one.
+    const inputBase: React.CSSProperties = { background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', ...type.body, color: 'var(--text-primary)', outline: 'none' };
+    // Single-line field: 40 high, 12 of side padding.
+    const field: React.CSSProperties = { ...inputBase, height: 40, padding: '0 12px', width: '100%', boxSizing: 'border-box' };
+    // A field that opens a sheet instead of taking text.
+    const triggerField: React.CSSProperties = { ...field, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, cursor: 'pointer', userSelect: 'none' };
+    // A hairline-topped group of fields.
+    const groupStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'var(--space-4)', borderTop: '1px solid var(--glass-border)' };
+    // A row in one of the pick-one sheets.
+    const sheetRow = (active: boolean): React.CSSProperties => ({
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%',
+        padding: '12px 14px', borderRadius: 'var(--radius-md)', border: 'none', cursor: 'pointer', textAlign: 'left',
+        ...(active ? type.bodyStrong : type.body),
+        background: active ? 'var(--glass-fill-3)' : 'transparent', color: 'var(--text-primary)',
+    });
+    const emiLabel: React.CSSProperties = { ...type.body, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' };
 
     // Rendered alongside the main sheet rather than inside the form, so it
     // portals to the body and can never be clipped by the form's own scroll.
@@ -627,7 +623,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                         const active = form.date === q.value;
                         return (
                             <button key={q.value} type="button" onClick={() => pickDate(q.value)}
-                                style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                style={{ height: 32, padding: '0 14px', borderRadius: 'var(--radius-full)', cursor: 'pointer', border: '1px solid var(--glass-border)', ...type.label, background: active ? 'var(--glass-fill-3)' : 'transparent', color: 'var(--text-primary)' }}>
                                 {q.label}
                             </button>
                         );
@@ -637,13 +633,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <button type="button" aria-label="Previous month" onClick={() => { let m = calMonth - 1, y = calYear; if (m < 0) { m = 11; y--; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>‹</button>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '14px', fontFamily: 'var(--font-display)' }}>{MONTHS[calMonth]} {calYear}</span>
+                            style={{ ...type.body, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, lineHeight: 1 }}>‹</button>
+                        <span style={{ ...type.bodyStrong }}>{MONTHS[calMonth]} {calYear}</span>
                         <button type="button" aria-label="Next month" onClick={() => { let m = calMonth + 1, y = calYear; if (m > 11) { m = 0; y++; } setCalMonth(m); setCalYear(y); }}
-                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: '16px', lineHeight: 1 }}>›</button>
+                            style={{ ...type.body, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, lineHeight: 1 }}>›</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: '4px' }}>
-                        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
+                        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ ...type.meta, textAlign: 'center', padding: '4px 0' }}>{d}</div>))}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: '2px' }}>
                         {buildCalDays(calMonth, calYear).map((cell, i) => {
@@ -655,7 +651,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                             const isOtherMonth = cell.month !== 'cur';
                             return (
                                 <div key={i} onClick={() => handleDayClick(cell.day, cell.month)}
-                                    style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
+                                    style={{ ...type.num, width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: '0 auto', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? '#fff' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px', transition: 'background-color 0.1s' }}
                                     onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'var(--glass-fill-2)'; }}
                                     onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'transparent'; }}
                                 >{cell.day}</div>
@@ -685,10 +681,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     const count = paymentUsage[m] || 0;
                     return (
                         <button key={m} type="button" onClick={() => { paymentTouched.current = true; setPaymentAutoSet(false); setForm({ ...form, payment_method: m }); setPaymentSheetOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '9px', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            style={{ ...sheetRow(active), justifyContent: 'flex-start', gap: 9 }}>
                             <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[m]}</span>
                             <span style={{ flex: 1, minWidth: 0 }}>{m}</span>
-                            {count > 0 && <span style={{ fontSize: '0.72rem', color: active ? 'var(--accent)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{count}×</span>}
+                            {count > 0 && <span style={type.numSmall}>{count}×</span>}
                             {active && <Check size={16} style={{ flexShrink: 0 }} />}
                         </button>
                     );
@@ -705,7 +701,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     const label = `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}`;
                     return (
                         <button key={c.id} type="button" onClick={() => { setForm({ ...form, credit_card_id: c.id }); setCardSheetOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            style={sheetRow(active)}>
                             {label}
                             {active && <Check size={16} />}
                         </button>
@@ -723,16 +719,14 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     return (
                         <button key={a.id} type="button" data-testid={`account-option-${a.id}`}
                             onClick={() => { accountTouched.current = true; setAccountWhy(null); setForm(prev => ({ ...prev, account_id: a.id })); setAccountSheetOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem',
-                                fontWeight: active ? 600 : 400, background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)',
-                                border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)' }}>
+                            style={sheetRow(active)}>
                             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                                 <span>{a.name}</span>
-                                {a.is_default && <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Default</span>}
+                                {a.is_default && <span style={type.meta}>Default</span>}
                             </span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                 {a.current_balance != null && (
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
+                                    <span style={type.numSmall}>
                                         ₹{Math.round(Number(a.current_balance)).toLocaleString('en-IN')}
                                     </span>
                                 )}
@@ -749,15 +743,15 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         <Modal isOpen={goalSheetOpen} onClose={() => setGoalSheetOpen(false)} title="Add to a goal" maxWidth="360px" opaque forceDialog zIndexBase={10010}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <button type="button" onClick={() => { setForm({ ...form, goal_id: null }); setGoalSheetOpen(false); }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: !form.goal_id ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: !form.goal_id ? 'var(--accent-subtle)' : 'transparent', color: !form.goal_id ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
-                    — None —
+                    style={sheetRow(!form.goal_id)}>
+                    None
                     {!form.goal_id && <Check size={16} />}
                 </button>
                 {goals.map(g => {
                     const active = form.goal_id === String(g.id);
                     return (
                         <button key={g.id} type="button" onClick={() => { setForm({ ...form, goal_id: String(g.id) }); setGoalSheetOpen(false); }}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                            style={sheetRow(active)}>
                             {g.name}
                             {active && <Check size={16} />}
                         </button>
@@ -767,14 +761,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </Modal>
     );
 
-    // Shared between the Category+Date row (expense/income) and the
-    // standalone Date field (transfer) -- the two are mutually exclusive per
-    // render.
+    // Shared between the Category+Date row (expense/income) and the transfer's
+    // Description+Date row -- the two are mutually exclusive per render.
     const dateTrigger = (
         <div style={{ width: '100%' }}>
             <div onClick={() => setCalOpen(true)} role="button" tabIndex={0}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCalOpen(true); } }}
-                style={{ ...inputBase, padding: '10px 12px', color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
+                style={{ ...triggerField, color: selectedDate ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                 <span>{dateLabel}</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: 'var(--text-secondary)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
@@ -783,13 +776,35 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </div>
     );
 
+    const amountText = form.amount ? `₹${Number(form.amount).toLocaleString('en-IN')}` : '';
     const ctaLabel = isEditing
         ? 'Save changes'
         : isTransfer
-            ? `Transfer${form.amount ? ` ₹${Number(form.amount).toLocaleString('en-IN')}` : ''}`
-            : `Add${form.amount ? ` ₹${Number(form.amount).toLocaleString('en-IN')}` : ''} ${isIncome ? 'income' : 'expense'}`;
+            ? (amountText ? `Move ${amountText}` : 'Move money')
+            : `Add ${amountText ? `${amountText} ` : ''}${isIncome ? 'income' : 'expense'}`;
+
+    const modalTitle = isEditing
+        ? `Edit ${form.type}`
+        : isTransfer ? 'Move money between accounts' : isIncome ? 'Add income' : 'Add expense';
 
     const waitingForData = holdUntilReady && (categoriesLoading || !accountsLoaded);
+
+    // The bank-account line: one line, only when there's a choice to make.
+    const accountLine = (!isTransfer && usesBankAccount(form.type, form.payment_method) && accounts.length > 1) ? (() => {
+        const acct = accounts.find(a => a.id === form.account_id);
+        return (
+            <div data-testid="account-line" style={{ ...type.meta, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {isIncome ? 'into' : 'from'} <span style={type.bodyStrong}>{acct?.name ?? 'Choose an account'}</span>
+                {accountWhy && acct && <span>· {accountWhy}</span>}
+                <span aria-hidden>·</span>
+                <TextAction onClick={() => setAccountSheetOpen(true)} aria-label={isIncome ? 'Change the account it went into' : 'Change the account it was paid from'}>
+                    change
+                </TextAction>
+            </div>
+        );
+    })() : null;
+
+    const showCardField = form.payment_method === 'Credit Card' && cards.length > 1;
 
     return (
       <>
@@ -802,32 +817,18 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             isOpen={isOpen}
             onClose={onClose}
             scrim={scrim}
-            title={isEditing ? 'Edit Transaction' : isTransfer ? 'Transfer Between Accounts' : 'Add Transaction'}
+            title={modalTitle}
             footer={waitingForData ? undefined :
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {/* ── More details — pinned here instead of the scrolling form body, so
-                        it's reachable in one tap regardless of how tall the fields above
-                        get. Deliberately not adaptive (no rearranging based on guessed
-                        habits): unpredictable beats one extra tap. ── */}
-                    {!isTransfer && (
-                        <button type="button" onClick={() => setShowMore(v => !v)}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '2px', border: 'none', background: 'none', cursor: 'pointer', color: showMore ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <ChevronDown size={14} style={{ transform: showMore ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-                                More details
-                            </span>
-                            {!showMore && <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>tags · notes · goal</span>}
-                        </button>
+                    {error && (
+                        <p role="alert" style={{ ...type.meta, margin: 0, color: 'var(--color-exp-text)' }}>{error}</p>
                     )}
                     <button type="submit" form="transaction-form" disabled={loading}
                         style={{
                             width: '100%', height: '48px', border: 'none', borderRadius: 'var(--radius-md)',
-                            background: isTransfer ? '#8b5cf6' : 'var(--accent)', color: 'white',
-                            fontSize: '14.5px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontFamily: 'var(--font-body)',
-                            boxShadow: isTransfer
-                                ? '0 12px 26px -10px rgba(139,92,246,0.7), inset 0 1px 0 rgba(255,255,255,0.25)'
-                                : '0 12px 26px -10px rgba(37,99,235,0.7), inset 0 1px 0 rgba(255,255,255,0.25)',
+                            background: 'var(--accent)', ...type.bodyStrong, color: '#fff',
+                            cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                         }}>
                         {loading ? 'Saving…' : ctaLabel}
                     </button>
@@ -835,131 +836,113 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             }
         >
             {waitingForData ? (
-                <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-3)', padding: 'var(--space-8) 0 var(--space-6)', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>
+                <div role="status" style={{ ...type.body, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-3)', padding: 'var(--space-8) 0 var(--space-6)', color: 'var(--text-muted)' }}>
                     <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border-visible)', borderTopColor: 'var(--accent)', animation: 'spin 0.7s linear infinite' }} />
                     Loading your categories…
                 </div>
-            ) : (<>
-            {/* AI new-category prompt */}
-            {showNewCategoryPrompt && (
-                <div style={{ background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <div>
-                        <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>✨ New category detected</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>AI suggested: <strong>&quot;{pendingNewCategory}&quot;</strong></div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                        <button type="button" onClick={handleApproveNewCategory} disabled={approvingCat}
-                            style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: approvingCat ? 'wait' : 'pointer', fontWeight: 600, opacity: approvingCat ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
-                            {approvingCat ? '…' : 'Add it'}
-                        </button>
-                        <button type="button" onClick={() => setShowNewCategoryPrompt(false)}
-                            style={{ background: 'var(--glass-fill-1)', color: 'var(--text-secondary)', border: '1px solid var(--glass-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            Skip
-                        </button>
-                    </div>
-                </div>
-            )}
-
+            ) : (
             <form id="transaction-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
-                {/* ── Type toggle — translucent segmented control, per-type tint on the active segment ── */}
-                <div>
-                    <label style={labelStyle}>Type</label>
-                    <div style={{ display: 'flex', gap: '4px', padding: '3px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}>
-                        {(['expense', 'income', 'transfer'] as const).map(t => {
-                            const active = form.type === t;
-                            const tint = typeTint[t];
-                            const label = t === 'income' ? '↑ Income' : t === 'transfer' ? '⇄ Transfer' : '↓ Expense';
-                            return (
-                                <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                                    style={{
-                                        flex: 1, padding: '9px 0', borderRadius: '9px', fontSize: '0.8rem', fontWeight: active ? 600 : 400,
-                                        cursor: 'pointer', transition: 'all var(--transition-fast)', fontFamily: 'var(--font-body)',
-                                        background: active ? tint.bg : 'transparent',
-                                        border: `1px solid ${active ? tint.border : 'transparent'}`,
-                                        color: active ? tint.fg : 'var(--text-muted)',
-                                    }}>
-                                    {label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                {/* ── Type: a neutral segmented control ── */}
+                <div role="group" aria-label="Transaction type"
+                    style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, padding: 2, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                    {([['expense', 'Expense'], ['income', 'Income'], ['transfer', 'Transfer']] as const).map(([t, text]) => {
+                        const active = form.type === t;
+                        return (
+                            <button key={t} type="button" aria-pressed={active} onClick={() => setForm({ ...form, type: t })}
+                                style={{ height: 32, border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', ...type.label, background: active ? 'var(--glass-fill-3)' : 'transparent', color: active ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                {text}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* ── Amount ── */}
                 <div>
-                    <label style={labelStyle}>Amount</label>
+                    <label style={labelStyle} htmlFor="tx-amount">Amount</label>
                     <div style={{ position: 'relative' }}>
-                        <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: amountColor, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1.2rem' }}>₹</span>
-                        <input type="number" placeholder="0" min="0.01" step="any" value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
-                            style={{ width: '100%', padding: '14px 16px 14px 36px', ...inputBase, fontFamily: 'var(--font-mono)', fontSize: '1.4rem', fontWeight: 700, color: amountColor, boxSizing: 'border-box', border: `1px solid color-mix(in srgb, ${amountColor} 30%, transparent)`, fontVariantNumeric: 'tabular-nums', transition: 'border-color var(--transition-fast)' }}
+                        <span aria-hidden="true" style={{ ...type.figure, position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}>₹</span>
+                        <input id="tx-amount" type="number" placeholder="0" min="0.01" step="any" value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
+                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', ...type.figure, outline: 'none', width: '100%', height: 56, padding: '0 16px 0 44px', boxSizing: 'border-box' }}
                         />
                     </div>
                 </div>
 
                 {!isTransfer && <EntryFeedback signals={entrySignals} />}
 
-                {/* ── Transfer accounts — sits with the amount, since for a transfer
-                       these three fields are the whole transaction ── */}
-                {isTransfer && accounts.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <div>
-                            <label style={labelStyle}>From account</label>
-                            <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">Select account</option>
-                                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
+                {/* ── Transfer: from, to, what it is for, date ── */}
+                {isTransfer && (
+                    <>
+                        {accounts.length > 0 && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={labelStyle}>From</label>
+                                    <select value={form.account_id ?? ''} onChange={e => setForm({ ...form, account_id: e.target.value ? Number(e.target.value) : null })}
+                                        style={{ ...field, cursor: 'pointer' }}>
+                                        <option value="">Select account</option>
+                                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={labelStyle}>To</label>
+                                    <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
+                                        style={{ ...field, cursor: 'pointer' }}>
+                                        <option value="">Select account</option>
+                                        {accounts.filter(a => a.id !== form.account_id).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div>
+                                <label style={labelStyle} htmlFor="tx-description">What is it for?</label>
+                                <input id="tx-description" type="text" placeholder="Monthly SIP, savings" value={form.description}
+                                    onChange={e => setForm({ ...form, description: e.target.value })} required style={field} />
+                            </div>
+                            <div>
+                                <label style={labelStyle}>Date</label>
+                                {dateTrigger}
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'center', margin: '-6px 0' }}>
-                            <span style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
-                            </span>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>To account</label>
-                            <select value={form.to_account_id ?? ''} onChange={e => setForm({ ...form, to_account_id: e.target.value ? Number(e.target.value) : null })}
-                                style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                <option value="">Select account</option>
-                                {accounts.filter(a => a.id !== form.account_id).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                            </select>
-                        </div>
-                    </div>
+                    </>
                 )}
 
-                <Input
-                    label={isTransfer ? 'What is this transfer for?' : 'Description'}
-                    type="text"
-                    placeholder={isTransfer ? 'e.g. Monthly SIP, moving to savings' : 'e.g. Swiggy order, Monthly salary'}
-                    icon={<FileText size={15} />}
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                    required
-                    style={{ background: inputBase.background, border: `1px solid var(--glass-border)` }}
-                />
-
-                {/* Auto-category suggestions */}
-                {suggestedCats.length > 0 && !isTransfer && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '-4px' }}>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Suggested:</span>
-                        {suggestedCats.map((c: any) => (
-                            <button key={c.id} type="button" onClick={() => { setForm(prev => ({ ...prev, category_id: String(c.id) })); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <CategoryIcon name={c.icon} size={11} color="currentColor" />
-                                {c.name}
-                            </button>
-                        ))}
-                    </div>
-                )}
-
-                {/* ── Category + Date + Payment method — three of the core fields.
-                    Payment method used to collapse behind "More details"; promoted here
-                    so how you paid is visible without an extra tap. On desktop there's
-                    room for all three in one row; on mobile, Category+Date share a row
-                    and Payment method gets its own full-width row below. ── */}
+                {/* ── Description, the new-category offer, suggested categories ── */}
                 {!isTransfer && (
-                    <div style={{ display: 'grid', gridTemplateColumns: (!isMobile && !isIncome) ? '1fr 1fr 1fr' : '1fr 1fr', gap: '10px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div>
+                            <label style={labelStyle} htmlFor="tx-description">What was it for?</label>
+                            <input id="tx-description" type="text" placeholder="e.g. Swiggy order, monthly salary" value={form.description}
+                                onChange={e => setForm({ ...form, description: e.target.value })} required style={field} />
+                        </div>
+
+                        {showNewCategoryPrompt && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                                <span style={type.meta}>New category suggested: &quot;{pendingNewCategory}&quot;</span>
+                                <TextAction onClick={handleApproveNewCategory} disabled={approvingCat}>Add it</TextAction>
+                                <TextAction quiet onClick={() => setShowNewCategoryPrompt(false)}>Skip</TextAction>
+                            </div>
+                        )}
+
+                        {suggestedCats.length > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span style={type.meta}>Suggested:</span>
+                                {suggestedCats.map((c: any) => (
+                                    <button key={c.id} type="button" onClick={() => { setForm(prev => ({ ...prev, category_id: String(c.id) })); }}
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px', borderRadius: 'var(--radius-full)', background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', ...type.label, color: 'var(--text-primary)' }}>
+                                        <CategoryIcon name={c.icon} size={11} color="currentColor" />
+                                        {c.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Category + Date ── */}
+                {!isTransfer && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
                             <label style={labelStyle} htmlFor="tx-category">Category</label>
                             <CategoryField
                                 id="tx-category"
@@ -970,250 +953,244 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 onCreated={() => { void refreshCategories(); }}
                             />
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div>
                             <label style={labelStyle}>Date</label>
                             {dateTrigger}
                         </div>
-                        {!isIncome && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', gridColumn: isMobile ? '1 / -1' : undefined }}>
-                                <label style={labelStyle}>Payment method</label>
+                    </div>
+                )}
+
+                {/* ── Investment details (shown when an Investments category is selected) ── */}
+                {isInvestmentCategory && !isEditing && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 'var(--space-3)', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)' }}>
+                        <p style={{ ...type.label, margin: 0 }}>Track it as an investment</p>
+                        <p style={{ ...type.meta, margin: 0 }}>
+                            Without these, it is only left out of your spending totals.
+                        </p>
+                        <select value={form.investment.type}
+                            onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, type: e.target.value, name: '', ticker_or_folio: '', scheme_code: '' } }))}
+                            style={{ ...field, cursor: 'pointer' }}>
+                            {INVESTMENT_TYPES.map(t => <option key={t} value={t}>{GROUP_LABELS[t]}</option>)}
+                        </select>
+
+                        {form.investment.type === 'mutual_fund' ? (
+                            <div style={{ position: 'relative' }}>
+                                <input style={field}
+                                    value={form.investment.name}
+                                    onChange={e => handleMfNameChange(e.target.value)}
+                                    placeholder="Search fund name, e.g. Axis Bluechip" />
+                                {mfDropdownOpen && (mfLoading || mfResults.length > 0) && (
+                                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--glass-sheet-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', zIndex: 60, maxHeight: '200px', overflowY: 'auto' }}>
+                                        {mfLoading ? (
+                                            <div style={{ ...type.meta, padding: '10px 14px', color: 'var(--text-muted)' }}>Searching…</div>
+                                        ) : mfResults.map(r => (
+                                            <div key={r.schemeCode} onClick={() => handleMfSelect(r)}
+                                                style={{ ...type.body, padding: '9px 14px', color: 'var(--text-primary)', cursor: 'pointer' }}
+                                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
+                                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                                                {r.schemeName}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <input style={field}
+                                    value={form.investment.name}
+                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, name: e.target.value } }))}
+                                    placeholder="e.g. Reliance, SBI FD…" />
+                                <input style={field}
+                                    value={form.investment.ticker_or_folio}
+                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, ticker_or_folio: e.target.value } }))}
+                                    placeholder="Ticker / Folio (optional)" />
+                            </>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <input type="number" min="0" step="any" style={field}
+                                value={form.investment.units}
+                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, units: e.target.value } }))}
+                                placeholder="Units" />
+                            <input type="number" min="0" step="any" style={field}
+                                value={form.investment.price_per_unit}
+                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, price_per_unit: e.target.value } }))}
+                                placeholder="Price / unit" />
+                        </div>
+                        <input style={field}
+                            value={form.investment.account_label}
+                            onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, account_label: e.target.value } }))}
+                            placeholder="Account label, e.g. Zerodha (optional)" />
+                        {form.investment.units && form.investment.price_per_unit && (
+                            <div style={{ alignSelf: 'flex-start' }}>
+                                <TextAction onClick={() => setForm(prev => ({ ...prev, amount: (parseFloat(prev.investment.units) * parseFloat(prev.investment.price_per_unit)).toFixed(2) }))}>
+                                    Use units × price (₹{(parseFloat(form.investment.units) * parseFloat(form.investment.price_per_unit)).toFixed(2)}) as amount
+                                </TextAction>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ── How you paid (expenses); income shows just its account line ── */}
+                {!isTransfer && !isIncome && (
+                    <div style={groupStyle}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                            <span style={type.label}>How you paid</span>
+                            {paymentAutoSet && <span style={type.meta}>Your usual</span>}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: showCardField ? '1fr 1fr' : '1fr', gap: 12 }}>
+                            <div>
+                                <label style={labelStyle}>Method</label>
                                 <div onClick={() => setPaymentSheetOpen(true)} role="button" tabIndex={0}
                                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentSheetOpen(true); } }}
-                                    style={{ ...inputBase, padding: '10px 12px', color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                                    <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[form.payment_method]}</span>
-                                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.payment_method}</span>
-                                    {paymentAutoSet && <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>usual</span>}
+                                    style={triggerField}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                                        <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[form.payment_method]}</span>
+                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.payment_method}</span>
+                                    </span>
                                     <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                                 </div>
                             </div>
+                            {showCardField && (
+                                <div>
+                                    <label style={labelStyle}>Card</label>
+                                    <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
+                                        style={{ ...triggerField, color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(() => { const c = cards.find(c => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
+                                        <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {accountLine}
+                        {accounts.length > 0 && (form.payment_method === 'Cash' || form.payment_method === 'Wallet') && (
+                            <div style={type.meta}>
+                                {form.payment_method === 'Cash' ? 'Cash' : 'Wallet spending'} doesn&apos;t touch a bank balance.
+                            </div>
+                        )}
+
+                        {/* ── EMI conversion (shown when charging a new expense to a credit card) ── */}
+                        {showEmiSection && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 'var(--space-3)', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)' }}>
+                                <label style={{ ...emiLabel, ...type.bodyStrong }}>
+                                    <input type="checkbox" style={{ accentColor: 'var(--accent)' }} checked={form.emi.enabled}
+                                        onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, enabled: e.target.checked } }))} />
+                                    Convert to EMI
+                                </label>
+
+                                {form.emi.enabled && (
+                                    <>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                            <input type="number" min="1" step="1" style={field}
+                                                value={form.emi.tenure_months}
+                                                onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, tenure_months: e.target.value } }))}
+                                                placeholder="Tenure (months)" />
+                                            <input type="number" min="0" step="any" disabled={form.emi.is_no_cost}
+                                                style={{ ...field, opacity: form.emi.is_no_cost ? 0.5 : 1 }}
+                                                value={form.emi.is_no_cost ? '0' : form.emi.interest_rate_pct}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    const num = parseFloat(val);
+                                                    // Keeps is_no_cost in sync with the typed rate client-side,
+                                                    // the same way the backend derives is_no_cost from whether
+                                                    // interest_rate_pct is 0.
+                                                    setForm(prev => ({ ...prev, emi: { ...prev.emi, interest_rate_pct: val, is_no_cost: !val || num === 0 } }));
+                                                }}
+                                                placeholder="Interest rate % p.a." />
+                                        </div>
+
+                                        <label style={emiLabel}>
+                                            <input type="checkbox" style={{ accentColor: 'var(--accent)' }} checked={form.emi.is_no_cost}
+                                                onChange={e => {
+                                                    const checked = e.target.checked;
+                                                    setForm(prev => ({ ...prev, emi: { ...prev.emi, is_no_cost: checked, interest_rate_pct: checked ? '0' : prev.emi.interest_rate_pct, markup_suspected: checked ? prev.emi.markup_suspected : false } }));
+                                                }} />
+                                            No-cost EMI (0% interest)
+                                        </label>
+
+                                        {form.emi.is_no_cost && (
+                                            <label style={emiLabel}>
+                                                <input type="checkbox" style={{ accentColor: 'var(--accent)' }} checked={form.emi.markup_suspected}
+                                                    onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, markup_suspected: e.target.checked } }))} />
+                                                I think this might be marked up
+                                            </label>
+                                        )}
+
+                                        <input type="number" min="0" step="any" style={field}
+                                            value={form.emi.processing_fee}
+                                            onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, processing_fee: e.target.value } }))}
+                                            placeholder="Processing fee (optional)" />
+                                    </>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
+                {!isTransfer && isIncome && accountLine}
 
-                {/* ── Which card? — promoted alongside Payment method (only when there's
-                    more than one) so picking Credit Card doesn't orphan this behind
-                    "More details" ── */}
-                {!isTransfer && !isIncome && form.payment_method === 'Credit Card' && cards.length > 1 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={labelStyle}>Which card?</label>
-                        <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
-                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
-                            style={{ ...inputBase, padding: '10px 12px', color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                            <span>{(() => { const c = cards.find(c => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
-                            <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                        </div>
-                    </div>
-                )}
+                {/* ── More details: goal, tags, notes ── */}
+                {!isTransfer && (
+                    <div style={groupStyle}>
+                        <button type="button" aria-expanded={showMore} onClick={() => setShowMore(v => !v)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', width: '100%', padding: 0, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', ...type.bodyStrong }}>
+                            <span>More details</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {!showMore && <span style={type.meta}>Goal, tags, notes</span>}
+                                <ChevronDown size={16} style={{ color: 'var(--text-secondary)', transform: showMore ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                            </span>
+                        </button>
 
-                {/* ── Which bank account: one line, only when there's a choice to make ── */}
-                {!isTransfer && usesBankAccount(form.type, form.payment_method) && accounts.length > 1 && (() => {
-                    const acct = accounts.find(a => a.id === form.account_id);
-                    return (
-                        <div data-testid="account-line" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: '-4px', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                            {isIncome ? 'into' : 'from'} <b style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{acct?.name ?? 'Choose an account'}</b>
-                            {accountWhy && acct && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5 }}>· {accountWhy}</span>}
-                            <span aria-hidden>·</span>
-                            <button type="button" onClick={() => setAccountSheetOpen(true)} aria-label={isIncome ? 'Change the account it went into' : 'Change the account it was paid from'}
-                                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                change
-                            </button>
-                        </div>
-                    );
-                })()}
-                {!isTransfer && !isIncome && accounts.length > 0 && (form.payment_method === 'Cash' || form.payment_method === 'Wallet') && (
-                    <div style={{ marginTop: '-4px', fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                        {form.payment_method === 'Cash' ? 'Cash' : 'Wallet spending'} doesn&apos;t touch a bank balance.
-                    </div>
-                )}
+                        {showMore && (
+                            <>
+                                {goals.length > 0 && (
+                                    <div>
+                                        <label style={labelStyle}>Add to a goal</label>
+                                        <div onClick={() => setGoalSheetOpen(true)} role="button" tabIndex={0}
+                                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGoalSheetOpen(true); } }}
+                                            style={{ ...triggerField, color: form.goal_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                                            <span>{goals.find(g => String(g.id) === form.goal_id)?.name ?? 'None'}</span>
+                                            <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                                        </div>
+                                    </div>
+                                )}
 
-                {/* ── Date — transfer's own, standalone (no category to pair it with) ── */}
-                {isTransfer && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={labelStyle}>Date</label>
-                        {dateTrigger}
-                    </div>
-                )}
-
-                {showMore && !isTransfer && (
-                <>
-                    {/* ── Investment details (shown when Investments category is selected) ── */}
-                    {isInvestmentCategory && !isEditing && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                            <label style={labelStyle}>Fund / Asset details (optional)</label>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--color-warn)', margin: '-4px 0 0', fontFamily: 'var(--font-body)', lineHeight: 1.4 }}>
-                                Without these details, this transaction won&apos;t be tracked as an investment asset — it&apos;ll only be excluded from your spending totals.
-                            </p>
-                            <div>
-                                <select value={form.investment.type}
-                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, type: e.target.value, name: '', ticker_or_folio: '', scheme_code: '' } }))}
-                                    style={{ width: '100%', padding: '10px 12px', ...inputBase, cursor: 'pointer', boxSizing: 'border-box' as const }}>
-                                    {INVESTMENT_TYPES.map(t => <option key={t} value={t}>{GROUP_LABELS[t]}</option>)}
-                                </select>
-                            </div>
-
-                            {form.investment.type === 'mutual_fund' ? (
-                                <div style={{ position: 'relative' }}>
-                                    <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                        value={form.investment.name}
-                                        onChange={e => handleMfNameChange(e.target.value)}
-                                        placeholder="Search fund name, e.g. Axis Bluechip" />
-                                    {mfDropdownOpen && (mfLoading || mfResults.length > 0) && (
-                                        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--glass-sheet-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', boxShadow: 'var(--glass-edge)', border: '1px solid var(--glass-border)', borderRadius: '10px', zIndex: 60, maxHeight: '200px', overflowY: 'auto' }}>
-                                            {mfLoading ? (
-                                                <div style={{ padding: '10px 14px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Searching…</div>
-                                            ) : mfResults.map(r => (
-                                                <div key={r.schemeCode} onClick={() => handleMfSelect(r)}
-                                                    style={{ padding: '9px 14px', fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-                                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
-                                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                                                    {r.schemeName}
-                                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <label style={{ ...labelStyle, marginBottom: 0 }}>Tags</label>
+                                    {form.tags.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                            {form.tags.map(tag => (
+                                                <span key={tag}
+                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 28, padding: '0 8px 0 10px', borderRadius: 'var(--radius-full)', background: 'var(--glass-fill-2)', ...type.label, color: 'var(--text-primary)' }}>
+                                                    {tag}
+                                                    <button type="button" aria-label={`Remove tag ${tag}`} onClick={() => setForm({ ...form, tags: form.tags.filter(t => t !== tag) })}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: 0, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                                        <X size={12} />
+                                                    </button>
+                                                </span>
                                             ))}
                                         </div>
                                     )}
-                                </div>
-                            ) : (
-                                <>
-                                    <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                        value={form.investment.name}
-                                        onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, name: e.target.value } }))}
-                                        placeholder="e.g. Reliance, SBI FD…" />
-                                    <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                        value={form.investment.ticker_or_folio}
-                                        onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, ticker_or_folio: e.target.value } }))}
-                                        placeholder="Ticker / Folio (optional)" />
-                                </>
-                            )}
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                    value={form.investment.units}
-                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, units: e.target.value } }))}
-                                    placeholder="Units" />
-                                <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                    value={form.investment.price_per_unit}
-                                    onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, price_per_unit: e.target.value } }))}
-                                    placeholder="Price / unit" />
-                            </div>
-                            <input style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                value={form.investment.account_label}
-                                onChange={e => setForm(prev => ({ ...prev, investment: { ...prev.investment, account_label: e.target.value } }))}
-                                placeholder="Account label, e.g. Zerodha (optional)" />
-                            {form.investment.units && form.investment.price_per_unit && (
-                                <button type="button"
-                                    onClick={() => setForm(prev => ({ ...prev, amount: (parseFloat(prev.investment.units) * parseFloat(prev.investment.price_per_unit)).toFixed(2) }))}
-                                    style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--accent)', fontSize: '12px', cursor: 'pointer', padding: '2px 0', fontFamily: 'var(--font-body)' }}>
-                                    Use units × price (₹{(parseFloat(form.investment.units) * parseFloat(form.investment.price_per_unit)).toFixed(2)}) as amount
-                                </button>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ── EMI conversion (shown when charging a new expense to a credit card) ── */}
-                    {showEmiSection && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--glass-fill-1)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                <input type="checkbox" checked={form.emi.enabled}
-                                    onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, enabled: e.target.checked } }))} />
-                                Convert to EMI
-                            </label>
-
-                            {form.emi.enabled && (
-                                <>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                        <input type="number" min="1" step="1" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                            value={form.emi.tenure_months}
-                                            onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, tenure_months: e.target.value } }))}
-                                            placeholder="Tenure (months)" />
-                                        <input type="number" min="0" step="any" disabled={form.emi.is_no_cost}
-                                            style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const, opacity: form.emi.is_no_cost ? 0.5 : 1 }}
-                                            value={form.emi.is_no_cost ? '0' : form.emi.interest_rate_pct}
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                const num = parseFloat(val);
-                                                // Keeps is_no_cost in sync with the typed rate client-side,
-                                                // the same way the backend derives is_no_cost from whether
-                                                // interest_rate_pct is 0.
-                                                setForm(prev => ({ ...prev, emi: { ...prev.emi, interest_rate_pct: val, is_no_cost: !val || num === 0 } }));
-                                            }}
-                                            placeholder="Interest rate % p.a." />
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input type="text" placeholder="Add a tag" value={tagInput} onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))} onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}
+                                            style={{ ...field, flex: 1, width: 'auto', minWidth: 0 }} />
+                                        <Button type="button" variant="secondary" size="sm" onClick={addTag} style={{ height: 40 }}>Add</Button>
                                     </div>
+                                </div>
 
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                        <input type="checkbox" checked={form.emi.is_no_cost}
-                                            onChange={e => {
-                                                const checked = e.target.checked;
-                                                setForm(prev => ({ ...prev, emi: { ...prev.emi, is_no_cost: checked, interest_rate_pct: checked ? '0' : prev.emi.interest_rate_pct, markup_suspected: checked ? prev.emi.markup_suspected : false } }));
-                                            }} />
-                                        No-cost EMI (0% interest)
-                                    </label>
-
-                                    {form.emi.is_no_cost && (
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                            <input type="checkbox" checked={form.emi.markup_suspected}
-                                                onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, markup_suspected: e.target.checked } }))} />
-                                            I think this might be marked up
-                                        </label>
-                                    )}
-
-                                    <input type="number" min="0" step="any" style={{ width: '100%', padding: '10px 12px', ...inputBase, boxSizing: 'border-box' as const }}
-                                        value={form.emi.processing_fee}
-                                        onChange={e => setForm(prev => ({ ...prev, emi: { ...prev.emi, processing_fee: e.target.value } }))}
-                                        placeholder="Processing fee (optional)" />
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ── Goal contribution (optional) ── */}
-                    {goals.length > 0 && (
-                        <div>
-                            <label style={labelStyle}>Add to a goal (optional)</label>
-                            <div onClick={() => setGoalSheetOpen(true)} role="button" tabIndex={0}
-                                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGoalSheetOpen(true); } }}
-                                style={{ ...inputBase, padding: '10px 12px', color: form.goal_id ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxSizing: 'border-box', userSelect: 'none', width: '100%' }}>
-                                <span>{goals.find(g => String(g.id) === form.goal_id)?.name ?? '— None —'}</span>
-                                <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Tags ── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={labelStyle}>Tags (optional)</label>
-                        {form.tags.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                {form.tags.map(tag => (
-                                    <span key={tag} onClick={() => setForm({ ...form, tags: form.tags.filter(t => t !== tag) })}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--accent)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', padding: '3px 10px', borderRadius: '20px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        #{tag} ×
-                                    </span>
-                                ))}
-                            </div>
+                                <div>
+                                    <label style={labelStyle} htmlFor="tx-notes">Notes</label>
+                                    <textarea id="tx-notes" placeholder="Optional" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2}
+                                        style={{ ...inputBase, width: '100%', padding: '10px 12px', resize: 'vertical', boxSizing: 'border-box' }} />
+                                </div>
+                            </>
                         )}
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input type="text" placeholder="Add tag (press Enter)" value={tagInput} onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))} onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(); } }}
-                                style={{ flex: 1, padding: '10px 16px', ...inputBase }} />
-                            <button type="button" onClick={addTag} style={{ padding: '10px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: '10px', color: 'var(--accent)', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500, fontFamily: 'var(--font-body)' }}>Add</button>
-                        </div>
-                    </div>
-
-                    {/* ── Notes ── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={labelStyle}>Notes (optional)</label>
-                        <textarea placeholder="Any additional notes..." value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2}
-                            style={{ width: '100%', padding: '10px 16px', ...inputBase, resize: 'vertical', boxSizing: 'border-box' }} />
-                    </div>
-                </>
-                )}
-
-                {error && (
-                    <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: '10px', fontSize: '0.8rem', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>
-                        {error}
                     </div>
                 )}
             </form>
-            </>)}
+            )}
         </Modal>
       </>
     );
