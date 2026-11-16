@@ -3,55 +3,40 @@
 import { useEffect, useState, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles, CreditCard, Gauge, Calculator, TrendingDown, Snowflake, Mountain, Plus, Landmark, Wallet, Percent, Layers, Pencil, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { debtAPI, loanAPI } from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery } from '@/hooks/queries';
-import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
+import { CardHeader, Rows, Stat, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { SkeletonCard } from '@/components/ui/Skeleton';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
 import { toast } from '@/store/toastStore';
 import { Loan, AmortizationEntry, AmortizationSummary, LoanPrepayment, LOAN_TYPES, LOAN_TYPE_LABELS } from '@/types/loans';
 import { fmt } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
+import { estimateEMI, payoffVerdict, pctRepaid, plural, utilizationParts } from '@/lib/debt';
 
-const CumulativeInterestChart = dynamic(() => import('@/components/debt-intelligence/CumulativeInterestChart').then(m => m.CumulativeInterestChart), { ssr: false, loading: () => <div className="glass-field" style={{ height: 160, borderRadius: 8 }} /> });
+const CumulativeInterestChart = dynamic(() => import('@/components/debt-intelligence/CumulativeInterestChart').then(m => m.CumulativeInterestChart), { ssr: false, loading: () => <Skeleton height={160} /> });
 
 const today = () => new Date().toISOString().split('T')[0];
 const PAGE_SIZE = 12;
 
-// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
-const noteSt: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
-const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
+const selectStyle: React.CSSProperties = {
+    ...type.body, color: 'var(--text-primary)', width: '100%', height: 40, padding: '0 var(--space-3)',
+    background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
+    outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+};
+const textareaStyle: React.CSSProperties = { ...selectStyle, height: 'auto', minHeight: 72, padding: 'var(--space-3)', resize: 'vertical', cursor: 'text' };
 
 const TABS = [
     { key: 'overview', label: 'Overview' },
     { key: 'loans',     label: 'Loans' },
 ];
-
-const UTIL_STATUS_COLORS: Record<string, string> = {
-    optimal: 'var(--color-inc)',
-    moderate: 'var(--accent)',
-    high: 'var(--color-warn)',
-    critical: 'var(--color-exp)',
-};
-
-const DTI_STATUS_COLORS: Record<string, string> = {
-    excellent: 'var(--color-inc)',
-    good: 'var(--accent)',
-    moderate: 'var(--color-warn)',
-    risky: 'var(--color-exp)',
-};
 
 const DTI_STATUS_LABELS: Record<string, string> = {
     excellent: 'Excellent',
@@ -60,13 +45,19 @@ const DTI_STATUS_LABELS: Record<string, string> = {
     risky: 'Risky',
 };
 
-function estimateEMI(principal: number, ratePct: number, months: number): number | null {
-    if (!(principal > 0) || !(ratePct > 0) || !(months > 0)) return null;
-    const r = ratePct / 12 / 100;
-    const factor = Math.pow(1 + r, months);
-    const emi = (principal * r * factor) / (factor - 1);
-    return Number.isFinite(emi) ? emi : null;
+/** A labelled control the shared Input cannot render itself (select, textarea). */
+function Field({ label, htmlFor, error, hint, children }: { label: string; htmlFor: string; error?: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }}>
+            <label htmlFor={htmlFor} style={type.label}>{label}</label>
+            {children}
+            {error ? <p style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>
+                : hint ? <p style={{ ...type.meta, margin: 0 }}>{hint}</p> : null}
+        </div>
+    );
 }
+
+const th: React.CSSProperties = { ...type.meta, textAlign: 'right', padding: '0 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' };
 
 const emptyAddForm = {
     name: '',
@@ -136,6 +127,7 @@ interface PrepaymentImpactResult {
 }
 
 const NO_LOANS: Loan[] = [];
+
 
 function DebtIntelligencePageInner() {
     const router = useRouter();
@@ -465,31 +457,120 @@ function DebtIntelligencePageInner() {
 
     if (isLoading || !user) {
         return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
+            </div>
         );
     }
 
     const hasLoans = loans.length > 0;
+    const openAdd = () => { setShowAdd(true); setAddErrors({}); };
+    const closeAdd = () => { setShowAdd(false); setAddErrors({}); };
+
+    const hasUtil = !!utilization?.aggregate && !!utilization.per_card?.length;
+    const hasBreakdown = !!dti && (dti.breakdown_loans.length > 0 || dti.breakdown_cards.length > 0);
+    const prepayAmountNum = parseFloat(prepayAmount);
+
+    const utilizationCard = (
+        <Card>
+            {hasUtil && utilization ? (
+                <>
+                    <CardHeader
+                        title="Credit utilization"
+                        sub="Keeping it under 30% helps your credit profile"
+                        action={<span style={type.num}>{utilization.aggregate.overall_utilization_pct}%</span>}
+                    />
+                    {(() => {
+                        const parts = utilizationParts(utilization.aggregate);
+                        const status = utilization.aggregate.status;
+                        const tone = status === 'critical' ? 'bad' : status === 'high' ? 'caution' : null;
+                        return (
+                            <p style={{ ...type.meta, margin: '0 0 var(--space-4)' }}>
+                                {tone ? <span style={{ color: TONE_TEXT[tone] }}>{parts.status}</span> : parts.status}
+                                {`. ${parts.rest}`}
+                            </p>
+                        );
+                    })()}
+                    <Rows>
+                        {utilization.per_card.map(card => {
+                            const tone = card.status === 'critical' ? 'bad' : card.status === 'high' ? 'caution' : null;
+                            return (
+                                <div key={card.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                        <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{card.name}</span>
+                                        {card.last4 && <span style={{ ...type.numSmall, flexShrink: 0 }}>{`••${card.last4}`}</span>}
+                                        <span style={{ ...type.num, flexShrink: 0 }}>{card.utilization_pct}%</span>
+                                    </div>
+                                    <p style={{ ...type.meta, margin: 0 }}>
+                                        {`${fmt(card.outstanding_balance)} of ${fmt(card.credit_limit)}`}
+                                        {tone && <span style={{ color: TONE_TEXT[tone] }}>{` · ${card.status.charAt(0).toUpperCase()}${card.status.slice(1)}`}</span>}
+                                    </p>
+                                    <ProgressBar pct={card.utilization_pct} height={4} color="var(--text-secondary)" />
+                                </div>
+                            );
+                        })}
+                    </Rows>
+                    {utilization.recommendation && (
+                        <p style={{ ...type.meta, margin: 'var(--space-4) 0 0' }}>{utilization.recommendation}</p>
+                    )}
+                </>
+            ) : (
+                <>
+                    <CardHeader title="Credit utilization" sub="Keeping it under 30% helps your credit profile" />
+                    <p style={{ ...type.meta, margin: 0 }}>No credit cards tracked. Add a credit card to monitor your utilization.</p>
+                </>
+            )}
+        </Card>
+    );
+
+    const debtPaymentsCard = dti && hasBreakdown ? (
+        <Card>
+            <CardHeader
+                title="Monthly debt payments"
+                sub="What makes up the ratio"
+                action={<span style={type.num}>{fmt(dti.total_monthly_debt_obligation)}</span>}
+            />
+            <Rows>
+                {dti.breakdown_loans.map(l => (
+                    <div key={`loan-${l.id}`}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{l.name}</p>
+                            <p style={{ ...type.meta, margin: '2px 0 0' }}>EMI</p>
+                        </div>
+                        <span style={{ ...type.num, flexShrink: 0 }}>{fmt(l.emi)}</span>
+                    </div>
+                ))}
+                {dti.breakdown_cards.map(c => (
+                    <div key={`card-${c.id}`}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{c.name}</p>
+                            <p style={{ ...type.meta, margin: '2px 0 0' }}>Minimum payment</p>
+                        </div>
+                        <span style={{ ...type.num, flexShrink: 0 }}>{fmt(c.minimum_payment)}</span>
+                    </div>
+                ))}
+            </Rows>
+        </Card>
+    ) : null;
 
     return (
         <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── HEADER ── */}
-                <div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                        Debt Intelligence
-                    </h1>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Optimize payoff strategy, evaluate prepayments, and monitor credit health
-                    </p>
+                {/* Header */}
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>Payoff strategy, prepayments and credit health</p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>Debt intelligence</h1>
+                    </div>
+                    <div className="fin-page-actions">
+                        <Button onClick={openAdd}>Add loan</Button>
+                    </div>
                 </div>
 
                 <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
-                {/* ══ OVERVIEW ══ */}
+                {/* Overview */}
                 {tab === 'overview' && (
                     loading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -497,231 +578,160 @@ function DebtIntelligencePageInner() {
                         </div>
                     ) : (
                         <>
-                            {/* ── DEBT-TO-INCOME ── */}
                             {dti && (
                                 <Card>
-                                    <p style={sectionTitleSt}><Gauge size={16} /> Debt-to-Income Ratio</p>
-                                    <p style={sectionSubSt}>Based on your average monthly income over the last 3 months</p>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                        <StatTile label="Monthly Income" value={fmt(dti.monthly_income)} />
-                                        <StatTile label="Loan EMIs" value={fmt(dti.monthly_loan_emi)} />
-                                        <StatTile label="Card Minimums" value={fmt(dti.monthly_credit_obligation)} />
-                                        <StatTile
-                                            label="DTI Ratio"
-                                            value={`${dti.dti_ratio.toFixed(1)}%`}
-                                            accentColor={DTI_STATUS_COLORS[dti.status]}
-                                            subLabel={DTI_STATUS_LABELS[dti.status] || dti.status}
-                                        />
+                                    <p style={{ ...type.label, margin: 0 }}>Debt-to-income ratio</p>
+                                    <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{`${dti.dti_ratio.toFixed(1)}%`}</p>
+                                    <p style={{ ...type.meta, margin: '6px 0 0' }}>
+                                        {`${DTI_STATUS_LABELS[dti.status] || dti.status}. ${fmt(dti.total_monthly_debt_obligation)} of your ${fmt(dti.monthly_income)} monthly income goes to debt payments, from your last 3 months.`}
+                                    </p>
+                                    <div className="dash-stats">
+                                        <Stat className="dash-stat" label="Monthly income" value={fmt(dti.monthly_income)} sub="3 month average" />
+                                        <Stat className="dash-stat" label="Loan EMIs" value={fmt(dti.monthly_loan_emi)} sub={plural(dti.breakdown_loans.length, 'loan', 'loans')} />
+                                        <Stat className="dash-stat" label="Card minimums" value={fmt(dti.monthly_credit_obligation)} sub={plural(dti.breakdown_cards.length, 'card', 'cards')} />
                                     </div>
-                                    {(dti.breakdown_loans.length > 0 || dti.breakdown_cards.length > 0) && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--glass-border)' }}>
-                                            {dti.breakdown_loans.map(l => (
-                                                <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                    <span>{l.name} (EMI)</span>
-                                                    <span style={{ fontFamily: 'var(--font-mono)' }}>{fmt(l.emi)}</span>
-                                                </div>
-                                            ))}
-                                            {dti.breakdown_cards.map(c => (
-                                                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                    <span>{c.name} (min. payment)</span>
-                                                    <span style={{ fontFamily: 'var(--font-mono)' }}>{fmt(c.minimum_payment)}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
                                 </Card>
                             )}
 
-                            {/* ── CREDIT UTILIZATION ── */}
-                            {utilization && (
-                                <Card>
-                                    <p style={sectionTitleSt}><CreditCard size={16} /> Credit Utilization</p>
-                                    <p style={sectionSubSt}>Keeping utilization under 30% helps your credit profile</p>
-                                    {/* Incomplete response (no aggregate): treat as nothing to show. */}
-                                    {!utilization.aggregate || !utilization.per_card?.length ? (
-                                        <EmptyState icon={CreditCard} title="No credit cards tracked" subtitle="Add a credit card to monitor your utilization." />
-                                    ) : (
-                                        <>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                <StatTile label="Total Outstanding" value={fmt(utilization.aggregate.total_outstanding)} />
-                                                <StatTile label="Total Limit" value={fmt(utilization.aggregate.total_limit)} />
-                                                <StatTile
-                                                    label="Overall Utilization"
-                                                    value={`${utilization.aggregate.overall_utilization_pct}%`}
-                                                    accentColor={UTIL_STATUS_COLORS[utilization.aggregate.status]}
-                                                    subLabel={utilization.aggregate.status}
-                                                />
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                {utilization.per_card.map(card => (
-                                                    <div key={card.id}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '4px' }}>
-                                                            <div>
-                                                                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{card.name}</span>
-                                                                {card.last4 && <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>••{card.last4}</span>}
-                                                            </div>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(card.outstanding_balance)} / {fmt(card.credit_limit)}</span>
-                                                                <Badge color={UTIL_STATUS_COLORS[card.status]} bg={`color-mix(in srgb, ${UTIL_STATUS_COLORS[card.status]} 12%, transparent)`}>
-                                                                    {card.utilization_pct}%
-                                                                </Badge>
-                                                            </div>
-                                                        </div>
-                                                        <ProgressBar pct={card.utilization_pct} color={UTIL_STATUS_COLORS[card.status]} />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            {utilization.recommendation && (
-                                                <div style={{ marginTop: '12px', padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                    <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
-                                                    {utilization.recommendation}
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </Card>
-                            )}
+                            {debtPaymentsCard ? (
+                                <div className="fin-two">
+                                    {utilizationCard}
+                                    {debtPaymentsCard}
+                                </div>
+                            ) : utilizationCard}
 
-                            {/* ── PAYOFF OPTIMIZER ── */}
+                            {/* Payoff optimizer */}
                             <Card>
-                                <p style={sectionTitleSt}><TrendingDown size={16} /> Payoff Optimizer</p>
-                                <p style={sectionSubSt}>Compare avalanche (highest interest first) vs snowball (smallest balance first) strategies</p>
+                                <CardHeader title="Payoff optimizer" sub="Avalanche pays the highest interest first. Snowball pays the smallest balance first." />
 
                                 {!hasLoans ? (
-                                    <EmptyState icon={TrendingDown} title="No active loans" subtitle="Add a loan to use the payoff optimizer." />
+                                    <p style={{ ...type.meta, margin: 0 }}>No active loans. Add a loan to use the payoff optimizer.</p>
                                 ) : (
                                     <>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                                             <div style={{ flex: '1 1 200px' }}>
-                                                <label style={labelSt}>Extra Monthly Payment</label>
-                                                <input
+                                                <Input
+                                                    label="Extra monthly payment"
                                                     type="number"
                                                     min="0"
                                                     step="100"
                                                     placeholder="0"
                                                     value={extraPayment}
                                                     onChange={e => setExtraPayment(e.target.value)}
-                                                    style={inputSt}
                                                 />
                                             </div>
-                                            <Button onClick={runOptimizer} isLoading={payoffLoading}>
-                                                <Calculator size={14} /> Recalculate
-                                            </Button>
+                                            <Button variant="secondary" onClick={runOptimizer} isLoading={payoffLoading}>Recalculate</Button>
                                         </div>
 
                                         {payoff?.message ? (
-                                            <EmptyState icon={TrendingDown} title="No active loans" subtitle={payoff.message} />
+                                            <p style={{ ...type.meta, margin: 'var(--space-4) 0 0' }}>{payoff.message}</p>
                                         ) : payoff?.baseline && payoff.avalanche && payoff.snowball ? (
-                                            <>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                    <StatTile label="Baseline Months" value={String(payoff.baseline.months)} subLabel={`${fmt(payoff.baseline.total_interest)} interest`} />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+                                                <p style={{ ...type.body, margin: 0 }}>{payoffVerdict(payoff.baseline, payoff.avalanche, payoff.snowball)}</p>
+
+                                                <div style={{ overflowX: 'auto' }}>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                        <thead>
+                                                            <tr>
+                                                                <th style={{ ...th, textAlign: 'left', paddingLeft: 0 }}><span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Measure</span></th>
+                                                                <th style={th}>No extra</th>
+                                                                <th style={th}>Avalanche</th>
+                                                                <th style={th}>Snowball</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {[
+                                                                { label: 'Months to payoff', cells: [String(payoff.baseline.months), String(payoff.avalanche.months), String(payoff.snowball.months)] },
+                                                                { label: 'Total interest', cells: [fmt(payoff.baseline.total_interest), fmt(payoff.avalanche.total_interest), fmt(payoff.snowball.total_interest)] },
+                                                                { label: 'Interest saved', cells: [null, fmt(payoff.avalanche.interest_saved), fmt(payoff.snowball.interest_saved)] },
+                                                            ].map(row => (
+                                                                <tr key={row.label} style={{ borderTop: '1px solid var(--glass-border)' }}>
+                                                                    <td style={{ ...type.body, padding: 'var(--space-2) 0', whiteSpace: 'nowrap' }}>{row.label}</td>
+                                                                    {row.cells.map((c, i) => (
+                                                                        <td key={i} style={{ ...(c === null ? type.meta : type.numSmall), textAlign: 'right', padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' }}>{c === null ? 'None' : c}</td>
+                                                                    ))}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
                                                 </div>
 
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                    <div className="glass-field" style={{ borderRadius: 'var(--radius-lg)', padding: '14px' }}>
-                                                        <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Mountain size={14} /> Avalanche</p>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.avalanche.months}</span></div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Total interest</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmt(payoff.avalanche.total_interest)}</span></div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.avalanche.interest_saved)}</span></div>
-                                                        </div>
-                                                        {payoff.avalanche.payoff_sequence.length > 0 && (
-                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                {payoff.avalanche.payoff_sequence.map(p => (
-                                                                    <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                                        <span>{p.name}</span>
-                                                                        <span>Month {p.payoff_month}</span>
-                                                                    </div>
-                                                                ))}
+                                                {(payoff.avalanche.payoff_sequence.length > 0 || payoff.snowball.payoff_sequence.length > 0) && (
+                                                    <div className="fin-two">
+                                                        {[
+                                                            { title: 'Avalanche payoff order', seq: payoff.avalanche.payoff_sequence },
+                                                            { title: 'Snowball payoff order', seq: payoff.snowball.payoff_sequence },
+                                                        ].filter(b => b.seq.length > 0).map(b => (
+                                                            <div key={b.title}>
+                                                                <p style={{ ...type.label, margin: '0 0 var(--space-2)' }}>{b.title}</p>
+                                                                <Rows>
+                                                                    {b.seq.map(p => (
+                                                                        <div key={p.loan_id}>
+                                                                            <span style={{ ...type.body, ...truncate, flex: 1, minWidth: 0 }}>{p.name}</span>
+                                                                            <span style={{ ...type.numSmall, flexShrink: 0 }}>{`Month ${p.payoff_month}`}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </Rows>
                                                             </div>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="glass-field" style={{ borderRadius: 'var(--radius-lg)', padding: '14px' }}>
-                                                        <p style={{ ...sectionTitleSt, fontSize: '13px', marginBottom: '10px' }}><Snowflake size={14} /> Snowball</p>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Months to payoff</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{payoff.snowball.months}</span></div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Total interest</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmt(payoff.snowball.total_interest)}</span></div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-muted)' }}>Interest saved</span><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-inc)' }}>{fmt(payoff.snowball.interest_saved)}</span></div>
-                                                        </div>
-                                                        {payoff.snowball.payoff_sequence.length > 0 && (
-                                                            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                {payoff.snowball.payoff_sequence.map(p => (
-                                                                    <div key={p.loan_id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                                        <span>{p.name}</span>
-                                                                        <span>Month {p.payoff_month}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {payoff.recommendation && (
-                                                    <div style={{ padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                        <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
-                                                        {payoff.recommendation}
+                                                        ))}
                                                     </div>
                                                 )}
-                                            </>
+
+                                                {payoff.recommendation && (
+                                                    <p style={{ ...type.meta, margin: 0 }}>{payoff.recommendation}</p>
+                                                )}
+                                            </div>
                                         ) : null}
                                     </>
                                 )}
                             </Card>
 
-                            {/* ── PREPAYMENT IMPACT CALCULATOR ── */}
+                            {/* Prepayment calculator */}
                             <Card>
-                                <p style={sectionTitleSt}><Calculator size={16} /> Prepayment Impact Calculator</p>
-                                <p style={sectionSubSt}>See how a one-time lump-sum prepayment affects your loan tenure and interest</p>
+                                <CardHeader title="Prepayment calculator" sub="See how a one-time lump sum changes your tenure and interest" />
 
                                 {!hasLoans ? (
-                                    <EmptyState icon={Calculator} title="No active loans" subtitle="Add a loan to calculate prepayment impact." />
+                                    <p style={{ ...type.meta, margin: 0 }}>No active loans. Add a loan to calculate prepayment impact.</p>
                                 ) : (
                                     <>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', marginBottom: '12px', flexWrap: 'wrap' }}>
+                                        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
                                             <div style={{ flex: '1 1 200px' }}>
-                                                <label style={labelSt}>Loan</label>
-                                                <select value={prepayLoanId} onChange={e => setPrepayLoanId(e.target.value)} style={inputSt}>
-                                                    {loans.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                                                </select>
+                                                <Field label="Loan" htmlFor="prepay-loan">
+                                                    <select id="prepay-loan" value={prepayLoanId} onChange={e => setPrepayLoanId(e.target.value)} style={selectStyle}>
+                                                        {loans.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                                                    </select>
+                                                </Field>
                                             </div>
                                             <div style={{ flex: '1 1 160px' }}>
-                                                <label style={labelSt}>Prepayment Amount</label>
-                                                <input
+                                                <Input
+                                                    label="Prepayment amount"
                                                     type="number"
                                                     min="0"
                                                     step="1000"
                                                     placeholder="e.g. 100000"
                                                     value={prepayAmount}
                                                     onChange={e => setPrepayAmount(e.target.value)}
-                                                    style={inputSt}
                                                 />
                                             </div>
-                                            <Button onClick={runPrepaymentImpact} isLoading={prepayLoading}>
-                                                <Calculator size={14} /> Calculate
-                                            </Button>
+                                            <Button variant="secondary" onClick={runPrepaymentImpact} isLoading={prepayLoading}>Calculate</Button>
                                         </div>
-                                        {prepayError && <p style={{ fontSize: 11, color: 'var(--color-exp)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>{prepayError}</p>}
+                                        {prepayError && <p style={{ ...type.meta, color: TONE_TEXT.bad, margin: 'var(--space-3) 0 0' }}>{prepayError}</p>}
 
                                         {prepayResult && (
-                                            <>
-                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                                                    <StatTile label="Months Saved" value={String(prepayResult.months_saved)} />
-                                                    <StatTile label="Interest Saved" value={fmt(prepayResult.interest_saved)} accentColor="var(--color-inc)" />
-                                                    <StatTile label="Penalty" value={fmt(prepayResult.penalty_amount)} accentColor={prepayResult.penalty_amount > 0 ? 'var(--color-exp)' : undefined} />
-                                                    <StatTile label="Net Savings" value={fmt(prepayResult.net_savings)} accentColor={prepayResult.net_savings >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'} />
-                                                </div>
-                                                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px', fontSize: '12px', fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}>
-                                                    <span>Old payoff date: <strong style={{ color: 'var(--text-primary)' }}>{prepayResult.old_payoff_date}</strong></span>
-                                                    <span>New payoff date: <strong style={{ color: 'var(--text-primary)' }}>{prepayResult.new_payoff_date}</strong></span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
+                                                <p style={{ ...type.body, margin: 0 }}>
+                                                    {`Paying ${fmt(Number.isFinite(prepayAmountNum) ? prepayAmountNum : 0)} now moves your payoff from ${prepayResult.old_payoff_date} to ${prepayResult.new_payoff_date}.`}
+                                                </p>
+                                                <div className="dash-stats" style={{ marginTop: 0 }}>
+                                                    <Stat className="dash-stat" label="Months saved" value={String(prepayResult.months_saved)} />
+                                                    <Stat className="dash-stat" label="Interest saved" value={fmt(prepayResult.interest_saved)} />
+                                                    <Stat className="dash-stat" label="Penalty" value={fmt(prepayResult.penalty_amount)} />
+                                                    <Stat className="dash-stat" label="Net savings" value={fmt(prepayResult.net_savings)} />
                                                 </div>
                                                 {prepayResult.recommendation && (
-                                                    <div style={{ padding: '10px 12px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                        <Sparkles size={14} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
-                                                        {prepayResult.recommendation}
-                                                    </div>
+                                                    <p style={{ ...type.meta, margin: 0 }}>{prepayResult.recommendation}</p>
                                                 )}
-                                            </>
+                                            </div>
                                         )}
                                     </>
                                 )}
@@ -730,48 +740,40 @@ function DebtIntelligencePageInner() {
                     )
                 )}
 
-                {/* ══ LOANS ══ */}
+                {/* Loans */}
                 {tab === 'loans' && (
                     <>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button onClick={() => { setShowAdd(true); setAddErrors({}); }}>
-                                <Plus size={14} /> Add Loan
-                            </Button>
-                        </div>
+                        {loading ? (
+                            <SkeletonCard height={160} />
+                        ) : (
+                            <Card>
+                                <p style={{ ...type.label, margin: 0 }}>Total outstanding</p>
+                                <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmt(totalOutstanding)}</p>
+                                <p style={{ ...type.meta, margin: '6px 0 0' }}>{`Across ${plural(activeLoans.length, 'active loan', 'active loans')}`}</p>
+                                <div className="dash-stats">
+                                    <Stat className="dash-stat" label="Monthly EMI burden" value={fmt(monthlyEMIBurden)} sub="All active loans" />
+                                    <Stat className="dash-stat" label="Average interest rate" value={`${avgInterestRate.toFixed(2)}%`} sub="Weighted by balance" />
+                                    <Stat className="dash-stat" label="Active loans" value={String(activeLoans.length)} />
+                                </div>
+                            </Card>
+                        )}
 
-                        {/* ── SUMMARY ── */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                            {loading ? (
-                                [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
-                            ) : (
-                                <>
-                                    <StatTile label="Total Outstanding" value={fmt(totalOutstanding)} icon={<Wallet size={16} />} />
-                                    <StatTile label="Monthly EMI Burden" value={fmt(monthlyEMIBurden)} icon={<Landmark size={16} />} />
-                                    <StatTile label="Avg. Interest Rate" value={`${avgInterestRate.toFixed(2)}%`} icon={<Percent size={16} />} />
-                                    <StatTile label="Active Loans" value={String(activeLoans.length)} icon={<Layers size={16} />} />
-                                </>
-                            )}
-                        </div>
-
-                        {/* ── LOAN LIST ── */}
                         {loading ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
                             </div>
                         ) : activeLoans.length === 0 ? (
-                            <EmptyState
-                                icon={Landmark}
-                                title="No loans tracked yet"
-                                subtitle="Add your loans to see amortization schedules, payoff timelines, and optimization strategies."
-                                action={<Button onClick={() => setShowAdd(true)}><Plus size={14} /> Add Loan</Button>}
-                            />
+                            <Card>
+                                <CardHeader title="No loans tracked yet" sub="Add your loans to see amortization schedules, payoff timelines and optimization strategies." />
+                                <Button onClick={openAdd}>Add loan</Button>
+                            </Card>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {activeLoans.map(loan => {
                                     const isExpanded = expandedId === loan.id;
                                     const principal = parseFloat(String(loan.principal_amount));
                                     const outstanding = parseFloat(String(loan.outstanding_balance));
-                                    const pctRepaid = principal > 0 ? ((principal - outstanding) / principal) * 100 : 0;
+                                    const repaidPct = pctRepaid(principal, outstanding);
                                     const emiDisplay = loan.emi_amount
                                         ? parseFloat(String(loan.emi_amount))
                                         : estimateEMI(outstanding, parseFloat(String(loan.interest_rate_pct)), loan.months_remaining || loan.tenure_months);
@@ -784,160 +786,116 @@ function DebtIntelligencePageInner() {
                                     const loanPrepayments = prepayments[loan.id] || [];
 
                                     return (
-                                        <Card key={loan.id} padding={0}>
-                                            {/* Collapsed header */}
+                                        <Card key={loan.id}>
+                                            {/* Tap target */}
                                             <div onClick={() => toggleExpand(loan.id)}
                                                 role="button" tabIndex={0} aria-expanded={isExpanded}
                                                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(loan.id); } }}
-                                                style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                                                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
                                                     <div style={{ minWidth: 0 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>{loan.name}</span>
-                                                            <Badge>{LOAN_TYPE_LABELS[loan.type] || loan.type}</Badge>
-                                                        </div>
-                                                        {loan.bank_or_lender && (
-                                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)' }}>{loan.bank_or_lender}</p>
-                                                        )}
+                                                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{loan.name}</p>
+                                                        <p style={{ ...type.meta, margin: '2px 0 0' }}>{`${LOAN_TYPE_LABELS[loan.type] || loan.type}${loan.bank_or_lender ? ` · ${loan.bank_or_lender}` : ''}`}</p>
                                                     </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                                        <button type="button" onClick={e => { e.stopPropagation(); openEdit(loan); }} title="Edit loan" className="glass-field"
-                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                                                            <Pencil size={14} />
-                                                        </button>
-                                                        <button type="button" onClick={e => { e.stopPropagation(); handleMarkRepaid(loan); }} title="Mark as repaid" className="glass-field"
-                                                            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--color-inc)', cursor: 'pointer' }}>
-                                                            <CheckCircle size={14} />
-                                                        </button>
-                                                        <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                                                            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between' }}>
-                                                    <div>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Outstanding</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(outstanding)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Interest Rate</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{parseFloat(String(loan.interest_rate_pct)).toFixed(2)}%</p>
-                                                    </div>
-                                                    <div>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Monthly EMI</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{emiDisplay ? fmt(emiDisplay) : '—'}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Months Remaining</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{loan.months_remaining ?? '—'}</p>
-                                                    </div>
+                                                    <span style={{ ...type.meta, flexShrink: 0 }}>{isExpanded ? 'Hide details' : 'Show details'}</span>
                                                 </div>
 
                                                 <div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Principal repaid</span>
-                                                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{pctRepaid.toFixed(1)}%</span>
-                                                    </div>
-                                                    <ProgressBar pct={pctRepaid} color="var(--color-inc)" />
+                                                    <p style={{ ...type.label, margin: 0 }}>Outstanding</p>
+                                                    <p style={{ ...type.num, margin: '2px 0 0' }}>{fmt(outstanding)}</p>
+                                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>
+                                                        {`${parseFloat(String(loan.interest_rate_pct)).toFixed(2)}% · EMI ${emiDisplay ? fmt(emiDisplay) : '—'} · ${loan.months_remaining ?? '—'} months left`}
+                                                    </p>
+                                                </div>
+
+                                                <div>
+                                                    <ProgressBar pct={repaidPct} height={4} color="var(--text-secondary)" />
+                                                    <p style={{ ...type.meta, margin: 'var(--space-2) 0 0' }}>{`${repaidPct.toFixed(0)}% of the principal repaid`}</p>
                                                 </div>
                                             </div>
 
                                             {/* Expanded section */}
                                             {isExpanded && (
-                                                <div style={{ borderTop: '1px solid var(--glass-border)', padding: '16px' }}>
+                                                <div style={{ borderTop: '1px solid var(--glass-border)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)' }}>
+                                                    <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
+                                                        <TextAction onClick={() => openEdit(loan)}>Edit</TextAction>
+                                                        <TextAction onClick={() => handleMarkRepaid(loan)}>Mark as repaid</TextAction>
+                                                    </div>
                                                     {amortLoading[loan.id] ? (
                                                         <SkeletonCard height={160} />
                                                     ) : !data ? (
-                                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                                                        <p style={{ ...type.meta, margin: 0 }}>
                                                             {loan.amortization_error || 'Unable to load amortization schedule.'}
                                                         </p>
                                                     ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            {/* Cumulative interest chart */}
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                                                            <div className="dash-stats" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
+                                                                <Stat className="dash-stat" label="Total interest" value={fmt(data.summary.total_interest)} />
+                                                                <Stat className="dash-stat" label="Total payable" value={fmt(data.summary.total_amount_payable)} />
+                                                                <Stat className="dash-stat" label="Payoff date" value={new Date(data.summary.payoff_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })} />
+                                                            </div>
+
                                                             <div>
-                                                                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Cumulative Interest</h4>
+                                                                <p style={{ ...type.label, margin: '0 0 var(--space-2)' }}>Cumulative interest</p>
                                                                 <CumulativeInterestChart chartData={chartData} />
                                                             </div>
 
-                                                            {/* Summary row */}
-                                                            <div className="glass-field" style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', padding: '12px', borderRadius: 10 }}>
-                                                                <div>
-                                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Total Interest</p>
-                                                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{fmt(data.summary.total_interest)}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Total Payable</p>
-                                                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{fmt(data.summary.total_amount_payable)}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Payoff Date</p>
-                                                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{new Date(data.summary.payoff_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Amortization table */}
                                                             <div>
-                                                                <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Amortization Schedule</h4>
+                                                                <p style={{ ...type.label, margin: '0 0 var(--space-2)' }}>Amortization schedule</p>
                                                                 <div style={{ overflowX: 'auto' }}>
-                                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
+                                                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                                                         <thead>
-                                                                            <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                                                                                {['#', 'Opening', 'EMI', 'Interest', 'Principal', 'Closing'].map(h => (
-                                                                                    <th key={h} style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                                                                            <tr>
+                                                                                {['Month', 'Opening', 'EMI', 'Interest', 'Principal', 'Closing'].map(h => (
+                                                                                    <th key={h} style={{ ...th, paddingLeft: 'var(--space-3)' }}>{h}</th>
                                                                                 ))}
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
-                                                                            {pageRows.map(row => (
-                                                                                <tr key={row.month} style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{row.month}</td>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.opening_balance)}</td>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(row.emi)}</td>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-exp)', fontFamily: 'var(--font-mono)' }}>{fmt(row.interest_component)}</td>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--color-inc)', fontFamily: 'var(--font-mono)' }}>{fmt(row.principal_component)}</td>
-                                                                                    <td style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{fmt(row.closing_balance)}</td>
-                                                                                </tr>
-                                                                            ))}
+                                                                            {pageRows.map(row => {
+                                                                                const cell: React.CSSProperties = { ...type.numSmall, textAlign: 'right', padding: 'var(--space-2) 0 var(--space-2) var(--space-3)', whiteSpace: 'nowrap' };
+                                                                                return (
+                                                                                    <tr key={row.month} style={{ borderTop: '1px solid var(--glass-border)' }}>
+                                                                                        <td style={cell}>{row.month}</td>
+                                                                                        <td style={cell}>{fmt(row.opening_balance)}</td>
+                                                                                        <td style={cell}>{fmt(row.emi)}</td>
+                                                                                        <td style={cell}>{fmt(row.interest_component)}</td>
+                                                                                        <td style={cell}>{fmt(row.principal_component)}</td>
+                                                                                        <td style={{ ...cell, color: 'var(--text-primary)' }}>{fmt(row.closing_balance)}</td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
                                                                         </tbody>
                                                                     </table>
                                                                 </div>
                                                                 {totalPages > 1 && (
-                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginTop: '10px' }}>
-                                                                        <button type="button" disabled={page === 0} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.max(0, page - 1) }))} className="glass-field"
-                                                                            style={{ padding: '6px 12px', borderRadius: 8, color: page === 0 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
-                                                                            Previous
-                                                                        </button>
-                                                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Page {page + 1} of {totalPages}</span>
-                                                                        <button type="button" disabled={page >= totalPages - 1} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.min(totalPages - 1, page + 1) }))} className="glass-field"
-                                                                            style={{ padding: '6px 12px', borderRadius: 8, color: page >= totalPages - 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: 12, fontFamily: 'var(--font-body)' }}>
-                                                                            Next
-                                                                        </button>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
+                                                                        <TextAction disabled={page === 0} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.max(0, page - 1) }))}>Previous</TextAction>
+                                                                        <span style={type.meta}>{`Page ${page + 1} of ${totalPages}`}</span>
+                                                                        <TextAction disabled={page >= totalPages - 1} onClick={() => setAmortPage(prev => ({ ...prev, [loan.id]: Math.min(totalPages - 1, page + 1) }))}>Next</TextAction>
                                                                     </div>
                                                                 )}
                                                             </div>
 
-                                                            {/* Prepayments */}
                                                             <div>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                                    <h4 style={{ fontFamily: 'var(--font-display)', fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Prepayments</h4>
-                                                                    <Button size="sm" variant="secondary" onClick={() => openLogPrepay(loan.id)}>
-                                                                        <Plus size={12} /> Log Prepayment
-                                                                    </Button>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
+                                                                    <p style={{ ...type.bodyStrong, margin: 0 }}>Prepayments</p>
+                                                                    <TextAction onClick={() => openLogPrepay(loan.id)}>Log a prepayment</TextAction>
                                                                 </div>
                                                                 {loanPrepayments.length === 0 ? (
-                                                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No prepayments logged yet.</p>
+                                                                    <p style={{ ...type.meta, margin: 0 }}>No prepayments logged yet.</p>
                                                                 ) : (
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                    <Rows>
                                                                         {loanPrepayments.map(p => (
-                                                                            <div key={p.id} className="glass-field" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 8, fontSize: '12px', fontFamily: 'var(--font-body)' }}>
-                                                                                <span style={{ color: 'var(--text-secondary)' }}>{new Date(p.prepayment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                                                                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(p.amount)}</span>
-                                                                                <span style={{ color: 'var(--color-inc)' }}>{p.months_saved} mo saved</span>
-                                                                                <span style={{ color: 'var(--color-inc)' }}>{fmt(p.interest_saved)} saved</span>
+                                                                            <div key={p.id}>
+                                                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                                                    <p style={{ ...type.bodyStrong, margin: 0 }}>{new Date(p.prepayment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                                                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>{`${plural(p.months_saved, 'month', 'months')} and ${fmt(p.interest_saved)} interest saved`}</p>
+                                                                                </div>
+                                                                                <span style={{ ...type.num, flexShrink: 0 }}>{fmt(p.amount)}</span>
                                                                             </div>
                                                                         ))}
-                                                                    </div>
+                                                                    </Rows>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -953,146 +911,82 @@ function DebtIntelligencePageInner() {
                 )}
             </div>
 
-            {/* ═══ ADD LOAN MODAL ═══ */}
-            <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setAddErrors({}); }} title="Add Loan" maxWidth="480px"
+            {/* Add loan dialog */}
+            <Modal isOpen={showAdd} onClose={closeAdd} title="Add loan" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setAddErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="add-loan-form" disabled={addLoading} style={{ padding: 10, background: addLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: addLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {addLoading ? 'Adding…' : 'Add Loan'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={closeAdd}>Cancel</Button>
+                        <Button type="submit" form="add-loan-form" isLoading={addLoading}>Add loan</Button>
                     </div>
                 }
             >
                 <form id="add-loan-form" onSubmit={handleAddSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div>
-                        <label style={labelSt}>Loan Name *</label>
-                        <input style={inputSt} value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} placeholder="e.g. HDFC Home Loan" />
-                        {addErrors.name && <p style={errSt}>{addErrors.name}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Type</label>
-                        <select value={addForm.type} onChange={e => setAddForm({ ...addForm, type: e.target.value })} style={{ ...inputSt, cursor: 'pointer' }}>
+                    <Input label="Loan name" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} placeholder="e.g. HDFC Home Loan" error={addErrors.name} />
+                    <Field label="Loan type" htmlFor="add-loan-type">
+                        <select id="add-loan-type" value={addForm.type} onChange={e => setAddForm({ ...addForm, type: e.target.value })} style={selectStyle}>
                             {LOAN_TYPES.map(t => (
                                 <option key={t} value={t}>{LOAN_TYPE_LABELS[t]}</option>
                             ))}
                         </select>
+                    </Field>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+                        <Input label="Principal amount" type="number" min="0" step="any" value={addForm.principal_amount} onChange={e => setAddForm({ ...addForm, principal_amount: e.target.value })} placeholder="2500000" error={addErrors.principal_amount} />
+                        <Input label="Disbursement date" type="date" max={today()} value={addForm.disbursement_date} onChange={e => setAddForm({ ...addForm, disbursement_date: e.target.value })} error={addErrors.disbursement_date} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div>
-                            <label style={labelSt}>Original Loan Amount *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={addForm.principal_amount} onChange={e => setAddForm({ ...addForm, principal_amount: e.target.value })} placeholder="2500000" />
-                            {addErrors.principal_amount && <p style={errSt}>{addErrors.principal_amount}</p>}
-                        </div>
-                        <div>
-                            <label style={labelSt}>Disbursement Date *</label>
-                            <input type="date" max={today()} style={inputSt} value={addForm.disbursement_date} onChange={e => setAddForm({ ...addForm, disbursement_date: e.target.value })} />
-                            {addErrors.disbursement_date && <p style={errSt}>{addErrors.disbursement_date}</p>}
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'start' }}>
+                        <Input label="Tenure in months" type="number" min="1" step="1" value={addForm.tenure_months} onChange={e => setAddForm({ ...addForm, tenure_months: e.target.value })} placeholder="240" error={addErrors.tenure_months} />
+                        <Input label="Interest rate (%)" type="number" min="0" max="100" step="any" value={addForm.interest_rate_pct} onChange={e => setAddForm({ ...addForm, interest_rate_pct: e.target.value })} placeholder="8.5" error={addErrors.interest_rate_pct} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div>
-                            <label style={labelSt}>Tenure (months) *</label>
-                            <input type="number" min="1" step="1" style={inputSt} value={addForm.tenure_months} onChange={e => setAddForm({ ...addForm, tenure_months: e.target.value })} placeholder="240" />
-                            {addErrors.tenure_months && <p style={errSt}>{addErrors.tenure_months}</p>}
-                        </div>
-                        <div>
-                            <label style={labelSt}>Annual Interest Rate (%) *</label>
-                            <input type="number" min="0" max="100" step="any" style={inputSt} value={addForm.interest_rate_pct} onChange={e => setAddForm({ ...addForm, interest_rate_pct: e.target.value })} placeholder="8.5" />
-                            {addErrors.interest_rate_pct && <p style={errSt}>{addErrors.interest_rate_pct}</p>}
-                        </div>
-                    </div>
-                    <div>
-                        <label style={labelSt}>Current Outstanding Balance *</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={addForm.outstanding_balance} onChange={e => setAddForm({ ...addForm, outstanding_balance: e.target.value })} placeholder="2200000" />
-                        {addErrors.outstanding_balance && <p style={errSt}>{addErrors.outstanding_balance}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Monthly EMI (optional)</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={addForm.emi_amount} onChange={e => setAddForm({ ...addForm, emi_amount: e.target.value })} placeholder="Leave blank to auto-calculate" />
-                        {addErrors.emi_amount && <p style={errSt}>{addErrors.emi_amount}</p>}
-                        {!addForm.emi_amount.trim() && addEMIHint !== null && (
-                            <p style={noteSt}>Estimated EMI: {fmt(addEMIHint)}</p>
-                        )}
-                        <p style={noteSt}>Leave blank to auto-calculate from balance, rate, and tenure.</p>
-                    </div>
-                    <div>
-                        <label style={labelSt}>Bank / Lender (optional)</label>
-                        <input style={inputSt} value={addForm.bank_or_lender} onChange={e => setAddForm({ ...addForm, bank_or_lender: e.target.value })} placeholder="e.g. HDFC Bank" />
-                    </div>
-                    <div>
-                        <label style={labelSt}>Prepayment Penalty (%) (optional)</label>
-                        <input type="number" min="0" max="100" step="any" style={inputSt} value={addForm.prepayment_penalty_pct} onChange={e => setAddForm({ ...addForm, prepayment_penalty_pct: e.target.value })} placeholder="0" />
-                    </div>
+                    <Input label="Outstanding balance" type="number" min="0" step="any" value={addForm.outstanding_balance} onChange={e => setAddForm({ ...addForm, outstanding_balance: e.target.value })} placeholder="2200000" error={addErrors.outstanding_balance} />
+                    <Input
+                        label="EMI amount (optional)"
+                        type="number" min="0" step="any"
+                        value={addForm.emi_amount}
+                        onChange={e => setAddForm({ ...addForm, emi_amount: e.target.value })}
+                        placeholder="Leave blank to calculate"
+                        error={addErrors.emi_amount}
+                        hint={!addForm.emi_amount.trim() && addEMIHint !== null
+                            ? `Estimated EMI: ${fmt(addEMIHint)}. Leave blank to calculate it from balance, rate and tenure.`
+                            : 'Leave blank to calculate it from balance, rate and tenure.'}
+                    />
+                    <Input label="Lender or bank (optional)" value={addForm.bank_or_lender} onChange={e => setAddForm({ ...addForm, bank_or_lender: e.target.value })} placeholder="e.g. HDFC Bank" />
+                    <Input label="Prepayment penalty (%) (optional)" type="number" min="0" max="100" step="any" value={addForm.prepayment_penalty_pct} onChange={e => setAddForm({ ...addForm, prepayment_penalty_pct: e.target.value })} placeholder="0" />
                 </form>
             </Modal>
 
-            {/* ═══ EDIT LOAN MODAL ═══ */}
-            <Modal isOpen={!!editLoan} onClose={() => setEditLoan(null)} title={editLoan ? `Edit ${editLoan.name}` : 'Edit Loan'} maxWidth="480px"
+            {/* Edit loan dialog */}
+            <Modal isOpen={!!editLoan} onClose={() => setEditLoan(null)} title={editLoan ? `Edit ${editLoan.name}` : 'Edit loan'} maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setEditLoan(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="edit-loan-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {editLoading ? 'Saving…' : 'Save'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={() => setEditLoan(null)}>Cancel</Button>
+                        <Button type="submit" form="edit-loan-form" isLoading={editLoading}>Save</Button>
                     </div>
                 }
             >
                 <form id="edit-loan-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div>
-                        <label style={labelSt}>Loan Name *</label>
-                        <input style={inputSt} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
-                        {editErrors.name && <p style={errSt}>{editErrors.name}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Outstanding Balance *</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={editForm.outstanding_balance} onChange={e => setEditForm({ ...editForm, outstanding_balance: e.target.value })} />
-                        {editErrors.outstanding_balance && <p style={errSt}>{editErrors.outstanding_balance}</p>}
-                        <p style={noteSt}>Updating the outstanding balance will recalculate your amortization schedule.</p>
-                    </div>
-                    <div>
-                        <label style={labelSt}>Annual Interest Rate (%) *</label>
-                        <input type="number" min="0" max="100" step="any" style={inputSt} value={editForm.interest_rate_pct} onChange={e => setEditForm({ ...editForm, interest_rate_pct: e.target.value })} />
-                        {editErrors.interest_rate_pct && <p style={errSt}>{editErrors.interest_rate_pct}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Monthly EMI (optional)</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={editForm.emi_amount} onChange={e => setEditForm({ ...editForm, emi_amount: e.target.value })} placeholder="Leave blank to auto-calculate" />
-                        {editErrors.emi_amount && <p style={errSt}>{editErrors.emi_amount}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Bank / Lender (optional)</label>
-                        <input style={inputSt} value={editForm.bank_or_lender} onChange={e => setEditForm({ ...editForm, bank_or_lender: e.target.value })} />
-                    </div>
-                    <div>
-                        <label style={labelSt}>Notes (optional)</label>
-                        <textarea style={{ ...inputSt, resize: 'vertical', minHeight: 60 }} value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
-                    </div>
+                    <Input label="Loan name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} error={editErrors.name} />
+                    <Input label="Outstanding balance" type="number" min="0" step="any" value={editForm.outstanding_balance} onChange={e => setEditForm({ ...editForm, outstanding_balance: e.target.value })} error={editErrors.outstanding_balance} hint="Updating the outstanding balance recalculates your amortization schedule." />
+                    <Input label="Interest rate (%)" type="number" min="0" max="100" step="any" value={editForm.interest_rate_pct} onChange={e => setEditForm({ ...editForm, interest_rate_pct: e.target.value })} error={editErrors.interest_rate_pct} />
+                    <Input label="EMI amount (optional)" type="number" min="0" step="any" value={editForm.emi_amount} onChange={e => setEditForm({ ...editForm, emi_amount: e.target.value })} placeholder="Leave blank to calculate" error={editErrors.emi_amount} />
+                    <Input label="Lender or bank (optional)" value={editForm.bank_or_lender} onChange={e => setEditForm({ ...editForm, bank_or_lender: e.target.value })} />
+                    <Field label="Notes (optional)" htmlFor="edit-loan-notes">
+                        <textarea id="edit-loan-notes" style={textareaStyle} value={editForm.notes} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
+                    </Field>
                 </form>
             </Modal>
 
-            {/* ═══ LOG PREPAYMENT MODAL ═══ */}
-            <Modal isOpen={!!logPrepayLoanId} onClose={() => setLogPrepayLoanId(null)} title="Log Prepayment" maxWidth="380px"
+            {/* Log prepayment dialog */}
+            <Modal isOpen={!!logPrepayLoanId} onClose={() => setLogPrepayLoanId(null)} title="Log prepayment" maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setLogPrepayLoanId(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="prepayment-form" disabled={logPrepayLoading} style={{ padding: 10, background: logPrepayLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: logPrepayLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {logPrepayLoading ? 'Saving…' : 'Log Prepayment'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={() => setLogPrepayLoanId(null)}>Cancel</Button>
+                        <Button type="submit" form="prepayment-form" isLoading={logPrepayLoading}>Log prepayment</Button>
                     </div>
                 }
             >
                 <form id="prepayment-form" onSubmit={handleLogPrepaySubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div>
-                        <label style={labelSt}>Amount *</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={logPrepayForm.amount} onChange={e => setLogPrepayForm({ ...logPrepayForm, amount: e.target.value })} autoFocus />
-                        {logPrepayErrors.amount && <p style={errSt}>{logPrepayErrors.amount}</p>}
-                    </div>
-                    <div>
-                        <label style={labelSt}>Date *</label>
-                        <input type="date" max={today()} style={inputSt} value={logPrepayForm.prepayment_date} onChange={e => setLogPrepayForm({ ...logPrepayForm, prepayment_date: e.target.value })} />
-                        {logPrepayErrors.prepayment_date && <p style={errSt}>{logPrepayErrors.prepayment_date}</p>}
-                    </div>
+                    <Input label="Amount" type="number" min="0" step="any" value={logPrepayForm.amount} onChange={e => setLogPrepayForm({ ...logPrepayForm, amount: e.target.value })} error={logPrepayErrors.amount} autoFocus />
+                    <Input label="Date" type="date" max={today()} value={logPrepayForm.prepayment_date} onChange={e => setLogPrepayForm({ ...logPrepayForm, prepayment_date: e.target.value })} error={logPrepayErrors.prepayment_date} />
                 </form>
             </Modal>
         </>
