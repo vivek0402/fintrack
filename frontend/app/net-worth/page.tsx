@@ -3,7 +3,6 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Info, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
 import { analyticsAPI } from '@/lib/api';
@@ -11,20 +10,23 @@ import { useUserQuery } from '@/hooks/queries';
 import { Card } from '@/components/ui/Card';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
+import { ProgressBar } from '@/components/ui/ProgressBar';
+import { CardHeader, Rows, Stat, TONE_TEXT } from '@/components/ui/CardParts';
 import { fmt } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
+import { netWorthChange, sortByAmountDesc, furthestFromTarget, deviationLabel, trendPhrase } from '@/lib/netWorth';
 
 function chartSkeleton(height: number) {
-    const ChartSkeleton = () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+    const ChartSkeleton = () => <SkeletonCard height={height} />;
     return ChartSkeleton;
 }
 
 const NetWorthAreaChart = dynamic(() => import('@/components/net-worth/NetWorthAreaChart').then(m => m.NetWorthAreaChart), { ssr: false, loading: chartSkeleton(220) });
 const VelocityBarChart = dynamic(() => import('@/components/net-worth/VelocityBarChart').then(m => m.VelocityBarChart), { ssr: false, loading: chartSkeleton(140) });
-const AllocationPieChart = dynamic(() => import('@/components/net-worth/AllocationPieChart').then(m => m.AllocationPieChart), { ssr: false, loading: chartSkeleton(180) });
 
 
-const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
-const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '') + Number(n).toFixed(1) + '%';
+const fmtSigned = (n: number) => (n >= 0 ? '+' : '\u2212') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+const fmtPctSigned = (n: number) => (n >= 0 ? '+' : '−') + Math.abs(Number(n)).toFixed(1) + '%';
 
 const CHART_COLORS = [
     'var(--accent)', 'var(--color-inc)', 'var(--color-info)', 'var(--accent)',
@@ -88,13 +90,6 @@ interface AssetAllocationData {
     recommendation_note: string;
 }
 
-const TREND_BADGE: Record<Trend, { label: string; color: string; bg: string; Icon: any }> = {
-    accelerating:      { label: 'Accelerating',     color: 'var(--color-inc)',  bg: 'color-mix(in srgb, var(--color-inc) 12%, transparent)',  Icon: ArrowUp },
-    decelerating:      { label: 'Decelerating',     color: 'var(--color-exp)',  bg: 'color-mix(in srgb, var(--color-exp) 12%, transparent)',  Icon: ArrowDown },
-    steady:            { label: 'Steady',           color: 'var(--color-warn)', bg: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', Icon: Minus },
-    insufficient_data: { label: 'Need 2+ months of data', color: 'var(--text-muted)', bg: 'var(--glass-fill-2)', Icon: Minus },
-};
-
 const NO_SNAPSHOTS: NetWorthSnapshot[] = [];
 
 function NetWorthPageInner() {
@@ -135,37 +130,73 @@ function NetWorthPageInner() {
     if (isLoading || !user || loading || !current) {
         return (
             <>
-                <SkeletonCard height={120} style={{ marginBottom: '16px' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
-                    {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
+                <SkeletonCard height={150} />
+                <div className="fin-two">
+                    <SkeletonCard height={160} />
+                    <SkeletonCard height={160} />
                 </div>
                 <SkeletonCard height={260} />
             </>
         );
     }
 
-    const last = history[history.length - 1];
-    const prev = history.length >= 2 ? history[history.length - 2] : null;
-    const change = prev ? last.net_worth - prev.net_worth : 0;
-    const changePct = prev && prev.net_worth !== 0 ? (change / Math.abs(prev.net_worth)) * 100 : 0;
-    const isGain = change >= 0;
+    const nwChange = netWorthChange(history);
     const chartData = history.map(h => ({ date: h.snapshot_date, value: h.net_worth }));
-
-    const badge = velocity ? TREND_BADGE[velocity.trend] : null;
     const allMomChanges = velocity?.mom_changes || [];
+
+    // Colours follow the original (unsorted) position so they never change with the sort.
     const allocations = (allocation?.allocations || []).filter(a => a.amount > 0);
+    const allocationRows = allocations
+        .map((a, i) => ({ a, color: CHART_COLORS[i % CHART_COLORS.length] }))
+        .sort((x, y) => Math.abs(y.a.deviation) - Math.abs(x.a.deviation));
+    const furthest = furthestFromTarget(allocations);
+
+    const assetRows = sortByAmountDesc([
+        { name: 'Investment portfolio', amount: current.total_investments },
+        { name: 'Bank balances', amount: current.total_bank_balance },
+    ]);
+    const liabilityRows = sortByAmountDesc([
+        { name: 'Loans outstanding', amount: current.total_loans_outstanding },
+        { name: 'Credit cards outstanding', amount: current.total_credit_outstanding },
+    ]);
+
+    // Label and display figure at the top of a tab's lead card.
+    const leadHead = (label: string, figure: string) => (
+        <>
+            <p style={{ ...type.label, margin: 0 }}>{label}</p>
+            <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{figure}</p>
+        </>
+    );
+
+    const amountRows = (rows: { name: string; amount: number }[]) => (
+        <Rows>
+            {rows.map(r => (
+                <div key={r.name} style={{ justifyContent: 'space-between' }}>
+                    <span style={{ ...type.bodyStrong, ...truncate, minWidth: 0 }}>{r.name}</span>
+                    <span style={type.num}>{fmt(r.amount)}</span>
+                </div>
+            ))}
+        </Rows>
+    );
+
+    let changeLine: string | null = null;
+    if (nwChange) {
+        const month = new Date(nwChange.prevLabelDate).toLocaleDateString('en-IN', { month: 'long' });
+        const amt = fmt(Math.abs(nwChange.change));
+        const pct = Math.abs(nwChange.pct).toFixed(1);
+        changeLine = Math.round(nwChange.change) === 0
+            ? `No change since ${month}`
+            : `${nwChange.change > 0 ? 'Up' : 'Down'} ${amt} (${pct}%) since ${month}`;
+    }
 
     return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── PAGE HEADER ── */}
-                <div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                        Net Worth
-                    </h1>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Where you stand, how fast it&apos;s growing, and how it&apos;s allocated
-                    </p>
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>Where you stand, how fast it grows, how it is split</p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>Net worth</h1>
+                    </div>
                 </div>
 
                 <Tabs tabs={TABS} active={tab} onChange={setTab} />
@@ -173,76 +204,34 @@ function NetWorthPageInner() {
                 {/* ══ OVERVIEW ══ */}
                 {tab === 'overview' && (
                     <>
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px' }}>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
-                                Net worth
-                            </p>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '36px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                                {fmt(current.net_worth)}
-                            </p>
-                            {history.length >= 2 && (
-                                <p style={{ fontSize: '13px', fontWeight: 600, color: isGain ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-mono)' }}>
-                                    {isGain ? '▲' : '▼'} {fmtSigned(change)} ({isGain ? '+' : ''}{changePct.toFixed(1)}%) from last month
-                                </p>
-                            )}
-                        </div>
+                        <Card>
+                            {leadHead('Net worth', fmt(current.net_worth))}
+                            {changeLine && <p style={{ ...type.meta, margin: '6px 0 0' }}>{changeLine}</p>}
+                            <div className="dash-stats">
+                                <Stat className="dash-stat" label="Assets" value={fmt(current.total_assets)} sub="Bank and investments" />
+                                <Stat className="dash-stat" label="Liabilities" value={fmt(current.total_liabilities)} sub="Cards and loans" />
+                            </div>
+                        </Card>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
+                        <div className="fin-two">
                             <Card>
-                                <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Assets</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--color-inc)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(current.total_assets)}</p>
+                                <CardHeader title="Assets" sub="What you own" action={<span style={type.num}>{fmt(current.total_assets)}</span>} />
+                                {amountRows(assetRows)}
                             </Card>
                             <Card>
-                                <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Total Liabilities</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>-{fmt(current.total_liabilities)}</p>
-                            </Card>
-                            <Card>
-                                <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Net Worth</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(current.net_worth)}</p>
-                            </Card>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                            <Card>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Assets</h3>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Bank balances</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(current.total_bank_balance)}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Investment portfolio</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(current.total_investments)}</span>
-                                </div>
-                            </Card>
-                            <Card>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Liabilities</h3>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Credit cards outstanding</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(current.total_credit_outstanding)}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                                    <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Loans outstanding</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(current.total_loans_outstanding)}</span>
-                                </div>
+                                <CardHeader title="Liabilities" sub="What you owe" action={<span style={type.num}>{fmt(current.total_liabilities)}</span>} />
+                                {amountRows(liabilityRows)}
                             </Card>
                         </div>
 
                         <Card>
-                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>History</h3>
+                            <CardHeader title="History" sub="Updated each time you open the app. Includes every tracked bank account, investment and card." />
                             {chartData.length < 2 ? (
-                                <div style={{ height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '0 24px' }}>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                        Your net worth history will appear here as data builds up over time.
-                                    </p>
-                                </div>
+                                <p style={{ ...type.meta, margin: 0 }}>Your net worth history will appear here as data builds up over time.</p>
                             ) : (
                                 <NetWorthAreaChart chartData={chartData} />
                             )}
                         </Card>
-
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, textAlign: 'center', fontFamily: 'var(--font-body)' }}>
-                            Updated automatically each time you visit. Includes all tracked bank accounts, investments, and credit cards.
-                        </p>
                     </>
                 )}
 
@@ -250,71 +239,53 @@ function NetWorthPageInner() {
                 {tab === 'velocity' && (
                     !velocity || velocity.trend === 'insufficient_data' ? (
                         <Card>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>
+                            <p style={{ ...type.meta, margin: 0 }}>
                                 {velocity?.message || 'Track your finances for at least 2 months to see wealth velocity.'}
                             </p>
                         </Card>
                     ) : (
                         <>
                             <Card>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-                                    <div>
-                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '32px', fontWeight: 800, color: velocity.avg_monthly_growth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', margin: '0 0 4px', letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-                                            {fmtSigned(velocity.avg_monthly_growth)}/mo
-                                        </p>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 10px', fontFamily: 'var(--font-mono)' }}>
-                                            {fmtPctSigned(velocity.avg_monthly_growth_pct)} avg/mo
-                                        </p>
-                                        {badge && (
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '12px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontFamily: 'var(--font-body)' }}>
-                                                <badge.Icon size={13} />
-                                                {badge.label}
-                                            </span>
-                                        )}
-                                    </div>
+                                {leadHead('Average growth a month', fmtSigned(velocity.avg_monthly_growth))}
+                                <p style={{ ...type.meta, margin: '6px 0 0' }}>
+                                    {fmtPctSigned(velocity.avg_monthly_growth_pct)} a month, and growth is {trendPhrase(velocity.trend)}
+                                </p>
+                            </Card>
 
-                                    {allMomChanges.length >= 2 && (
-                                        <div style={{ flex: '1 1 320px', minWidth: 240, height: 140 }}>
+                            <div className="fin-two">
+                                <Card>
+                                    <CardHeader title="Month by month" sub="Change in net worth by month" />
+                                    {allMomChanges.length >= 2 ? (
+                                        <div style={{ height: 140 }}>
                                             <VelocityBarChart allMomChanges={allMomChanges} />
                                         </div>
+                                    ) : (
+                                        <p style={{ ...type.meta, margin: 0 }}>Not enough months yet.</p>
                                     )}
-                                </div>
-                            </Card>
+                                </Card>
 
-                            <Card>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Net Worth History</h3>
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)' }}>
-                                        <thead>
-                                            <tr>
-                                                <th style={{ textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px 0' }}>Month</th>
-                                                <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px' }}>Net Worth</th>
-                                                <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px' }}>Change ₹</th>
-                                                <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 8px' }}>Change %</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {velocity.snapshots.map((s, idx) => {
-                                                const mom = allMomChanges.find(m => m.to_date === s.snapshot_date);
-                                                return (
-                                                    <tr key={s.snapshot_date} style={{ borderTop: idx > 0 ? '1px solid var(--glass-border)' : 'none' }}>
-                                                        <td style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '8px 8px 8px 0' }}>
-                                                            {new Date(s.snapshot_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
-                                                        </td>
-                                                        <td style={{ fontSize: '13px', textAlign: 'right', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontWeight: 600, padding: '8px' }}>{fmt(s.net_worth)}</td>
-                                                        <td style={{ fontSize: '13px', textAlign: 'right', color: mom ? (mom.absolute_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '8px' }}>
-                                                            {mom ? fmtSigned(mom.absolute_change) : '—'}
-                                                        </td>
-                                                        <td style={{ fontSize: '13px', textAlign: 'right', color: mom ? (mom.pct_change >= 0 ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '8px 0 8px 8px' }}>
-                                                            {mom ? fmtPctSigned(mom.pct_change) : '—'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </Card>
+                                <Card>
+                                    <CardHeader title="Net worth history" sub="Newest first" />
+                                    <Rows>
+                                        {[...velocity.snapshots].reverse().map(s => {
+                                            const mom = allMomChanges.find(m => m.to_date === s.snapshot_date);
+                                            return (
+                                                <div key={s.snapshot_date} style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <span style={type.bodyStrong}>
+                                                        {new Date(s.snapshot_date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                                                    </span>
+                                                    <div style={{ textAlign: 'right', minWidth: 0 }}>
+                                                        <p style={{ ...type.num, margin: 0 }}>{fmt(s.net_worth)}</p>
+                                                        <p style={{ ...type.meta, margin: '2px 0 0' }}>
+                                                            {mom ? `${fmtSigned(mom.absolute_change)} · ${fmtPctSigned(mom.pct_change)}` : 'First month tracked'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </Rows>
+                                </Card>
+                            </div>
                         </>
                     )
                 )}
@@ -323,68 +294,45 @@ function NetWorthPageInner() {
                 {tab === 'allocation' && (
                     !allocation || allocation.total_assets === 0 ? (
                         <Card>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>
-                                Add accounts or investments to see your asset allocation.
-                            </p>
+                            <p style={{ ...type.meta, margin: 0 }}>Add accounts or investments to see your asset allocation.</p>
                         </Card>
                     ) : (
-                        <Card>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap', marginBottom: 16 }}>
-                                <div style={{ width: 180, height: 180, flexShrink: 0 }}>
-                                    <AllocationPieChart allocations={allocations} colors={CHART_COLORS} />
-                                </div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                                    {allocations.map((a, i) => (
-                                        <div key={a.category} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
-                                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{a.label}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)' }}>
-                                    <thead>
-                                        <tr>
-                                            <th style={{ textAlign: 'left', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px 0' }}>Category</th>
-                                            <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px' }}>Amount</th>
-                                            <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px' }}>Actual %</th>
-                                            <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px 8px' }}>Target %</th>
-                                            <th style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 8px' }}>Deviation</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {allocations.map((a, idx) => {
-                                            const flagged = Math.abs(a.deviation) > 10;
-                                            return (
-                                                <tr key={a.category} style={{ borderTop: idx > 0 ? '1px solid var(--glass-border)' : 'none', fontWeight: flagged ? 700 : 400 }}>
-                                                    <td style={{ fontSize: '13px', color: 'var(--text-primary)', padding: '8px 8px 8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[idx % CHART_COLORS.length], flexShrink: 0 }} />
-                                                        {a.label}
-                                                    </td>
-                                                    <td style={{ fontSize: '13px', textAlign: 'right', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', padding: '8px' }}>{fmt(a.amount)}</td>
-                                                    <td style={{ fontSize: '13px', textAlign: 'right', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', padding: '8px' }}>{a.actual_pct.toFixed(1)}%</td>
-                                                    <td style={{ fontSize: '13px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '8px' }}>{a.recommended_pct.toFixed(1)}%</td>
-                                                    <td style={{ fontSize: '13px', textAlign: 'right', color: flagged ? 'var(--color-warn)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '8px 0 8px 8px' }}>
-                                                        {a.deviation >= 0 ? '+' : ''}{a.deviation.toFixed(1)}%
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {allocation.recommendation_note && (
-                                <div className="glass-field" style={{ display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10, marginTop: 16 }}>
-                                    <Info size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 1 }} />
-                                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                                        {allocation.recommendation_note}
+                        <>
+                            <Card>
+                                {leadHead('Total assets', fmt(allocation.total_assets))}
+                                {furthest && (
+                                    <p style={{ ...type.meta, margin: '6px 0 0' }}>
+                                        {furthest.label} is furthest from target, {Math.round(Math.abs(furthest.deviation))} points {furthest.deviation > 0 ? 'over' : 'under'}.
                                     </p>
-                                </div>
-                            )}
-                        </Card>
+                                )}
+                                {allocation.recommendation_note && (
+                                    <p style={{ ...type.body, margin: '12px 0 0' }}>{allocation.recommendation_note}</p>
+                                )}
+                            </Card>
+
+                            <Card>
+                                <CardHeader title="Where your assets sit" sub="Furthest from target first" />
+                                <Rows>
+                                    {allocationRows.map(({ a, color }) => {
+                                        const dev = deviationLabel(a.deviation);
+                                        return (
+                                            <div key={a.category} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                                <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                                    <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, alignSelf: 'center', background: color }} />
+                                                    <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{a.label}</span>
+                                                    <span style={type.numSmall}>{Math.round(a.actual_pct)}%</span>
+                                                    <span style={type.num}>{fmt(a.amount)}</span>
+                                                </div>
+                                                <ProgressBar pct={a.actual_pct} height={4} color="var(--text-secondary)" />
+                                                <p style={{ ...type.meta, margin: 0, color: dev.flagged ? TONE_TEXT.caution : undefined }}>
+                                                    Target {Math.round(a.recommended_pct)}% · {dev.text}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </Rows>
+                            </Card>
+                        </>
                     )
                 )}
             </div>
