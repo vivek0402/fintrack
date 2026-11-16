@@ -41,7 +41,7 @@ describe('CreditCardCyclesPage', () => {
         render(<CreditCardCyclesPage />);
         expect(await screen.findByText('Sep 6 – present')).toBeInTheDocument();
         expect(screen.getByText('Aug 6 – Sep 5')).toBeInTheDocument();
-        expect(screen.getByText('Current')).toBeInTheDocument();
+        expect(screen.getByText('· Current cycle')).toBeInTheDocument();
 
         const rows = screen.getAllByRole('button').filter(b => b.textContent?.includes('–'));
         // Current cycle row renders first in DOM order.
@@ -74,7 +74,7 @@ describe('CreditCardCyclesPage', () => {
         expect(amount).toHaveStyle({ color: 'var(--text-primary)' });
     });
 
-    it('shows a positive (owed) cycle total with a plus sign and the warn color', async () => {
+    it('shows a positive (owed) cycle total with a plus sign and the normal text color', async () => {
         getCycles.mockResolvedValue({
             data: {
                 cycles: [
@@ -85,7 +85,7 @@ describe('CreditCardCyclesPage', () => {
         render(<CreditCardCyclesPage />);
         const amount = await screen.findByText('+₹500');
         expect(amount).toBeInTheDocument();
-        expect(amount).toHaveStyle({ color: 'var(--color-warn)' });
+        expect(amount).toHaveStyle({ color: 'var(--text-primary)' });
     });
 
     it('shows the billed amount per closed cycle and spent/paid underneath, matching Pay Bill', async () => {
@@ -137,14 +137,14 @@ describe('CreditCardCyclesPage', () => {
     it('navigates a closed cycle with both from and to', async () => {
         render(<CreditCardCyclesPage />);
         const row = await screen.findByText('Aug 6 – Sep 5');
-        fireEvent.click(row.closest('button')!);
+        fireEvent.click(row.closest('[role="button"]')!);
         expect(push).toHaveBeenCalledWith('/transactions?credit_card_id=7&from=2026-08-06&to=2026-09-05');
     });
 
     it('navigates the current cycle with from only, no to', async () => {
         render(<CreditCardCyclesPage />);
         const row = await screen.findByText('Sep 6 – present');
-        fireEvent.click(row.closest('button')!);
+        fireEvent.click(row.closest('[role="button"]')!);
         expect(push).toHaveBeenCalledWith('/transactions?credit_card_id=7&from=2026-09-06');
     });
 });

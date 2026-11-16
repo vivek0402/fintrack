@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
+import { type } from '@/lib/typography';
 import { useIsClient, useIsNative } from '@/components/lock/useIsNative';
 import { closeQuickAdd, openMainApp } from '@/lib/widgetAdd';
 import { inQuickAddActivity } from '@/lib/appLock';
@@ -78,7 +79,7 @@ function LoggedOutSheet({ onClose }: { onClose: () => void }) {
     return (
         <BottomSheet isOpen onClose={onClose} scrim={false}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-5)', padding: 'var(--space-2) 0 var(--space-2)' }}>
-                <p style={{ margin: 0, textAlign: 'center', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '18px', lineHeight: 1.3, color: 'var(--text-primary)' }}>
+                <p style={{ margin: 0, textAlign: 'center', ...type.title, color: 'var(--text-primary)' }}>
                     Log in to FinTrack to add transactions
                 </p>
                 <Button size="lg" onClick={() => { openMainApp(); }} style={{ width: '100%' }}>
