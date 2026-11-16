@@ -2,60 +2,53 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Target, Brain, ChevronRight, Pencil } from 'lucide-react';
+import { Trash2, Target } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { goalsAPI, aiAPI } from '@/lib/api';
 import { useGoals, queryKeys } from '@/hooks/queries';
-import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Modal } from '@/components/ui/Modal';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MilestoneBurst } from '@/components/ui/MilestoneBurst';
-import { useIsMobile } from '@/hooks/useWindowSize';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, Stat } from '@/components/ui/CardParts';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
 import { CATEGORY_COLORS as GOAL_COLORS } from '@/lib/categoryColors';
 import { haptics } from '@/lib/haptics';
+import { daysLeft, deadlineLabel, groupGoals, goalsSummary, monthlyNeeded } from '@/lib/goals';
 
 const NO_GOALS: any[] = [];
 
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
-const outlineBtn: React.CSSProperties = { padding: '6px 12px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', display: 'flex', alignItems: 'center', gap: 4 };
-const iconBtn: React.CSSProperties = { width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const inputSt: React.CSSProperties = { ...type.body, width: '100%', height: 40, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' };
+const labelSt: React.CSSProperties = { ...type.label, marginBottom: 6, display: 'block' };
+const errSt: React.CSSProperties = { ...type.meta, color: 'var(--color-exp-text)', margin: '4px 0 0' };
+const rupeeSt: React.CSSProperties = { ...type.num, color: 'var(--text-secondary)', position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' };
+const inset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+const rowTop: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' };
+const tileSt: React.CSSProperties = { background: 'var(--glass-fill-1)', width: 32, height: 32, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-title)', lineHeight: 1 };
 
-function CircularProgress({ pct, color, size = 56 }: { pct: number; color: string; size?: number }) {
-    const stroke = 5;
-    const r = (size - stroke) / 2;
-    const c = 2 * Math.PI * r;
-    const offset = c - (Math.min(Math.max(pct, 0), 100) / 100) * c;
-    return (
-        <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-            <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border-subtle)" strokeWidth={stroke} />
-                <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round" style={{ transition: 'stroke-dashoffset 500ms cubic-bezier(0.22,1,0.36,1)' }} />
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: size >= 56 ? '13px' : '11px', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>
-                    {Math.round(pct)}%
-                </span>
-            </div>
-        </div>
-    );
-}
+const LIFE_EVENTS = [
+    { type: 'wedding', emoji: '💍', label: 'Wedding' },
+    { type: 'bike', emoji: '🏍️', label: 'Bike' },
+    { type: 'vacation', emoji: '✈️', label: 'Vacation' },
+    { type: 'home', emoji: '🏠', label: 'Home' },
+    { type: 'baby', emoji: '👶', label: 'Baby' },
+    { type: 'education', emoji: '🎓', label: 'Education' },
+    { type: 'car', emoji: '🚗', label: 'Car' },
+    { type: 'business', emoji: '💼', label: 'Business' },
+    { type: 'emergency', emoji: '🛡️', label: 'Emergency' },
+];
 
 export default function GoalsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const isMobile = useIsMobile();
 
     // Cached: revisits show goals at once; the skeleton only shows on a cold
     // cache. Writes refresh it in the background instead of reloading the list.
@@ -77,6 +70,7 @@ export default function GoalsPage() {
     const [formError, setFormError] = useState('');
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [editConfirmDelete, setEditConfirmDelete] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', target_amount: '', deadline: '', color: '#2563eb' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
@@ -211,23 +205,31 @@ export default function GoalsPage() {
         finally { setLifeEventLoading(false); }
     };
 
-    const daysRemaining = (deadline?: string) => {
-        if (!deadline) return null;
-        return Math.ceil((new Date(deadline + 'T00:00:00').getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    // ── Openers ───────────────────────────────────────────────────────────────
+
+    const openNewGoal = () => { setShowForm(true); setFormError(''); };
+    const openLifeEvent = () => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); };
+    const openFunds = (id: string) => { setFundsGoalId(id); setFundsType('add'); setFundsAmount(''); };
+    const closeFunds = () => { setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); };
+    const openEdit = (goal: any) => {
+        setEditingId(goal.id);
+        setEditConfirmDelete(false);
+        setEditForm({ name: goal.name, target_amount: String(goal.target_amount), deadline: goal.deadline ? goal.deadline.split('T')[0] : '', color: goal.color || '#2563eb' });
+        setEditError('');
     };
+    const closeEdit = () => { setEditingId(null); setEditError(''); setEditConfirmDelete(false); };
+    const closeNewGoal = () => { setShowForm(false); setFormError(''); setFormErrors({}); };
 
-    // ── Derived totals ────────────────────────────────────────────────────────
+    // ── Derived ───────────────────────────────────────────────────────────────
 
-    const totalTargets   = goals.reduce((s, g) => s + parseFloat(g.target_amount), 0);
-    const totalSaved     = goals.reduce((s, g) => s + parseFloat(g.saved_amount), 0);
-    const totalRemaining = Math.max(totalTargets - totalSaved, 0);
-    const overallPct     = totalTargets > 0 ? Math.min(Math.round((totalSaved / totalTargets) * 100), 100) : 0;
-    const completed      = goals.filter(g => parseFloat(g.saved_amount) >= parseFloat(g.target_amount)).length;
-    const visibleGoals   = goals.filter(g => !pendingDelete.has(g.id));
-    const filteredGoals  = searchQuery.trim()
+    const today = new Date();
+    const visibleGoals = goals.filter(g => !pendingDelete.has(g.id));
+    const filteredGoals = searchQuery.trim()
         ? visibleGoals.filter(g => (g.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
         : visibleGoals;
-    const activeCount    = goals.length - completed;
+    const sum = goalsSummary(visibleGoals, today);
+    const groups = groupGoals(filteredGoals, today);
+    const activeCount = sum.count - sum.reachedCount;
 
     // ── Loading skeleton ──────────────────────────────────────────────────────
 
@@ -241,342 +243,380 @@ export default function GoalsPage() {
         </>
     );
 
+    // ── Rows ──────────────────────────────────────────────────────────────────
+
+    const tile = (goal: any) => (
+        <div aria-hidden="true" style={tileSt}>{goal.icon || goal.emoji || '🎯'}</div>
+    );
+
+    const deleteConfirm = (goal: any) => (
+        <div style={inset}>
+            <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete the {goal.name} goal?</span>
+            <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                <TextAction tone="danger" disabled={deletingId === goal.id} onClick={() => handleDelete(goal.id)}>Delete goal</TextAction>
+                <TextAction quiet onClick={() => setConfirmDeleteId(null)}>Keep it</TextAction>
+            </span>
+        </div>
+    );
+
+    const deleteButton = (goal: any) => (
+        <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${goal.name}`}
+            onClick={() => setConfirmDeleteId(goal.id)} disabled={!!deletingId}>
+            <Trash2 size={14} />
+        </button>
+    );
+
+    const onKeyActivate = (fn: () => void) => (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+    };
+
+    const renderGoal = (goal: any) => {
+        const saved = parseFloat(goal.saved_amount) || 0;
+        const target = parseFloat(goal.target_amount) || 0;
+        const pct = target > 0 ? Math.min((saved / target) * 100, 100) : 0;
+        const days = daysLeft(goal.deadline, today);
+        const monthly = monthlyNeeded(goal, today);
+        const confirming = confirmDeleteId === goal.id;
+        const fundsOpen = fundsGoalId === goal.id;
+        const edit = () => openEdit(goal);
+
+        const deadlineText = days === null ? 'No deadline'
+            : days < 0 ? 'Deadline passed'
+            : days === 0 ? 'Due today'
+            : `Due ${deadlineLabel(goal.deadline, today)} · ${days} ${days === 1 ? 'day' : 'days'} left`;
+        const deadlineColor = days !== null && days < 0 ? 'var(--color-exp-text)'
+            : days !== null && days > 0 && days <= 30 ? 'var(--color-warn-text)'
+            : undefined;
+
+        return (
+            <div key={goal.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} className="pressable" onClick={edit} onKeyDown={onKeyActivate(edit)} style={rowTop}>
+                        {tile(goal)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{goal.name}</p>
+                            <p style={{ ...type.meta, ...truncate, margin: 0, color: deadlineColor ?? type.meta.color }}>{deadlineText}</p>
+                            {monthly !== null && monthly > 0 && (
+                                <p style={{ ...type.meta, ...truncate, margin: 0 }}>Save {fmt(monthly)} a month to make it</p>
+                            )}
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ ...type.num, margin: 0 }}>{fmt(saved)}</p>
+                            <p style={{ ...type.numSmall, margin: 0 }}>of {fmt(target)} · {Math.floor(pct)}%</p>
+                        </div>
+                    </div>
+                    {deleteButton(goal)}
+                </div>
+
+                {confirming && deleteConfirm(goal)}
+
+                <ProgressBar pct={pct} height={4} color={goal.color || 'var(--accent)'} />
+
+                {!fundsOpen && (
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        <TextAction onClick={() => openFunds(goal.id)}>Add funds</TextAction>
+                    </div>
+                )}
+
+                {fundsOpen && (
+                    <div style={{ ...inset, alignItems: 'flex-end', padding: 'var(--space-3)', gap: 'var(--space-3)' }}>
+                        <div role="group" aria-label="Add or withdraw" style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 'var(--radius-md)' }}>
+                            {(['add', 'withdraw'] as const).map(t => (
+                                <button key={t} type="button" aria-pressed={fundsType === t} onClick={() => setFundsType(t)}
+                                    style={{ ...type.bodyStrong, height: 34, padding: '0 14px', border: 0, borderRadius: 'var(--radius-md)', cursor: 'pointer', background: fundsType === t ? 'var(--glass-fill-3)' : 'transparent', color: fundsType === t ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                    {t === 'add' ? 'Add' : 'Withdraw'}
+                                </button>
+                            ))}
+                        </div>
+                        <div style={{ width: 150 }}>
+                            <label htmlFor={`funds-${goal.id}`} style={labelSt}>Amount</label>
+                            <div style={{ position: 'relative' }}>
+                                <span aria-hidden="true" style={rupeeSt}>₹</span>
+                                <input id={`funds-${goal.id}`} type="number" min="1" placeholder="5000" autoFocus value={fundsAmount}
+                                    onChange={e => setFundsAmount(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!fundsLoading) handleAddFunds(); } }}
+                                    style={{ ...inputSt, ...type.num, paddingLeft: 30 }} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minHeight: 32 }}>
+                            <Button size="sm" onClick={handleAddFunds} isLoading={fundsLoading} disabled={!fundsAmount}>
+                                {fundsType === 'add' ? 'Add funds' : 'Withdraw'}
+                            </Button>
+                            <TextAction quiet onClick={closeFunds}>Cancel</TextAction>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderReached = (goal: any) => {
+        const target = parseFloat(goal.target_amount) || 0;
+        const confirming = confirmDeleteId === goal.id;
+        const edit = () => openEdit(goal);
+        return (
+            <div key={goal.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div role="button" tabIndex={0} className="pressable" onClick={edit} onKeyDown={onKeyActivate(edit)} style={rowTop}>
+                        {tile(goal)}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{goal.name}</p>
+                            <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>Reached · {fmt(target)}</p>
+                        </div>
+                        <p style={{ ...type.num, margin: 0, flexShrink: 0, color: 'var(--color-inc-text)' }}>100%</p>
+                    </div>
+                    {deleteButton(goal)}
+                </div>
+                {confirming && deleteConfirm(goal)}
+            </div>
+        );
+    };
+
+    const nextDays = sum.next?.daysLeft ?? 0;
+    const hasLeft = groups.attention.length > 0 || groups.progress.length > 0;
+    const hasRight = groups.reached.length > 0;
+
     return (
         <>
             {showBurst && <MilestoneBurst onDone={() => setShowBurst(false)} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── HEADER ── */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px 20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                        <div>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                                {activeCount} active goal{activeCount !== 1 ? 's' : ''}
-                            </p>
-                            <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: isMobile ? '28px' : '34px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                                Your Goals
-                            </h1>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalSaved)}</span> saved
-                                <span style={{ margin: '0 6px', color: 'var(--border-subtle)' }}>·</span>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalRemaining)}</span> remaining
-                            </p>
-                        </div>
-                        <button type="button" className="glass-field" onClick={() => { setShowForm(true); setFormError(''); }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                            <Plus size={14} /> New Goal
-                        </button>
+                {/* ── PAGE HEADER ── */}
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>
+                            {activeCount} active goal{activeCount !== 1 ? 's' : ''}{sum.reachedCount > 0 ? ` · ${sum.reachedCount} reached` : ''}
+                        </p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>Goals</h1>
+                    </div>
+                    <div className="fin-page-actions">
+                        <Button variant="secondary" onClick={openLifeEvent}>Plan a life event</Button>
+                        <Button onClick={openNewGoal}>New goal</Button>
                     </div>
                 </div>
 
-                {/* ── OVERALL PROGRESS ── */}
-                {goals.length > 0 && (
-                    <GCard>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Overall Progress</p>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 800, color: 'var(--accent)', margin: 0, fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                {overallPct}%
-                            </p>
-                        </div>
-                        <ProgressBar pct={overallPct} height={6} />
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                            {completed} of {goals.length} goal{goals.length !== 1 ? 's' : ''} completed
-                        </p>
-                    </GCard>
-                )}
-
-                {/* ── AI LIFE EVENT STRIP ── */}
-                <div
-                    onClick={() => { setShowLifeEvent(true); setLifeEventResult(null); setLifeEventError(''); }}
-                    className="glass-surface"
-                    style={{ background: 'color-mix(in srgb, var(--color-info) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--color-info) 24%, var(--glass-border))', borderRadius: 'var(--radius-lg)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
-                >
-                    <Brain size={18} color="var(--color-info)" style={{ flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 2px' }}>AI Life Event Planner</p>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Plan for weddings, travel, home, and more
-                        </p>
-                    </div>
-                    <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
-                </div>
-
-                {/* ── SEARCH ── */}
-                {!loading && goals.length > 0 && (
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Search goals by name…"
-                        style={inputSt}
-                    />
-                )}
-
-                {/* ── GOAL CARDS ── */}
                 {loading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <SkeletonCard height={150} />
                         {[1, 2, 3].map(i => <SkeletonCard key={i} height={130} />)}
                     </div>
-                ) : goals.length === 0 ? (
+                ) : visibleGoals.length === 0 ? (
                     <EmptyState
                         icon={Target}
                         title="No goals yet"
                         subtitle="Set a savings target and track your progress"
-                        action={
-                            <button type="button" onClick={() => setShowForm(true)} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                Create your first goal
-                            </button>
-                        }
-                    />
-                ) : filteredGoals.length === 0 ? (
-                    <EmptyState
-                        icon={Target}
-                        title="No goals match your search"
-                        subtitle={`Nothing found for "${searchQuery}".`}
-                        action={<button type="button" onClick={() => setSearchQuery('')} className="glass-field" style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear search</button>}
+                        action={<Button onClick={openNewGoal}>Create your first goal</Button>}
                     />
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {filteredGoals.map(goal => {
-                            const saved     = parseFloat(goal.saved_amount);
-                            const target    = parseFloat(goal.target_amount);
-                            const pct       = Math.min((saved / target) * 100, 100);
-                            const isComplete = saved >= target;
-                            const days      = daysRemaining(goal.deadline);
-                            const remaining = Math.max(target - saved, 0);
-                            const monthly   = goal.deadline && days && days > 0 ? remaining / Math.max(days / 30, 1) : null;
+                    <>
+                        {/* ── SUMMARY ── */}
+                        <Card>
+                            <p style={{ ...type.label, margin: 0 }}>Saved toward {fmt(sum.totalTarget)} in goals</p>
+                            <p className="type-display" style={{ ...type.display, margin: '6px 0 12px' }}>{fmt(sum.totalSaved)}</p>
+                            <ProgressBar pct={sum.pct} height={6} color="var(--text-secondary)" />
+                            <div className="dash-stats">
+                                <Stat className="dash-stat" label="To go" value={fmt(sum.toGo)} sub={`${sum.pct}% saved`} />
+                                <Stat className="dash-stat" label="Needed a month"
+                                    value={sum.neededMonthly > 0 ? fmt(sum.neededMonthly) : '—'}
+                                    sub={sum.neededMonthly > 0 ? 'For goals with a deadline' : 'No deadlines set'} />
+                                <Stat className="dash-stat" label="Next deadline"
+                                    value={sum.next ? sum.next.label : '—'}
+                                    sub={sum.next ? `${sum.next.name}, ${nextDays} ${nextDays === 1 ? 'day' : 'days'}` : 'Nothing due'}
+                                    subTone={sum.next && nextDays <= 60 ? 'caution' : 'neutral'} />
+                                <Stat className="dash-stat" label="Reached" value={sum.reachedCount}
+                                    sub={`of ${sum.count} ${sum.count === 1 ? 'goal' : 'goals'}`} />
+                            </div>
+                        </Card>
 
-                            const ringColor = isComplete ? 'var(--color-inc)' : (goal.color || 'var(--accent)');
+                        {/* ── SEARCH ── */}
+                        {goals.length > 5 && (
+                            <input
+                                type="text"
+                                aria-label="Search goals"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search goals"
+                                style={{ ...inputSt, height: 36 }}
+                            />
+                        )}
 
-                            return (
-                                <div key={goal.id} className="glass-surface" style={{ borderColor: isComplete ? 'color-mix(in srgb, var(--color-inc) 25%, var(--glass-border))' : undefined, borderRadius: 'var(--radius-lg)', padding: '16px' }}>
-                                    {/* Top row: ring | emoji + name + deadline */}
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
-                                        <CircularProgress pct={pct} color={ringColor} />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '3px' }}>
-                                                <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>
-                                                    {goal.icon || goal.emoji || '🎯'}
-                                                </span>
-                                                <span style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {goal.name}
-                                                </span>
-                                                {isComplete && (
-                                                    <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--color-inc) 10%, transparent)">✓ Done</Badge>
-                                                )}
-                                            </div>
-                                            {days !== null && (
-                                                <span style={{ fontSize: '11px', color: days <= 30 && days > 0 ? 'var(--color-warn)' : 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                    📅 {days > 0 ? `${days} days left` : days === 0 ? 'Due today' : 'Deadline passed'}
-                                                </span>
-                                            )}
-                                            {monthly !== null && monthly > 0 && (
-                                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                    Save {fmt(monthly)}/month to hit target
-                                                </p>
-                                            )}
-                                        </div>
+                        {/* ── GROUPS ── */}
+                        {filteredGoals.length === 0 ? (
+                            <EmptyState
+                                icon={Target}
+                                title="No goals match your search"
+                                subtitle={`Nothing found for "${searchQuery}".`}
+                                action={<Button variant="secondary" onClick={() => setSearchQuery('')}>Clear search</Button>}
+                            />
+                        ) : (
+                            <div className={hasLeft && hasRight ? 'fin-two' : undefined}>
+                                {hasLeft && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                                        {groups.attention.length > 0 && (
+                                            <Card>
+                                                <CardHeader title="Needs attention" sub="Due within 60 days and under half saved" />
+                                                <Rows>{groups.attention.map(renderGoal)}</Rows>
+                                            </Card>
+                                        )}
+                                        {groups.progress.length > 0 && (
+                                            <Card>
+                                                <CardHeader title="In progress" sub="Soonest deadline first" />
+                                                <Rows>{groups.progress.map(renderGoal)}</Rows>
+                                            </Card>
+                                        )}
                                     </div>
-
-                                    {/* Footer */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                                        <div>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                                                Saved {fmt(saved)}
-                                            </span>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                {' '}of {fmt(target)}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                            {!isComplete && (
-                                                <button type="button" onClick={() => { setFundsGoalId(goal.id); setFundsType('add'); }} style={outlineBtn}>
-                                                    + Add Funds
-                                                </button>
-                                            )}
-                                            <button type="button" onClick={() => { setEditingId(goal.id); setEditForm({ name: goal.name, target_amount: String(goal.target_amount), deadline: goal.deadline ? goal.deadline.split('T')[0] : '', color: goal.color || '#2563eb' }); setEditError(''); }} style={iconBtn}>
-                                                <Pencil size={13} />
-                                            </button>
-                                            {confirmDeleteId === goal.id ? (
-                                                <div style={{ display: 'flex', gap: '4px' }}>
-                                                    <button type="button" onClick={() => handleDelete(goal.id)} disabled={deletingId === goal.id} style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                        {deletingId === goal.id ? '…' : 'Delete'}
-                                                    </button>
-                                                    <button type="button" onClick={() => setConfirmDeleteId(null)} className="glass-field" style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                        Cancel
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <button type="button" onClick={() => setConfirmDeleteId(goal.id)} disabled={!!deletingId} style={iconBtn}
-                                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'color-mix(in srgb, var(--color-exp) 10%, transparent)'; el.style.color = 'var(--color-exp)'; }}
-                                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'var(--text-muted)'; }}>
-                                                    <Trash2 size={13} />
-                                                </button>
-                                            )}
-                                        </div>
+                                )}
+                                {hasRight && (
+                                    <div style={{ minWidth: 0 }}>
+                                        <Card>
+                                            <CardHeader title="Reached" sub="Fully funded" />
+                                            <Rows>{groups.reached.map(renderReached)}</Rows>
+                                        </Card>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
 
             </div>
 
             {/* ═══ MODALS ═══ */}
 
-            {/* New Goal Modal */}
-            <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} title="New Goal" maxWidth="460px"
+            {/* New goal */}
+            <Modal isOpen={showForm} onClose={closeNewGoal} title="New goal" maxWidth="460px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowForm(false); setFormError(''); setFormErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="new-goal-form" disabled={formLoading || !form.name.trim() || !form.target_amount} style={{ padding: 10, background: formLoading || !form.name.trim() || !form.target_amount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {formLoading ? 'Creating…' : 'Create Goal'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={closeNewGoal}>Cancel</Button>
+                        <Button type="submit" form="new-goal-form" isLoading={formLoading} disabled={formLoading || !form.name.trim() || !form.target_amount}>Create goal</Button>
                     </div>
                 }
             >
                 <form id="new-goal-form" onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div>
-                        <label style={labelSt}>Goal Name *</label>
-                        <input style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. New Laptop, Emergency Fund…" required />
+                        <label htmlFor="new-goal-name" style={labelSt}>Name</label>
+                        <input id="new-goal-name" style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. New laptop, Emergency fund" required />
                         {formErrors.name && <p style={errSt}>{formErrors.name}</p>}
                     </div>
                     <div>
-                        <label style={labelSt}>Target Amount *</label>
+                        <label htmlFor="new-goal-target" style={labelSt}>Target amount</label>
                         <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>₹</span>
-                            <input type="number" min="1" placeholder="100000" value={form.target_amount} onChange={e => handleFieldChange('target_amount', e.target.value)} onBlur={() => handleFieldBlur('target_amount')} required style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 15, fontVariantNumeric: 'tabular-nums' }} />
+                            <span aria-hidden="true" style={rupeeSt}>₹</span>
+                            <input id="new-goal-target" type="number" min="1" placeholder="100000" value={form.target_amount} onChange={e => handleFieldChange('target_amount', e.target.value)} onBlur={() => handleFieldBlur('target_amount')} required style={{ ...inputSt, ...type.num, paddingLeft: 30 }} />
                         </div>
                         {formErrors.target_amount && <p style={errSt}>{formErrors.target_amount}</p>}
                     </div>
-                    <DatePicker label="Target Date (optional)" value={form.deadline} onChange={date => setForm({ ...form, deadline: date })} minDate={new Date().toISOString().split('T')[0]} />
+                    <DatePicker label="Target date (optional)" value={form.deadline} onChange={date => setForm({ ...form, deadline: date })} minDate={new Date().toISOString().split('T')[0]} />
                     <div>
-                        <label style={labelSt}>Color</label>
+                        <span style={labelSt}>Colour</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {GOAL_COLORS.map(color => (
-                                <button key={color} type="button" onClick={() => setForm({ ...form, color })} style={{ width: 28, height: 28, borderRadius: '50%', background: color, border: form.color === color ? '3px solid var(--text-primary)' : '3px solid transparent', cursor: 'pointer' }} />
+                                <button key={color} type="button" aria-label={`Colour ${color}`} aria-pressed={form.color === color} onClick={() => setForm({ ...form, color })} style={{ width: 28, height: 28, borderRadius: '50%', background: color, border: form.color === color ? '3px solid var(--text-primary)' : '3px solid transparent', cursor: 'pointer' }} />
                             ))}
                         </div>
                     </div>
-                    {formError && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{formError}</p>}
+                    {formError && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{formError}</p>}
                 </form>
             </Modal>
 
-            {/* Edit Goal Modal */}
-            <Modal isOpen={!!editingId} onClose={() => { setEditingId(null); setEditError(''); }} title="Edit Goal" maxWidth="460px"
+            {/* Edit goal */}
+            <Modal isOpen={!!editingId} onClose={closeEdit} title="Edit goal" maxWidth="460px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setEditingId(null); setEditError(''); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="edit-goal-form" disabled={editLoading} style={{ padding: 10, background: editLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: editLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {editLoading ? 'Saving…' : 'Save Changes'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={closeEdit}>Cancel</Button>
+                        <Button type="submit" form="edit-goal-form" isLoading={editLoading} disabled={editLoading}>Save changes</Button>
                     </div>
                 }
             >
                 <form id="edit-goal-form" onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div><label style={labelSt}>Goal Name *</label><input style={inputSt} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required /></div>
                     <div>
-                        <label style={labelSt}>Target Amount *</label>
+                        <label htmlFor="edit-goal-name" style={labelSt}>Name</label>
+                        <input id="edit-goal-name" style={inputSt} value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required />
+                    </div>
+                    <div>
+                        <label htmlFor="edit-goal-target" style={labelSt}>Target amount</label>
                         <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>₹</span>
-                            <input type="number" min="1" value={editForm.target_amount} onChange={e => setEditForm({ ...editForm, target_amount: e.target.value })} required style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 15, fontVariantNumeric: 'tabular-nums' }} />
+                            <span aria-hidden="true" style={rupeeSt}>₹</span>
+                            <input id="edit-goal-target" type="number" min="1" value={editForm.target_amount} onChange={e => setEditForm({ ...editForm, target_amount: e.target.value })} required style={{ ...inputSt, ...type.num, paddingLeft: 30 }} />
                         </div>
                     </div>
                     <DatePicker label="Deadline (optional)" value={editForm.deadline} onChange={date => setEditForm({ ...editForm, deadline: date })} minDate={new Date().toISOString().split('T')[0]} />
                     <div>
-                        <label style={labelSt}>Color</label>
+                        <span style={labelSt}>Colour</span>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             {GOAL_COLORS.map(color => (
-                                <button key={color} type="button" onClick={() => setEditForm({ ...editForm, color })} style={{ width: 28, height: 28, borderRadius: '50%', background: color, border: editForm.color === color ? '3px solid var(--text-primary)' : '3px solid transparent', cursor: 'pointer' }} />
+                                <button key={color} type="button" aria-label={`Colour ${color}`} aria-pressed={editForm.color === color} onClick={() => setEditForm({ ...editForm, color })} style={{ width: 28, height: 28, borderRadius: '50%', background: color, border: editForm.color === color ? '3px solid var(--text-primary)' : '3px solid transparent', cursor: 'pointer' }} />
                             ))}
                         </div>
                     </div>
-                    {editError && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{editError}</p>}
+                    {editError && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{editError}</p>}
                 </form>
-            </Modal>
-
-            {/* Add Funds Modal */}
-            <Modal isOpen={!!fundsGoalId} onClose={() => { setFundsGoalId(null); setFundsAmount(''); setFundsType('add'); }} title="Update Savings" maxWidth="360px"
-                footer={
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setFundsGoalId(null); setFundsAmount(''); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="button" onClick={handleAddFunds} disabled={fundsLoading || !fundsAmount} style={{ padding: 10, background: fundsLoading || !fundsAmount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: fundsLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {fundsLoading ? 'Saving…' : 'Confirm'}
-                        </button>
-                    </div>
-                }
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-                    {(['add', 'withdraw'] as const).map(t => (
-                        <button key={t} type="button" onClick={() => setFundsType(t)}
-                            className={fundsType === t ? undefined : 'glass-field'}
-                            style={{ padding: '10px', borderRadius: '10px', border: fundsType === t ? `1px solid ${t === 'add' ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'color-mix(in srgb, var(--color-exp) 30%, transparent)'}` : undefined, background: fundsType === t ? (t === 'add' ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)') : undefined, color: fundsType === t ? (t === 'add' ? 'var(--color-inc)' : 'var(--color-exp)') : 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
-                            {t === 'add' ? '+ Add Funds' : '− Withdraw'}
-                        </button>
-                    ))}
+                <div style={{ marginTop: 'var(--space-4)' }}>
+                    {editConfirmDelete ? (
+                        <div style={inset}>
+                            <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete this goal?</span>
+                            <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                                <TextAction tone="danger" onClick={() => { const id = editingId!; closeEdit(); handleDelete(id); }}>Delete goal</TextAction>
+                                <TextAction quiet onClick={() => setEditConfirmDelete(false)}>Keep it</TextAction>
+                            </span>
+                        </div>
+                    ) : (
+                        <TextAction tone="danger" onClick={() => setEditConfirmDelete(true)}>Delete goal</TextAction>
+                    )}
                 </div>
-                <Input label="Amount (₹)" type="number" placeholder="5000" min="1" value={fundsAmount} onChange={e => setFundsAmount(e.target.value)} />
             </Modal>
 
-            {/* AI Life Event Modal */}
-            <Modal isOpen={showLifeEvent} onClose={() => setShowLifeEvent(false)} title="Plan a Life Event" maxWidth="500px">
+            {/* Life event planner */}
+            <Modal isOpen={showLifeEvent} onClose={() => setShowLifeEvent(false)} title="Plan a life event" maxWidth="500px">
                 {!lifeEventResult ? (
                     <form onSubmit={handleLifeEvent} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div>
-                            <label style={labelSt}>Life Event Type</label>
+                            <span style={labelSt}>Life event type</span>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                                {[
-                                    { type: 'wedding', emoji: '💍', label: 'Wedding' },
-                                    { type: 'bike', emoji: '🏍️', label: 'Bike' },
-                                    { type: 'vacation', emoji: '✈️', label: 'Vacation' },
-                                    { type: 'home', emoji: '🏠', label: 'Home' },
-                                    { type: 'baby', emoji: '👶', label: 'Baby' },
-                                    { type: 'education', emoji: '🎓', label: 'Education' },
-                                    { type: 'car', emoji: '🚗', label: 'Car' },
-                                    { type: 'business', emoji: '💼', label: 'Business' },
-                                    { type: 'emergency', emoji: '🛡️', label: 'Emergency' },
-                                ].map(ev => (
-                                    <button key={ev.type} type="button" onClick={() => setLifeEventForm({ ...lifeEventForm, event_type: ev.type })}
-                                        className={lifeEventForm.event_type === ev.type ? undefined : 'glass-field'}
-                                        style={{ padding: '12px 8px', borderRadius: 12, border: lifeEventForm.event_type === ev.type ? '2px solid var(--accent)' : undefined, background: lifeEventForm.event_type === ev.type ? 'var(--accent-subtle)' : undefined, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.15s' }}>
-                                        <span style={{ fontSize: '1.4rem' }}>{ev.emoji}</span>
-                                        <span style={{ fontSize: '0.72rem', color: lifeEventForm.event_type === ev.type ? 'var(--accent)' : 'var(--text-secondary)', fontWeight: lifeEventForm.event_type === ev.type ? 600 : 400, fontFamily: 'var(--font-body)' }}>{ev.label}</span>
-                                    </button>
-                                ))}
+                                {LIFE_EVENTS.map(ev => {
+                                    const selected = lifeEventForm.event_type === ev.type;
+                                    return (
+                                        <button key={ev.type} type="button" aria-pressed={selected} onClick={() => setLifeEventForm({ ...lifeEventForm, event_type: ev.type })}
+                                            className={selected ? undefined : 'glass-field'}
+                                            style={{ padding: '12px 8px', borderRadius: 'var(--radius-md)', border: selected ? '1px solid var(--border-visible)' : undefined, background: selected ? 'var(--glass-fill-3)' : undefined, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                            <span aria-hidden="true" style={{ fontSize: 'var(--text-heading)', lineHeight: 1 }}>{ev.emoji}</span>
+                                            <span style={{ ...type.label, color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{ev.label}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             <div>
-                                <label style={labelSt}>Target Amount (₹)</label>
+                                <label htmlFor="life-event-target" style={labelSt}>Target amount</label>
                                 <div style={{ position: 'relative' }}>
-                                    <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 14 }}>₹</span>
-                                    <input type="number" min="1" placeholder="500000" value={lifeEventForm.target_amount} onChange={e => setLifeEventForm({ ...lifeEventForm, target_amount: e.target.value })} required style={{ ...inputSt, paddingLeft: 30, fontFamily: 'var(--font-mono)' }} />
+                                    <span aria-hidden="true" style={rupeeSt}>₹</span>
+                                    <input id="life-event-target" type="number" min="1" placeholder="500000" value={lifeEventForm.target_amount} onChange={e => setLifeEventForm({ ...lifeEventForm, target_amount: e.target.value })} required style={{ ...inputSt, ...type.num, paddingLeft: 30 }} />
                                 </div>
                             </div>
-                            <DatePicker label="Target Date" value={lifeEventForm.target_date} onChange={date => setLifeEventForm({ ...lifeEventForm, target_date: date })} required minDate={new Date().toISOString().split('T')[0]} />
+                            <DatePicker label="Target date" value={lifeEventForm.target_date} onChange={date => setLifeEventForm({ ...lifeEventForm, target_date: date })} required minDate={new Date().toISOString().split('T')[0]} />
                         </div>
-                        {lifeEventError && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{lifeEventError}</p>}
-                        <Button type="submit" isLoading={lifeEventLoading} size="lg">✨ Generate Plan</Button>
+                        {lifeEventError && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{lifeEventError}</p>}
+                        <Button type="submit" isLoading={lifeEventLoading} size="lg">Generate plan</Button>
                     </form>
                 ) : (
                     <div>
-                        <div style={{ padding: 16, background: lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 10%, var(--glass-surface))' : 'color-mix(in srgb, var(--color-warn) 10%, var(--glass-surface))', borderColor: lifeEventResult.plan?.is_achievable ? 'color-mix(in srgb, var(--color-inc) 24%, var(--glass-border))' : 'color-mix(in srgb, var(--color-warn) 24%, var(--glass-border))', borderRadius: 12, marginBottom: 16 }} className="glass-surface">
-                            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: '0 0 8px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{lifeEventResult.plan?.summary}</p>
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(lifeEventResult.plan?.monthly_required || 0)}/month needed</span>
-                                <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{lifeEventResult.plan?.difficulty}</Badge>
+                        <div style={{ padding: 'var(--space-4)', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
+                            <p style={{ ...type.body, margin: '0 0 8px' }}>{lifeEventResult.plan?.summary}</p>
+                            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'baseline' }}>
+                                <span style={type.num}>{fmt(lifeEventResult.plan?.monthly_required || 0)} a month needed</span>
+                                {lifeEventResult.plan?.difficulty && <span style={type.meta}>{lifeEventResult.plan.difficulty}</span>}
                             </div>
                         </div>
                         {lifeEventResult.plan?.milestones?.length > 0 && (
                             <div style={{ marginBottom: 16 }}>
-                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Key Milestones</p>
+                                <p style={{ ...type.label, margin: '0 0 8px' }}>Key milestones</p>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {lifeEventResult.plan.milestones.map((m: any, i: number) => (
-                                        <div key={i} className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8 }}>
-                                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', minWidth: 50, fontFamily: 'var(--font-body)' }}>Month {m.month}</span>
-                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', flex: 1, fontFamily: 'var(--font-body)' }}>{m.label}</span>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-inc)', fontVariantNumeric: 'tabular-nums' }}>{fmt(m.target_saved || 0)}</span>
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                                            <span style={{ ...type.meta, minWidth: 60 }}>Month {m.month}</span>
+                                            <span style={{ ...type.body, color: 'var(--text-primary)', flex: 1 }}>{m.label}</span>
+                                            <span style={type.num}>{fmt(m.target_saved || 0)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -584,17 +624,17 @@ export default function GoalsPage() {
                         )}
                         {lifeEventResult.plan?.tips?.length > 0 && (
                             <div style={{ marginBottom: 16 }}>
-                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Tips</p>
+                                <p style={{ ...type.label, margin: '0 0 8px' }}>Tips</p>
                                 {lifeEventResult.plan.tips.map((tip: string, i: number) => (
-                                    <p key={i} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>💡 {tip}</p>
+                                    <p key={i} style={{ ...type.body, margin: '0 0 4px' }}>{tip}</p>
                                 ))}
                             </div>
                         )}
-                        <p style={{ fontSize: '0.78rem', color: 'var(--color-inc)', margin: '0 0 16px', fontFamily: 'var(--font-body)' }}>
-                            ✅ Goal &quot;{lifeEventResult.goal?.name}&quot; has been created automatically.
+                        <p style={{ ...type.meta, margin: '0 0 16px' }}>
+                            Goal &quot;{lifeEventResult.goal?.name}&quot; has been created.
                         </p>
                         <div style={{ display: 'flex', gap: 8 }}>
-                            <Button onClick={() => { setLifeEventResult(null); setLifeEventForm({ event_type: '', target_amount: '', target_date: '' }); }} variant="secondary" size="md">Plan Another</Button>
+                            <Button onClick={() => { setLifeEventResult(null); setLifeEventForm({ event_type: '', target_amount: '', target_date: '' }); }} variant="secondary" size="md">Plan another</Button>
                             <Button onClick={() => setShowLifeEvent(false)} size="md">Done</Button>
                         </div>
                     </div>
