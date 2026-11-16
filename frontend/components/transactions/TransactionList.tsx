@@ -7,7 +7,9 @@ import { transactionsAPI } from '@/lib/api';
 import { removeTransactionsFromCache } from '@/hooks/queries';
 import { toast } from '@/store/toastStore';
 import { useAuthStore } from '@/store/authStore';
-import { formatCurrency, formatDate, getCategoryColor, getCategoryBg, getSmartIcon } from '@/lib/utils';
+import { formatCurrency, formatDate, getSmartIcon } from '@/lib/utils';
+import { TextAction } from '@/components/ui/CardParts';
+import { type, truncate } from '@/lib/typography';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useIsMobile } from '@/hooks/useWindowSize';
@@ -154,10 +156,10 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
                         dense fill as the bottom nav, so rows scrolling underneath stay
                         unreadable instead of bleeding through the label. */}
                     <div style={{ position: 'sticky', top: 'var(--sa-top)', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: 'var(--space-3) var(--space-5) 6px', background: 'var(--glass-nav-surface)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+                        <span style={{ ...type.label, whiteSpace: 'nowrap' }}>{label}</span>
                         <div style={{ flex: 1, height: '1px', background: 'var(--border-subtle)' }} />
-                        <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                            net {groupNet >= 0 ? '+' : '−'}{fmt(Math.abs(groupNet))}
+                        <span style={{ ...type.numSmall, whiteSpace: 'nowrap' }}>
+                            {groupNet >= 0 ? '+' : '−'}{fmt(Math.abs(groupNet))}
                         </span>
                     </div>
                     {visibleTxs.map(tx => (
@@ -185,6 +187,35 @@ export function TransactionList({ transactions, currency = 'INR', onEdit, onRefr
     );
 }
 
+/** One metadata line: category, payment, group, split, recurring, then tags. */
+function rowMeta(tx: Transaction, isIncome: boolean): string {
+    const parts: string[] = [tx.category_name || 'Uncategorised'];
+    if (!isIncome && tx.payment_method && tx.payment_method !== 'Cash') parts.push(tx.payment_method);
+    if (tx.group_name) parts.push(tx.group_name);
+    if ((tx as { is_split?: boolean }).is_split) parts.push('split');
+    if (tx.recurring_id) parts.push('recurring');
+    (tx.tags || []).forEach(tag => parts.push(tag));
+    return parts.join(' · ');
+}
+
+function MetaLine({ tx, isIncome }: { tx: Transaction; isIncome: boolean }) {
+    return (
+        <p style={{ ...type.meta, ...truncate, margin: 0 }}>
+            {rowMeta(tx, isIncome)}
+            {tx._pending && <span style={{ color: 'var(--color-warn-text)' }}>{' · Not synced yet'}</span>}
+        </p>
+    );
+}
+
+function Amount({ tx, text }: { tx: Transaction; text: string }) {
+    const isIncome = tx.type === 'income';
+    return (
+        <span style={{ ...type.num, color: isIncome ? 'var(--color-inc-text)' : 'var(--text-primary)', flexShrink: 0 }}>
+            {isIncome ? '+' : '−'}{text}
+        </span>
+    );
+}
+
 interface RowProps {
     tx: Transaction;
     isMobile: boolean;
@@ -209,14 +240,9 @@ const TransactionRow = memo(function TransactionRow({
     onEdit, onToggleSelect, onDelete, onConfirm, onCancelConfirm,
 }: RowProps) {
     const isIncome = tx.type === 'income';
-    const categoryColor = tx.category_color || getCategoryColor(tx.category_name);
 
     if (isMobile) {
         // ── Mobile row (two-line: icon+description+amount / category+payment-or-tags) ──
-        const hasCategory = !!tx.category_name;
-        const paymentChip = !isIncome && tx.payment_method && tx.payment_method !== 'Cash' ? tx.payment_method : null;
-        const rowTags: string[] = (tx.tags || []).slice(0, 2);
-
         const mobileRowInner = (
             <div
                 className="pressable"
@@ -232,7 +258,7 @@ const TransactionRow = memo(function TransactionRow({
                 alignItems: 'center',
                 padding: '12px 16px',
                 borderBottom: '1px solid var(--glass-border)',
-                background: isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                background: isSelected ? 'var(--glass-fill-2)' : 'transparent',
                 minHeight: '64px',
                 cursor: 'pointer',
                 transition: 'background var(--transition-fast)',
@@ -253,7 +279,7 @@ const TransactionRow = memo(function TransactionRow({
                         width: 36,
                         height: 36,
                         borderRadius: '50%',
-                        background: getCategoryBg(tx.category_name),
+                        background: 'var(--glass-fill-1)',
                         flexShrink: 0,
                         marginRight: 12,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -266,42 +292,14 @@ const TransactionRow = memo(function TransactionRow({
                 <div style={{ flex: 1, minWidth: 0 }}>
                     {/* Line 1: description + amount */}
                     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
-                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)', minWidth: 0 }}>
-                            {tx.description}
-                        </span>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                            {isIncome ? '+' : '−'}{fmt(toAmount(tx.amount))}
-                        </span>
+                        <span style={{ ...type.bodyStrong, ...truncate, minWidth: 0 }}>{tx.description}</span>
+                        <Amount tx={tx} text={fmt(toAmount(tx.amount))} />
                     </div>
-                    {/* Line 2: category + payment/tags, or an amber "Uncategorised" flag */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: 3, overflow: 'hidden' }}>
-                        {hasCategory ? (
-                            <>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: categoryColor, flexShrink: 0 }} />
-                                <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {tx.category_name}
-                                </span>
-                                {paymentChip && (
-                                    <span style={{ fontSize: '10px', fontWeight: 500, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                                        {paymentChip}
-                                    </span>
-                                )}
-                                {rowTags.map(tag => (
-                                    <span key={tag} style={{ fontSize: '10px', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', padding: '1px 6px', borderRadius: '8px', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', flexShrink: 0 }}>#{tag}</span>
-                                ))}
-                            </>
-                        ) : (
-                            <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-warn)', background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
-                                Uncategorised
-                            </span>
-                        )}
+                    {/* Line 2: one metadata line */}
+                    <div style={{ marginTop: 2 }}>
+                        <MetaLine tx={tx} isIncome={isIncome} />
                     </div>
                 </div>
-                {tx._pending && (
-                    <span style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 6, flexShrink: 0 }}>
-                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', animation: 'pulseDot 1.2s ease-in-out infinite' }} />
-                    </span>
-                )}
             </div>
         );
 
@@ -331,10 +329,9 @@ const TransactionRow = memo(function TransactionRow({
                 onKeyDown={selectMode ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleSelect(tx.id); } }) : undefined}
                 style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 20px 12px 14px', borderBottom: '1px solid var(--glass-border)',
-                    borderLeft: `3px solid ${isSelected ? 'var(--accent)' : categoryColor}`,
+                    padding: '12px 20px', borderBottom: '1px solid var(--glass-border)',
                     gap: '12px', transition: 'background var(--transition-fast)',
-                    background: isSelected ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent',
+                    background: isSelected ? 'var(--glass-fill-2)' : 'transparent',
                     cursor: selectMode ? 'pointer' : 'default',
                 }}
                 onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
@@ -352,53 +349,33 @@ const TransactionRow = memo(function TransactionRow({
                     </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: getCategoryBg(tx.category_name), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px' }}>
                         {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
                     </div>
-                    <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
-                            {tx.category_name && <span style={{ fontSize: '0.68rem', color: tx.category_color || 'var(--text-muted)', background: `color-mix(in srgb, ${tx.category_color || 'var(--text-muted)'} 15%, transparent)`, padding: '1px 6px', borderRadius: '4px', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
-                            {!isIncome && tx.payment_method && tx.payment_method !== 'Cash' && (
-                                <span style={{ fontSize: '0.65rem', fontWeight: 500, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.payment_method}</span>
-                            )}
-                            {tx.group_name && <span style={{ fontSize: '0.65rem', fontWeight: 600, background: 'color-mix(in srgb, var(--accent) 15%, transparent)', color: 'var(--accent)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{tx.group_name}</span>}
-                            {(tx.tags || []).map((tag: string) => (
-                                <span key={tag} style={{ fontSize: '0.68rem', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', border: '1px solid var(--accent-border)', padding: '1px 6px', borderRadius: '10px', fontFamily: 'var(--font-body)' }}>#{tag}</span>
-                            ))}
-                        </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                        <MetaLine tx={tx} isIncome={isIncome} />
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem', fontWeight: 700, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                        {isIncome ? '+' : '−'}{formatCurrency(toAmount(tx.amount), currency)}
-                    </p>
-                    {tx._pending ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-body)' }}>
-                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-warn)', display: 'inline-block', animation: 'pulseDot 1.2s ease-in-out infinite', flexShrink: 0 }} />
-                            Pending
-                        </span>
-                    ) : (
+                    <Amount tx={tx} text={formatCurrency(toAmount(tx.amount), currency)} />
+                    {tx._pending ? null : (
                         <>
                             <button onClick={() => onEdit(tx)} style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color var(--transition-fast), color var(--transition-fast)' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-1)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
                                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
                                 <Pencil size={13} />
                             </button>
                             {isConfirm ? (
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    <button onClick={() => onDelete(tx.id)} disabled={isDeleting}
-                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                                    <TextAction tone="danger" onClick={() => onDelete(tx.id)} disabled={isDeleting}>
                                         {isDeleting ? '...' : 'Delete'}
-                                    </button>
-                                    <button onClick={onCancelConfirm}
-                                        style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'var(--glass-fill-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        Cancel
-                                    </button>
+                                    </TextAction>
+                                    <TextAction quiet onClick={onCancelConfirm}>Cancel</TextAction>
                                 </div>
                             ) : (
                                 <button onClick={() => onConfirm(tx.id)} style={{ minWidth: '30px', height: '30px', borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background-color var(--transition-fast), color var(--transition-fast)' }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--color-exp-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'; }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-1)'; (e.currentTarget as HTMLElement).style.color = 'var(--color-exp-text)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}>
                                     <Trash2 size={13} />
                                 </button>

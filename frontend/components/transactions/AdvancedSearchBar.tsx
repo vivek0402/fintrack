@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { Search, X, SlidersHorizontal, Bookmark, Clock, ChevronDown, ChevronLeft, MoreHorizontal, Check } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { TextAction } from '@/components/ui/CardParts';
+import { type } from '@/lib/typography';
 import { PanelFilters, DEFAULT_PANEL, applyAdvancedFilters, countActiveFilters } from '@/lib/transactionFilters';
 
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'];
@@ -40,12 +42,16 @@ interface Props {
     // Lets an external top bar mirror the active-filter-count badge on its
     // own filter icon when hideTriggers suppresses this component's own one.
     onActiveFilterCountChange?: (n: number) => void;
+    // Always render the search field (no collapsed icon, no back chevron).
+    alwaysShowSearch?: boolean;
+    // Rendered after the search field in the same row (wraps on narrow screens).
+    trailing?: React.ReactNode;
 }
 
 const LS_VIEWS = 'fintrack-saved-views';
 const SS_HIST  = 'fintrack-search-history';
 
-export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [], onRegisterClearAll, hideTriggers = false, onRegisterOpenSearch, onRegisterOpenFilter, onActiveFilterCountChange }: Props) {
+export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, initialQuery = '', accounts = [], extraChips = [], onRegisterClearAll, hideTriggers = false, onRegisterOpenSearch, onRegisterOpenFilter, onActiveFilterCountChange, alwaysShowSearch = false, trailing }: Props) {
     const isMobile = useIsMobile();
 
     const [inputValue, setInputValue]     = useState(initialQuery);
@@ -62,6 +68,8 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
     const [catOpen, setCatOpen]           = useState(false);
     const [mounted, setMounted]           = useState(false);
     const [searchExpanded, setSearchExpanded] = useState(!!initialQuery.trim());
+    const [searchFocused, setSearchFocused]   = useState(false);
+    const showSearch = alwaysShowSearch || searchExpanded;
 
     const inputRef  = useRef<HTMLInputElement>(null);
     const panelRef  = useRef<HTMLDivElement>(null);
@@ -230,6 +238,18 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
         fontSize: '13px', fontWeight: active ? 600 : 400,
         fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', flexShrink: 0,
     });
+
+    const chipS: React.CSSProperties = {
+        ...type.label, color: 'var(--text-primary)',
+        display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)',
+        height: 28, padding: '0 4px 0 12px', borderRadius: 'var(--radius-full)',
+        background: 'var(--glass-fill-2)', border: 'none', flexShrink: 0, whiteSpace: 'nowrap',
+    };
+    const chipXS: React.CSSProperties = {
+        width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'none',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 0, color: 'var(--text-secondary)',
+    };
 
     const labelS: React.CSSProperties = {
         fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)',
@@ -428,9 +448,9 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
             <div style={{ position: 'relative' }}>
 
             {/* ── Search icon (collapsed) / search input (expanded) + filter icon ── */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: alwaysShowSearch ? 'wrap' : undefined }}>
 
-                {!searchExpanded ? (
+                {!showSearch ? (
                     !hideTriggers && (
                     <button type="button" onClick={() => { setSearchExpanded(true); setTimeout(() => inputRef.current?.focus(), 30); }}
                         title="Search"
@@ -445,6 +465,36 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                         <Search size={18} />
                     </button>
                     )
+                ) : alwaysShowSearch ? (
+                    <div
+                        style={{
+                            position: 'relative', flex: '1 1 220px', minWidth: 0,
+                            display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                            padding: '0 var(--space-3)', height: 36,
+                            background: 'var(--glass-fill-1)',
+                            border: `1px solid ${searchFocused ? 'var(--border-visible)' : 'var(--glass-border)'}`,
+                            borderRadius: 'var(--radius-md)',
+                        }}
+                    >
+                        <Search size={14} color="var(--text-secondary)" style={{ flexShrink: 0 }} />
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            aria-label="Search transactions"
+                            value={inputValue}
+                            onChange={e => setInputValue(e.target.value)}
+                            placeholder="Search transactions"
+                            onFocus={() => { setSearchFocused(true); if (!inputValue.trim()) setHistoryOpen(true); }}
+                            onBlur={() => { setSearchFocused(false); handleInputBlur(); }}
+                            style={{ ...type.body, flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', padding: 0 }}
+                        />
+                        {inputValue && (
+                            <button type="button" onClick={() => setInputValue('')} aria-label="Clear search"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', padding: '4px', flexShrink: 0 }}>
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
                 ) : (
                     <div
                         style={{
@@ -482,6 +532,8 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     </div>
                 )}
 
+                {trailing}
+
                 {!hideTriggers && (
                 <button type="button" onClick={() => setPanelOpen(o => !o)} title="Filters"
                     style={{
@@ -518,7 +570,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     borderRadius: 'var(--radius-md)',
                     zIndex: 200, overflow: 'hidden',
                 }}>
-                    <div style={{ padding: '8px 12px 4px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ ...type.label, padding: '8px 12px 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Clock size={10} /> Recent searches
                     </div>
                     {history.map((h, i) => (
@@ -557,36 +609,27 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
             {/* ── Active filter summary row ─────────────────────────────────────── */}
             {(summaryChips.length > 0 || extraChips.length > 0) && (
-                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '2px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollbarWidth: 'none', alignItems: 'center' }}>
                     {extraChips.map((chip, i) => (
-                        <span key={`extra-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', fontSize: '12px', color: 'var(--accent)', fontFamily: 'var(--font-body)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        <span key={`extra-${i}`} style={chipS}>
                             {chip.label}
-                            <button type="button" onClick={chip.onClear}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--accent)', lineHeight: 0 }}>
-                                <X size={10} />
+                            <button type="button" onClick={chip.onClear} aria-label={`Remove ${chip.label} filter`} style={chipXS}>
+                                <X size={12} />
                             </button>
                         </span>
                     ))}
                     {summaryChips.map((chip, i) => (
-                        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px 3px 10px', borderRadius: '999px', flexShrink: 0, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        <span key={i} style={chipS}>
                             {chip.label}
-                            <button type="button" onClick={chip.onRemove}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0, color: 'var(--text-muted)', lineHeight: 0 }}>
-                                <X size={10} />
+                            <button type="button" onClick={chip.onRemove} aria-label={`Remove ${chip.label} filter`} style={chipXS}>
+                                <X size={12} />
                             </button>
                         </span>
                     ))}
                     {summaryChips.length > 0 && (
                         <>
-                            <button type="button" onClick={clearAll}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', fontSize: '12px', fontFamily: 'var(--font-body)', fontWeight: 500, flexShrink: 0, padding: '3px 4px', whiteSpace: 'nowrap' }}>
-                                Clear all
-                            </button>
-                            <button type="button" onClick={() => { setSaveViewName(''); setSaveModalOpen(true); }}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                <Bookmark size={10} />
-                                Save view
-                            </button>
+                            <TextAction onClick={clearAll}>Clear filters</TextAction>
+                            <TextAction onClick={() => { setSaveViewName(''); setSaveModalOpen(true); }}>Save view</TextAction>
                         </>
                     )}
                 </div>
@@ -594,25 +637,25 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
 
             {/* ── Saved views row ───────────────────────────────────────────────── */}
             {savedViews.length > 0 && (
-                <div ref={dotMenuRef} style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: '2px', alignItems: 'center' }}>
+                <div ref={dotMenuRef} style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', scrollbarWidth: 'none', alignItems: 'center' }}>
                     {savedViews.map(view => (
-                        <div key={view.id} style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '999px', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0, overflow: 'visible', position: 'relative' }}>
+                        <div key={view.id} style={{ ...type.label, color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', height: 28, background: 'var(--glass-fill-2)', borderRadius: 'var(--radius-full)', flexShrink: 0, overflow: 'visible', position: 'relative' }}>
                             {renameId === view.id ? (
                                 <input autoFocus value={renameValue}
                                     onChange={e => setRenameValue(e.target.value)}
                                     onKeyDown={e => { if (e.key === 'Enter') finishRename(); if (e.key === 'Escape') setRenameId(null); }}
                                     onBlur={finishRename}
-                                    style={{ padding: '4px 10px', background: 'none', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'var(--font-body)', width: '100px', minWidth: 0 }} />
+                                    style={{ ...type.label, color: 'var(--text-primary)', padding: '4px 10px', background: 'none', border: 'none', outline: 'none', width: '100px', minWidth: 0 }} />
                             ) : (
                                 <button type="button" onClick={() => applyView(view)}
-                                    style={{ padding: '4px 8px 4px 10px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                                    style={{ ...type.label, color: 'var(--text-primary)', padding: '4px 8px 4px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
                                     <Bookmark size={10} style={{ flexShrink: 0 }} />
                                     {view.name}
                                 </button>
                             )}
                             <div style={{ position: 'relative' }}>
-                                <button type="button" onClick={() => setDotMenuId(dotMenuId === view.id ? null : view.id)}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px 6px', color: 'var(--text-muted)', borderLeft: '1px solid var(--border-subtle)' }}>
+                                <button type="button" onClick={() => setDotMenuId(dotMenuId === view.id ? null : view.id)} aria-label={`Options for ${view.name}`}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px 8px 4px 4px', color: 'var(--text-secondary)' }}>
                                     <MoreHorizontal size={12} />
                                 </button>
                                 {dotMenuId === view.id && (

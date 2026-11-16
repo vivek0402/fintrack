@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within, fireEvent } from '@testing-library/react';
 import { renderWithQuery as render, createTestQueryClient } from '@/lib/test-utils';
 import TransactionsPage from './page';
 import { transactionsAPI } from '@/lib/api';
@@ -61,6 +61,10 @@ const thisMonthDay = (day: number) => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
+// The Largest stat repeats the biggest spend's description, so look rows up
+// inside the list box rather than the whole page.
+const inList = async (text: string) => within(await screen.findByTestId('tx-list-box')).findByText(text);
+
 const getAll = transactionsAPI.getAll as ReturnType<typeof vi.fn>;
 const cached = getCachedTransactions as ReturnType<typeof vi.fn>;
 
@@ -84,7 +88,7 @@ describe('data fetching', () => {
 
     it('renders what came back', async () => {
         render(<TransactionsPage />);
-        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
         expect(screen.getByText('Salary')).toBeInTheDocument();
     });
 
@@ -147,7 +151,7 @@ describe('offline fallback', () => {
         cached.mockResolvedValue([{ ...rows[0], date: thisMonthDay(10) }]);
 
         render(<TransactionsPage />);
-        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
     });
 
     it('shows only the selected month from the cache, not every month ever cached', async () => {
@@ -160,7 +164,7 @@ describe('offline fallback', () => {
         ]);
 
         render(<TransactionsPage />);
-        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
         expect(screen.queryByText('Old rent')).not.toBeInTheDocument();
     });
 
@@ -195,9 +199,9 @@ describe('cached data', () => {
         getAll.mockImplementation(() => new Promise(() => {}));  // refresh never lands
 
         render(<TransactionsPage />, { queryClient });
-        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
         await waitFor(() => expect(getAll).toHaveBeenCalled());
-        expect(screen.getByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
     });
 });
 
@@ -207,7 +211,7 @@ describe('list layout', () => {
         // pushing each header down by the Android status-bar height onto its
         // first row. jsdom can't lay out sticky, so guard the property itself.
         render(<TransactionsPage />);
-        expect(await screen.findByText('Coffee')).toBeInTheDocument();
+        expect(await inList('Coffee')).toBeInTheDocument();
         expect(screen.getByTestId('tx-list-box').style.overflow).toBe('clip');
     });
 });
@@ -228,5 +232,34 @@ describe('URL params', () => {
             expect((state as { __NA?: boolean } | null)?.__NA).toBeUndefined();
         }
         spy.mockRestore();
+    });
+});
+
+describe('summary and describe-it line', () => {
+    it('shows the month as the title with the net figure and the four stats', async () => {
+        render(<TransactionsPage />);
+        expect(await inList('Coffee')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Previous month' })).toBeInTheDocument();
+        expect(screen.getByText('Money in')).toBeInTheDocument();
+        expect(screen.getByText('Money out')).toBeInTheDocument();
+        expect(screen.getAllByText('Transactions')).toHaveLength(2); // page meta line + stat label
+        expect(screen.getByText('Largest')).toBeInTheDocument();
+        expect(screen.getByText(/^Net in /)).toBeInTheDocument();
+    });
+
+    it('has a describe-it input that stays disabled until something is typed, and no Quick add FAB', async () => {
+        render(<TransactionsPage />);
+        await inList('Coffee');
+        expect(screen.queryByTestId('quick-add-fab')).not.toBeInTheDocument();
+        const fill = screen.getByRole('button', { name: 'Fill in' });
+        expect(fill).toBeDisabled();
+        fireEvent.change(screen.getByLabelText('Describe a transaction'), { target: { value: 'coffee 120' } });
+        expect(fill).not.toBeDisabled();
+    });
+
+    it('focuses the describe-it input for ?quickAdd=1', async () => {
+        searchParams = new URLSearchParams('quickAdd=1');
+        render(<TransactionsPage />);
+        await waitFor(() => expect(screen.getByLabelText('Describe a transaction')).toHaveFocus());
     });
 });

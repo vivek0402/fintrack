@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo, Suspense, type RefObject } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense, type RefObject, type CSSProperties } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Zap, X, SearchX } from 'lucide-react';
+import { SearchX, SlidersHorizontal, ArrowUpDown, CheckSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { aiAPI } from '@/lib/api';
@@ -16,15 +15,20 @@ import { Skeleton, SkeletonCircle, SkeletonText, SkeletonCard } from '@/componen
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { TransactionModal } from '@/components/transactions/TransactionModal';
 import { TransactionList } from '@/components/transactions/TransactionList';
-import { TransactionsTopBar } from '@/components/transactions/TransactionsTopBar';
+import { TransactionsTopBar, SortSheet, SORT_OPTIONS, MONTH_NAMES } from '@/components/transactions/TransactionsTopBar';
 import { BulkOpsPanel } from '@/components/transactions/BulkOpsPanel';
 import { AdvancedSearchBar } from '@/components/transactions/AdvancedSearchBar';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { FetchErrorCard } from '@/components/ui/FetchErrorCard';
 import { PullToRefreshIndicator } from '@/components/ui/PullToRefreshIndicator';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
-import { useHideOnScrollDown } from '@/hooks/useHideOnScrollDown';
-import { isNonSavingsExpense, isRealIncome, formatDate } from '@/lib/utils';
+import { isNonSavingsExpense, isRealIncome, formatDate, fmt } from '@/lib/utils';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Stat, TextAction } from '@/components/ui/CardParts';
+import { type } from '@/lib/typography';
+import { compareToPrevious } from '@/lib/periodCompare';
+import { toast } from '@/store/toastStore';
 import { pruneSelectedIds, sortTransactions, periodDelta, DEFAULT_SORT, type SortKey } from '@/lib/transactionFilters';
 import { toAmount, type Transaction } from '@/types/finance';
 
@@ -47,10 +51,11 @@ function TransactionsPageInner() {
     const [prefillData, setPrefillData]     = useState<any>(null);
     const [selectedMonth, setSelectedMonth] = useState<number | null>(getNowMonth);
     const [selectedYear, setSelectedYear]   = useState(getNowYear);
-    const [quickAddOpen, setQuickAddOpen]   = useState(false);
     const [quickAddText, setQuickAddText]   = useState('');
     const [quickAddLoading, setQuickAddLoading] = useState(false);
-    const [quickAddError, setQuickAddError] = useState('');
+    const [sortSheetOpen, setSortSheetOpen] = useState(false);
+    const [focusDescribe, setFocusDescribe] = useState(false);
+    const describeRef = useRef<HTMLInputElement>(null);
     const [placeholderIdx, setPlaceholderIdx] = useState(0);
     const [displayCount, setDisplayCount]   = useState(50);
     const [selectMode, setSelectMode]       = useState(false);
@@ -63,14 +68,6 @@ function TransactionsPageInner() {
     const [filterCreditCardId, setFilterCreditCardId] = useState<number | null>(null);
     const [filterFrom, setFilterFrom] = useState<string | null>(null);
     const [filterTo, setFilterTo]     = useState<string | null>(null);
-    const [quickAddFabHover, setQuickAddFabHover] = useState(false);
-    const quickAddHidden = useHideOnScrollDown();
-    // The FAB is portalled to document.body so no transformed ancestor (any
-    // transform makes a containing block for position:fixed descendants) can
-    // pin it to the page instead of the viewport.
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
-    const [quickAddFailed, setQuickAddFailed] = useState(false);
     const [prevPeriodSummary, setPrevPeriodSummary] = useState<{ summary: { total_income: number; total_expenses: number } } | null>(null);
     const [activeFilterCount, setActiveFilterCount] = useState(0);
     const clearAllRef   = useRef<() => void>(() => {});
@@ -101,43 +98,44 @@ function TransactionsPageInner() {
         loadMoreObserver.current = observer;
     }, []);
 
-    // ── Quick add placeholder rotation ────────────────────────────────────────
+    // ── Describe-it placeholder rotation ──────────────────────────────────────
     useEffect(() => {
-        if (!quickAddOpen) return;
         const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % QUICK_ADD_PLACEHOLDERS.length), 2500);
         return () => clearInterval(t);
-    }, [quickAddOpen]);
+    }, []);
 
-    const handleQuickAdd = async (e?: React.MouseEvent) => {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
-        if (!quickAddText.trim()) return;
+    const handleDescribe = async () => {
+        const text = quickAddText.trim();
+        if (!text || quickAddLoading) return;
         setQuickAddLoading(true);
-        setQuickAddError('');
         try {
-            const res = await aiAPI.quickAdd(quickAddText.trim());
+            const res = await aiAPI.quickAdd(text);
             const parsed = res.data.data;
             if (!parsed) throw new Error('No parsed result');
-            setQuickAddOpen(false);
             setQuickAddText('');
-            setQuickAddFailed(false);
             setEditingTx(null);
             setPrefillData(parsed);
             setModalOpen(true);
         } catch {
-            setQuickAddError('Could not parse — try rephrasing');
-            setQuickAddFailed(true);
+            // Manual fallback: open the form with just what was typed.
+            toast.error("Couldn't read that. Fill in the form instead.");
+            setQuickAddText('');
+            setEditingTx(null);
+            setPrefillData({ description: text });
+            setModalOpen(true);
         } finally {
             setQuickAddLoading(false);
         }
     };
 
-    const handleQuickAddManualFallback = () => {
-        setQuickAddOpen(false);
-        setQuickAddFailed(false);
-        setEditingTx(null);
-        setPrefillData({ description: quickAddText.trim() });
-        setModalOpen(true);
-    };
+    // ?quickAdd=1 (Android widgets' "+") lands here before the page has rendered
+    // the input (auth still loading), so the focus waits until the input exists.
+    useEffect(() => {
+        if (focusDescribe && describeRef.current) {
+            describeRef.current.focus();
+            setFocusDescribe(false);
+        }
+    }, [focusDescribe, user, isLoading]);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
@@ -163,13 +161,9 @@ function TransactionsPageInner() {
             setModalOpen(true);
             clearQuery();
         }
-        // ?quickAdd=1: the Android widgets' "+". Opens the natural-language
-        // quick-add sheet directly, same as tapping the page's FAB.
+        // ?quickAdd=1: the Android widgets' "+". Focuses the describe-it field.
         if (searchParams.get('quickAdd') === '1') {
-            setQuickAddText('');
-            setQuickAddError('');
-            setQuickAddFailed(false);
-            setQuickAddOpen(true);
+            setFocusDescribe(true);
             clearQuery();
         }
         const ccId = searchParams.get('credit_card_id');
@@ -308,8 +302,26 @@ function TransactionsPageInner() {
     // a percentage change from zero is undefined, not "0%" or "∞%").
     const incomeDelta  = periodDelta(totalIncome, prevIncome);
     const expenseDelta = periodDelta(totalExpense, prevExpense);
-    const prevNet   = prevIncome != null && prevExpense != null ? prevIncome - prevExpense : null;
-    const netDelta  = periodDelta(netAmount, prevNet);
+    const prevMonthName = selectedMonth === null ? '' : MONTH_NAMES[(selectedMonth === 1 ? 12 : selectedMonth - 1) - 1];
+    const incomeCompare  = compareToPrevious(incomeDelta, prevMonthName);
+    const expenseCompare = compareToPrevious(expenseDelta, prevMonthName);
+
+    const largestSpend = useMemo(() => {
+        let best: Transaction | null = null;
+        for (const tx of filtered) {
+            if (isNonSavingsExpense(tx) && (!best || toAmount(tx.amount) > toAmount(best.amount))) best = tx;
+        }
+        return best;
+    }, [filtered]);
+
+    const txCount = filtered.length;
+    const perDaySub = (() => {
+        if (selectedMonth === null) return 'All time';
+        const now = new Date();
+        const isCurrent = selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1;
+        const days = isCurrent ? now.getDate() : new Date(selectedYear, selectedMonth, 0).getDate();
+        return `${Math.round(txCount / days)} a day on average`;
+    })();
 
     const handleModalClose = () => { setModalOpen(false); setEditingTx(null); setPrefillData(null); };
     const openEdit = useCallback((tx: Transaction) => { setEditingTx(tx); setPrefillData(null); setModalOpen(true); }, []);
@@ -361,6 +373,34 @@ function TransactionsPageInner() {
         onClear: () => { setFilterFrom(null); setFilterTo(null); },
     }] : [];
 
+    const filtersActive = activeFilterCount > 0 || creditCardChips.length > 0 || cycleChips.length > 0;
+    const sortLabel = SORT_OPTIONS.find(o => o.key === sortKey)?.label ?? 'Sort';
+    const toolBtn: CSSProperties = {
+        ...type.label, color: 'var(--text-primary)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
+        height: 36, padding: '0 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+        border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', whiteSpace: 'nowrap', flexShrink: 0,
+    };
+    const toolbar = (
+        <>
+            <button type="button" style={toolBtn} onClick={() => openFilterRef.current()} aria-label="Filters">
+                <SlidersHorizontal size={14} />
+                {!isMobile && 'Filters'}
+                {activeFilterCount > 0 && <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{activeFilterCount}</span>}
+            </button>
+            <button type="button" style={toolBtn} onClick={() => setSortSheetOpen(true)} aria-label={`Sort: ${sortLabel}`}>
+                <ArrowUpDown size={14} />
+                {!isMobile && sortLabel}
+            </button>
+            <button type="button" aria-pressed={selectMode} aria-label={selectMode ? 'Done selecting' : 'Select'}
+                style={{ ...toolBtn, background: selectMode ? 'var(--glass-fill-3)' : 'var(--glass-fill-1)' }}
+                onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}>
+                <CheckSquare size={14} />
+                {!isMobile && (selectMode ? 'Done' : 'Select')}
+            </button>
+        </>
+    );
+
     return (
         <>
             {/* ── PULL-TO-REFRESH WRAPPER (mobile only -- usePullToRefresh no-ops
@@ -369,7 +409,7 @@ function TransactionsPageInner() {
             {isMobile && <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── TOP BAR: month nav, net hero, income/expense chips, icon controls ── */}
+                {/* ── PAGE HEADER: the month stepper is the title ── */}
                 <TransactionsTopBar
                     selectedMonth={selectedMonth}
                     selectedYear={selectedYear}
@@ -377,49 +417,39 @@ function TransactionsPageInner() {
                     onNextMonth={nextMonth}
                     onPickMonth={pickMonth}
                     onShowAllTime={showAllTime}
-                    netAmount={netAmount}
-                    netDelta={netDelta}
-                    totalIncome={totalIncome}
-                    totalExpense={totalExpense}
-                    incomeDelta={incomeDelta}
-                    expenseDelta={expenseDelta}
-                    activeFilterCount={activeFilterCount}
-                    onOpenSearch={() => openSearchRef.current()}
-                    onOpenFilter={() => openFilterRef.current()}
-                    sortKey={sortKey}
-                    onSortChange={setSortKey}
-                    selectMode={selectMode}
-                    onToggleSelectMode={() => selectMode ? exitSelectMode() : setSelectMode(true)}
                 />
 
-                {/* ── ADVANCED SEARCH BAR (triggers hidden — top bar's icons open it) ── */}
-                <AdvancedSearchBar
-                    transactions={transactions}
-                    onFilter={setFiltered}
-                    onSetDateContext={handleSetDateContext}
-                    initialQuery={initialQuery}
-                    accounts={accounts}
-                    extraChips={[...creditCardChips, ...cycleChips]}
-                    onRegisterClearAll={fn => { clearAllRef.current = fn; }}
-                    hideTriggers
-                    onRegisterOpenSearch={fn => { openSearchRef.current = fn; }}
-                    onRegisterOpenFilter={fn => { openFilterRef.current = fn; }}
-                    onActiveFilterCountChange={setActiveFilterCount}
-                />
+                {/* ── DESCRIBE IT: type a sentence, review the filled-in form ── */}
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    <input ref={describeRef} type="text" aria-label="Describe a transaction"
+                        placeholder={`Describe one: ${QUICK_ADD_PLACEHOLDERS[placeholderIdx]}`}
+                        value={quickAddText} onChange={e => setQuickAddText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleDescribe(); } }}
+                        style={{ ...type.body, color: 'var(--text-primary)', flex: 1, minWidth: 0, height: 40, padding: '0 var(--space-3)', boxSizing: 'border-box', outline: 'none', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'var(--glass-surface)' }} />
+                    <Button variant="secondary" onClick={handleDescribe} disabled={quickAddLoading || !quickAddText.trim()}>
+                        {quickAddLoading ? 'Filling in…' : 'Fill in'}
+                    </Button>
+                </div>
 
-                {/* ── SELECT ALL BAR ── */}
-                {selectMode && !loading && filtered.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)' }}>
-                        <span style={{ fontSize: '13px', color: 'var(--accent)', fontFamily: 'var(--font-body)', fontWeight: 500 }}>
-                            Select mode — tap rows to select
-                        </span>
-                        <button type="button"
-                            onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAll}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
-                            {selectedIds.size === filtered.length ? 'Deselect all' : `Select all (${filtered.length})`}
-                        </button>
+                {/* ── SUMMARY: net, then money in / out / count / largest ── */}
+                <Card>
+                    <p style={{ ...type.label, margin: 0 }}>
+                        {filtersActive
+                            ? `Net for ${txCount} matching transaction${txCount === 1 ? '' : 's'}`
+                            : selectedMonth === null ? 'Net, all time' : `Net in ${MONTH_NAMES[selectedMonth - 1]}`}
+                    </p>
+                    <p className="type-display" style={{ ...type.display, margin: '6px 0 0', color: netAmount >= 0 ? 'var(--text-primary)' : 'var(--color-exp-text)' }}>
+                        {netAmount >= 0 ? '+' : '−'}{fmt(Math.abs(netAmount))}
+                    </p>
+                    <div className="dash-stats">
+                        <Stat className="dash-stat" label="Money in" value={fmt(totalIncome)} sub={incomeCompare} />
+                        <Stat className="dash-stat" label="Money out" value={fmt(totalExpense)} sub={expenseCompare}
+                            subTone={expenseDelta === null || Math.abs(expenseDelta) < 0.5 ? 'neutral' : expenseDelta < 0 ? 'good' : 'caution'} />
+                        <Stat className="dash-stat" label="Transactions" value={txCount} sub={perDaySub} />
+                        <Stat className="dash-stat" label="Largest" value={largestSpend ? fmt(toAmount(largestSpend.amount)) : '—'}
+                            sub={largestSpend ? largestSpend.description : 'No spending'} />
                     </div>
-                )}
+                </Card>
 
                 {/* ── TRANSACTION LIST ── */}
                 {/* overflow: clip, not hidden: it trims the rounded corners the same
@@ -428,6 +458,35 @@ function TransactionsPageInner() {
                     the status-bar height (onto its first row) on Android, and they
                     never pinned while scrolling anywhere. */}
                 <div className="glass-surface" data-testid="tx-list-box" style={{ borderRadius: 'var(--radius-lg)', overflow: 'clip' }}>
+                    <div style={{ padding: isMobile ? 'var(--space-4) var(--space-4) var(--space-3)' : 'var(--space-4) var(--space-5) var(--space-3)' }}>
+                        <AdvancedSearchBar
+                            transactions={transactions}
+                            onFilter={setFiltered}
+                            onSetDateContext={handleSetDateContext}
+                            initialQuery={initialQuery}
+                            accounts={accounts}
+                            extraChips={[...creditCardChips, ...cycleChips]}
+                            onRegisterClearAll={fn => { clearAllRef.current = fn; }}
+                            alwaysShowSearch
+                            hideTriggers
+                            trailing={toolbar}
+                            onRegisterOpenSearch={fn => { openSearchRef.current = fn; }}
+                            onRegisterOpenFilter={fn => { openFilterRef.current = fn; }}
+                            onActiveFilterCountChange={setActiveFilterCount}
+                        />
+                    </div>
+
+                    {selectMode && !loading && filtered.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 var(--space-5) var(--space-3)' }}>
+                            <span style={{ ...type.meta }}>
+                                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Tap rows to select'}
+                            </span>
+                            <TextAction onClick={selectedIds.size === filtered.length ? () => setSelectedIds(new Set()) : selectAll}>
+                                {selectedIds.size === filtered.length ? 'Deselect all' : `Select all ${filtered.length}`}
+                            </TextAction>
+                        </div>
+                    )}
+
                     {loading ? (
                         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {[1, 2, 3, 4, 5].map(i => (
@@ -454,7 +513,7 @@ function TransactionsPageInner() {
                             icon={SearchX}
                             title="No matches"
                             subtitle="No transactions match your current search and filters."
-                            action={<button type="button" onClick={() => clearAllRef.current()} style={{ padding: '10px 20px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Clear filters</button>}
+                            action={<Button variant="secondary" onClick={() => clearAllRef.current()}>Clear filters</Button>}
                         />
                     ) : (
                         <TransactionList
@@ -470,9 +529,9 @@ function TransactionsPageInner() {
                         />
                     )}
                     {hasMore && !loading && (
-                        <button ref={loadMoreRef} type="button" onClick={() => setDisplayCount(c => c + 50)}
-                            style={{ width: '100%', padding: '10px', background: 'none', border: 'none', borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)', cursor: 'pointer', opacity: 0.6 }}>
-                            ↓ {sortedFiltered.length - displayCount} more
+                        <button ref={loadMoreRef} type="button" className="fin-link" onClick={() => setDisplayCount(c => c + 50)}
+                            style={{ display: 'block', width: '100%', padding: 'var(--space-3)', background: 'transparent', border: 'none', borderTop: '1px solid var(--glass-border)' }}>
+                            Show {sortedFiltered.length - displayCount} more
                         </button>
                     )}
                 </div>
@@ -480,54 +539,7 @@ function TransactionsPageInner() {
             </div>
             </div>
 
-            {/* ── QUICK ADD FAB — portalled to document.body so it's pinned to the
-                viewport, not to <main> (see the `mounted` comment above) ── */}
-            {mounted && createPortal(
-                <div style={{
-                    position: 'fixed',
-                    bottom: isMobile ? 'calc(72px + var(--sa-bottom) + 16px)' : '32px',
-                    // Desktop: AppLayout's Add FAB sits at right:32px on every page;
-                    // this is the next slot along that row.
-                    right: isMobile ? '16px' : '96px',
-                    zIndex: isMobile ? 996 : 500,
-                    // Slides away while scrolling down so it doesn't sit over
-                    // the amounts being read; back on any scroll up.
-                    transform: quickAddHidden ? 'translateY(calc(100% + 24px))' : 'none',
-                    opacity: quickAddHidden ? 0 : 1,
-                    pointerEvents: quickAddHidden ? 'none' : undefined,
-                    transition: 'transform 240ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease',
-                }}
-                    data-testid="quick-add-fab" aria-hidden={quickAddHidden || undefined}>
-                    {!isMobile && quickAddFabHover && (
-                        <div style={{
-                            position: 'absolute', bottom: '100%', left: '50%',
-                            transform: 'translateX(-50%)', marginBottom: '8px',
-                            backgroundColor: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
-                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
-                            color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
-                        }}>
-                            Quick Add
-                        </div>
-                    )}
-                    <button type="button"
-                        onClick={() => { setQuickAddOpen(true); setQuickAddText(''); setQuickAddError(''); setQuickAddFailed(false); }}
-                        onMouseEnter={() => setQuickAddFabHover(true)}
-                        onMouseLeave={() => setQuickAddFabHover(false)}
-                        aria-label="Quick add with AI"
-                        tabIndex={quickAddHidden ? -1 : 0}
-                        style={{
-                            width: '52px', height: '52px', borderRadius: '50%',
-                            background: 'var(--accent)', border: 'none', cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: quickAddFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
-                            transform: quickAddFabHover ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                        }}>
-                        <Zap size={22} color="white" strokeWidth={2.5} />
-                    </button>
-                </div>,
-                document.body
-            )}
+            <SortSheet isOpen={sortSheetOpen} onClose={() => setSortSheetOpen(false)} sortKey={sortKey} onSortChange={setSortKey} />
 
             {/* ── TRANSACTION MODAL ── */}
             <TransactionModal isOpen={modalOpen} onClose={handleModalClose} onOfflineSave={handleOfflineSave} transaction={editingTx} prefill={prefillData} />
@@ -546,62 +558,6 @@ function TransactionsPageInner() {
                     onRemoveIds={removeIds}
                     onPendingDeleteChange={setPendingDelete}
                 />
-            )}
-
-            {/* ── QUICK ADD MODAL ── */}
-            {quickAddOpen && createPortal(
-                <div onClick={e => { if (e.target === e.currentTarget) setQuickAddOpen(false); }}
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '28px', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow-modal)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Zap size={18} color="var(--accent)" />
-                                </div>
-                                <div>
-                                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Quick Add</h3>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Describe the transaction in plain language</p>
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => setQuickAddOpen(false)} aria-label="Close quick add"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <textarea
-                            value={quickAddText}
-                            onChange={e => setQuickAddText(e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleQuickAdd(); }}
-                            placeholder={QUICK_ADD_PLACEHOLDERS[placeholderIdx]}
-                            rows={3}
-                            autoFocus
-                            style={{ width: '100%', padding: '14px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', fontSize: '0.95rem', fontFamily: 'var(--font-body)', resize: 'none', outline: 'none', boxSizing: 'border-box', lineHeight: 1.5, transition: 'border-color 0.15s' }}
-                            onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                            onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
-                        />
-                        {quickAddError && <p style={{ fontSize: '0.8rem', color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>{quickAddError}</p>}
-                        {quickAddFailed && (
-                            <button type="button" onClick={handleQuickAddManualFallback}
-                                style={{ background: 'none', border: 'none', padding: 0, marginTop: '8px', color: 'var(--accent)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', textDecoration: 'underline' }}>
-                                Enter manually instead
-                            </button>
-                        )}
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'flex-end' }}>
-                            <button type="button" onClick={() => setQuickAddOpen(false)}
-                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                Cancel
-                            </button>
-                            <button type="button" onClick={handleQuickAdd} disabled={!quickAddText.trim() || quickAddLoading}
-                                style={{ padding: '10px 20px', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--accent)', color: 'white', fontSize: '14px', fontWeight: 600, cursor: !quickAddText.trim() || quickAddLoading ? 'not-allowed' : 'pointer', opacity: !quickAddText.trim() || quickAddLoading ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
-                                <Zap size={14} />{quickAddLoading ? 'Parsing…' : 'Parse & Fill'}
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '12px 0 0', textAlign: 'center', fontFamily: 'var(--font-body)' }}>
-                            AI will parse your text and pre-fill the transaction form
-                        </p>
-                    </div>
-                </div>,
-                document.body
             )}
 
         </>
