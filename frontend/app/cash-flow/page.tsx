@@ -7,37 +7,27 @@ import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
 import { useUserQuery } from '@/hooks/queries';
 import { Card } from '@/components/ui/Card';
-import { StatTile } from '@/components/ui/StatTile';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-import { AlertTriangle, ChevronDown, Wallet, TrendingUp, Landmark } from 'lucide-react';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
+import { CardHeader, Rows, Stat, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { fmt } from '@/lib/utils';
+import { type } from '@/lib/typography';
+import { riskSentence, statusLabel } from '@/lib/cashflow';
 
 function chartSkeleton(height: number) {
-    const ChartSkeleton = () => <div className="glass-field" style={{ height, borderRadius: 8 }} />;
+    const ChartSkeleton = () => <Skeleton height={height} borderRadius={8} />;
     return ChartSkeleton;
 }
-
 
 const WaterfallChart = dynamic(() => import('@/components/cash-flow/WaterfallChart').then(m => m.WaterfallChart), { ssr: false, loading: chartSkeleton(260) });
 const RunningBalanceChart = dynamic(() => import('@/components/cash-flow/RunningBalanceChart').then(m => m.RunningBalanceChart), { ssr: false, loading: chartSkeleton(220) });
 
-const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
+const fmtSigned = (n: number) => (n >= 0 ? '+' : '−') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
 
-const sectionTitleSt: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '8px' };
-const sectionSubSt: React.CSSProperties = { fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' };
-
-const STATUS_ROW_BG: Record<string, string> = {
-    surplus: 'color-mix(in srgb, var(--color-inc) 8%, transparent)',
-    healthy: 'transparent',
-    tight: 'color-mix(in srgb, var(--color-warn) 8%, transparent)',
-    at_risk: 'color-mix(in srgb, var(--color-exp) 10%, transparent)',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    surplus: 'Surplus',
-    healthy: 'Healthy',
-    tight: 'Tight',
-    at_risk: 'At Risk',
+// Status as a plain word: only the states that need attention get a tone.
+const STATUS_COLOR: Record<string, string> = {
+    surplus: TONE_TEXT.good,
+    tight: TONE_TEXT.caution,
+    at_risk: TONE_TEXT.bad,
 };
 
 interface CashflowMonth {
@@ -69,6 +59,9 @@ interface CashflowResult {
     loan_breakdown: LoanBreakdown[];
 }
 
+const TH: React.CSSProperties = { ...type.meta, padding: '10px 16px', whiteSpace: 'nowrap' };
+const TD: React.CSSProperties = { ...type.numSmall, padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap', borderTop: '1px solid var(--glass-border)' };
+
 export default function CashFlowPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
@@ -77,170 +70,145 @@ export default function CashFlowPage() {
     const cashflowQuery = useUserQuery('cashflow', [], async () => (await planningAPI.getCashflow()).data as CashflowResult);
     const loading = cashflowQuery.isPending;
     const data = cashflowQuery.data ?? null;
-    const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+    const [assumptionsOpen, setAssumptionsOpen] = useState(true);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
     if (isLoading || !user || loading || !data) {
         return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[1, 2, 3, 4].map(i => <SkeletonCard key={i} height={120} />)}
+            </div>
         );
     }
 
     const { summary, months, loan_breakdown } = data;
-    const surplusIsPositive = summary.average_monthly_surplus >= 0;
 
     const balanceEnd = months[months.length - 1].running_balance;
     const balanceStart = months[0].running_balance;
-    const balanceLineColor = balanceEnd >= balanceStart ? 'var(--color-inc)' : 'var(--color-exp)';
 
     return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── HEADER ── */}
-                <div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                        Cash Flow Projection
-                    </h1>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        A 12-month look ahead based on your recent income, expenses, and fixed obligations
-                    </p>
+            <div className="fin-page-head">
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.meta, margin: 0 }}>A 12-month look ahead from your recent income, expenses and fixed obligations</p>
+                    <h1 style={{ ...type.heading, margin: 0 }}>Cash flow</h1>
                 </div>
+            </div>
 
-                {/* ── SUMMARY BANNER ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-                    <StatTile label="Projected Annual Income" value={fmt(summary.total_projected_annual_income)} accentColor="var(--color-inc)" />
-                    <StatTile label="Projected Annual Expenses" value={fmt(summary.total_projected_annual_expenses)} accentColor="var(--color-exp)" />
-                    <StatTile
-                        label="Average Monthly Surplus"
-                        value={fmtSigned(summary.average_monthly_surplus)}
-                        accentColor={surplusIsPositive ? 'var(--color-inc)' : 'var(--color-exp)'}
-                    />
-                    <StatTile
-                        label="Months at Risk"
-                        value={String(summary.months_at_risk)}
-                        accentColor={summary.months_at_risk > 0 ? 'var(--color-exp)' : undefined}
-                        icon={summary.months_at_risk > 0 ? <AlertTriangle size={14} /> : undefined}
-                    />
+            <Card>
+                <p style={{ ...type.label, margin: 0 }}>Average monthly surplus</p>
+                <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmtSigned(summary.average_monthly_surplus)}</p>
+                <p style={{ ...type.meta, margin: '6px 0 0' }}>{riskSentence(months)}</p>
+                <div className="dash-stats">
+                    <Stat className="dash-stat" label="Projected income" value={fmt(summary.total_projected_annual_income)} sub="Next 12 months" />
+                    <Stat className="dash-stat" label="Projected expenses" value={fmt(summary.total_projected_annual_expenses)} sub="Next 12 months" />
+                    <Stat className="dash-stat" label="Months at risk" value={String(summary.months_at_risk)} sub="Of 12" />
                 </div>
+            </Card>
 
-                {/* ── WATERFALL CHART ── */}
+            <div className="fin-two">
                 <Card>
-                    <p style={sectionTitleSt}><TrendingUp size={16} /> Cash Flow Waterfall</p>
-                    <p style={sectionSubSt}>Projected net cash flow for each of the next 12 months</p>
+                    <CardHeader title="Month by month" sub="Projected net cash flow for each of the next 12 months" />
                     <div style={{ width: '100%', height: 260 }}>
                         <WaterfallChart months={months} />
                     </div>
                 </Card>
-
-                {/* ── RUNNING BALANCE CHART ── */}
                 <Card>
-                    <p style={sectionTitleSt}><Wallet size={16} /> Running Balance</p>
-                    <p style={sectionSubSt}>
-                        Cumulative surplus/deficit over the next 12 months — {balanceEnd >= balanceStart ? 'you end the year stronger' : 'you end the year weaker'}
-                    </p>
+                    <CardHeader
+                        title="Running balance"
+                        sub={`Cumulative surplus or deficit. ${balanceEnd >= balanceStart ? 'You end the year stronger.' : 'You end the year weaker.'}`}
+                    />
                     <div style={{ width: '100%', height: 220 }}>
-                        <RunningBalanceChart months={months} balanceLineColor={balanceLineColor} />
+                        <RunningBalanceChart months={months} balanceLineColor="var(--text-secondary)" />
                     </div>
                 </Card>
+            </div>
 
-                {/* ── 12-MONTH PROJECTION TABLE ── */}
-                <Card padding={0}>
-                    <div style={{ padding: 'var(--space-6) var(--space-6) 0' }}>
-                        <p style={sectionTitleSt}>12-Month Projection</p>
-                        <p style={sectionSubSt}>Income, expenses, and fixed outflows assumed flat across the projection</p>
-                    </div>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)', fontSize: 13 }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                                    {['Month', 'Income', 'Expenses', 'Fixed Outflows', 'Net Cash Flow', 'Status'].map(h => (
-                                        <th key={h} style={{ textAlign: h === 'Month' ? 'left' : 'right', padding: '10px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {months.map((m, i) => (
-                                    <tr key={i} style={{ background: STATUS_ROW_BG[m.status] || 'transparent', borderBottom: i < months.length - 1 ? '1px solid var(--glass-border)' : 'none' }}>
-                                        <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 600 }}>{m.month}</td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_income)}</td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.projected_expenses)}</td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{fmt(m.fixed_outflows)}</td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 700, color: m.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
-                                            {fmtSigned(m.net_cashflow)}
-                                        </td>
-                                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>
-                                            <span style={{
-                                                display: 'inline-block', padding: '3px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
-                                                color: m.status === 'surplus' ? 'var(--color-inc)' : m.status === 'at_risk' ? 'var(--color-exp)' : m.status === 'tight' ? 'var(--color-warn)' : 'var(--text-secondary)',
-                                                background: m.status === 'healthy' ? 'var(--glass-fill-1)' : STATUS_ROW_BG[m.status],
-                                            }}>
-                                                {STATUS_LABELS[m.status] || m.status}
-                                            </span>
-                                        </td>
-                                    </tr>
+            <Card>
+                <CardHeader title="12-month projection" sub="Income, expenses and fixed outflows assumed flat" />
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr>
+                                {['Month', 'Income', 'Expenses', 'Fixed outflows', 'Net cash flow', 'Status'].map(h => (
+                                    <th key={h} style={{ ...TH, textAlign: h === 'Month' ? 'left' : 'right' }}>{h}</th>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {months.map((m, i) => (
+                                <tr key={i}>
+                                    <td style={{ ...TD, ...type.bodyStrong, textAlign: 'left', borderTop: '1px solid var(--glass-border)' }}>{m.month}</td>
+                                    <td style={TD}>{fmt(m.projected_income)}</td>
+                                    <td style={TD}>{fmt(m.projected_expenses)}</td>
+                                    <td style={TD}>{fmt(m.fixed_outflows)}</td>
+                                    <td style={{ ...TD, color: 'var(--text-primary)' }}>{fmtSigned(m.net_cashflow)}</td>
+                                    <td style={{ ...TD, fontFamily: 'var(--font-body)', fontVariantNumeric: 'normal', color: STATUS_COLOR[m.status] ?? TONE_TEXT.neutral }}>{statusLabel(m.status)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
 
-                {/* ── FIXED OBLIGATIONS ── */}
+            <div className="fin-two">
                 <Card>
-                    <p style={sectionTitleSt}><Landmark size={16} /> Fixed Obligations</p>
-                    <p style={sectionSubSt}>What makes up your {fmt(data.fixed_monthly_outflows)}/month in fixed outflows</p>
+                    <CardHeader
+                        title="Fixed obligations"
+                        sub={`What makes up your ${fmt(data.fixed_monthly_outflows + data.recurring_outflows)} a month in fixed outflows`}
+                        action={<span style={type.num}>{fmt(data.fixed_monthly_outflows + data.recurring_outflows)}</span>}
+                    />
                     {loan_breakdown.length === 0 ? (
-                        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No active loans — your fixed outflows come entirely from recurring expenses.</p>
+                        <p style={{ ...type.meta, margin: 0 }}>No active loans. Your fixed outflows come entirely from recurring expenses.</p>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <Rows>
                             {loan_breakdown.map(loan => (
-                                <div key={loan.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{loan.name}</span>
-                                    <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(loan.emi)}/mo</span>
+                                <div key={loan.id} style={{ justifyContent: 'space-between' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ ...type.bodyStrong, margin: 0 }}>{loan.name}</p>
+                                        <p style={{ ...type.meta, margin: '2px 0 0' }}>EMI</p>
+                                    </div>
+                                    <span style={type.num}>{fmt(loan.emi)}</span>
                                 </div>
                             ))}
                             {data.recurring_outflows > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
-                                    <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'var(--font-body)' }}>Recurring expenses</span>
-                                    <span style={{ fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>{fmt(data.recurring_outflows)}/mo</span>
+                                <div style={{ justifyContent: 'space-between' }}>
+                                    <div style={{ minWidth: 0 }}>
+                                        <p style={{ ...type.bodyStrong, margin: 0 }}>Recurring expenses</p>
+                                        <p style={{ ...type.meta, margin: '2px 0 0' }}>Every month</p>
+                                    </div>
+                                    <span style={type.num}>{fmt(data.recurring_outflows)}</span>
                                 </div>
                             )}
-                        </div>
+                        </Rows>
                     )}
                 </Card>
 
-                {/* ── ASSUMPTIONS (COLLAPSIBLE) ── */}
-                <Card padding={0}>
-                    <button
-                        onClick={() => setAssumptionsOpen(o => !o)}
-                        style={{
-                            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            background: 'transparent', border: 'none', cursor: 'pointer', padding: 'var(--space-6)',
-                            fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: 'var(--text-primary)',
-                        }}
-                    >
-                        Assumptions
-                        <ChevronDown size={16} style={{ transform: assumptionsOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease', color: 'var(--text-muted)' }} />
-                    </button>
+                <Card>
+                    <CardHeader
+                        title="Assumptions"
+                        sub="How the projection is made"
+                        flush={!assumptionsOpen}
+                        action={<TextAction onClick={() => setAssumptionsOpen(o => !o)} aria-expanded={assumptionsOpen}>{assumptionsOpen ? 'Hide' : 'Show'}</TextAction>}
+                    />
                     {assumptionsOpen && (
-                        <div style={{ padding: '0 var(--space-6) var(--space-6)', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                            <p style={{ margin: 0 }}>
-                                <strong style={{ color: 'var(--text-primary)' }}>Income:</strong> {fmt(data.average_monthly_income)}/month, the average of your last 3 months of recorded income transactions.
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <p style={{ ...type.body, margin: 0 }}>
+                                Income is {fmt(data.average_monthly_income)} a month, the average of your last 3 months of recorded income.
                             </p>
-                            <p style={{ margin: 0 }}>
-                                <strong style={{ color: 'var(--text-primary)' }}>Expenses:</strong> {fmt(data.average_monthly_expenses)}/month, the average of your last 3 months of recorded expense transactions, plus {fmt(data.fixed_monthly_outflows + data.recurring_outflows)}/month in fixed loan EMIs and recurring expenses.
+                            <p style={{ ...type.body, margin: 0 }}>
+                                Expenses are {fmt(data.average_monthly_expenses)} a month, the average of your last 3 months of recorded expenses, plus {fmt(data.fixed_monthly_outflows + data.recurring_outflows)} a month in fixed loan EMIs and recurring expenses.
                             </p>
-                            <p style={{ margin: 0 }}>
-                                This projection assumes flat income and expenses for the next 12 months. If you&apos;ve had a salary change, a new loan, or a major recurring expense change, update those records so this projection stays accurate.
+                            <p style={{ ...type.meta, margin: 0 }}>
+                                This projection assumes flat income and expenses for the next 12 months. If you&apos;ve had a salary change, a new loan or a major recurring expense change, update those records so the projection stays accurate.
                             </p>
                         </div>
                     )}
                 </Card>
             </div>
+        </div>
     );
 }

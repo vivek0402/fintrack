@@ -29,11 +29,11 @@ function WaterfallTooltip({ active, payload }: any) {
     const d: CashflowMonth = payload[0].payload;
     return (
         <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--bg-border-strong)', borderRadius: 8, padding: '10px 12px' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 6px', fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-body)' }}>{d.month}</p>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 6px', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-body)' }}>{d.month}</p>
             <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Income: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_income)}</span></p>
             <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Expenses: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.projected_expenses)}</span></p>
             <p style={{ margin: '0 0 2px', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>Fixed outflows: <span style={{ color: 'var(--text-primary)' }}>{fmt(d.fixed_outflows)}</span></p>
-            <p style={{ margin: '4px 0 0', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700, color: d.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 500, color: d.net_cashflow >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' }}>
                 Net: {fmtSigned(d.net_cashflow)}
             </p>
         </div>
