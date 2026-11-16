@@ -1,3 +1,5 @@
+import { isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+
 /** Pure helpers behind the Analytics page. */
 
 export interface ShareRow {
@@ -108,4 +110,117 @@ export function dayOfWeekSummary(totalsSunFirst: number[]): {
     const total = totals.reduce((s, t) => s + t, 0);
     const weekendPct = total > 0 ? Math.round(((totals[6] + totals[0]) / total) * 100) : 0;
     return { order, busiest, weekendPct };
+}
+
+// Insights: behavioural patterns
+
+const PATTERN_TITLES: Record<string, string> = {
+    budget_anchoring: 'Budget anchoring',
+    present_bias: 'Present bias (early-month spending)',
+    subscription_bloat: 'Subscription bloat',
+    idle_savings_despite_debt: 'Idle savings despite debt',
+};
+
+/** Sentence-case title for a pattern; unknown names fall back to the raw name. */
+export function patternTitle(name: string): string {
+    return PATTERN_TITLES[name] || name;
+}
+
+/** One line of evidence for a detected pattern, or '' when there is nothing to say. */
+export function patternContext(p: any): string {
+    const d = p?.supporting_data || {};
+    switch (p?.pattern_name) {
+        case 'budget_anchoring': {
+            const cats = (d.categories || []).filter((c: any) => c.near_limit_months >= 2);
+            if (cats.length === 0) return '';
+            const total = d.categories?.[0]?.total_months ?? cats[0].near_limit_months;
+            return `You spent 85 to 100% of budget in ${cats[0].near_limit_months} out of ${total} months in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}.`;
+        }
+        case 'present_bias':
+            return `You spend ₹${Math.round(d.first_half_avg_daily || 0)}/day in the first half of the month vs ₹${Math.round(d.second_half_avg_daily || 0)}/day in the second half.`;
+        case 'subscription_bloat':
+            return `${d.recurring_subscription_count} recurring subscriptions detected over the last 3 months.`;
+        case 'idle_savings_despite_debt':
+            return `₹${Math.round(d.bank_balance || 0).toLocaleString('en-IN')} in savings vs ₹${Math.round(d.credit_card_outstanding || 0).toLocaleString('en-IN')} in credit card debt.`;
+        default:
+            return '';
+    }
+}
+
+/** Splits patterns into detected and clear, keeping the original order in each. */
+export function splitPatterns<T extends { detected?: boolean }>(list: T[]): { detected: T[]; clear: T[] } {
+    const detected: T[] = [];
+    const clear: T[] = [];
+    for (const p of list || []) (p.detected ? detected : clear).push(p);
+    return { detected, clear };
+}
+
+/** How many of the listed patterns were found. */
+export function patternCount(list: { detected?: boolean }[]): { found: number; total: number } {
+    const l = list || [];
+    return { found: l.filter(p => p.detected).length, total: l.length };
+}
+
+// Year review
+
+export interface YearReviewStats {
+    count: number;
+    totalExp: number;
+    totalInc: number;
+    saved: number;
+    rate: number;
+    topCategory: { name: string; amount: number } | null;
+    worstMonth: { m: number; exp: number } | null;
+    bestSavings: { m: number; savings: number } | null;
+}
+
+const dateOf = (t: any) => new Date(String(t.date ?? '').split('T')[0] + 'T00:00:00');
+
+/**
+ * Numbers for the Year review tab. Takes ALL transactions and the year, and
+ * filters to that year itself. Returns null when the year has no transactions.
+ * Spending and income use the same definitions as the rest of the app
+ * (investments, goal contributions and transfers are left out).
+ */
+export function yearReviewStats(txs: any[], year: number): YearReviewStats | null {
+    const yearTxs = (txs || []).filter(t => dateOf(t).getFullYear() === year);
+    if (!yearTxs.length) return null;
+
+    const expenses = yearTxs.filter(isNonSavingsExpense);
+    const income = yearTxs.filter(isRealIncome);
+
+    const catMap: Record<string, number> = {};
+    expenses.forEach(t => {
+        const k = t.category_name ?? t.category ?? 'Other';
+        catMap[k] = (catMap[k] ?? 0) + parseFloat(t.amount ?? 0);
+    });
+    const topCatEntry = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0];
+
+    const mMap: Record<number, { exp: number; inc: number }> = {};
+    for (let m = 1; m <= 12; m++) mMap[m] = { exp: 0, inc: 0 };
+    yearTxs.forEach(t => {
+        const m = dateOf(t).getMonth() + 1;
+        const a = parseFloat(t.amount ?? 0);
+        if (isNonSavingsExpense(t)) mMap[m].exp += a;
+        else if (isRealIncome(t)) mMap[m].inc += a;
+    });
+
+    const worstMonth = Object.entries(mMap)
+        .filter(([, v]) => v.exp > 0)
+        .sort((a, b) => b[1].exp - a[1].exp)[0];
+    const bestSavingsMonth = Object.entries(mMap)
+        .filter(([, v]) => v.inc > v.exp && v.inc > 0)
+        .sort((a, b) => (b[1].inc - b[1].exp) - (a[1].inc - a[1].exp))[0];
+
+    const totalExp = expenses.reduce((s, t) => s + parseFloat(t.amount ?? 0), 0);
+    const totalInc = income.reduce((s, t) => s + parseFloat(t.amount ?? 0), 0);
+    const saved = Math.max(totalInc - totalExp, 0);
+    const rate = totalInc > 0 ? Math.round((saved / totalInc) * 100) : 0;
+
+    return {
+        count: yearTxs.length, totalExp, totalInc, saved, rate,
+        topCategory: topCatEntry ? { name: topCatEntry[0], amount: topCatEntry[1] } : null,
+        worstMonth: worstMonth ? { m: parseInt(worstMonth[0]), exp: worstMonth[1].exp } : null,
+        bestSavings: bestSavingsMonth ? { m: parseInt(bestSavingsMonth[0]), savings: bestSavingsMonth[1].inc - bestSavingsMonth[1].exp } : null,
+    };
 }

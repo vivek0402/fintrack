@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shareRows, comparePeriod, dayOfWeekSummary } from './analytics';
+import { shareRows, comparePeriod, dayOfWeekSummary, patternTitle, patternContext, splitPatterns, patternCount, yearReviewStats } from './analytics';
 
 describe('shareRows', () => {
     it('sorts biggest first and keeps colours', () => {
@@ -91,5 +91,108 @@ describe('dayOfWeekSummary', () => {
         const s = dayOfWeekSummary([0, 0, 0, 0, 0, 0, 0]);
         expect(s.busiest).toBeNull();
         expect(s.weekendPct).toBe(0);
+    });
+});
+
+describe('patternTitle', () => {
+    it('gives sentence-case titles for known patterns', () => {
+        expect(patternTitle('budget_anchoring')).toBe('Budget anchoring');
+        expect(patternTitle('present_bias')).toBe('Present bias (early-month spending)');
+        expect(patternTitle('subscription_bloat')).toBe('Subscription bloat');
+        expect(patternTitle('idle_savings_despite_debt')).toBe('Idle savings despite debt');
+    });
+    it('falls back to the raw name', () => {
+        expect(patternTitle('something_new')).toBe('something_new');
+    });
+});
+
+describe('patternContext', () => {
+    it('budget anchoring', () => {
+        const p = { pattern_name: 'budget_anchoring', supporting_data: { categories: [{ near_limit_months: 3, total_months: 3 }, { near_limit_months: 2, total_months: 3 }, { near_limit_months: 0, total_months: 3 }] } };
+        expect(patternContext(p)).toBe('You spent 85 to 100% of budget in 3 out of 3 months in 2 categories.');
+        const one = { pattern_name: 'budget_anchoring', supporting_data: { categories: [{ near_limit_months: 2, total_months: 3 }] } };
+        expect(patternContext(one)).toContain('in 1 category.');
+        expect(patternContext({ pattern_name: 'budget_anchoring', supporting_data: { categories: [{ near_limit_months: 1, total_months: 3 }] } })).toBe('');
+    });
+    it('present bias', () => {
+        expect(patternContext({ pattern_name: 'present_bias', supporting_data: { first_half_avg_daily: 812.4, second_half_avg_daily: 300.6 } }))
+            .toBe('You spend ₹812/day in the first half of the month vs ₹301/day in the second half.');
+    });
+    it('subscription bloat', () => {
+        expect(patternContext({ pattern_name: 'subscription_bloat', supporting_data: { recurring_subscription_count: 7 } }))
+            .toBe('7 recurring subscriptions detected over the last 3 months.');
+    });
+    it('idle savings despite debt', () => {
+        expect(patternContext({ pattern_name: 'idle_savings_despite_debt', supporting_data: { bank_balance: 123456, credit_card_outstanding: 9000 } }))
+            .toBe('₹1,23,456 in savings vs ₹9,000 in credit card debt.');
+    });
+    it('unknown returns empty', () => {
+        expect(patternContext({ pattern_name: 'nope' })).toBe('');
+    });
+});
+
+describe('splitPatterns and patternCount', () => {
+    const list = [
+        { pattern_name: 'a', detected: true },
+        { pattern_name: 'b', detected: false },
+        { pattern_name: 'c', detected: true },
+        { pattern_name: 'd', detected: false },
+    ];
+    it('keeps order within each group', () => {
+        const { detected, clear } = splitPatterns(list);
+        expect(detected.map(p => p.pattern_name)).toEqual(['a', 'c']);
+        expect(clear.map(p => p.pattern_name)).toEqual(['b', 'd']);
+    });
+    it('counts found against the listed total', () => {
+        expect(patternCount(list)).toEqual({ found: 2, total: 4 });
+        expect(patternCount([])).toEqual({ found: 0, total: 0 });
+    });
+});
+
+describe('yearReviewStats', () => {
+    const tx = (date: string, type: string, amount: number, extra: any = {}) => ({ date, type, amount: String(amount), category_name: 'Food', ...extra });
+
+    it('returns null when the year has no transactions', () => {
+        expect(yearReviewStats([], 2025)).toBeNull();
+        expect(yearReviewStats([tx('2024-03-01', 'expense', 10)], 2025)).toBeNull();
+    });
+
+    it('excludes investments, goal contributions and transfers', () => {
+        const s = yearReviewStats([
+            tx('2025-01-05', 'income', 1000),
+            tx('2025-01-06', 'income', 500, { tags: ['transfer'] }),
+            tx('2025-01-07', 'expense', 100),
+            tx('2025-01-08', 'expense', 200, { is_investment_category: true }),
+            tx('2025-01-09', 'expense', 300, { goal_id: 'g1' }),
+            tx('2025-01-10', 'expense', 400, { tags: ['credit_card_payment'] }),
+        ], 2025)!;
+        expect(s.count).toBe(6);
+        expect(s.totalInc).toBe(1000);
+        expect(s.totalExp).toBe(100);
+        expect(s.saved).toBe(900);
+        expect(s.rate).toBe(90);
+    });
+
+    it('finds the top category, worst month and best savings month', () => {
+        const s = yearReviewStats([
+            tx('2025-02-01', 'income', 1000),
+            tx('2025-02-02', 'expense', 100, { category_name: 'Rent' }),
+            tx('2025-03-01', 'income', 1000),
+            tx('2025-03-02', 'expense', 700, { category_name: 'Travel' }),
+            tx('2025-04-01', 'income', 3000),
+            tx('2025-04-02', 'expense', 50, { category_name: 'Rent' }),
+        ], 2025)!;
+        expect(s.topCategory).toEqual({ name: 'Travel', amount: 700 });
+        expect(s.worstMonth).toEqual({ m: 3, exp: 700 });
+        expect(s.bestSavings).toEqual({ m: 4, savings: 2950 });
+    });
+
+    it('rounds the rate and never reports negative savings', () => {
+        const r = yearReviewStats([tx('2025-01-01', 'income', 300), tx('2025-01-02', 'expense', 100)], 2025)!;
+        expect(r.rate).toBe(67);
+        const neg = yearReviewStats([tx('2025-01-01', 'income', 100), tx('2025-01-02', 'expense', 500)], 2025)!;
+        expect(neg.saved).toBe(0);
+        expect(neg.rate).toBe(0);
+        expect(neg.bestSavings).toBeNull();
     });
 });

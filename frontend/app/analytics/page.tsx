@@ -11,24 +11,19 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
 import { analyticsAPI, transactionsAPI, aiAPI, insightsAPI } from '@/lib/api';
-import { GCard } from '@/components/ui/GCard';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
 import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DatePicker } from '@/components/ui/DatePicker';
-import { CountUp } from '@/components/ui/CountUp';
 import { Card } from '@/components/ui/Card';
 import { CardHeader, Rows, Stat, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery, fetchAnalyticsOverview } from '@/hooks/queries';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
-import {
-    Download, RefreshCw, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Brain, CheckCircle2, AlertTriangle,
-    FileText, Search, Camera, BarChart3,
-} from 'lucide-react';
+import { Download, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 const NO_ROWS: any[] = [];
 
 const vizSkeleton = (h: number) => {
@@ -42,10 +37,10 @@ const CategoryTrajectory = dynamic(() => import('@/components/analytics/Category
 // Non-default tabs: loaded on first open so they stay out of the page's initial bundle.
 const CalendarTab = dynamic(() => import('@/components/analytics/CalendarTab').then(m => m.CalendarTab), { ssr: false, loading: vizSkeleton(400) });
 const HealthTab = dynamic(() => import('@/components/analytics/health/HealthTab').then(m => m.HealthTab), { ssr: false, loading: vizSkeleton(400) });
-import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
+import { exportToCSV, formatDate, fmt, isNonSavingsExpense } from '@/lib/utils';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
 import { type, truncate } from '@/lib/typography';
-import { shareRows, comparePeriod, dayOfWeekSummary } from '@/lib/analytics';
+import { shareRows, comparePeriod, dayOfWeekSummary, patternTitle, patternContext, splitPatterns, patternCount, yearReviewStats } from '@/lib/analytics';
 
 // One row of tabs, always visible (the row scrolls sideways on mobile).
 // Overview, Spending, Income and Trends share one data view and period.
@@ -825,13 +820,6 @@ function AnalyticsDataTabs({ section, onTabChange }: { section: DataSection; onT
 // ═══════════════════════════════════════════════════════════════════════════
 // INSIGHTS TAB (formerly /insights)
 // ═══════════════════════════════════════════════════════════════════════════
-const PATTERN_LABELS: Record<string, string> = {
-    budget_anchoring: 'Budget Anchoring',
-    present_bias: 'Present Bias (Early-Month Spending)',
-    subscription_bloat: 'Subscription Bloat',
-    idle_savings_despite_debt: 'Idle Savings Despite Debt',
-};
-
 function InsightsTab() {
     const { user } = useAuthStore();
 
@@ -850,274 +838,227 @@ function InsightsTab() {
         try {
             const res = await insightsAPI.getBehavioralPatterns(true);
             queryClient.setQueryData(patternsKey, res.data);
-        } catch { toast.error('Failed to refresh patterns — try again'); } finally { setRefreshing(false); }
+        } catch { toast.error('Failed to refresh patterns, try again'); } finally { setRefreshing(false); }
     };
 
+    if (patternsLoading) return <SkeletonCard height={400} />;
+    if (!patterns) {
+        return (
+            <Card>
+                <p style={{ ...type.meta, margin: '0 0 var(--space-2)' }}>Could not load behavioral patterns.</p>
+                <TextAction onClick={() => void refreshPatterns()} disabled={refreshing}>{refreshing ? 'Trying' : 'Try again'}</TextAction>
+            </Card>
+        );
+    }
+
+    const list: any[] = patterns.patterns ?? [];
+    const { detected, clear } = splitPatterns(list);
+    const { found, total } = patternCount(list);
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>
-                    Insights
-                </h1>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    Patterns in your spending behavior.
-                </p>
-            </div>
+        <>
+            <Card>
+                <CardHeader title="Spending patterns" sub="Looked for in your last 3 months"
+                    action={<TextAction onClick={() => void refreshPatterns()} disabled={refreshing}>{refreshing ? 'Refreshing' : 'Refresh'}</TextAction>} />
+                <p style={{ ...type.label, margin: 0 }}>Patterns found in your spending</p>
+                <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{found} of {total}</p>
+                {patterns.ai_insight && (
+                    <p style={{ ...type.body, margin: 'var(--space-4) 0 0' }}>{patterns.ai_insight}</p>
+                )}
+            </Card>
 
-            {/* ── BEHAVIORAL PATTERNS ── */}
-            {patternsLoading ? (
-                <SkeletonCard height={400} />
-            ) : !patterns ? (
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Could not load behavioral patterns.</p>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* AI insight card */}
-                    <div className="glass-surface" style={{ background: 'color-mix(in srgb, var(--accent) 10%, var(--glass-surface))', borderColor: 'color-mix(in srgb, var(--accent) 22%, var(--glass-border))', borderRadius: 'var(--radius-xl)', padding: '18px 20px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Brain size={18} color="white" />
-                        </div>
-                        <div>
-                            <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>
-                                AI Insight
-                            </p>
-                            <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0, fontFamily: 'var(--font-body)' }}>
-                                {patterns.ai_insight}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="glass-field" style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', padding: '5px 14px', borderRadius: '20px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                            {patterns.detected_count} of 5 patterns detected in your spending
-                        </span>
-                    </div>
-
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                        {patterns.patterns.map((p: any, idx: number) => (
-                            <div key={p.pattern_name} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', padding: '14px 18px', borderBottom: idx < patterns.patterns.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                <div style={{ width: 32, height: 32, borderRadius: '50%', background: p.detected ? 'color-mix(in srgb, var(--color-warn) 12%, transparent)' : 'color-mix(in srgb, var(--color-inc) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {p.detected
-                                        ? <AlertTriangle size={15} color="var(--color-warn)" />
-                                        : <CheckCircle2 size={15} color="var(--color-inc)" />}
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                        {PATTERN_LABELS[p.pattern_name] || p.pattern_name}
-                                    </p>
-                                    {p.detected ? (
-                                        <>
-                                            {patternContext(p) && (
-                                                <p style={{ fontSize: '12px', color: 'var(--color-warn)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
-                                                    {patternContext(p)}
-                                                </p>
-                                            )}
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
-                                                {p.description}
-                                            </p>
-                                        </>
-                                    ) : (
-                                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                            No signs of this pattern in your recent data.
-                                        </p>
-                                    )}
-                                </div>
+            {detected.length > 0 && (
+                <Card>
+                    <CardHeader title="Worth a look" sub="Found in your recent data" />
+                    <Rows>
+                        {detected.map((p: any) => (
+                            <div key={p.pattern_name} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 2 }}>
+                                <p style={{ ...type.bodyStrong, margin: 0 }}>{patternTitle(p.pattern_name)}</p>
+                                {patternContext(p) && <p style={{ ...type.body, margin: 0 }}>{patternContext(p)}</p>}
+                                {p.description && <p style={{ ...type.meta, margin: 0 }}>{p.description}</p>}
                             </div>
                         ))}
-                    </div>
-
-                    <Button onClick={refreshPatterns} isLoading={refreshing} variant="secondary" style={{ alignSelf: 'flex-start' }}>
-                        <RefreshCw size={14} /> Refresh
-                    </Button>
-                </div>
+                    </Rows>
+                </Card>
             )}
-        </div>
-    );
-}
 
-// ── Human-readable context for detected patterns ─────────────────────────────
-function patternContext(p: any): string {
-    const d = p.supporting_data || {};
-    switch (p.pattern_name) {
-        case 'budget_anchoring': {
-            const cats = (d.categories || []).filter((c: any) => c.near_limit_months >= 2);
-            if (cats.length === 0) return '';
-            const total = d.categories?.[0]?.total_months ?? cats[0].near_limit_months;
-            return `You spent 85-100% of budget in ${cats[0].near_limit_months} out of ${total} months in ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}.`;
-        }
-        case 'present_bias':
-            return `You spend ₹${Math.round(d.first_half_avg_daily || 0)}/day in the first half of the month vs ₹${Math.round(d.second_half_avg_daily || 0)}/day in the second half.`;
-        case 'subscription_bloat':
-            return `${d.recurring_subscription_count} recurring subscriptions detected over the last 3 months.`;
-        case 'idle_savings_despite_debt':
-            return `₹${Math.round(d.bank_balance || 0).toLocaleString('en-IN')} in savings vs ₹${Math.round(d.credit_card_outstanding || 0).toLocaleString('en-IN')} in credit card debt.`;
-        default:
-            return '';
-    }
+            {clear.length > 0 && (
+                <Card>
+                    <CardHeader title="Not showing up" sub="No signs in your recent data" />
+                    <Rows>
+                        {clear.map((p: any) => (
+                            <div key={p.pattern_name}>
+                                <span style={{ ...type.body, flex: 1, minWidth: 0 }}>{patternTitle(p.pattern_name)}</span>
+                            </div>
+                        ))}
+                    </Rows>
+                </Card>
+            )}
+        </>
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // REPORTS TAB (formerly /reports)
 // ═══════════════════════════════════════════════════════════════════════════
 const QUICK_RANGES = [
-    { label: 'This Month',   getDates: () => { const n = new Date(); return { from: `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`, to: new Date().toISOString().split('T')[0] }; } },
-    { label: 'Last Month',   getDates: () => { const d = new Date(); d.setMonth(d.getMonth()-1); const y=d.getFullYear(),m=d.getMonth()+1,l=new Date(y,m,0).getDate(); return { from:`${y}-${String(m).padStart(2,'0')}-01`, to:`${y}-${String(m).padStart(2,'0')}-${l}` }; } },
-    { label: 'Last 3 Months', getDates: () => { const to=new Date().toISOString().split('T')[0]; const from=new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().split('T')[0]; return {from,to}; } },
-    { label: 'Last 6 Months', getDates: () => { const to=new Date().toISOString().split('T')[0]; const from=new Date(new Date().setMonth(new Date().getMonth()-6)).toISOString().split('T')[0]; return {from,to}; } },
-    { label: 'This Year',    getDates: () => { const y=new Date().getFullYear(); return { from:`${y}-01-01`, to:new Date().toISOString().split('T')[0] }; } },
+    { key: 'this-month', label: 'This month', getDates: () => { const n = new Date(); return { from: `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`, to: new Date().toISOString().split('T')[0] }; } },
+    { key: 'last-month', label: 'Last month', getDates: () => { const d = new Date(); d.setMonth(d.getMonth() - 1); const y = d.getFullYear(), m = d.getMonth() + 1, l = new Date(y, m, 0).getDate(); return { from: `${y}-${String(m).padStart(2, '0')}-01`, to: `${y}-${String(m).padStart(2, '0')}-${l}` }; } },
+    { key: 'last-3', label: 'Last 3 months', getDates: () => { const to = new Date().toISOString().split('T')[0]; const from = new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0]; return { from, to }; } },
+    { key: 'last-6', label: 'Last 6 months', getDates: () => { const to = new Date().toISOString().split('T')[0]; const from = new Date(new Date().setMonth(new Date().getMonth() - 6)).toISOString().split('T')[0]; return { from, to }; } },
+    { key: 'this-year', label: 'This year', getDates: () => { const y = new Date().getFullYear(); return { from: `${y}-01-01`, to: new Date().toISOString().split('T')[0] }; } },
 ];
+const REPORT_PAGE = 50;
 
-const reportsCardSt: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: '16px' };
-
-function ReportsTab() {
+function ReportsTab({ tab, onTabChange }: { tab: string; onTabChange: (key: string) => void }) {
     const isMobile = useIsMobile();
-    const today = new Date().toISOString().split('T')[0];
-    const firstOfMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
+    const initial = QUICK_RANGES[0].getDates();
 
-    const [from, setFrom]                 = useState(firstOfMonth);
-    const [to, setTo]                     = useState(today);
-    const [data, setData]                 = useState<any>(null);
-    const [loading, setLoading]           = useState(false);
-    const [searched, setSearched]         = useState(false);
+    const [from, setFrom]       = useState(initial.from);
+    const [to, setTo]           = useState(initial.to);
+    const [data, setData]       = useState<any>(null);
+    const [loading, setLoading] = useState(false);
+    const [failed, setFailed]   = useState(false);
+    const [visible, setVisible] = useState(REPORT_PAGE);
 
-    const fetchReport = async () => {
-        if (!from || !to) return;
+    // Takes the dates explicitly: a tapped range sets state and builds in the same tick.
+    const fetchReport = async (f: string, t: string) => {
+        if (!f || !t) return;
         setLoading(true);
-        try { const res = await analyticsAPI.report(from, to); setData(res.data); setSearched(true); }
-        catch (err) { console.error(err); toast.error('Failed to generate report — try again'); }
-        finally { setLoading(false); }
+        setFailed(false);
+        try {
+            const res = await analyticsAPI.report(f, t);
+            setData(res.data);
+            setVisible(REPORT_PAGE);
+        } catch (err) {
+            console.error(err);
+            setFailed(true);
+            toast.error('Failed to generate report, try again');
+        } finally { setLoading(false); }
     };
 
-    const totalExpenses = data?.categories?.reduce((s: number, c: any) => s + parseFloat(c.total), 0) || 0;
+    // The first report builds itself, once.
+    const started = useRef(false);
+    useEffect(() => {
+        if (started.current) return;
+        started.current = true;
+        void fetchReport(initial.from, initial.to);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const pickRange = (key: string) => {
+        const range = QUICK_RANGES.find(r => r.key === key);
+        if (!range) return;
+        const { from: f, to: t } = range.getDates();
+        setFrom(f);
+        setTo(t);
+        void fetchReport(f, t);
+    };
+    const activeRange = QUICK_RANGES.find(r => { const d = r.getDates(); return d.from === from && d.to === to; })?.key ?? '';
+
+    const categoryRows = useMemo(
+        () => shareRows((data?.categories ?? []).map((c: any) => ({ name: c.name, total: parseFloat(c.total), color: c.color })), 6),
+        [data],
+    );
+    const topCategory = categoryRows[0];
+    const txs: any[] = data?.transactions ?? [];
+    const remaining = txs.length - visible;
+    const summary = data?.summary;
+    const balance = summary ? Number(summary.balance) : 0;
 
     return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <>
+            <AnalyticsHead tab={tab} onTabChange={onTabChange}
+                actions={data ? (
+                    <Button variant="secondary" onClick={() => void exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}>
+                        <Download size={16} />Export CSV
+                    </Button>
+                ) : undefined} />
 
-                {/* Header */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Reports</h1>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Custom date range analytics</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {data && (
-                                <Button variant="secondary" size="md" onClick={() => void exportToCSV(data.transactions, `fintrack-report-${from}-to-${to}.csv`)}>
-                                    <Download size={16} />Export CSV
-                                </Button>
-                            )}
-                        </div>
-                    </div>
+            <Card>
+                <CardHeader title="Date range" sub="Pick a range and the report builds straight away" />
+                <Tabs tabs={QUICK_RANGES.map(r => ({ key: r.key, label: r.label }))} active={activeRange} onChange={pickRange} />
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto', gap: 'var(--space-3)', alignItems: 'end', marginTop: 'var(--space-4)' }}>
+                    <DatePicker label="From" value={from} onChange={setFrom} />
+                    <DatePicker label="To" value={to} onChange={setTo} minDate={from} />
+                    <Button variant="secondary" onClick={() => void fetchReport(from, to)} isLoading={loading}>Update report</Button>
                 </div>
+            </Card>
 
-                <div className="glass-surface" style={reportsCardSt}>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Select Date Range</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                        {QUICK_RANGES.map(range => (
-                            <button key={range.label} type="button" onClick={() => { const { from: f, to: t } = range.getDates(); setFrom(f); setTo(t); }}
-                                className="glass-field"
-                                style={{ padding: '6px 14px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-body)' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--accent-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-border)'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; (e.currentTarget as HTMLElement).style.borderColor = ''; }}>
-                                {range.label}
-                            </button>
-                        ))}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
-                        <DatePicker label="From" value={from} onChange={setFrom} />
-                        <DatePicker label="To" value={to} onChange={setTo} minDate={from} />
-                        <Button onClick={fetchReport} isLoading={loading} size="md"><Search size={15} />Generate</Button>
-                    </div>
-                </div>
+            {!data && loading && <SkeletonCard height={200} />}
+            {!data && !loading && failed && (
+                <Card>
+                    <p style={{ ...type.meta, margin: '0 0 var(--space-2)' }}>Could not build the report.</p>
+                    <TextAction onClick={() => void fetchReport(from, to)}>Try again</TextAction>
+                </Card>
+            )}
 
-                {searched && data && (
-                    <>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-                            {[
-                                { label: 'Income',       value: fmt(data.summary.income),    color: 'var(--color-inc)' },
-                                { label: 'Expenses',     value: fmt(data.summary.expenses),  color: 'var(--color-exp)' },
-                                { label: 'Balance',      value: fmt(data.summary.balance),   color: data.summary.balance >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' },
-                                { label: 'Savings Rate', value: `${data.summary.savings_rate}%`, color: 'var(--accent)' },
-                                { label: 'Transactions', value: data.summary.transaction_count, color: 'var(--color-warn)' },
-                            ].map(c => (
-                                <GCard key={c.label}>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{c.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem', fontWeight: 700, color: c.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{c.value}</p>
-                                </GCard>
-                            ))}
+            {data && summary && (
+                <>
+                    <Card>
+                        <p style={{ ...type.label, margin: 0 }}>Net for {formatDate(from)} to {formatDate(to)}</p>
+                        <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{balance >= 0 ? '+' : '−'}{fmt(Math.abs(balance))}</p>
+                        <div className="dash-stats">
+                            <Stat className="dash-stat" label="Income" value={fmt(summary.income)} sub="All income" />
+                            <Stat className="dash-stat" label="Spent" value={fmt(summary.expenses)} sub={`${summary.transaction_count} transactions`} />
+                            <Stat className="dash-stat" label="Savings rate" value={`${summary.savings_rate}%`} sub={`${fmt(Math.max(balance, 0))} kept`} />
+                            <Stat className="dash-stat" label="Biggest category" value={topCategory ? topCategory.name : '—'}
+                                sub={topCategory ? `${fmt(topCategory.total)} · ${topCategory.pct}%` : 'No spending'} />
                         </div>
+                    </Card>
 
-                        {data.categories.length > 0 && (
-                            <div className="glass-surface" style={reportsCardSt}>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 14px' }}>Spending by Category</h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {data.categories.map((cat: any) => {
-                                        const pct = totalExpenses > 0 ? (parseFloat(cat.total) / totalExpenses) * 100 : 0;
+                    {categoryRows.length > 0 && (
+                        <Card>
+                            <CardHeader title="Where it went" sub="By category, biggest first" />
+                            <Rows>
+                                {categoryRows.map(row => (
+                                    <div key={row.name} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, alignSelf: 'center', background: row.name === 'Everything else' ? 'var(--text-muted)' : (row.color || 'var(--text-muted)') }} />
+                                            <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{row.name}</span>
+                                            <span style={type.numSmall}>{row.pct}%</span>
+                                            <span style={type.num}>{fmt(row.total)}</span>
+                                        </div>
+                                        <ProgressBar pct={row.pct} height={4} color="var(--text-secondary)" />
+                                    </div>
+                                ))}
+                            </Rows>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <CardHeader title="Transactions" sub={`${txs.length} in this range, newest first`} />
+                        {txs.length === 0 ? (
+                            <p style={{ ...type.meta, margin: 0 }}>No transactions in this range</p>
+                        ) : (
+                            <>
+                                <Rows>
+                                    {txs.slice(0, visible).map((tx: any) => {
+                                        const isIncome = tx.type === 'income';
                                         return (
-                                            <div key={cat.name}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color }} />
-                                                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{cat.name}</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pct.toFixed(1)}%</span>
-                                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(parseFloat(cat.total))}</span>
-                                                    </div>
+                                            <div key={tx.id}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                                                    <p style={{ ...type.meta, ...truncate, margin: '2px 0 0' }}>{tx.category_name ? `${tx.category_name} · ` : ''}{formatDate(tx.date)}</p>
                                                 </div>
-                                                <ProgressBar pct={pct} color={cat.color} height={4} />
+                                                <span style={{ ...type.num, color: isIncome ? TONE_TEXT.good : 'var(--text-primary)', flexShrink: 0 }}>
+                                                    {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
+                                                </span>
                                             </div>
                                         );
                                     })}
-                                </div>
-                            </div>
+                                </Rows>
+                                {remaining > 0 && (
+                                    <div style={{ marginTop: 'var(--space-3)' }}>
+                                        <TextAction onClick={() => setVisible(v => v + REPORT_PAGE)}>Show {Math.min(REPORT_PAGE, remaining)} more</TextAction>
+                                    </div>
+                                )}
+                            </>
                         )}
-
-                        <div className="glass-surface" style={{ ...reportsCardSt, padding: 0 }}>
-                            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Transactions ({data.transactions.length})</h3>
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{from} → {to}</span>
-                            </div>
-                            {data.transactions.length === 0 ? (
-                                <div style={{ padding: '40px', textAlign: 'center' }}>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>No transactions in this range</p>
-                                </div>
-                            ) : (
-                                data.transactions.map((tx: any) => {
-                                    const isIncome = tx.type === 'income';
-                                    return (
-                                        <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--glass-border)', gap: '12px', transition: 'background var(--transition-fast)' }}
-                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
-                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                                                <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: isIncome ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    {isIncome ? <TrendingUp size={14} color="var(--color-inc)" /> : <TrendingDown size={14} color="var(--color-exp)" />}
-                                                </div>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
-                                                        {tx.category_name && <span style={{ fontSize: '11px', color: tx.category_color || 'var(--text-muted)', background: tx.category_color ? `${tx.category_color}20` : 'var(--glass-fill-2)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'var(--font-body)' }}>{tx.category_name}</span>}
-                                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{formatDate(tx.date)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                                {isIncome ? '+' : '−'}{fmt(parseFloat(tx.amount))}
-                                            </p>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </>
-                )}
-
-                {!searched && (
-                    <div className="glass-surface" style={{ ...reportsCardSt, padding: '60px', textAlign: 'center' }}>
-                        <FileText size={32} color="var(--text-muted)" style={{ marginBottom: '12px' }} />
-                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, fontFamily: 'var(--font-body)' }}>Select a date range and click Generate</p>
-                    </div>
-                )}
-            </div>
+                    </Card>
+                </>
+            )}
+        </>
     );
 }
 
@@ -1133,10 +1074,9 @@ function YearReviewTab() {
     const now = new Date();
     const cy  = now.getFullYear();
 
-    const [selectedYear, setSelectedYear]   = useState(cy - 1);
-    const [allTxs, setAllTxs]               = useState<any[]>([]);
-    const [loading, setLoading]             = useState(true);
-    const [screenshotMsg, setScreenshotMsg] = useState(false);
+    const [selectedYear, setSelectedYear] = useState(cy - 1);
+    const [allTxs, setAllTxs]             = useState<any[]>([]);
+    const [loading, setLoading]           = useState(true);
 
     useEffect(() => {
         if (!user) return;
@@ -1147,217 +1087,117 @@ function YearReviewTab() {
             .finally(() => setLoading(false));
     }, [user]);
 
-    const yearTxs = useMemo(() =>
-        allTxs.filter(t => {
-            const y = new Date((t.date ?? '').split('T')[0] + 'T00:00:00').getFullYear();
-            return y === selectedYear;
-        }), [allTxs, selectedYear]);
-
-    const stats = useMemo(() => {
-        if (!yearTxs.length) return null;
-        // Excludes investing, goal contributions, and internal transfers from
-        // "spending"/"income" -- mirrors the same definition used everywhere
-        // else in the app (backend/src/utils/savingsRate.js), so this tab's
-        // savings rate agrees with the Dashboard/Analytics Overview instead of
-        // recomputing its own from the raw, unfiltered transaction list.
-        const expenses = yearTxs.filter(isNonSavingsExpense);
-        const income   = yearTxs.filter(isRealIncome);
-
-        const catMap: Record<string, number> = {};
-        expenses.forEach(t => {
-            const k = t.category_name ?? t.category ?? 'Other';
-            catMap[k] = (catMap[k] ?? 0) + parseFloat(t.amount ?? 0);
-        });
-        const topCatEntry = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0];
-
-        const mMap: Record<number, { exp: number; inc: number }> = {};
-        for (let m = 1; m <= 12; m++) mMap[m] = { exp: 0, inc: 0 };
-        yearTxs.forEach(t => {
-            const m = new Date((t.date ?? '').split('T')[0] + 'T00:00:00').getMonth() + 1;
-            const a = parseFloat(t.amount ?? 0);
-            if (isNonSavingsExpense(t)) mMap[m].exp += a;
-            else if (isRealIncome(t)) mMap[m].inc += a;
-        });
-
-        const worstMonth = Object.entries(mMap)
-            .filter(([, v]) => v.exp > 0)
-            .sort((a, b) => b[1].exp - a[1].exp)[0];
-
-        const bestSavingsMonth = Object.entries(mMap)
-            .filter(([, v]) => v.inc > v.exp && v.inc > 0)
-            .sort((a, b) => (b[1].inc - b[1].exp) - (a[1].inc - a[1].exp))[0];
-
-        const totalExp = expenses.reduce((s, t) => s + parseFloat(t.amount ?? 0), 0);
-        const totalInc = income.reduce((s, t) => s + parseFloat(t.amount ?? 0), 0);
-        const saved    = Math.max(totalInc - totalExp, 0);
-        const rate     = totalInc > 0 ? Math.round((saved / totalInc) * 100) : 0;
-
-        return {
-            count: yearTxs.length, totalExp, totalInc, saved, rate,
-            topCategory: topCatEntry ? { name: topCatEntry[0], amount: topCatEntry[1] } : null,
-            worstMonth:  worstMonth  ? { m: parseInt(worstMonth[0]),  exp:  worstMonth[1].exp  } : null,
-            bestSavings: bestSavingsMonth ? { m: parseInt(bestSavingsMonth[0]), savings: bestSavingsMonth[1].inc - bestSavingsMonth[1].exp } : null,
-        };
-    }, [yearTxs]);
-
+    const stats = useMemo(() => yearReviewStats(allTxs, selectedYear), [allTxs, selectedYear]);
 
     const handleScreenshot = () => {
         cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => { setScreenshotMsg(true); setTimeout(() => setScreenshotMsg(false), 3000); }, 350);
+        setTimeout(() => toast.info('Take a screenshot of the summary card to share your year'), 350);
     };
 
-    const sCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: 0 };
+    const yearTabs = [cy - 2, cy - 1, cy].map(y => ({ key: String(y), label: String(y) }));
 
     return (
         <>
-            {screenshotMsg && (
-                <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: 'var(--bg-surface-3)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 20px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', boxShadow: '0 4px 16px rgba(0,0,0,0.15)', whiteSpace: 'nowrap' }}>
-                    Take a screenshot of the summary card to share your year! 📸
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                <div style={{ minWidth: 0 }}>
+                    <h2 style={{ ...type.heading, margin: 0 }}>Your financial story</h2>
+                    <p style={{ ...type.meta, margin: '2px 0 0' }}>{selectedYear}</p>
                 </div>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                {/* Header */}
-                <div className="glass-surface" style={sCard}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Year in Review 🎉</h1>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Your complete financial story for {selectedYear}</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                            {[cy - 2, cy - 1, cy].map(y => (
-                                <button key={y} type="button" onClick={() => setSelectedYear(y)}
-                                    className={selectedYear === y ? undefined : 'glass-field'}
-                                    style={{ padding: '6px 12px', borderRadius: '999px', border: selectedYear === y ? '1px solid var(--accent)' : undefined, background: selectedYear === y ? 'var(--accent)' : undefined, color: selectedYear === y ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: selectedYear === y ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}>
-                                    {y}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {loading ? (
-                    <><SkeletonCard height={200} /><SkeletonCard height={200} /></>
-                ) : !stats ? (
-                    <div className="glass-surface" style={{ ...sCard, padding: 0 }}>
-                        <EmptyState
-                            icon={BarChart3}
-                            title={`No data for ${selectedYear}`}
-                            subtitle="Add transactions for this year to see your review."
-                        />
-                    </div>
-                ) : (
-                    <>
-                        {/* Big animated count */}
-                        <div className="glass-surface" style={{ ...sCard, textAlign: 'center', padding: '36px 24px' }}>
-                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 12vw, 72px)', fontWeight: 800, color: 'var(--accent)', margin: '0 0 6px', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                                <CountUp value={stats?.count ?? 0} duration={1400} enabled={!!stats} format={n => n.toLocaleString('en-IN')} />
-                            </p>
-                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>transactions in {selectedYear}</p>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>Every rupee tracked — great financial discipline!</p>
-                        </div>
-
-                        {/* 4-stat grid */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            {[
-                                { emoji: '💰', label: 'Total Income',   value: yrFmt(stats.totalInc), color: 'var(--color-inc)' },
-                                { emoji: '💸', label: 'Total Spent',    value: yrFmt(stats.totalExp), color: 'var(--color-exp)' },
-                                { emoji: '🏦', label: 'Total Saved',    value: yrFmt(stats.saved),    color: 'var(--accent)'    },
-                                { emoji: '📈', label: 'Savings Rate',   value: `${stats.rate}%`,    color: 'var(--accent)'    },
-                            ].map(s => (
-                                <div key={s.label} className="glass-surface" style={{ borderRadius: 'var(--radius-md)', padding: '16px' }}>
-                                    <div style={{ fontSize: 22, marginBottom: 6 }}>{s.emoji}</div>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>{s.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.15rem', fontWeight: 700, color: s.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Highlights */}
-                        <div className="glass-surface" style={sCard}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Highlights</h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {stats.topCategory && (
-                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-exp)' }}>
-                                        <span style={{ fontSize: 24, flexShrink: 0 }}>🏆</span>
-                                        <div>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Top Spending Category</p>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-primary)', margin: 0 }}>
-                                                Your #1 category was <strong>{stats.topCategory.name}</strong> — {yrFmt(stats.topCategory.amount)} all year
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {stats.worstMonth && (
-                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-warn)' }}>
-                                        <span style={{ fontSize: 24, flexShrink: 0 }}>📅</span>
-                                        <div>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Most Expensive Month</p>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-primary)', margin: 0 }}>
-                                                <strong>{FULL_MONTHS[stats.worstMonth.m]}</strong> — you spent {yrFmt(stats.worstMonth.exp)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {stats.bestSavings && (
-                                    <div className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderLeft: '4px solid var(--color-inc)' }}>
-                                        <span style={{ fontSize: 24, flexShrink: 0 }}>🌟</span>
-                                        <div>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 2px' }}>Best Savings Month</p>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--text-primary)', margin: 0 }}>
-                                                <strong>{FULL_MONTHS[stats.bestSavings.m]}</strong> — saved {yrFmt(stats.bestSavings.savings)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                            </div>
-                        </div>
-
-                        {/* Shareable card */}
-                        <div className="glass-surface" style={sCard}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Share Your Story</h2>
-
-                            <div ref={cardRef} style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%)', borderRadius: 'var(--radius-xl)', padding: '28px 24px', color: 'white', marginBottom: '14px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                                    <div>
-                                        <p style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 800, margin: '0 0 2px', letterSpacing: '-0.01em' }}>FinTrack {selectedYear}</p>
-                                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', opacity: 0.8, margin: 0 }}>Year in Review</p>
-                                    </div>
-                                    <span style={{ fontSize: 32 }}>🎯</span>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: stats.bestSavings ? '12px' : 0 }}>
-                                    {[
-                                        { label: 'Transactions',      value: stats.count.toLocaleString('en-IN') },
-                                        { label: 'Total Saved',       value: yrFmt(stats.saved) },
-                                        { label: 'Biggest Category',  value: stats.topCategory?.name ?? '—' },
-                                        { label: 'Savings Rate',      value: `${stats.rate}%` },
-                                    ].map(s => (
-                                        <div key={s.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '10px 14px', backdropFilter: 'blur(4px)' }}>
-                                            <p style={{ fontFamily: 'var(--font-body)', fontSize: '10px', opacity: 0.75, margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</p>
-                                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 700, margin: 0, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {stats.bestSavings && (
-                                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', opacity: 0.9, margin: 0, textAlign: 'center', background: 'rgba(255,255,255,0.12)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
-                                        🌟 Best month: {FULL_MONTHS[stats.bestSavings.m]} — saved {yrFmt(stats.bestSavings.savings)}
-                                    </p>
-                                )}
-                            </div>
-
-                            <button type="button" onClick={handleScreenshot}
-                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 20px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', width: '100%' }}>
-                                <Camera size={15} /> Screenshot this card to share
-                            </button>
-                        </div>
-                    </>
-                )}
+                <Tabs tabs={yearTabs} active={String(selectedYear)} onChange={k => setSelectedYear(parseInt(k, 10))} />
             </div>
+
+            {loading ? (
+                <><SkeletonCard height={200} /><SkeletonCard height={200} /></>
+            ) : !stats ? (
+                <Card>
+                    <EmptyState
+                        icon={BarChart3}
+                        title={`No data for ${selectedYear}`}
+                        subtitle="Add transactions for this year to see your review."
+                    />
+                </Card>
+            ) : (
+                <>
+                    <Card>
+                        <p style={{ ...type.label, margin: 0 }}>Saved in {selectedYear}</p>
+                        <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{yrFmt(stats.saved)}</p>
+                        <div className="dash-stats">
+                            <Stat className="dash-stat" label="Money in" value={yrFmt(stats.totalInc)} sub="All income" />
+                            <Stat className="dash-stat" label="Spent" value={yrFmt(stats.totalExp)} sub={`${yrFmt(Math.round(stats.totalExp / 12))} a month`} />
+                            <Stat className="dash-stat" label="Savings rate" value={`${stats.rate}%`} sub="of what came in" />
+                            <Stat className="dash-stat" label="Transactions" value={stats.count.toLocaleString('en-IN')} sub="Every one tracked" />
+                        </div>
+                    </Card>
+
+                    {(stats.topCategory || stats.worstMonth || stats.bestSavings) && (
+                        <Card>
+                            <CardHeader title="Highlights" sub={`What stood out in ${selectedYear}`} />
+                            <Rows>
+                                {stats.topCategory && (
+                                    <div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ ...type.meta, margin: 0 }}>Biggest category</p>
+                                            <p style={{ ...type.bodyStrong, ...truncate, margin: '2px 0 0' }}>{stats.topCategory.name}</p>
+                                        </div>
+                                        <span style={type.num}>{yrFmt(stats.topCategory.amount)}</span>
+                                    </div>
+                                )}
+                                {stats.worstMonth && (
+                                    <div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ ...type.meta, margin: 0 }}>Most spent in a month</p>
+                                            <p style={{ ...type.bodyStrong, margin: '2px 0 0' }}>{FULL_MONTHS[stats.worstMonth.m]}</p>
+                                        </div>
+                                        <span style={type.num}>{yrFmt(stats.worstMonth.exp)}</span>
+                                    </div>
+                                )}
+                                {stats.bestSavings && (
+                                    <div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ ...type.meta, margin: 0 }}>Best month for saving</p>
+                                            <p style={{ ...type.bodyStrong, margin: '2px 0 0' }}>{FULL_MONTHS[stats.bestSavings.m]}</p>
+                                        </div>
+                                        <span style={type.num}>+{yrFmt(stats.bestSavings.savings)}</span>
+                                    </div>
+                                )}
+                            </Rows>
+                        </Card>
+                    )}
+
+                    <Card>
+                        <CardHeader title="Share your year" sub="Screenshot this card to share it"
+                            action={<TextAction onClick={handleScreenshot}>Show me where</TextAction>} />
+
+                        {/* A picture to screenshot: keeps its own gradient and white text. */}
+                        <div ref={cardRef} style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%)', borderRadius: 'var(--radius-xl)', padding: '28px 24px', color: '#fff' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <p style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, margin: '0 0 2px' }}>FinTrack {selectedYear}</p>
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', opacity: 0.8, margin: 0 }}>Year in review</p>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: stats.bestSavings ? '12px' : 0 }}>
+                                {[
+                                    { label: 'Transactions',     value: stats.count.toLocaleString('en-IN') },
+                                    { label: 'Total saved',      value: yrFmt(stats.saved) },
+                                    { label: 'Biggest category', value: stats.topCategory?.name ?? '—' },
+                                    { label: 'Savings rate',     value: `${stats.rate}%` },
+                                ].map(s => (
+                                    <div key={s.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '10px 14px' }}>
+                                        <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', opacity: 0.75, margin: '0 0 3px' }}>{s.label}</p>
+                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: 500, margin: 0, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {stats.bestSavings && (
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', opacity: 0.9, margin: 0, textAlign: 'center', background: 'rgba(255,255,255,0.12)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
+                                    Best month: {FULL_MONTHS[stats.bestSavings.m]}, saved {yrFmt(stats.bestSavings.savings)}
+                                </p>
+                            )}
+                        </div>
+                    </Card>
+                </>
+            )}
         </>
     );
 }
@@ -1402,14 +1242,17 @@ function AnalyticsPageInner() {
                 {isDataSection(tab) ? (
                     <AnalyticsDataTabs section={tab} onTabChange={setTab} />
                 ) : (
+                    tab === 'reports' ? (
+                        <ReportsTab tab={tab} onTabChange={setTab} />
+                    ) : (
                     <>
                         <AnalyticsHead tab={tab} onTabChange={setTab} />
                         {tab === 'health' && <HealthTab />}
                         {tab === 'insights' && <InsightsTab />}
-                        {tab === 'reports' && <ReportsTab />}
                         {tab === 'year-review' && <YearReviewTab />}
                         {tab === 'calendar' && <CalendarTab />}
                     </>
+                    )
                 )}
             </div>
     );
