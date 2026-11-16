@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shareRows, comparePeriod, dayOfWeekSummary, patternTitle, patternContext, splitPatterns, patternCount, yearReviewStats } from './analytics';
+import { shareRows, comparePeriod, dayOfWeekSummary, patternTitle, patternContext, splitPatterns, patternCount, yearReviewStats, calendarMonthStats, weakestFactor, sortFactorsWeakestFirst } from './analytics';
 
 describe('shareRows', () => {
     it('sorts biggest first and keeps colours', () => {
@@ -194,5 +194,45 @@ describe('yearReviewStats', () => {
         expect(neg.saved).toBe(0);
         expect(neg.rate).toBe(0);
         expect(neg.bestSavings).toBeNull();
+    });
+});
+
+describe('calendarMonthStats', () => {
+    it('is all zero for an empty map', () => {
+        expect(calendarMonthStats({})).toEqual({ totalSpent: 0, totalIncome: 0, incomeDays: 0, spendingDays: 0, dailyAvg: 0, busiest: null });
+    });
+
+    it('totals spending and income and averages over spending days', () => {
+        const s = calendarMonthStats({
+            '2026-11-01': { income: 0, expenses: 100 },
+            '2026-11-02': { income: 5000, expenses: 0 },
+            '2026-11-03': { income: 200, expenses: 300 },
+        });
+        expect(s.totalSpent).toBe(400);
+        expect(s.totalIncome).toBe(5200);
+        expect(s.incomeDays).toBe(2);
+        expect(s.spendingDays).toBe(2);
+        expect(s.dailyAvg).toBe(200);
+        expect(s.busiest).toEqual({ date: '2026-11-03', amount: 300 });
+    });
+
+    it('keeps the first date when two days tie for busiest', () => {
+        const s = calendarMonthStats({ '2026-11-04': { income: 0, expenses: 50 }, '2026-11-09': { income: 0, expenses: 50 } });
+        expect(s.busiest).toEqual({ date: '2026-11-04', amount: 50 });
+    });
+});
+
+describe('factor ordering', () => {
+    const f = (id: string, pct: number) => ({ id, pct });
+    it('sorts weakest first, stable on ties, without mutating the input', () => {
+        const input = [f('a', 50), f('b', 10), f('c', 50), f('d', 10)];
+        const sorted = sortFactorsWeakestFirst(input);
+        expect(sorted.map(x => x.id)).toEqual(['b', 'd', 'a', 'c']);
+        expect(input.map(x => x.id)).toEqual(['a', 'b', 'c', 'd']);
+    });
+
+    it('finds the weakest factor, or null when there are none', () => {
+        expect(weakestFactor([f('a', 50), f('b', 10), f('c', 10)])?.id).toBe('b');
+        expect(weakestFactor([])).toBeNull();
     });
 });

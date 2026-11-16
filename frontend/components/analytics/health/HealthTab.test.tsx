@@ -51,7 +51,7 @@ describe('HealthScoreCard', () => {
         expect(screen.getByText(result.label)).toBeInTheDocument();
     });
 
-    it('shows no change pill when there is no reading from last month', () => {
+    it('shows no change line when there is no reading from last month', () => {
         render(<HealthScoreCard result={result} change={null} />);
         expect(screen.queryByTestId('health-change-pill')).not.toBeInTheDocument();
         expect(screen.queryByText(/since/)).not.toBeInTheDocument();
@@ -59,15 +59,17 @@ describe('HealthScoreCard', () => {
 
     it('shows the change vs last month when it exists', () => {
         render(<HealthScoreCard result={result} change={{ delta: 4, monthLabel: 'August' }} />);
-        expect(screen.getByTestId('health-change-pill')).toHaveTextContent('+4');
-        expect(screen.getByText('Up 4 since August')).toBeInTheDocument();
+        expect(screen.getByTestId('health-change-pill')).toHaveTextContent('Up 4 since August');
     });
 });
 
 describe('HealthFactorList', () => {
-    it('renders one row per factor with the lib name, value and a semantic pill', () => {
+    it('renders one row per factor, weakest first, with the lib name, value and a semantic tone', () => {
         render(<HealthFactorList factors={result.breakdown} />);
-        expect(screen.getAllByRole('listitem')).toHaveLength(result.breakdown.length);
+        expect(document.querySelectorAll('[data-testid^="health-factor-"]')).toHaveLength(result.breakdown.length);
+        const order = Array.from(document.querySelectorAll('[data-testid^="health-factor-"]')).map(el => el.getAttribute('data-testid'));
+        const expectedOrder = [...result.breakdown].sort((a, b) => a.pct - b.pct).map(f => `health-factor-${f.id}`);
+        expect(order).toEqual(expectedOrder);
         for (const f of result.breakdown) {
             const row = screen.getByTestId(`health-factor-${f.id}`);
             expect(within(row).getByText(f.name)).toBeInTheDocument();

@@ -29,17 +29,19 @@ export function CardHeader({ title, sub, action, flush = false }: {
 }
 
 /** The one link style inside cards. `quiet` is for secondary actions such as Dismiss; `tone="danger"` for deletes. */
-export function TextAction({ children, onClick, quiet = false, tone, disabled, 'aria-label': ariaLabel }: {
+export function TextAction({ children, onClick, quiet = false, tone, disabled, 'aria-label': ariaLabel, 'aria-expanded': ariaExpanded, 'aria-controls': ariaControls }: {
     children: React.ReactNode;
     onClick: () => void;
     quiet?: boolean;
     tone?: 'danger' | 'good';
     disabled?: boolean;
     'aria-label'?: string;
+    'aria-expanded'?: boolean;
+    'aria-controls'?: string;
 }) {
     const cls = ['fin-link', quiet && 'fin-link-quiet', tone === 'danger' && 'fin-link-danger', tone === 'good' && 'fin-link-good'].filter(Boolean).join(' ');
     return (
-        <button type="button" className={cls} onClick={onClick} disabled={disabled} aria-label={ariaLabel}>
+        <button type="button" className={cls} onClick={onClick} disabled={disabled} aria-label={ariaLabel} aria-expanded={ariaExpanded} aria-controls={ariaControls}>
             {children}
         </button>
     );

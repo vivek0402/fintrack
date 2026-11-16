@@ -224,3 +224,41 @@ export function yearReviewStats(txs: any[], year: number): YearReviewStats | nul
         bestSavings: bestSavingsMonth ? { m: parseInt(bestSavingsMonth[0]), savings: bestSavingsMonth[1].inc - bestSavingsMonth[1].exp } : null,
     };
 }
+
+// ── Calendar and health helpers (Analytics round 3) ──────────────────────────
+
+export interface CalendarMonthStats {
+    totalSpent: number;
+    totalIncome: number;
+    incomeDays: number;
+    spendingDays: number;
+    dailyAvg: number;
+    /** The day with the most spending; the earliest date wins a tie. Null when nothing was spent. */
+    busiest: { date: string; amount: number } | null;
+}
+
+/** Month figures for the calendar tab from its per-day income and spending. */
+export function calendarMonthStats(dayMap: Record<string, { income: number; expenses: number }>): CalendarMonthStats {
+    let totalSpent = 0, totalIncome = 0, incomeDays = 0, spendingDays = 0;
+    let busiest: { date: string; amount: number } | null = null;
+    for (const [date, d] of Object.entries(dayMap)) {
+        totalSpent += d.expenses;
+        totalIncome += d.income;
+        if (d.income > 0) incomeDays++;
+        if (d.expenses > 0) spendingDays++;
+        if (d.expenses > (busiest?.amount ?? 0)) busiest = { date, amount: d.expenses };
+    }
+    return { totalSpent, totalIncome, incomeDays, spendingDays, dailyAvg: spendingDays > 0 ? totalSpent / spendingDays : 0, busiest };
+}
+
+/** The factor with the lowest pct (first one on a tie), or null for an empty list. */
+export function weakestFactor<T extends { pct: number }>(factors: T[]): T | null {
+    let weakest: T | null = null;
+    for (const f of factors) if (!weakest || f.pct < weakest.pct) weakest = f;
+    return weakest;
+}
+
+/** A copy sorted by pct ascending. Equal pct keeps the original order; the input is untouched. */
+export function sortFactorsWeakestFirst<T extends { pct: number }>(factors: T[]): T[] {
+    return factors.map((f, i) => ({ f, i })).sort((a, b) => a.f.pct - b.f.pct || a.i - b.i).map(x => x.f);
+}

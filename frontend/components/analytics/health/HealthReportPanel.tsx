@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
 import { aiAPI } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { type } from '@/lib/typography';
 import type { HealthScoreResult } from '@/lib/healthScore';
 
 export interface HealthReport {
@@ -27,16 +28,16 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
 
 const factorPayload = (r: HealthScoreResult) => r.breakdown.map(f => ({ id: f.id, score: f.score, max: f.max }));
 
-function ReportList({ title, items, color }: { title: string; items: string[]; color: string }) {
+function ReportList({ title, items }: { title: string; items: string[] }) {
     if (!items.length) return null;
     return (
         <div>
-            <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>{title}</p>
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <p style={{ ...type.label, margin: '0 0 var(--space-2)' }}>{title}</p>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {items.map((s, i) => (
                     <li key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 'var(--radius-full)', background: color, flexShrink: 0, marginTop: '7px' }} />
-                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.55, fontFamily: 'var(--font-body)' }}>{s}</span>
+                        <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: 'var(--radius-full)', background: 'var(--text-muted)', flexShrink: 0, marginTop: '8px' }} />
+                        <span style={{ ...type.body, minWidth: 0 }}>{s}</span>
                     </li>
                 ))}
             </ul>
@@ -45,9 +46,9 @@ function ReportList({ title, items, color }: { title: string; items: string[]; c
 }
 
 /**
- * "AI report card" row. The AI explains the calculateHealthScore result it is
+ * "AI report card". The AI explains the calculateHealthScore result it is
  * given -- it never scores on its own. On mount it only peeks at the cache
- * (no AI call); the report is generated on first expand.
+ * (no AI call); the report is generated on first open.
  */
 export function HealthReportPanel({ result }: { result: HealthScoreResult }) {
     const [open, setOpen] = useState(false);
@@ -85,59 +86,49 @@ export function HealthReportPanel({ result }: { result: HealthScoreResult }) {
 
     const subtitle = report
         ? `Explains this score · ${timeAgo(report.generated_at)}`
-        : loading ? 'Explains this score · Writing…' : 'Explains this score · Not generated yet';
+        : loading ? 'Explains this score · Writing' : 'Explains this score · Not generated yet';
 
     return (
-        <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-            <button
-                type="button"
-                onClick={toggle}
-                aria-expanded={open}
-                aria-controls="health-ai-report"
-                style={{ width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
-            >
-                <span style={{ width: 34, height: 34, borderRadius: 'var(--radius-md)', background: 'var(--accent-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Sparkles size={16} color="var(--accent)" />
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>AI report card</span>
-                    <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitle}</span>
-                </span>
-                <ChevronDown size={18} color="var(--text-muted)" style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 200ms cubic-bezier(0.4, 0, 0.2, 1)' }} />
-            </button>
+        <Card>
+            <CardHeader
+                title="AI report card"
+                sub={subtitle}
+                flush={!open}
+                action={
+                    <TextAction onClick={toggle} aria-expanded={open} aria-controls="health-ai-report" aria-label={`${open ? 'Hide' : 'Show'} AI report card`}>
+                        {open ? 'Hide' : 'Show'}
+                    </TextAction>
+                }
+            />
 
             {open && (
-                <div id="health-ai-report" style={{ padding: '4px 20px 20px', borderTop: '1px solid var(--glass-border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div id="health-ai-report" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                     {loading && !report && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '14px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <Skeleton width="100%" height={12} borderRadius={4} />
                             <Skeleton width="92%" height={12} borderRadius={4} />
                             <Skeleton width="70%" height={12} borderRadius={4} />
                         </div>
                     )}
                     {error && !loading && (
-                        <div style={{ paddingTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '13px', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>Couldn&apos;t write the report. Try again.</span>
-                            <Button variant="secondary" size="sm" onClick={() => void generate(!!report)}>Retry</Button>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                            <span style={{ ...type.meta, color: TONE_TEXT.bad }}>Couldn&apos;t write the report. Try again.</span>
+                            <TextAction onClick={() => void generate(!!report)}>Try again</TextAction>
                         </div>
                     )}
                     {report && (
                         <>
-                            {report.narrative && (
-                                <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: 1.6, margin: '14px 0 0', fontFamily: 'var(--font-body)' }}>{report.narrative}</p>
-                            )}
-                            <ReportList title="Strengths" items={report.strengths} color="var(--color-inc)" />
-                            <ReportList title="Weak spots" items={report.weak_spots} color="var(--color-warn)" />
-                            <ReportList title="What to do next" items={report.next_steps} color="var(--accent)" />
+                            {report.narrative && <p style={{ ...type.body, margin: 0 }}>{report.narrative}</p>}
+                            <ReportList title="Strengths" items={report.strengths} />
+                            <ReportList title="Weak spots" items={report.weak_spots} />
+                            <ReportList title="What to do next" items={report.next_steps} />
                             <div>
-                                <Button variant="secondary" size="sm" onClick={() => void generate(true)} isLoading={loading}>
-                                    <Sparkles size={13} />Regenerate
-                                </Button>
+                                <TextAction onClick={() => void generate(true)} disabled={loading}>{loading ? 'Writing' : 'Regenerate'}</TextAction>
                             </div>
                         </>
                     )}
                 </div>
             )}
-        </div>
+        </Card>
     );
 }
