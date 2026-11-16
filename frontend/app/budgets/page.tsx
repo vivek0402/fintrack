@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Trash2, RefreshCw, X,
@@ -30,6 +29,7 @@ import { formatDate, fmt as fmtBase, looksLikeEmoji } from '@/lib/utils';
 import { isTransactionWrite, refreshWidgets } from '@/lib/widgets';
 import { groupRecurring, recurringSummary, daysUntil, dueLabel, dueTone } from '@/lib/recurring';
 import { groupSplits, whoOwes, splitsSummary, owedOn } from '@/lib/splits';
+import { groupByYear, oneTimeSummary, byCategory, itemsByDay, dateRangeLabel, entryYear } from '@/lib/oneTime';
 
 const NO_BUDGETS: any[] = [];
 
@@ -101,6 +101,7 @@ interface OtExpense {
     total_amount: number;
     item_count: number;
     items: OtExpenseItem[];
+    created_at?: string;
 }
 
 interface OtAccount {
@@ -124,6 +125,7 @@ const otEmptyItemForm = () => ({
     date: new Date().toISOString().split('T')[0],
     payment_method: 'Cash',
     category: 'Other',
+    notes: '',
     credit_card_id: null as number | null,
 });
 
@@ -993,11 +995,10 @@ function BudgetsPageInner() {
     const [otEditingExp, setOtEditingExp]       = useState<OtExpense | null>(null);
     const [otExpForm, setOtExpForm]             = useState(otEmptyExpenseForm());
     const [otSavingExp, setOtSavingExp]         = useState(false);
-    const [otDeleteConfirm, setOtDeleteConfirm] = useState<OtExpense | null>(null);
-    const [otToast, setOtToast]                 = useState('');
-    const [otMounted, setOtMounted]             = useState(false);
-
-    useEffect(() => { setOtMounted(true); }, []);
+    const [otConfirmDeleteExp, setOtConfirmDeleteExp]   = useState<string | null>(null);
+    const [otConfirmDeleteItem, setOtConfirmDeleteItem] = useState<string | null>(null);
+    const [otPendingDeleteExp, setOtPendingDeleteExp]     = useState<Set<string>>(new Set());
+    const [otPendingDeleteItems, setOtPendingDeleteItems] = useState<Set<string>>(new Set());
 
     const otGetHeaders = useCallback(() => {
         const token = useAuthStore.getState().token;
@@ -1025,7 +1026,7 @@ function BudgetsPageInner() {
             setOtCards(cData.cards || []);
         } catch (err) {
             console.error(err);
-            otShowToast('Failed to load one-time expenses');
+            toast.error('Failed to load one-time expenses. Try again.');
         }
     }, [otGetHeaders]);
 
@@ -1036,19 +1037,13 @@ function BudgetsPageInner() {
         }
     }, [user, tab, otFetched, otFetchAll]);
 
-    const otShowToast = (msg: string) => {
-        setOtToast(msg);
-        setTimeout(() => setOtToast(''), 3000);
-    };
-
     const otOpenAddExpense = () => {
         setOtEditingExp(null);
         setOtExpForm(otEmptyExpenseForm());
         setOtShowModal(true);
     };
 
-    const otOpenEditExpense = (exp: OtExpense, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const otOpenEditExpense = (exp: OtExpense) => {
         setOtEditingExp(exp);
         setOtExpForm({
             title:          exp.title,
@@ -1059,6 +1054,12 @@ function BudgetsPageInner() {
             notes:          exp.notes || '',
         });
         setOtShowModal(true);
+    };
+
+    const otCloseItemForm = () => {
+        setOtAddingItemFor(null);
+        setOtEditingItem(null);
+        setOtItemForm(otEmptyItemForm());
     };
 
     const otHandleSaveExpense = async (e: React.FormEvent) => {
@@ -1081,7 +1082,7 @@ function BudgetsPageInner() {
                 });
                 const data = await res.json();
                 setOtExpenses(prev => prev.map(ex => ex.id === otEditingExp.id ? { ...ex, ...data.expense } : ex));
-                otShowToast('Expense updated');
+                toast.success('Expense updated');
             } else {
                 const res  = await otWrite(`${OT_API}/api/one-time-expenses`, {
                     method: 'POST', headers: otGetHeaders(), body: JSON.stringify(body),
@@ -1090,35 +1091,58 @@ function BudgetsPageInner() {
                 const newExp: OtExpense = { ...data.expense, items: [], total_amount: 0, item_count: 0 };
                 setOtExpenses(prev => [newExp, ...prev]);
                 setOtExpandedId(newExp.id);
-                otShowToast('Expense created — add items below');
+                setOtEditingItem(null);
+                setOtItemForm(otEmptyItemForm());
+                setOtAddingItemFor(newExp.id);
+                toast.success('Expense created. Add its first item.');
             }
             setOtShowModal(false);
             setOtEditingExp(null);
         } catch (err) {
             console.error(err);
-            otShowToast('Failed to save expense — try again');
+            toast.error('Failed to save expense. Try again.');
         } finally {
             setOtSavingExp(false);
         }
     };
 
+    // The DELETE itself. Throws on failure so the deferred caller can un-hide the entry.
     const otHandleDeleteExpense = async (exp: OtExpense) => {
-        try {
-            await otWrite(`${OT_API}/api/one-time-expenses/${exp.id}`, {
-                method: 'DELETE', headers: otGetHeaders(),
-            });
-            setOtExpenses(prev => prev.filter(e => e.id !== exp.id));
-            if (otExpandedId === exp.id) setOtExpandedId(null);
-            setOtDeleteConfirm(null);
-            otShowToast(
-                exp.total_amount > 0 && exp.bank_account_name
-                    ? `Deleted — ${otFmt(exp.total_amount)} restored to ${exp.bank_account_name}`
-                    : 'Expense deleted'
-            );
-        } catch (err) {
-            console.error(err);
-            otShowToast('Failed to delete expense — try again');
-        }
+        const res = await otWrite(`${OT_API}/api/one-time-expenses/${exp.id}`, {
+            method: 'DELETE', headers: otGetHeaders(),
+        });
+        if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+        setOtExpenses(prev => prev.filter(e => e.id !== exp.id));
+        setOtExpandedId(cur => (cur === exp.id ? null : cur));
+        setOtAddingItemFor(cur => (cur === exp.id ? null : cur));
+    };
+
+    // Hide the entry at once, delete for real after the undo window (same
+    // pattern as handleSplitDelete).
+    const otDeleteExpense = (exp: OtExpense) => {
+        const total = Number(exp.total_amount) || 0;
+        const unhide = () => setOtPendingDeleteExp(prev => { const s = new Set(prev); s.delete(exp.id); return s; });
+        setOtPendingDeleteExp(prev => new Set([...prev, exp.id]));
+        setOtConfirmDeleteExp(null);
+
+        let cancelled = false;
+        toast.undo('Expense deleted', () => {
+            cancelled = true;
+            unhide();
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await otHandleDeleteExpense(exp);
+                unhide();
+                if (total > 0 && exp.bank_account_name) toast.success(`${otFmt(total)} restored to ${exp.bank_account_name}`);
+            } catch (err) {
+                console.error(err);
+                unhide();
+                toast.error('Failed to delete expense. Try again.');
+            }
+        }, 4000);
     };
 
     const otHandleAddItem = async (expenseId: string) => {
@@ -1134,6 +1158,7 @@ function BudgetsPageInner() {
                     date:           otItemForm.date,
                     payment_method: otItemForm.payment_method,
                     category:       otItemForm.category,
+                    notes:          otItemForm.notes || null,
                     credit_card_id: otItemForm.payment_method === 'Credit Card' ? otItemForm.credit_card_id : null,
                 }),
             });
@@ -1146,7 +1171,7 @@ function BudgetsPageInner() {
             setOtItemForm(otEmptyItemForm());
         } catch (err) {
             console.error(err);
-            otShowToast('Failed to add item — try again');
+            toast.error('Failed to add item. Try again.');
         } finally {
             setOtAddingItem(false);
         }
@@ -1154,12 +1179,14 @@ function BudgetsPageInner() {
 
     const otOpenEditItem = (expenseId: string, item: OtExpenseItem) => {
         setOtEditingItem({ expenseId, item });
+        setOtConfirmDeleteItem(null);
         setOtItemForm({
             description:    item.description,
             amount:         String(item.amount),
             date:           (item.date || '').split('T')[0],
             payment_method: item.payment_method || 'Cash',
             category:       item.category || 'Other',
+            notes:          item.notes || '',
             credit_card_id: item.credit_card_id ?? null,
         });
         setOtAddingItemFor(expenseId);
@@ -1178,6 +1205,7 @@ function BudgetsPageInner() {
                     date:           otItemForm.date,
                     payment_method: otItemForm.payment_method,
                     category:       otItemForm.category,
+                    notes:          otItemForm.notes || null,
                     credit_card_id: otItemForm.payment_method === 'Credit Card' ? otItemForm.credit_card_id : null,
                 }),
             });
@@ -1187,95 +1215,267 @@ function BudgetsPageInner() {
                 const newItems = ex.items.map(i => i.id === itemId ? data.item : i);
                 return { ...ex, items: newItems, total_amount: newItems.reduce((s, i) => s + Number(i.amount), 0) };
             }));
-            setOtEditingItem(null);
-            setOtAddingItemFor(null);
-            setOtItemForm(otEmptyItemForm());
+            otCloseItemForm();
         } catch (err) {
             console.error(err);
-            otShowToast('Failed to update item — try again');
+            toast.error('Failed to update item. Try again.');
         } finally {
             setOtAddingItem(false);
         }
     };
 
+    // The DELETE itself. Throws on failure so the deferred caller can un-hide the item.
     const otHandleDeleteItem = async (expenseId: string, itemId: string) => {
-        try {
-            await otWrite(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
-                method: 'DELETE', headers: otGetHeaders(),
-            });
-            setOtExpenses(prev => prev.map(ex => {
-                if (ex.id !== expenseId) return ex;
-                const newItems = ex.items.filter(i => i.id !== itemId);
-                return { ...ex, items: newItems, total_amount: newItems.reduce((s, i) => s + Number(i.amount), 0), item_count: newItems.length };
-            }));
-        } catch (err) {
-            console.error(err);
-            otShowToast('Failed to delete item — try again');
-        }
+        const res = await otWrite(`${OT_API}/api/one-time-expenses/${expenseId}/items/${itemId}`, {
+            method: 'DELETE', headers: otGetHeaders(),
+        });
+        if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+        setOtExpenses(prev => prev.map(ex => {
+            if (ex.id !== expenseId) return ex;
+            const newItems = ex.items.filter(i => i.id !== itemId);
+            return { ...ex, items: newItems, total_amount: newItems.reduce((s, i) => s + Number(i.amount), 0), item_count: newItems.length };
+        }));
     };
 
-    const otCurrentYear = new Date().getFullYear();
-    const otTotalSpent  = otExpenses.reduce((s, e) => s + Number(e.total_amount), 0);
-    const otThisYear    = otExpenses
-        .filter(e => {
-            const d = e.start_date || e.items?.[0]?.date;
-            return d ? new Date(d).getFullYear() === otCurrentYear : false;
-        })
-        .reduce((s, e) => s + Number(e.total_amount), 0);
+    const otDeleteItem = (expenseId: string, itemId: string) => {
+        const unhide = () => setOtPendingDeleteItems(prev => { const s = new Set(prev); s.delete(itemId); return s; });
+        setOtPendingDeleteItems(prev => new Set([...prev, itemId]));
+        setOtConfirmDeleteItem(null);
+        if (otEditingItem?.item.id === itemId) otCloseItemForm();
 
-    const otFormatDateRange = (exp: OtExpense) => {
-        if (!exp.start_date) return '';
-        const s = new Date(exp.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-        if (!exp.end_date || exp.end_date === exp.start_date) return s;
-        const en = new Date(exp.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-        return `${s} – ${en}`;
+        let cancelled = false;
+        toast.undo('Item deleted', () => {
+            cancelled = true;
+            unhide();
+        });
+
+        setTimeout(async () => {
+            if (cancelled) return;
+            try {
+                await otHandleDeleteItem(expenseId, itemId);
+                unhide();
+            } catch (err) {
+                console.error(err);
+                unhide();
+                toast.error('Failed to delete item. Try again.');
+            }
+        }, 4000);
     };
 
-    const [otIsMobile, setOtIsMobile] = useState(false);
-    useEffect(() => {
-        setOtIsMobile(window.innerWidth < 768);
-        const onResize = () => setOtIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
-    }, []);
+    // What the tab shows: entries and items still waiting out their undo window
+    // are hidden, and an entry's total follows the items that remain.
+    const otVisible: OtExpense[] = otExpenses
+        .filter(e => !otPendingDeleteExp.has(e.id))
+        .map(e => {
+            if (!e.items.some(i => otPendingDeleteItems.has(i.id))) return e;
+            const items = e.items.filter(i => !otPendingDeleteItems.has(i.id));
+            return { ...e, items, item_count: items.length, total_amount: items.reduce((s, i) => s + Number(i.amount), 0) };
+        });
+    const otGroups = groupByYear(otVisible, currentYear);
+    const otSum = oneTimeSummary(otVisible, currentYear);
+    const otCats = byCategory(otVisible.filter(e => entryYear(e, currentYear) === currentYear));
 
-    // Hand-rolled sheet/dialog (not the shared Modal), so the glass-sheet recipe
-    // is inlined here -- same approach as the Accounts page's own modals.
-    const otGlassSheet: React.CSSProperties = {
-        background: 'var(--glass-sheet-surface)',
-        backdropFilter: 'var(--glass-blur)',
-        WebkitBackdropFilter: 'var(--glass-blur)',
-        boxShadow: 'var(--glass-edge)',
+    const otInset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+
+    // The add / edit item form, an inset panel under the entry's actions.
+    const renderOtItemForm = (exp: OtExpense) => {
+        const id = (name: string) => `ot-item-${name}-${exp.id}`;
+        const canSave = !!otItemForm.description && !!otItemForm.amount;
+        const submit = (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!canSave) return;
+            if (otEditingItem) otHandleUpdateItem(exp.id, otEditingItem.item.id);
+            else otHandleAddItem(exp.id);
+        };
+        return (
+            <div style={{ background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3)' }}>
+                <form onSubmit={submit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <label htmlFor={id('desc')} style={labelSt}>What did you spend on?</label>
+                        <input id={id('desc')} type="text" autoFocus placeholder="Dinner, auto ride, entry ticket" style={inputSt}
+                            value={otItemForm.description} onChange={e => setOtItemForm(f => ({ ...f, description: e.target.value }))} />
+                    </div>
+                    <div>
+                        <label htmlFor={id('amount')} style={labelSt}>Amount</label>
+                        <div style={{ position: 'relative' }}>
+                            <span aria-hidden="true" style={{ ...type.num, color: 'var(--text-secondary)', position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>₹</span>
+                            <input id={id('amount')} type="number" min="0" step="1" placeholder="0" style={{ ...inputSt, ...type.num, paddingLeft: 30 }}
+                                value={otItemForm.amount} onChange={e => setOtItemForm(f => ({ ...f, amount: e.target.value }))} />
+                        </div>
+                    </div>
+                    <DatePicker label="Date" value={otItemForm.date} onChange={date => setOtItemForm(f => ({ ...f, date }))} />
+                    <div>
+                        <label style={labelSt}>Category</label>
+                        <CategoryField
+                            valueKey="name"
+                            value={otItemForm.category}
+                            onChange={v => setOtItemForm(f => ({ ...f, category: v }))}
+                            categories={categories.length > 0 ? categories : OT_FALLBACK_CATEGORIES}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor={id('pay')} style={labelSt}>Paid with</label>
+                        <select id={id('pay')} style={inputSt} value={otItemForm.payment_method}
+                            onChange={e => setOtItemForm(f => ({
+                                ...f,
+                                payment_method: e.target.value,
+                                credit_card_id: e.target.value === 'Credit Card' ? (otCards.length === 1 ? otCards[0].id : f.credit_card_id) : null,
+                            }))}>
+                            {OT_PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                    </div>
+                    {otItemForm.payment_method === 'Credit Card' && otCards.length > 1 && (
+                        <div>
+                            <label htmlFor={id('card')} style={labelSt}>Which card?</label>
+                            <select id={id('card')} style={inputSt} value={otItemForm.credit_card_id ?? ''}
+                                onChange={e => setOtItemForm(f => ({ ...f, credit_card_id: e.target.value ? Number(e.target.value) : null }))}>
+                                <option value="">Select card</option>
+                                {otCards.map((c: any) => (
+                                    <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <label htmlFor={id('notes')} style={labelSt}>Note</label>
+                        <input id={id('notes')} type="text" placeholder="Optional" style={inputSt}
+                            value={otItemForm.notes} onChange={e => setOtItemForm(f => ({ ...f, notes: e.target.value }))} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        <Button type="submit" size="sm" isLoading={otAddingItem} disabled={!canSave}>{otEditingItem ? 'Save item' : 'Add item'}</Button>
+                        <TextAction quiet onClick={otCloseItemForm}>Cancel</TextAction>
+                        {otEditingItem && (
+                            <span style={{ marginLeft: 'auto' }}>
+                                <TextAction tone="danger" onClick={() => otDeleteItem(exp.id, otEditingItem.item.id)}>Delete item</TextAction>
+                            </span>
+                        )}
+                    </div>
+                </form>
+            </div>
+        );
     };
 
-    const otModalStyle: React.CSSProperties = otIsMobile ? {
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        ...otGlassSheet,
-        borderRadius: '20px 20px 0 0',
-        borderTop: '1px solid var(--glass-border)',
-        padding: '24px 20px calc(24px + var(--sa-bottom))',
-        zIndex: 10000, maxHeight: '92vh', overflowY: 'auto',
-    } : {
-        position: 'fixed', top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        ...otGlassSheet,
-        borderRadius: '16px',
-        border: '1px solid var(--glass-border)',
-        padding: '28px', zIndex: 10000,
-        width: '480px', maxHeight: '90vh', overflowY: 'auto',
+    // One item: tap to edit, the trash icon asks first.
+    const renderOtItem = (exp: OtExpense, item: OtExpenseItem) => {
+        const confirming = otConfirmDeleteItem === item.id;
+        const edit = () => otOpenEditItem(exp.id, item);
+        const meta = [item.category && item.category !== 'Other' ? item.category : null, item.payment_method].filter(Boolean).join(' · ');
+        return (
+            <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '8px 0' }}>
+                    <div role="button" tabIndex={0} className="pressable" onClick={edit}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); edit(); } }}
+                        style={{ flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                        <p style={{ ...type.body, color: 'var(--text-primary)', ...truncate, margin: 0 }}>{item.description}</p>
+                        {meta && <p style={{ ...type.meta, ...truncate, margin: 0 }}>{meta}</p>}
+                    </div>
+                    <span style={{ ...type.num, flexShrink: 0 }}>{otFmt(Number(item.amount) || 0)}</span>
+                    <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${item.description}`}
+                        onClick={() => setOtConfirmDeleteItem(item.id)}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+                {confirming && (
+                    <div style={otInset}>
+                        <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete {item.description}?</span>
+                        <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                            <TextAction tone="danger" onClick={() => otDeleteItem(exp.id, item.id)}>Delete item</TextAction>
+                            <TextAction quiet onClick={() => setOtConfirmDeleteItem(null)}>Keep it</TextAction>
+                        </span>
+                    </div>
+                )}
+            </div>
+        );
     };
 
-    const otInputStyle: React.CSSProperties = {
-        width: '100%', background: 'var(--glass-fill-1)',
-        border: '1px solid var(--glass-border)', borderRadius: '8px',
-        padding: '10px 12px', color: 'var(--text-primary)',
-        fontSize: '14px', outline: 'none', boxSizing: 'border-box',
-    };
+    // One entry as a row: the top line opens it; the days and items sit underneath.
+    const renderOtEntry = (exp: OtExpense) => {
+        const expanded   = otExpandedId === exp.id;
+        const formOpen   = otAddingItemFor === exp.id;
+        const confirming = otConfirmDeleteExp === exp.id;
+        const total      = Number(exp.total_amount) || 0;
+        const count      = exp.items.length;
+        const meta = [
+            exp.category,
+            dateRangeLabel(exp.start_date, exp.end_date, currentYear),
+            exp.bank_account_name ? `from ${exp.bank_account_name}` : null,
+        ].filter(Boolean).join(' · ');
+        const toggle = () => {
+            otCloseItemForm();
+            setOtConfirmDeleteExp(null);
+            setOtConfirmDeleteItem(null);
+            setOtExpandedId(expanded ? null : exp.id);
+        };
+        const openNewItem = () => {
+            if (formOpen && !otEditingItem) return;
+            setOtEditingItem(null);
+            setOtItemForm(otEmptyItemForm());
+            setOtAddingItemFor(exp.id);
+        };
+        const days = itemsByDay(exp.items, currentYear);
 
-    const otLabelStyle: React.CSSProperties = {
-        fontSize: '11px', fontWeight: 600,
-        color: 'var(--text-secondary)', letterSpacing: '0.5px',
-        textTransform: 'uppercase', marginBottom: '6px', display: 'block',
+        return (
+            <div key={exp.id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
+                <div role="button" tabIndex={0} aria-expanded={expanded} className="pressable" onClick={toggle}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0, cursor: 'pointer', borderRadius: 'var(--radius-md)' }}>
+                    <div aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {OT_CATEGORY_EMOJI[exp.category] || '🧾'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{exp.title}</p>
+                        <p style={{ ...type.meta, ...truncate, margin: 0 }}>{meta}</p>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ ...type.num, margin: 0 }}>{otFmt(total)}</p>
+                        <p style={{ ...type.meta, margin: 0 }}>{count} {count === 1 ? 'item' : 'items'}</p>
+                    </div>
+                </div>
+
+                {expanded && (
+                    <>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-3)' }}>
+                            <Button size="sm" onClick={openNewItem}>Add item</Button>
+                            <div style={{ flex: 1 }} />
+                            <TextAction quiet onClick={() => otOpenEditExpense(exp)}>Edit details</TextAction>
+                            <TextAction tone="danger" onClick={() => setOtConfirmDeleteExp(exp.id)}>Delete entry</TextAction>
+                        </div>
+
+                        {confirming && (
+                            <div style={otInset}>
+                                <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>
+                                    Delete {exp.title}?{total > 0 && exp.bank_account_name ? ` ${otFmt(total)} goes back to ${exp.bank_account_name}.` : ''}
+                                </span>
+                                <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                                    <TextAction tone="danger" onClick={() => otDeleteExpense(exp)}>Delete entry</TextAction>
+                                    <TextAction quiet onClick={() => setOtConfirmDeleteExp(null)}>Keep it</TextAction>
+                                </span>
+                            </div>
+                        )}
+
+                        {formOpen && renderOtItemForm(exp)}
+
+                        {days.length === 0 ? (
+                            <p style={{ ...type.meta, margin: 0 }}>No items yet. Add the first one above.</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {days.map((day, idx) => (
+                                    <div key={day.date || 'no-date'} style={{ display: 'flex', flexDirection: 'column', gap: 4, ...(idx > 0 ? { borderTop: '1px solid var(--glass-border)', paddingTop: 10 } : {}) }}>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                            <span style={type.label}>{day.label}</span>
+                                            <span style={type.numSmall}>{otFmt(day.total)}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 'var(--space-3)', borderLeft: '1px solid var(--glass-border)' }}>
+                                            {day.items.map(item => renderOtItem(exp, item))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
+        );
     };
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1312,7 +1512,9 @@ function BudgetsPageInner() {
                                         ? (visibleSplits.length > 0
                                             ? `${splitSum.openCount} open split${splitSum.openCount !== 1 ? 's' : ''}${splitSum.settledCount > 0 ? ` · ${splitSum.settledCount} settled` : ''}`
                                             : !splitsLoading ? 'Track shared expenses and who owes you' : 'Monthly limits, recurring bills, shared expenses and one-off spends')
-                                        : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
+                                        : tab === 'one-time'
+                                            ? 'Trips, events and big purchases, kept out of your monthly budgets'
+                                            : 'Monthly limits, recurring bills, shared expenses and one-off spends'}
                         </p>
                         <h1 style={{ ...type.heading, margin: 0 }}>Budgets</h1>
                     </div>
@@ -1335,6 +1537,11 @@ function BudgetsPageInner() {
                     {tab === 'splits' && (
                         <div className="fin-page-actions">
                             <Button onClick={openSplitAdd}>Add split</Button>
+                        </div>
+                    )}
+                    {tab === 'one-time' && (
+                        <div className="fin-page-actions">
+                            <Button onClick={otOpenAddExpense}>New expense</Button>
                         </div>
                     )}
                 </div>
@@ -1757,440 +1964,124 @@ function BudgetsPageInner() {
                 {/* ══════════════════════════════════════════════════════════ */}
                 {tab === 'one-time' && (
                     <>
-                        {/* Header */}
-                        <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                        {otExpenses.length > 0 ? `${otExpenses.length} entr${otExpenses.length !== 1 ? 'ies' : 'y'}` : 'Trips, events, big purchases — tracked separately'}
-                                    </p>
-                                </div>
-                                <Button onClick={otOpenAddExpense} size="md"><Calendar size={16} /> New Expense</Button>
-                            </div>
-                        </div>
-
-                        {/* Toast */}
-                        {otToast && (
-                            <div style={{
-                                position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)',
-                                background: 'color-mix(in srgb, var(--color-inc) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)',
-                                color: 'var(--color-inc)', padding: '10px 20px', borderRadius: '10px',
-                                fontSize: '14px', fontWeight: 500, zIndex: 2000, whiteSpace: 'nowrap',
-                            }}>
-                                {otToast}
-                            </div>
-                        )}
-
-                        {/* Summary tiles */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                            {[
-                                { label: 'TOTAL SPENT', value: otFmt(otTotalSpent), color: 'var(--accent)' },
-                                { label: 'THIS YEAR',   value: otFmt(otThisYear),   color: 'var(--accent)'   },
-                                { label: 'ENTRIES',     value: String(otExpenses.length), color: 'var(--text-primary)' },
-                            ].map(tile => (
-                                <div key={tile.label} className="glass-surface" style={{ borderRadius: 12, padding: '14px 16px' }}>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '1px', margin: '0 0 6px', fontWeight: 600 }}>{tile.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: tile.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{tile.value}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* List */}
                         {otLoading ? (
-                            <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>Loading…</div>
-                        ) : otExpenses.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '48px 24px' }}>
-                                <p style={{ fontSize: '40px', marginBottom: '10px' }}>🧾</p>
-                                <p style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px' }}>No one-time expenses yet</p>
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 18px', fontFamily: 'var(--font-body)' }}>Log trips, events, or big purchases separately. Add items day by day and watch the total build up.</p>
-                                <Button onClick={otOpenAddExpense} size="md"><Calendar size={16} /> Create Your First Expense</Button>
-                            </div>
+                            <>
+                                <SkeletonCard height={150} />
+                                <div className="dash-grid">
+                                    <div className="dash-col"><SkeletonCard height={260} /></div>
+                                    <div className="dash-col"><SkeletonCard height={180} /></div>
+                                </div>
+                            </>
+                        ) : otVisible.length === 0 ? (
+                            <EmptyState
+                                icon={Calendar}
+                                title="No one-time expenses yet"
+                                subtitle="Log trips, events and big purchases here. Add items day by day and the total builds up."
+                                action={<Button onClick={otOpenAddExpense}>New expense</Button>}
+                            />
                         ) : (
-                            <div>{otExpenses.map(exp => {
-                                const isExpanded   = otExpandedId === exp.id;
-                                const isAddingItem = otAddingItemFor === exp.id;
-                                const dateRange    = otFormatDateRange(exp);
-
-                                const PAY_COLORS: Record<string, string> = {
-                                    'UPI': 'var(--accent)',
-                                    'Credit Card': 'var(--accent)',
-                                    'Debit Card': 'var(--accent)',
-                                    'Net Banking': 'var(--accent)',
-                                    'Cash': 'var(--color-inc)',
-                                    'Other': 'var(--text-muted)',
-                                };
-
-                                const fieldLabel: React.CSSProperties = {
-                                    fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4,
-                                    letterSpacing: '0.4px', textTransform: 'uppercase', display: 'block',
-                                };
-                                const fieldInput: React.CSSProperties = {
-                                    width: '100%', height: 36, borderRadius: 8,
-                                    border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)',
-                                    color: 'var(--text-primary)', fontSize: 13, padding: '0 10px',
-                                    outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-                                };
-
-                                return (
-                                    <div
-                                        key={exp.id}
-                                        className="glass-surface"
-                                        style={{
-                                            border: `1px solid ${isExpanded ? 'color-mix(in srgb, var(--accent) 40%, transparent)' : 'var(--glass-border)'}`,
-                                            borderRadius: 14, marginBottom: 12, overflow: 'hidden',
-                                            transition: 'border-color 0.15s',
-                                        }}
-                                    >
-                                        {/* ── Card header ── */}
-                                        <div
-                                            onClick={() => setOtExpandedId(isExpanded ? null : exp.id)}
-                                            style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
-                                        >
-                                            {/* Emoji badge */}
-                                            <div style={{ width: 44, height: 44, borderRadius: 10, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
-                                                {OT_CATEGORY_EMOJI[exp.category] || '🧾'}
-                                            </div>
-
-                                            {/* Title + meta */}
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {exp.title}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, background: 'color-mix(in srgb, var(--accent) 12%, transparent)', color: 'var(--accent)', fontWeight: 500 }}>
-                                                        {exp.category}
-                                                    </span>
-                                                    {dateRange && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{dateRange}</span>}
-                                                    {exp.bank_account_name && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>🏦 {exp.bank_account_name}</span>}
-                                                </div>
-                                            </div>
-
-                                            {/* Total + count + action buttons */}
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>
-                                                    {otFmt(Number(exp.total_amount))}
-                                                </span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                                        {exp.item_count} item{exp.item_count !== 1 ? 's' : ''}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => otOpenEditExpense(exp, e)}
-                                                        title="Edit"
-                                                        aria-label={`Edit ${exp.title}`}
-                                                        className="glass-field"
-                                                        style={{ width: 30, height: 30, borderRadius: 8, border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 13 }}
-                                                    >✏️</button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={e => { e.stopPropagation(); setOtDeleteConfirm(exp); }}
-                                                        title="Delete"
-                                                        aria-label={`Delete ${exp.title}`}
-                                                        style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid color-mix(in srgb, var(--color-exp) 30%, transparent)', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-exp)', fontSize: 13 }}
-                                                    >🗑️</button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* ── Expanded body ── */}
-                                        {isExpanded && (
-                                            <>
-                                                {/* Divider */}
-                                                <div style={{ height: 1, background: 'var(--glass-border)' }} />
-
-                                                <div style={{ padding: '0 20px 4px' }}>
-
-                                                    {/* Item table */}
-                                                    {exp.items.length > 0 && (
-                                                        <div style={{ overflowX: 'auto' }}>
-                                                            {/* Table header */}
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0 8px', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.6px', textTransform: 'uppercase', borderBottom: '1px solid var(--glass-border)', minWidth: 460 }}>
-                                                                <span>Date</span>
-                                                                <span>What</span>
-                                                                <span>How Paid</span>
-                                                                <span style={{ textAlign: 'right' }}>Amount</span>
-                                                                <span />
-                                                            </div>
-
-                                                            {/* Item rows */}
-                                                            {exp.items.map(item => (
-                                                                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 120px 100px 64px', gap: 12, padding: '12px 0', alignItems: 'center', borderBottom: '1px solid var(--glass-border)', minWidth: 460 }}>
-                                                                    {/* Date */}
-                                                                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                                                                        {new Date((item.date || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                                                    </span>
-                                                                    {/* Description + category pill */}
-                                                                    <span style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-                                                                        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                            {item.description}
-                                                                        </span>
-                                                                        {item.category && item.category !== 'Other' && (
-                                                                            <span className="glass-field" style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, color: 'var(--text-secondary)', marginLeft: 8, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                                                                {item.category}
-                                                                            </span>
-                                                                        )}
-                                                                    </span>
-                                                                    {/* Payment method with dot */}
-                                                                    <span style={{ display: 'flex', alignItems: 'center' }}>
-                                                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: PAY_COLORS[item.payment_method] || 'var(--text-muted)', marginRight: 6, flexShrink: 0, display: 'inline-block' }} />
-                                                                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{item.payment_method}</span>
-                                                                    </span>
-                                                                    {/* Amount */}
-                                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: 'var(--color-exp)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                                        {otFmt(Number(item.amount))}
-                                                                    </span>
-                                                                    {/* Edit + Delete */}
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => otOpenEditItem(exp.id, item)}
-                                                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: '2px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, borderRadius: 4 }}
-                                                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--accent)'}
-                                                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
-                                                                            title="Edit"
-                                                                            aria-label={`Edit ${item.description}`}
-                                                                        >✎</button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => otHandleDeleteItem(exp.id, item.id)}
-                                                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: '2px 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, borderRadius: 4 }}
-                                                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'}
-                                                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}
-                                                                            title="Remove"
-                                                                            aria-label={`Remove ${item.description}`}
-                                                                        >×</button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-
-                                                            {/* Total row */}
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0 4px', borderTop: '1px solid var(--glass-border)' }}>
-                                                                <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Total spent</span>
-                                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{otFmt(Number(exp.total_amount))}</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Add item toggle */}
-                                                    <div
-                                                        onClick={() => {
-                                                            if (isAddingItem) { setOtAddingItemFor(null); setOtEditingItem(null); setOtItemForm(otEmptyItemForm()); }
-                                                            else { setOtAddingItemFor(exp.id); setOtEditingItem(null); setOtItemForm(otEmptyItemForm()); }
-                                                        }}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', fontSize: 13, color: 'var(--accent)', cursor: 'pointer', fontWeight: 500, userSelect: 'none', fontFamily: 'var(--font-body)' }}
-                                                    >
-                                                        <span style={{ fontSize: 16, lineHeight: 1 }}>{isAddingItem ? '−' : '+'}</span>
-                                                        {isAddingItem ? (otEditingItem ? 'Cancel edit' : 'Cancel') : 'Add item'}
-                                                    </div>
-
-                                                    {/* Expanded add item form */}
-                                                    {isAddingItem && (
-                                                        <div className="glass-field" style={{ borderRadius: 10, padding: 16, marginBottom: 12 }}>
-
-                                                            {/* Row 1: description */}
-                                                            <div style={{ marginBottom: 12 }}>
-                                                                <label style={fieldLabel}>What did you spend on?</label>
-                                                                <input
-                                                                    style={fieldInput}
-                                                                    placeholder="e.g. Dinner, Auto ride, Entry ticket..."
-                                                                    value={otItemForm.description}
-                                                                    onChange={e => setOtItemForm(f => ({ ...f, description: e.target.value }))}
-                                                                    autoFocus
-                                                                />
-                                                            </div>
-
-                                                            {/* Row 2: date / amount / category */}
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-                                                                <div>
-                                                                    <label style={fieldLabel}>Date</label>
-                                                                    <input
-                                                                        type="date"
-                                                                        style={fieldInput}
-                                                                        value={otItemForm.date}
-                                                                        onChange={e => setOtItemForm(f => ({ ...f, date: e.target.value }))}
-                                                                    />
-                                                                </div>
-                                                                <div>
-                                                                    <label style={fieldLabel}>Amount</label>
-                                                                    <div style={{ position: 'relative' }}>
-                                                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>₹</span>
-                                                                        <input
-                                                                            type="number" min="0" step="1"
-                                                                            style={{ ...fieldInput, paddingLeft: 22 }}
-                                                                            placeholder="0"
-                                                                            value={otItemForm.amount}
-                                                                            onChange={e => setOtItemForm(f => ({ ...f, amount: e.target.value }))}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <label style={fieldLabel}>Category</label>
-                                                                    <CategoryField
-                                                                        valueKey="name"
-                                                                        value={otItemForm.category}
-                                                                        onChange={v => setOtItemForm(f => ({ ...f, category: v }))}
-                                                                        categories={categories.length > 0 ? categories : OT_FALLBACK_CATEGORIES}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Row 3: payment method / notes */}
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
-                                                                <div>
-                                                                    <label style={fieldLabel}>How paid</label>
-                                                                    <select
-                                                                        style={fieldInput}
-                                                                        value={otItemForm.payment_method}
-                                                                        onChange={e => setOtItemForm(f => ({
-                                                                            ...f,
-                                                                            payment_method: e.target.value,
-                                                                            credit_card_id: e.target.value === 'Credit Card' ? (otCards.length === 1 ? otCards[0].id : f.credit_card_id) : null,
-                                                                        }))}
-                                                                    >
-                                                                        {OT_PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label style={fieldLabel}>Notes (optional)</label>
-                                                                    <input
-                                                                        style={fieldInput}
-                                                                        placeholder="Any extra details..."
-                                                                        value={(otItemForm as any).notes || ''}
-                                                                        onChange={e => setOtItemForm(f => ({ ...f, notes: e.target.value } as any))}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Row 4: which card (only when Credit Card is selected and there's more than one) */}
-                                                            {otItemForm.payment_method === 'Credit Card' && otCards.length > 1 && (
-                                                                <div style={{ marginBottom: 14 }}>
-                                                                    <label style={fieldLabel}>Which card?</label>
-                                                                    <select
-                                                                        style={fieldInput}
-                                                                        value={otItemForm.credit_card_id ?? ''}
-                                                                        onChange={e => setOtItemForm(f => ({ ...f, credit_card_id: e.target.value ? Number(e.target.value) : null }))}
-                                                                    >
-                                                                        <option value="">Select card</option>
-                                                                        {otCards.map((c: any) => (
-                                                                            <option key={c.id} value={c.id}>{c.bank_name} {c.card_name}{c.last_four ? ` ••${c.last_four}` : ''}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Footer buttons */}
-                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => { setOtAddingItemFor(null); setOtEditingItem(null); setOtItemForm(otEmptyItemForm()); }}
-                                                                    style={{ height: 34, padding: '0 16px', borderRadius: 8, border: '1px solid var(--glass-border)', background: 'transparent', fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
-                                                                >
-                                                                    Cancel
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => otEditingItem ? otHandleUpdateItem(exp.id, otEditingItem.item.id) : otHandleAddItem(exp.id)}
-                                                                    disabled={otAddingItem || !otItemForm.description || !otItemForm.amount}
-                                                                    style={{ height: 34, padding: '0 20px', borderRadius: 8, border: 'none', background: otAddingItem ? 'var(--border-subtle)' : 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: otAddingItem ? 'not-allowed' : 'pointer' }}
-                                                                >
-                                                                    {otAddingItem ? '…' : otEditingItem ? 'Update item' : '+ Add item'}
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                </div>
-                                            </>
-                                        )}
+                            <>
+                                {/* ── THE YEAR: what one-time spending added up to ── */}
+                                <Card>
+                                    <p style={{ ...type.label, margin: 0 }}>Spent on one-time expenses in {currentYear}</p>
+                                    <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{otFmt(otSum.yearTotal)}</p>
+                                    <div className="dash-stats">
+                                        <Stat className="dash-stat" label="Entries" value={otSum.yearCount} sub="This year" />
+                                        <Stat className="dash-stat" label="Biggest" value={otSum.biggest ? otFmt(otSum.biggest.amount) : '—'}
+                                            sub={otSum.biggest ? otSum.biggest.title : 'Nothing this year'} />
+                                        <Stat className="dash-stat" label="Latest" value={otSum.latest ? otFmt(otSum.latest.amount) : '—'}
+                                            sub={otSum.latest ? otSum.latest.title : 'Nothing this year'} />
+                                        <Stat className="dash-stat" label="All time" value={otFmt(otSum.allTimeTotal)}
+                                            sub={`${otSum.allTimeCount} ${otSum.allTimeCount === 1 ? 'entry' : 'entries'}`} />
                                     </div>
-                                );
-                            })}</div>
+                                </Card>
+
+                                {/* ── THE ENTRIES, a card per year, and where this year's money went ── */}
+                                <div className={otCats.length > 0 ? 'dash-grid' : undefined}>
+                                    <div className="dash-col">
+                                        {otGroups.map(group => (
+                                            <Card key={group.year}>
+                                                <CardHeader title={String(group.year)}
+                                                    sub={group.year === currentYear
+                                                        ? 'Newest first'
+                                                        : `${group.entries.length} ${group.entries.length === 1 ? 'entry' : 'entries'} · ${otFmt(group.total)}`} />
+                                                <Rows>{group.entries.map(renderOtEntry)}</Rows>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                    {otCats.length > 0 && (
+                                        <div className="dash-col">
+                                            <Card>
+                                                <CardHeader title="Where it went" sub={`${currentYear}, by category`} />
+                                                <Rows>
+                                                    {otCats.map(c => (
+                                                        <div key={c.category} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                                                <span style={{ ...type.bodyStrong, ...truncate }}>{c.category}</span>
+                                                                <span style={{ ...type.num, flexShrink: 0 }}>{otFmt(c.amount)}</span>
+                                                            </div>
+                                                            <ProgressBar pct={c.pct} height={4} color="var(--text-secondary)" />
+                                                        </div>
+                                                    ))}
+                                                </Rows>
+                                            </Card>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
 
-                        {/* Delete confirm */}
-                        {otDeleteConfirm && otMounted && createPortal(
-                            <>
-                                <div onClick={() => setOtDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} />
-                                <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', borderRadius: 14, padding: '28px', zIndex: 10000, width: 360, maxWidth: '90vw' }}>
-                                    <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>
-                                        Delete {otDeleteConfirm.title}?
-                                    </p>
-                                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 20px' }}>
-                                        {otDeleteConfirm.total_amount > 0 && otDeleteConfirm.bank_account_name
-                                            ? `This will restore ${otFmt(Number(otDeleteConfirm.total_amount))} to your bank balance.`
-                                            : 'This action cannot be undone.'}
-                                    </p>
-                                    <div style={{ display: 'flex', gap: 10 }}>
-                                        <button onClick={() => setOtDeleteConfirm(null)} className="glass-field" style={{ flex: 1, border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
-                                        <button onClick={() => otHandleDeleteExpense(otDeleteConfirm)} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: '10px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>Delete</button>
+                        {/* ── NEW/EDIT EXPENSE DIALOG ── */}
+                        <Modal isOpen={otShowModal} onClose={() => setOtShowModal(false)} title={otEditingExp ? 'Edit details' : 'New one-time expense'} maxWidth="480px"
+                            footer={
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <Button type="button" variant="secondary" onClick={() => setOtShowModal(false)}>Cancel</Button>
+                                    <Button type="submit" form="ot-expense-form" isLoading={otSavingExp}>{otEditingExp ? 'Save changes' : 'Create expense'}</Button>
+                                </div>
+                            }
+                        >
+                            <form id="ot-expense-form" onSubmit={otHandleSaveExpense} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <div>
+                                    <label htmlFor="ot-exp-title" style={labelSt}>Name</label>
+                                    <input id="ot-exp-title" type="text" placeholder="Goa trip, MacBook Pro" required style={inputSt}
+                                        value={otExpForm.title} onChange={e => setOtExpForm(f => ({ ...f, title: e.target.value }))} />
+                                </div>
+                                <div>
+                                    <label style={labelSt}>Category</label>
+                                    <CategoryField
+                                        valueKey="name"
+                                        value={otExpForm.category}
+                                        onChange={v => setOtExpForm(f => ({ ...f, category: v }))}
+                                        categories={OT_FALLBACK_CATEGORIES}
+                                    />
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                    <div>
+                                        <label htmlFor="ot-exp-start" style={labelSt}>Starts</label>
+                                        <input id="ot-exp-start" type="date" style={inputSt}
+                                            value={otExpForm.start_date} onChange={e => setOtExpForm(f => ({ ...f, start_date: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="ot-exp-end" style={labelSt}>Ends</label>
+                                        <input id="ot-exp-end" type="date" style={inputSt}
+                                            value={otExpForm.end_date} onChange={e => setOtExpForm(f => ({ ...f, end_date: e.target.value }))} />
                                     </div>
                                 </div>
-                            </>,
-                            document.body
-                        )}
-
-                        {/* Add/Edit modal */}
-                        {otShowModal && otMounted && createPortal(
-                            <div onClick={e => e.stopPropagation()} style={otModalStyle}>
-                                {otIsMobile && <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--glass-border)', margin: '0 auto 16px' }} />}
-                                <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 20px', fontFamily: 'var(--font-display)' }}>
-                                    {otEditingExp ? 'Edit Expense' : 'New One-Time Expense'}
-                                </h2>
-
-                                <form onSubmit={otHandleSaveExpense}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-                                        <div>
-                                            <label style={otLabelStyle}>Expense Name *</label>
-                                            <input style={otInputStyle} placeholder="e.g. Goa Trip, MacBook Pro" value={otExpForm.title} onChange={e => setOtExpForm(f => ({ ...f, title: e.target.value }))} required />
-                                        </div>
-
-                                        <div>
-                                            <label style={otLabelStyle}>Category</label>
-                                            <CategoryField
-                                                valueKey="name"
-                                                value={otExpForm.category}
-                                                onChange={v => setOtExpForm(f => ({ ...f, category: v }))}
-                                                categories={OT_FALLBACK_CATEGORIES}
-                                            />
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                                            <div>
-                                                <label style={otLabelStyle}>Start Date</label>
-                                                <input style={otInputStyle} type="date" value={otExpForm.start_date} onChange={e => setOtExpForm(f => ({ ...f, start_date: e.target.value }))} />
-                                            </div>
-                                            <div>
-                                                <label style={otLabelStyle}>End Date</label>
-                                                <input style={otInputStyle} type="date" value={otExpForm.end_date} onChange={e => setOtExpForm(f => ({ ...f, end_date: e.target.value }))} />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label style={otLabelStyle}>Bank Account</label>
-                                            <select style={otInputStyle} value={otExpForm.bank_account_id} onChange={e => setOtExpForm(f => ({ ...f, bank_account_id: e.target.value }))}>
-                                                <option value="">No account (cash)</option>
-                                                {otAccounts.map(a => <option key={a.id} value={String(a.id)}>{a.name}{a.bank_name ? ` — ${a.bank_name}` : ''}</option>)}
-                                            </select>
-                                        </div>
-
-                                        <div>
-                                            <label style={otLabelStyle}>Notes</label>
-                                            <textarea style={{ ...otInputStyle, minHeight: 64, resize: 'vertical' }} placeholder="Optional notes…" value={otExpForm.notes} onChange={e => setOtExpForm(f => ({ ...f, notes: e.target.value }))} />
-                                        </div>
-
-                                        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                                            <button type="button" onClick={() => setOtShowModal(false)} className="glass-field" style={{ flex: 1, border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
-                                            <button type="submit" disabled={otSavingExp} style={{ flex: 2, background: otSavingExp ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#fff', cursor: otSavingExp ? 'not-allowed' : 'pointer' }}>
-                                                {otSavingExp ? 'Saving…' : otEditingExp ? 'Save Changes' : 'Create Expense'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>,
-                            document.body
-                        )}
+                                <div>
+                                    <label htmlFor="ot-exp-bank" style={labelSt}>Paid from</label>
+                                    <select id="ot-exp-bank" style={inputSt} value={otExpForm.bank_account_id}
+                                        onChange={e => setOtExpForm(f => ({ ...f, bank_account_id: e.target.value }))}>
+                                        <option value="">No account</option>
+                                        {otAccounts.map(a => <option key={a.id} value={String(a.id)}>{a.name}{a.bank_name ? ` · ${a.bank_name}` : ''}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="ot-exp-notes" style={labelSt}>Notes</label>
+                                    <textarea id="ot-exp-notes" placeholder="Optional" style={{ ...inputSt, minHeight: 64, resize: 'vertical' }}
+                                        value={otExpForm.notes} onChange={e => setOtExpForm(f => ({ ...f, notes: e.target.value }))} />
+                                </div>
+                            </form>
+                        </Modal>
                     </>
                 )}
 

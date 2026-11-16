@@ -346,7 +346,7 @@ layer to 35% opacity.
 
 ## The card (v4, approved 2026-11-14)
 
-One container for the whole app. Rolling out page by page; the dashboard and the Budgets, Recurring and Splits tabs are done.
+One container for the whole app. Rolling out page by page; the dashboard and all four tabs of the Budgets page are done.
 
 - **One surface.** `Card` (or `.glass-surface .fin-card` by hand): glass, `--radius-lg`,
   20px padding (16 on phones), `--space-4` between cards.
@@ -556,3 +556,4 @@ and colouring it red read as money lost.
 | 2026-11-15 | **Tabs become a segmented control; Button text is 14/500** | Accent-filled bouncing pills competed with the page's primary action. Applies to every page that uses `Tabs` |
 | 2026-11-15 | **Recurring tab: grouped by due date, with totals** | The list was in server order with no totals, three icon buttons per row and red expense amounts. Now a summary card (monthly out, in, left, due in 7 days; daily and weekly schedules converted to monthly in `lib/recurring.ts`), then Due in the next 7 days / Later / Found in your transactions / Paused. Scheduled expenses are not coloured red: a planned bill is not an error. `Input` labels are sentence case everywhere |
 | 2026-11-15 | **Splits tab: what you are owed first, open before settled** | Open and settled splits were mixed in one list with no totals. Now a summary card (owed to you, people, open splits, collected, your share), "Waiting on people" above "Settled", and a "Who owes you" card that totals each person across splits (`lib/splits.ts`). The describe-it line now opens the dialog filled in; before, parsing filled a closed dialog and nothing visibly happened. "Your share" is not green: it is a cost |
+| 2026-11-16 | **One-Time tab: adding first, expenses by year, items by day** | Add item sat below every item, all-time and this-year had equal weight, and items were a five-column table that scrolled sideways on phones. Now New expense in the header and Add item at the top of the open expense; a summary card for this year; one card per year plus "Where it went"; items grouped by day with day totals (`lib/oneTime.ts`). Item notes are now saved (the field existed but was never sent), deletes confirm inline then offer Undo, and the hand-built dialog and toast gave way to the shared ones |
