@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { netWorthChange, sortByAmountDesc, furthestFromTarget, deviationLabel, trendPhrase } from './netWorth';
+import { netWorthChange, sortByAmountDesc, furthestFromTarget, deviationLabel, trendPhrase, fmtSigned, fmtPctSigned, monthChangeSentence, velocitySentence } from './netWorth';
 
 describe('netWorthChange', () => {
     it('is null with no history or one snapshot', () => {
@@ -87,5 +87,33 @@ describe('trendPhrase', () => {
         expect(trendPhrase('accelerating')).toBe('accelerating');
         expect(trendPhrase('decelerating')).toBe('slowing down');
         expect(trendPhrase('steady')).toBe('steady');
+    });
+});
+
+describe('fmtSigned and fmtPctSigned', () => {
+    it('uses a plus for gains and a real minus for falls', () => {
+        expect(fmtSigned(58400)).toBe('+₹58,400');
+        expect(fmtSigned(-1200)).toBe('−₹1,200');
+        expect(fmtPctSigned(2.44)).toBe('+2.4%');
+        expect(fmtPctSigned(-0.81)).toBe('−0.8%');
+    });
+});
+
+describe('monthChangeSentence', () => {
+    const snap = (n: number) => ({ snapshot_date: '2026-01-01', net_worth: n });
+    it('is null under two snapshots', () => {
+        expect(monthChangeSentence([snap(1)])).toBeNull();
+    });
+    it('says up, down or no change in words', () => {
+        expect(monthChangeSentence([snap(100), snap(1100)])).toBe('Up ₹1,000 this month');
+        expect(monthChangeSentence([snap(1100), snap(100)])).toBe('Down ₹1,000 this month');
+        expect(monthChangeSentence([snap(100), snap(100.2)])).toBe('No change this month');
+    });
+});
+
+describe('velocitySentence', () => {
+    it('joins the signed percentage and the trend phrase', () => {
+        expect(velocitySentence(2.44, 'decelerating')).toBe('+2.4% a month, and growth is slowing down');
+        expect(velocitySentence(-1, 'steady')).toBe('−1.0% a month, and growth is steady');
     });
 });

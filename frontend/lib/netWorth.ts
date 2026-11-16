@@ -1,4 +1,6 @@
-/** Pure helpers for the Net worth page. */
+import { fmt } from '@/lib/utils';
+
+/** Pure helpers for the Net worth page and the dashboard cards that summarise it. */
 
 export interface SnapshotLike {
     snapshot_date: string;
@@ -54,4 +56,27 @@ export function trendPhrase(trend: TrendKey): string {
     if (trend === 'accelerating') return 'accelerating';
     if (trend === 'decelerating') return 'slowing down';
     return 'steady';
+}
+
+/** "+₹58,400" or "−₹1,200" with a real minus sign. */
+export function fmtSigned(n: number): string {
+    return (n >= 0 ? '+' : '−') + fmt(Math.abs(n));
+}
+
+/** "+2.4%" or "−0.8%" with one decimal and a real minus sign. */
+export function fmtPctSigned(n: number): string {
+    return (n >= 0 ? '+' : '−') + Math.abs(Number(n)).toFixed(1) + '%';
+}
+
+/** The dashboard card's one line under the net worth figure. Null under two snapshots. */
+export function monthChangeSentence(history: SnapshotLike[]): string | null {
+    const c = netWorthChange(history);
+    if (!c) return null;
+    if (Math.round(c.change) === 0) return 'No change this month';
+    return `${c.change > 0 ? 'Up' : 'Down'} ${fmt(Math.abs(c.change))} this month`;
+}
+
+/** The dashboard velocity card's sentence under the figure. */
+export function velocitySentence(pctPerMonth: number, trend: TrendKey): string {
+    return `${fmtPctSigned(pctPerMonth)} a month, and growth is ${trendPhrase(trend)}`;
 }

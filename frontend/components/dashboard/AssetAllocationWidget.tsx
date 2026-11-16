@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
 import { analyticsAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
+import { type, truncate } from '@/lib/typography';
+import { furthestFromTarget, deviationLabel } from '@/lib/netWorth';
 
 const CHART_COLORS = [
     'var(--accent)', 'var(--color-inc)', 'var(--color-info)', 'var(--accent-2)',
@@ -31,6 +33,7 @@ interface AssetAllocationData {
 }
 
 export function AssetAllocationWidget() {
+    const router = useRouter();
     const [data, setData] = useState<AssetAllocationData | null>(null);
     const [loading, setLoading] = useState(true);
     const chartAnim = useChartAnimation('dashboard-asset-allocation', 600);
@@ -56,13 +59,26 @@ export function AssetAllocationWidget() {
 
     const allocations = (data.allocations || []).filter(a => a.amount > 0);
 
+    // Name the allocation furthest from target when it is past the 5 point
+    // threshold. With no deviation to name, fall back to the overall score check.
+    const furthest = furthestFromTarget(allocations);
+    let reviewLine: string | null = null;
+    if (furthest) {
+        const dev = deviationLabel(furthest.deviation);
+        if (dev.flagged) reviewLine = `${furthest.label} is ${dev.text}. A review is suggested.`;
+    } else if (data.deviation_score > 15) {
+        reviewLine = 'Your allocation is off target. A review is suggested.';
+    }
+
     return (
         <Card>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
-                Asset allocation
-            </p>
+            <CardHeader
+                title="Asset allocation"
+                sub="Where your assets sit against target"
+                action={<TextAction onClick={() => router.push('/net-worth?tab=allocation')}>Open</TextAction>}
+            />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
                 <div style={{ width: 100, height: 100, flexShrink: 0 }}>
                     <ResponsiveContainer width="100%" height={100}>
                         <PieChart>
@@ -75,46 +91,21 @@ export function AssetAllocationWidget() {
                     </ResponsiveContainer>
                 </div>
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-body)' }}>
-                        <thead>
-                            <tr>
-                                <th style={{ textAlign: 'left', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 6px' }}>Category</th>
-                                <th style={{ textAlign: 'right', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 6px' }}>Actual</th>
-                                <th style={{ textAlign: 'right', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 0 6px' }}>Target</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {allocations.map((a, i) => {
-                                const flagged = Math.abs(a.deviation) > 10;
-                                return (
-                                    <tr key={a.category} style={{ background: flagged ? 'color-mix(in srgb, var(--color-warn) 10%, transparent)' : 'transparent' }}>
-                                        <td style={{ fontSize: '12px', color: 'var(--text-primary)', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
-                                            {a.label}
-                                        </td>
-                                        <td style={{ fontSize: '12px', textAlign: 'right', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', padding: '4px 0' }}>{a.actual_pct.toFixed(1)}%</td>
-                                        <td style={{ fontSize: '12px', textAlign: 'right', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '4px 0' }}>{a.recommended_pct.toFixed(1)}%</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    {allocations.map((a, i) => (
+                        <div key={a.category} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{a.label}</span>
+                            <span style={type.numSmall}>{Math.round(a.actual_pct)}%</span>
+                            <span style={{ ...type.meta, width: 72, textAlign: 'right', flexShrink: 0 }}>target {Math.round(a.recommended_pct)}%</span>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {data.deviation_score > 15 && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-warn) 12%, transparent)', color: 'var(--color-warn)', fontFamily: 'var(--font-body)', marginTop: 12 }}>
-                    <AlertTriangle size={12} />
-                    Allocation review suggested
-                </div>
+            {reviewLine && (
+                <p style={{ ...type.meta, margin: 'var(--space-4) 0 0', color: TONE_TEXT.caution }}>{reviewLine}</p>
             )}
-
-            <div style={{ marginTop: 12 }}>
-                <Link href="/net-worth?tab=allocation" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                    View full breakdown →
-                </Link>
-            </div>
         </Card>
     );
 }

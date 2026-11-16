@@ -1,21 +1,25 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Sparkles } from 'lucide-react';
 import { debtAPI } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { CardHeader, Rows, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
+import { fmt } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
 
-const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
-
+// Chart data colour for the gauge arc only. Text stays in the normal colour.
 function utilColor(pct: number): string {
     if (pct < 30) return 'var(--color-inc)';
     if (pct <= 50) return 'var(--color-warn)';
     return 'var(--color-exp)';
+}
+
+function capitalise(s: string): string {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Unknown';
 }
 
 interface CreditCardUtil {
@@ -35,6 +39,7 @@ interface CreditUtilizationData {
 }
 
 export function CreditUtilizationWidget() {
+    const router = useRouter();
     const [data, setData] = useState<CreditUtilizationData | null>(null);
     const [loading, setLoading] = useState(true);
     const chartAnim = useChartAnimation('dashboard-credit-utilization', 600);
@@ -60,68 +65,58 @@ export function CreditUtilizationWidget() {
     if (!data?.aggregate || !data.per_card?.length) return null;
 
     const pct = data.aggregate.overall_utilization_pct;
-    const color = utilColor(pct);
     const gaugeData = [{ value: Math.min(pct, 100) }, { value: Math.max(0, 100 - pct) }];
 
     return (
         <Card>
-            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
-                Credit utilization
-            </p>
+            <CardHeader
+                title="Credit utilization"
+                sub="Keep it under 30%"
+                action={<TextAction onClick={() => router.push('/net-worth')}>Open</TextAction>}
+            />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
                 <div style={{ width: 80, height: 80, flexShrink: 0, position: 'relative' }}>
                     <ResponsiveContainer width="100%" height={80}>
                         <PieChart>
                             <Pie data={gaugeData} dataKey="value" startAngle={90} endAngle={-270} innerRadius={28} outerRadius={38} {...chartAnim} stroke="none">
-                                <Cell fill={color} />
+                                <Cell fill={utilColor(pct)} />
                                 <Cell fill="var(--border-subtle)" />
                             </Pie>
                         </PieChart>
                     </ResponsiveContainer>
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '17px', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums' }}>
-                            {pct}%
-                        </span>
+                        <span style={type.num}>{pct}%</span>
                     </div>
                 </div>
-                <div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.bodyStrong, margin: 0 }}>{capitalise(data.aggregate.status)}</p>
+                    <p style={{ ...type.meta, margin: '2px 0 0' }}>
                         {fmt(data.aggregate.total_outstanding)} of {fmt(data.aggregate.total_limit)} used
                     </p>
-                    <Badge color={color} bg={`color-mix(in srgb, ${color} 12%, transparent)`}>{data.aggregate.status}</Badge>
                 </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Rows>
                 {data.per_card.map(card => {
-                    const cardColor = utilColor(card.utilization_pct);
+                    const statusColor = card.status === 'critical' ? TONE_TEXT.bad : card.status === 'high' ? TONE_TEXT.caution : null;
                     return (
-                        <div key={card.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', fontFamily: 'var(--font-body)' }}>
-                            <span style={{ color: 'var(--text-primary)' }}>
+                        <div key={card.id} style={{ justifyContent: 'space-between' }}>
+                            <span style={{ ...type.meta, ...truncate, minWidth: 0 }}>
                                 {card.name}{card.last4 ? ` ••${card.last4}` : ''}
                             </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>{card.utilization_pct}%</span>
-                                <Badge color={cardColor} bg={`color-mix(in srgb, ${cardColor} 12%, transparent)`}>{card.status}</Badge>
-                            </div>
+                            <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', flexShrink: 0 }}>
+                                <span style={type.numSmall}>{card.utilization_pct}%</span>
+                                {statusColor && <span style={{ ...type.meta, color: statusColor }}>{capitalise(card.status)}</span>}
+                            </span>
                         </div>
                     );
                 })}
-            </div>
+            </Rows>
 
             {data.recommendation && (
-                <div style={{ marginTop: 12, padding: '8px 10px', background: 'var(--accent-subtle)', borderRadius: 8, fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                    <Sparkles size={12} style={{ flexShrink: 0, marginTop: '1px', color: 'var(--accent)' }} />
-                    {data.recommendation}
-                </div>
+                <p style={{ ...type.meta, margin: 'var(--space-4) 0 0' }}>{data.recommendation}</p>
             )}
-
-            <div style={{ marginTop: 12 }}>
-                <Link href="/net-worth" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                    Manage in Net Worth →
-                </Link>
-            </div>
         </Card>
     );
 }

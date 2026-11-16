@@ -3,6 +3,8 @@ import { Component, type ReactNode } from 'react';
 import { render, waitFor } from '@testing-library/react';
 
 vi.mock('@/lib/api', () => ({ debtAPI: { getCreditUtilization: vi.fn() } }));
+// The widget's Open action navigates with the router, which needs no app router mounted here.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 import { CreditUtilizationWidget } from './CreditUtilizationWidget';
 import { debtAPI } from '@/lib/api';
