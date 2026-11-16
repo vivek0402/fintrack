@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, Sparkles, Plus, Menu, X, Trash2, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { agentAPI } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { renderChatMarkdown } from '@/lib/chatMarkdown';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { TextAction } from '@/components/ui/CardParts';
+import { type, truncate } from '@/lib/typography';
+import { timeAgo } from '@/lib/chatTime';
 
 interface AgentMessage {
     role: 'user' | 'assistant';
@@ -23,25 +26,11 @@ interface ConversationSummary {
     message_count: number;
 }
 
-const FIN_COLOR = 'var(--accent)';
-
 const STARTER_PROMPTS = [
     'Which loan should I pay off first?',
     'Where am I overspending this month?',
     'How is my investment portfolio allocated?',
 ];
-
-function timeAgo(dateStr: string): string {
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
 
 export default function AiAdvisorPage() {
     const router = useRouter();
@@ -93,12 +82,11 @@ export default function AiAdvisorPage() {
             setActiveConversationId(conv.id);
             if (isMobile) setMobileSidebarOpen(false);
         } catch {
-            // ignore — leave current view as-is
+            // ignore, leave current view as-is
         }
     };
 
-    const handleDeleteConversation = async (conv: ConversationSummary, e: React.MouseEvent) => {
-        e.stopPropagation();
+    const deleteConversation = async (conv: ConversationSummary) => {
         if (!window.confirm(`Delete "${conv.title || 'this conversation'}"? This cannot be undone.`)) return;
 
         setDeletingId(conv.id);
@@ -110,7 +98,7 @@ export default function AiAdvisorPage() {
                 setMessages([]);
             }
         } catch {
-            // ignore — leave list as-is
+            // ignore, leave list as-is
         } finally {
             setDeletingId(null);
         }
@@ -165,241 +153,166 @@ export default function AiAdvisorPage() {
     const canSend = !!input.trim() && !sending;
     const containerHeight = isMobile ? 'calc(100dvh - 160px)' : 'calc(100dvh - 72px)';
     const showWelcome = conversationsLoaded && messages.length === 0;
+    const activeConversation = activeConversationId ? conversations.find(c => c.id === activeConversationId) : undefined;
+    const washOn = (e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; };
+    const washOff = (e: React.MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; };
 
     return (
-            <div style={{
-                display: 'flex',
-                height: containerHeight,
-                gap: '12px',
-                animation: 'fadeUp 200ms ease forwards',
-                position: 'relative',
-            }}>
+        <div style={{
+            display: 'flex',
+            height: containerHeight,
+            gap: '12px',
+            animation: 'fadeUp 200ms ease forwards',
+            position: 'relative',
+        }}>
 
-                {/* ── LEFT PANEL ── */}
-                {(!isMobile || mobileSidebarOpen) && (
-                    <div className="glass-surface" style={{
-                        width: isMobile ? '100%' : '280px',
-                        flexShrink: 0,
-                        position: isMobile ? 'absolute' : 'static',
-                        inset: isMobile ? 0 : undefined,
-                        zIndex: isMobile ? 10 : undefined,
-                        borderRadius: 'var(--radius-xl)',
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '12px',
-                        overflowY: 'auto',
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                Fin
-                            </h2>
-                            {isMobile && (
-                                <button type="button" onClick={() => setMobileSidebarOpen(false)}
-                                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
-                                    <X size={18} />
-                                </button>
-                            )}
-                        </div>
-
-                        <button type="button" onClick={handleNewConversation}
-                            style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
-                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 35%, transparent)`,
-                                background: `color-mix(in srgb, ${FIN_COLOR} 10%, transparent)`,
-                                color: 'var(--accent)', fontSize: '13px', fontWeight: 600, fontFamily: 'var(--font-body)',
-                            }}>
-                            <Plus size={15} /> New chat
-                        </button>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div style={{ height: '1px', background: 'var(--glass-border)', margin: '4px 0 8px' }} />
-                            {conversationsLoaded && conversations.length === 0 ? (
-                                <EmptyState
-                                    icon={MessageSquare}
-                                    title="No conversations yet"
-                                    subtitle="Start a new chat to get personalized financial advice."
-                                />
-                            ) : conversations.map(conv => {
-                                const active = activeConversationId === conv.id;
-                                return (
-                                    <div key={conv.id} role="button" tabIndex={0}
-                                        onClick={() => handleSelectConversation(conv)}
-                                        onKeyDown={e => { if (e.key === 'Enter') handleSelectConversation(conv); }}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: '6px',
-                                            padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
-                                            background: active ? 'var(--accent-subtle)' : 'transparent',
-                                            width: '100%',
-                                        }}
-                                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'; }}
-                                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', minWidth: 0, flex: 1 }}>
-                                            <span style={{
-                                                fontSize: '12px', fontWeight: active ? 600 : 500,
-                                                color: active ? 'var(--accent)' : 'var(--text-primary)',
-                                                fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap', maxWidth: '100%',
-                                            }}>
-                                                {conv.title || 'Untitled conversation'}
-                                            </span>
-                                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                {timeAgo(conv.updated_at)}
-                                            </span>
-                                        </div>
-                                        <button type="button" title="Delete conversation"
-                                            onClick={e => handleDeleteConversation(conv, e)}
-                                            disabled={deletingId === conv.id}
-                                            style={{
-                                                background: 'none', border: 'none', flexShrink: 0, padding: '4px',
-                                                color: 'var(--text-muted)', cursor: deletingId === conv.id ? 'default' : 'pointer',
-                                                display: 'flex', opacity: deletingId === conv.id ? 0.4 : 1,
-                                            }}
-                                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--color-exp)'}
-                                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'}>
-                                            <Trash2 size={13} />
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* ── RIGHT PANEL ── */}
-                <div className="glass-surface" style={{
-                    flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-                    borderRadius: 'var(--radius-xl)',
-                    overflow: 'hidden',
+            {/* Conversations */}
+            {(!isMobile || mobileSidebarOpen) && (
+                <Card style={{
+                    width: isMobile ? '100%' : '280px',
+                    flexShrink: 0,
+                    position: isMobile ? 'absolute' : 'static',
+                    inset: isMobile ? 0 : undefined,
+                    zIndex: isMobile ? 10 : undefined,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    overflowY: 'auto',
                 }}>
-                    <ChatHeader isMobile={isMobile} onMenu={() => setMobileSidebarOpen(true)} />
-
-                    {showWelcome ? (
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '18px', overflowY: 'auto' }}>
-                            <div style={{
-                                width: 56, height: 56, borderRadius: '50%',
-                                background: `color-mix(in srgb, ${FIN_COLOR} 12%, transparent)`,
-                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <Sparkles size={26} color={FIN_COLOR} />
-                            </div>
-                            <div style={{ textAlign: 'center', maxWidth: '380px' }}>
-                                <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                    Hi, I&apos;m Fin
-                                </h3>
-                                <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                                    Ask me about your debt, investments, taxes, or spending — anything about your finances.
-                                </p>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '380px' }}>
-                                {STARTER_PROMPTS.map(q => (
-                                    <button key={q} type="button" onClick={() => handleSend(q)}
-                                        style={{
-                                            padding: '10px 14px', borderRadius: '10px', textAlign: 'left', cursor: 'pointer',
-                                            border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, var(--glass-border))`,
-                                            background: `color-mix(in srgb, ${FIN_COLOR} 6%, transparent)`,
-                                            color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)',
-                                            transition: 'all var(--transition-fast)',
-                                        }}>
-                                        {q}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px' }}>
-                            {messages.map((msg, i) => (
-                                <div key={msg.timestamp ? `${msg.role}-${msg.timestamp}` : i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: '8px' }}>
-                                    {msg.role === 'assistant' ? (
-                                        <>
-                                            <div style={{
-                                                width: 28, height: 28, borderRadius: '50%', flexShrink: 0, marginBottom: 2,
-                                                background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
-                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            }}>
-                                                <Sparkles size={14} color={FIN_COLOR} />
-                                            </div>
-                                            <div style={{
-                                                maxWidth: isMobile ? '88%' : '72%', padding: '10px 14px', borderRadius: '15px 15px 15px 4px',
-                                                background: `color-mix(in srgb, ${FIN_COLOR} 8%, transparent)`,
-                                                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--glass-border))`,
-                                                color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6,
-                                                fontFamily: 'var(--font-body)',
-                                            }}>
-                                                {renderChatMarkdown(msg.content)}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div style={{
-                                            maxWidth: isMobile ? '82%' : '68%', padding: '10px 14px', borderRadius: '15px 15px 4px 15px',
-                                            background: 'var(--accent)', color: 'white', fontSize: '14px', lineHeight: 1.55,
-                                            whiteSpace: 'pre-wrap', fontFamily: 'var(--font-body)',
-                                        }}>
-                                            {msg.content}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-
-                            {sending && (
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                                    <div style={{
-                                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                                        background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
-                                        border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <Sparkles size={14} color={FIN_COLOR} />
-                                    </div>
-                                    <div style={{ background: `color-mix(in srgb, ${FIN_COLOR} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${FIN_COLOR} 18%, var(--glass-border))`, borderRadius: '15px 15px 15px 4px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        {[0, 1, 2].map(j => (
-                                            <div key={j} style={{ width: 7, height: 7, borderRadius: '50%', background: FIN_COLOR, animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
+                    {isMobile && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <TextAction onClick={() => setMobileSidebarOpen(false)}>Close</TextAction>
                         </div>
                     )}
 
-                    <ChatInput input={input} setInput={setInput} sending={sending} canSend={canSend} onSend={handleSend} />
-                </div>
-            </div>
+                    <Button type="button" variant="primary" onClick={handleNewConversation} style={{ width: '100%' }}>
+                        New chat
+                    </Button>
+
+                    <p style={{ ...type.label, margin: 0 }}>Your chats</p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        {conversationsLoaded && conversations.length === 0 ? (
+                            <p style={{ ...type.meta, margin: 0 }}>
+                                No conversations yet. Start a new chat to get personalized financial advice.
+                            </p>
+                        ) : conversations.map(conv => {
+                            const active = activeConversationId === conv.id;
+                            return (
+                                <div key={conv.id} role="button" tabIndex={0}
+                                    onClick={() => handleSelectConversation(conv)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleSelectConversation(conv); }}
+                                    style={{
+                                        display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0,
+                                        padding: '10px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                                        background: active ? 'var(--glass-fill-2)' : 'transparent',
+                                        transition: 'background var(--transition-fast)',
+                                    }}
+                                    onMouseEnter={e => { if (!active) washOn(e); }}
+                                    onMouseLeave={e => { if (!active) washOff(e); }}>
+                                    <span style={{ ...(active ? type.bodyStrong : { ...type.body, color: 'var(--text-primary)' }), ...truncate }}>
+                                        {conv.title || 'Untitled conversation'}
+                                    </span>
+                                    <span style={type.meta}>{timeAgo(conv.updated_at)}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            )}
+
+            {/* Chat */}
+            <Card padding={0} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <ChatHeader
+                    isMobile={isMobile}
+                    title={activeConversation ? (activeConversation.title || 'Untitled conversation') : 'Fin'}
+                    subtitle={activeConversationId ? 'Fin, your AI financial assistant' : 'Your AI financial assistant'}
+                    onMenu={() => setMobileSidebarOpen(true)}
+                    onDelete={activeConversation ? () => deleteConversation(activeConversation) : undefined}
+                    deleting={!!activeConversation && deletingId === activeConversation.id}
+                />
+
+                {showWelcome ? (
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '16px', overflowY: 'auto' }}>
+                        <h2 style={{ ...type.heading, margin: 0, textAlign: 'center' }}>Ask Fin anything</h2>
+                        <p style={{ ...type.meta, margin: 0, maxWidth: '380px', textAlign: 'center' }}>
+                            Ask about your debt, investments, taxes or spending. Fin answers from your own numbers.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '380px' }}>
+                            {STARTER_PROMPTS.map(q => (
+                                <button key={q} type="button" onClick={() => handleSend(q)}
+                                    onMouseEnter={washOn} onMouseLeave={washOff}
+                                    style={{
+                                        ...type.body, color: 'var(--text-primary)',
+                                        padding: '10px 14px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
+                                        border: '1px solid var(--glass-border)', background: 'transparent',
+                                        transition: 'background var(--transition-fast)',
+                                    }}>
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column', gap: '18px', padding: isMobile ? '16px' : '20px' }}>
+                        {messages.map((msg, i) => (
+                            <div key={msg.timestamp ? `${msg.role}-${msg.timestamp}` : i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                {msg.role === 'assistant' ? (
+                                    <div style={{ ...type.body, color: 'var(--text-primary)', maxWidth: '640px', minWidth: 0, overflowWrap: 'anywhere' }}>
+                                        {renderChatMarkdown(msg.content)}
+                                    </div>
+                                ) : (
+                                    <div style={{
+                                        ...type.body, color: 'var(--text-primary)',
+                                        maxWidth: isMobile ? '82%' : '72%', padding: '10px 14px', borderRadius: '16px 16px 4px 16px',
+                                        background: 'var(--glass-fill-2)', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
+                                    }}>
+                                        {msg.content}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        {sending && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }} aria-label="Fin is typing">
+                                {[0, 1, 2].map(j => (
+                                    <div key={j} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted)', animation: `bounce 1.2s ease-in-out ${j * 0.2}s infinite` }} />
+                                ))}
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                )}
+
+                <ChatInput input={input} setInput={setInput} canSend={canSend} onSend={handleSend} />
+            </Card>
+        </div>
     );
 }
 
-function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => void }) {
+function ChatHeader({ isMobile, title, subtitle, onMenu, onDelete, deleting }: {
+    isMobile: boolean;
+    title: string;
+    subtitle: string;
+    onMenu: () => void;
+    onDelete?: () => void;
+    deleting: boolean;
+}) {
     return (
         <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 20px', flexShrink: 0,
             borderBottom: '1px solid var(--glass-border)',
-            background: `color-mix(in srgb, ${FIN_COLOR} 6%, transparent)`,
         }}>
-            {isMobile && (
-                <button type="button" onClick={onMenu}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: '4px' }}>
-                    <Menu size={18} />
-                </button>
+            {isMobile && <TextAction onClick={onMenu}>Chats</TextAction>}
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ ...type.bodyStrong, margin: 0, ...truncate }}>{title}</p>
+                <p style={{ ...type.meta, margin: 0 }}>{subtitle}</p>
+            </div>
+            {onDelete && (
+                <TextAction tone="danger" quiet onClick={onDelete} disabled={deleting}>
+                    {deleting ? 'Deleting' : 'Delete chat'}
+                </TextAction>
             )}
-            <div style={{
-                width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                background: `color-mix(in srgb, ${FIN_COLOR} 15%, transparent)`,
-                border: `1px solid color-mix(in srgb, ${FIN_COLOR} 25%, transparent)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-                <Sparkles size={16} color={FIN_COLOR} />
-            </div>
-            <div>
-                <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-                    Fin
-                </p>
-                <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                    Your AI financial assistant
-                </p>
-            </div>
         </div>
     );
 }
@@ -407,7 +320,6 @@ function ChatHeader({ isMobile, onMenu }: { isMobile: boolean; onMenu: () => voi
 function ChatInput({ input, setInput, canSend, onSend }: {
     input: string;
     setInput: (v: string) => void;
-    sending: boolean;
     canSend: boolean;
     onSend: (text: string) => void;
 }) {
@@ -419,29 +331,22 @@ function ChatInput({ input, setInput, canSend, onSend }: {
                 onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(input); }
                 }}
-                placeholder="Type your message…"
+                placeholder="Ask Fin about your money"
+                aria-label="Message Fin"
                 rows={1}
                 style={{
-                    flex: 1, padding: '8px 12px', background: 'var(--glass-fill-1)', color: 'var(--text-primary)',
-                    border: '1px solid var(--glass-border)', borderRadius: '20px', fontSize: '14px', fontFamily: 'var(--font-body)',
-                    outline: 'none', resize: 'none', lineHeight: 1.5, maxHeight: '120px', overflowY: 'auto',
+                    ...type.body, color: 'var(--text-primary)',
+                    flex: 1, padding: '8px 14px', background: 'var(--glass-fill-1)',
+                    border: '1px solid var(--glass-border)', borderRadius: '20px',
+                    outline: 'none', resize: 'none', maxHeight: '120px', overflowY: 'auto',
                     transition: 'border-color var(--transition-fast)',
                 }}
                 onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                 onBlur={e => (e.target.style.borderColor = 'var(--glass-border)')}
             />
-            <button type="button" onClick={() => onSend(input)} disabled={!canSend}
-                style={{
-                    width: 38, height: 38, borderRadius: '50%',
-                    background: canSend ? 'var(--accent)' : 'var(--bg-surface-2)',
-                    border: canSend ? 'none' : '1px solid var(--border-subtle)',
-                    color: canSend ? 'white' : 'var(--text-muted)',
-                    cursor: canSend ? 'pointer' : 'not-allowed',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    transition: 'background var(--transition-fast), color var(--transition-fast)',
-                }}>
-                <Send size={16} />
-            </button>
+            <Button type="button" variant="primary" onClick={() => onSend(input)} disabled={!canSend}>
+                Send
+            </Button>
         </div>
     );
 }
