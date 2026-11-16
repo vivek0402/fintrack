@@ -1,11 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
-import { renderWithQuery as render } from '@/lib/test-utils';
+import { renderWithQuery } from '@/lib/test-utils';
+import { ToastContainer } from '@/components/ui/ToastContainer';
+import { useToastStore } from '@/store/toastStore';
 import AccountsPage from './page';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
 
 // Focuses on the new "Cycles" button's gating condition only -- the rest of
 // this page's behavior (modals, CRUD) is unchanged and untested here.
+
+// Toasts come from the shared store now; the app layout mounts the container.
+const render = (ui: React.ReactElement) => renderWithQuery(<>{ui}<ToastContainer /></>);
 
 const push = vi.fn();
 
@@ -54,6 +59,7 @@ const cycles = [
 
 beforeEach(() => {
     vi.clearAllMocks();
+    useToastStore.getState().clear();
     (accountsAPI.getAll as any).mockResolvedValue({ data: { accounts: [] } });
     (walletsAPI.getAll as any).mockResolvedValue({ data: { wallets: [] } });
     (creditCardsAPI.getCycles as any).mockResolvedValue({ data: { cycles: [] } });
@@ -67,6 +73,8 @@ describe('Accounts page — Cycles button', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [cardWithStatement] } });
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
+        // Cycles lives in the card's opened line: tap the card first.
+        fireEvent.click(screen.getByText('HDFC Millennia'));
         expect(screen.getByText('Cycles')).toBeInTheDocument();
     });
 
@@ -74,6 +82,8 @@ describe('Accounts page — Cycles button', () => {
         (creditCardsAPI.getAll as any).mockResolvedValue({ data: { cards: [cardWithoutStatement] } });
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('ICICI Amazon Pay')).toBeInTheDocument());
+        fireEvent.click(screen.getByText('ICICI Amazon Pay'));
+        expect(screen.getByText('Edit details')).toBeInTheDocument();
         expect(screen.queryByText('Cycles')).not.toBeInTheDocument();
     });
 });
@@ -89,7 +99,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(creditCardsAPI.getCycles).toHaveBeenCalledWith(1));
         await waitFor(() => expect(screen.getByText('Aug 6 – Sep 5')).toBeInTheDocument());
         expect(screen.getByDisplayValue('4500.00')).toBeInTheDocument();
@@ -105,7 +115,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByDisplayValue('12000')).toBeInTheDocument());
     });
 
@@ -117,7 +127,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByDisplayValue('8000.4')).toBeInTheDocument());
     });
 
@@ -138,7 +148,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('ICICI Amazon Pay')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByText(/Pay ICICI Amazon Pay/)).toBeInTheDocument());
         expect(screen.queryByText('Cycle')).not.toBeInTheDocument();
     });
@@ -149,7 +159,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByDisplayValue('4500.00')).toBeInTheDocument());
 
         fireEvent.click(screen.getByText('📱 UPI'));
@@ -165,7 +175,7 @@ describe('Accounts page — Pay Bill modal', () => {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
 
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByText(/from/)).toBeInTheDocument());
         expect(screen.queryByText('change')).not.toBeInTheDocument();
     });
@@ -191,7 +201,7 @@ describe('Accounts page — Which cycle? picker (honest amounts)', () => {
     async function openPicker() {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         await waitFor(() => expect(screen.getByDisplayValue('8000')).toBeInTheDocument());
     }
 
@@ -277,7 +287,7 @@ describe('Accounts page — bills paid outside the app', () => {
     async function openPay() {
         render(<AccountsPage />);
         await waitFor(() => expect(screen.getByText('HDFC Millennia')).toBeInTheDocument());
-        fireEvent.click(screen.getByText('Pay Bill'));
+        fireEvent.click(screen.getByText('Pay bill'));
         return screen.findByTestId('unpaid-nudge');
     }
 

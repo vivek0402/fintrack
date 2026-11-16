@@ -1,18 +1,19 @@
 'use client';
 
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, X, Plus, Star, Landmark, CreditCard as CreditCardIcon, Wallet as WalletIcon, ChevronDown, Check, AlertTriangle } from 'lucide-react';
-import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
+import { Trash2, ChevronDown, Check, AlertTriangle } from 'lucide-react';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { CardHeader, TextAction, Rows, Stat, TONE_TEXT, type Tone } from '@/components/ui/CardParts';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Skeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { useAuthStore } from '@/store/authStore';
 import { accountsAPI, creditCardsAPI, walletsAPI } from '@/lib/api';
-import { useIsMobile } from '@/hooks/useWindowSize';
+import { toast } from '@/store/toastStore';
+import { type, truncate } from '@/lib/typography';
+import { cardUsedPct, totalUsedPct, nextCardBill, sortCardsByDue, daysUntilDue, statementAmountOwed } from '@/lib/accounts';
 import { CountUp } from '@/components/ui/CountUp';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery } from '@/hooks/queries';
@@ -124,67 +125,70 @@ const emptyBankForm   = () => ({ name: '', account_type: 'Savings', last_four: '
 const emptyCardForm   = () => ({ bank_name: '', card_name: '', last_four: '', credit_limit: '', outstanding_balance: '0', balance_as_of: '', billing_date: '', due_days: '20', network: 'Visa', color: '#6366f1', interest_rate_pct: '' });
 const emptyWalletForm = () => ({ name: '', emoji: '👛', balance: '' });
 
-function SectionHead({ title, total, totalColor, onAdd }: { title: string; total: string; totalColor: string; onAdd: () => void }) {
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 1px' }}>{title}</h2>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: totalColor, fontVariantNumeric: 'tabular-nums' }}>{total}</span>
-            </div>
-            <button type="button" onClick={onAdd} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                <Plus size={14} /> Add
-            </button>
-        </div>
-    );
-}
-
 // ── Shared modal style helpers ────────────────────────────────────────────────
 
 const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14,
-    outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
+    ...type.body, width: '100%', height: 40, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
+    borderRadius: 'var(--radius-md)', padding: '0 12px', color: 'var(--text-primary)',
+    outline: 'none', boxSizing: 'border-box',
 };
-const labelSt: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px',
-    textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)',
-};
-const outlineBtn: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px',
-    background: 'transparent', border: '1px solid var(--glass-border)',
-    borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)',
-    fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
-    transition: 'all var(--transition-fast)',
-};
-const iconBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', alignItems: 'center' };
+const numInputSt: React.CSSProperties = { ...inputSt, ...type.num };
+const labelSt: React.CSSProperties = { ...type.label, display: 'block', marginBottom: 6 };
+// An inset panel inside a row: actions or a delete confirm.
+const inset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-4)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
 
 // ── Pay Bill modal style helpers ────────────────────────────────────────────
-// Violet, not --accent -- matches Add Transaction's Transfer segment tint,
-// since a bill payment is a transfer under the hood (POST /:id/pay inserts
-// two linked transaction legs sharing a transfer_group_id).
-const PAY_TINT = '#7c3aed';
 const triggerSt: React.CSSProperties = {
     width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 10, padding: '11px 13px', display: 'flex', alignItems: 'center',
+    borderRadius: 'var(--radius-md)', padding: '11px 13px', display: 'flex', alignItems: 'center',
     justifyContent: 'space-between', gap: 8, cursor: 'pointer', boxSizing: 'border-box',
 };
 const tileSt: React.CSSProperties = {
     flex: 1, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
-    borderRadius: 12, padding: '10px 12px',
+    borderRadius: 'var(--radius-md)', padding: '10px 12px',
 };
-const tileKeySt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4, fontFamily: 'var(--font-body)' };
-const tileValSt: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' };
-const tileDueSt: React.CSSProperties = { fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-body)' };
-function cycleAmountColor(total: number) { return total > 0 ? 'var(--color-warn)' : total < 0 ? 'var(--color-inc)' : 'var(--text-muted)'; }
+const tileKeySt: React.CSSProperties = { ...type.label, marginBottom: 4 };
+const tileValSt: React.CSSProperties = { ...type.num };
+const tileDueSt: React.CSSProperties = { ...type.meta, marginTop: 2 };
+// Status colours in dialogs use the text-safe variants of the tones.
+const CYCLE_TONE_TEXT: Record<StatusTone, string> = { warn: 'var(--color-warn-text)', inc: 'var(--color-inc-text)', muted: 'var(--text-muted)' };
+function cycleAmountTone(total: number): StatusTone { return total > 0 ? 'warn' : total < 0 ? 'inc' : 'muted'; }
 function fmtCycleAmount(total: number | null) { return total == null ? '—' : `${total < 0 ? '−' : ''}${fmt(total)}`; }
-const STATUS_TONE_COLOR: Record<StatusTone, string> = { warn: 'var(--color-warn)', inc: 'var(--color-inc)', muted: 'var(--text-muted)' };
+// A picker row: the open one sits on glass-fill-3, never an accent fill.
+const sheetRowSt = (active: boolean): React.CSSProperties => ({
+    ...(active ? type.bodyStrong : type.body), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 9, width: '100%', padding: '12px 14px',
+    borderRadius: 'var(--radius-md)', cursor: 'pointer', border: 'none', textAlign: 'left',
+    background: active ? 'var(--glass-fill-3)' : 'transparent',
+    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+});
+
+// ── Credit card row helpers ───────────────────────────────────────────────────
+
+// The due line under a card: the statement's own due date when there is one,
+// else the next one worked out from the billing date.
+function cardDueInfo(c: CreditCard, today: Date): { text: string; tone: Tone } | null {
+    if (c.statement_due_date) {
+        // Nothing left on the statement: say so, instead of reading its (past) due date as overdue.
+        const owed = statementAmountOwed(c);
+        if (owed !== null && owed <= 0) return { text: 'Statement paid', tone: 'good' };
+        const days = daysUntilDue(c.statement_due_date, today);
+        const date = formatDate(c.statement_due_date);
+        if (days < 0) return { text: `Due ${date} · Overdue`, tone: 'bad' };
+        if (days === 0) return { text: 'Due today', tone: 'caution' };
+        return { text: `Due ${date} · in ${days} day${days === 1 ? '' : 's'}`, tone: days <= 7 ? 'caution' : 'neutral' };
+    }
+    const d = getDueDays(c.billing_date, c.due_days);
+    if (d === null) return null;
+    if (d === 0) return { text: 'Due today', tone: 'caution' };
+    return { text: `Due in ${d} day${d === 1 ? '' : 's'}`, tone: d <= 7 ? 'caution' : 'neutral' };
+}
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AccountsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const isMobile = useIsMobile();
 
     // Banks, cards and wallets from the shared cache: revisits show balances
     // at once and refresh in the background. Each list keeps its last value
@@ -246,18 +250,20 @@ export default function AccountsPage() {
     const [walletBalanceInput,      setWalletBalanceInput]     = useState('');
     const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'bank' | 'card' | 'wallet'; id: number; name: string } | null>(null);
     const [saving, setSaving] = useState(false);
-    const [toast,  setToast]  = useState<{ text: string; action?: { label: string; run: () => void } } | null>(null);
-    const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [showAddChooser, setShowAddChooser] = useState(false);
+    // The one row whose actions are open: 'card-3', 'bank-1'.
+    const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
     useEffect(() => { setMounted(true); }, []);
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);
 
-    // A toast with an action (Undo, Retry) stays up longer so it can be tapped.
+    // Everything goes through the shared toast store. A message with an action
+    // (Undo, Retry) becomes an undo-style toast with that action's button.
     const showToast = (msg: string, action?: { label: string; run: () => void }) => {
-        if (toastTimer.current) clearTimeout(toastTimer.current);
-        setToast({ text: msg, action });
-        toastTimer.current = setTimeout(() => setToast(null), action ? 7000 : 2500);
+        if (action) toast.undo(msg, action.run, action.label);
+        else if (/^(Failed|Could not)/i.test(msg)) toast.error(msg);
+        else toast.success(msg);
     };
 
     // /accounts?review=<cardId> (from a card's Billing Cycles page): open Pay
@@ -284,6 +290,10 @@ export default function AccountsPage() {
     const totalCards   = cards.reduce((s, c) => s + Number(c.current_outstanding_balance), 0);
     const totalWallets = wallets.reduce((s, w) => s + Number(w.balance), 0);
     const netWorth     = totalBanks + totalWallets - totalCards;
+    const now          = new Date();
+    const sortedCards  = sortCardsByDue(cards, now);
+    const usedPct      = totalUsedPct(cards);
+    const bill         = nextCardBill(cards, now);
 
 
     // ── Bank handlers (logic unchanged) ──────────────────────────────────────
@@ -593,7 +603,8 @@ export default function AccountsPage() {
         }
         catch { showToast('Failed to set default'); }
     };
-    const confirmDelete = (type: 'bank' | 'card' | 'wallet', id: number, name: string) => setDeleteConfirm({ type, id, name });
+    // Opens the inline confirm under the row; any open row actions fold away.
+    const confirmDelete = (kind: 'bank' | 'card' | 'wallet', id: number, name: string) => { setExpandedKey(null); setDeleteConfirm({ type: kind, id, name }); };
     const executeDelete = async () => {
         if (!deleteConfirm) return;
         try {
@@ -621,325 +632,331 @@ export default function AccountsPage() {
         </div>
     );
 
+    // ── Rows ─────────────────────────────────────────────────────────────────
+
+    const rowSt: React.CSSProperties = { flexDirection: 'column', alignItems: 'stretch', gap: 10 };
+    const colSt: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 };
+    const spacer = <span style={{ flex: 1 }} />;
+    const toggleRow = (key: string) => setExpandedKey(k => (k === key ? null : key));
+    // A row's tappable top line: Enter / Space act on the line itself, never on
+    // something inside it (an input, the balance button).
+    const lineProps = (key: string | null, onActivate: () => void) => ({
+        role: 'button' as const, tabIndex: 0, className: 'pressable',
+        ...(key ? { 'aria-expanded': expandedKey === key } : {}),
+        onClick: onActivate,
+        onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
+        },
+    });
+    const lineSt: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', cursor: 'pointer', borderRadius: 'var(--radius-md)', minWidth: 0 };
+
+    // The inline delete confirm, under the row it belongs to.
+    const renderDeleteConfirm = (kind: 'bank' | 'card' | 'wallet', id: number) => (
+        deleteConfirm && deleteConfirm.type === kind && deleteConfirm.id === id ? (
+            <div style={inset}>
+                <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete {deleteConfirm.name}?</span>
+                <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                    <TextAction tone="danger" onClick={executeDelete}>Delete</TextAction>
+                    <TextAction quiet onClick={() => setDeleteConfirm(null)}>Keep it</TextAction>
+                </span>
+            </div>
+        ) : null
+    );
+
+    const renderCardRow = (c: CreditCard) => {
+        const key = `card-${c.id}`;
+        const open = expandedKey === key;
+        const utilPct = cardUsedPct(c);
+        const due = cardDueInfo(c, now);
+        const meta = [c.last_four ? `••${c.last_four}` : null, `limit ${fmt(c.credit_limit)}`, `${utilPct}% used`].filter(Boolean).join(' · ');
+        const charges = c.new_charges_since_statement ?? 0;
+        const confirming = deleteConfirm?.type === 'card' && deleteConfirm.id === c.id;
+        return (
+            <div key={c.id} style={rowSt}>
+                <div {...lineProps(key, () => toggleRow(key))} style={lineSt}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{c.bank_name} {c.card_name}</p>
+                        <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>{meta}</p>
+                        {due && <p style={{ ...type.meta, margin: 0, color: TONE_TEXT[due.tone] }}>{due.text}</p>}
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ ...type.num, margin: 0 }}>{fmt(c.current_outstanding_balance)}</p>
+                        <p style={{ ...type.meta, margin: 0 }}>owed</p>
+                    </div>
+                </div>
+                <ProgressBar pct={utilPct} height={4} color={utilPct > 30 ? 'var(--color-warn)' : 'var(--text-secondary)'} />
+                {c.statement_balance != null ? (
+                    <p style={{ ...type.numSmall, margin: 0 }}>
+                        Statement {fmt(c.statement_amount_due ?? c.statement_balance)}{c.statement_due_date ? ` due ${formatDate(c.statement_due_date)}` : ''} · new charges {charges >= 0 ? '+' : '−'}{fmt(charges)} · {fmt(Math.max(0, c.credit_limit - c.current_outstanding_balance))} available
+                    </p>
+                ) : (
+                    <p style={{ ...type.meta, margin: 0 }}>Set a billing date to see the statement and new charges</p>
+                )}
+                {c.statement_balance != null && (
+                    <CardUnpaidNote cardId={c.id} notPaidTick={notPaidTick} onReview={() => openPayCard(c, { review: true })} />
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                    <TextAction onClick={() => openPayCard(c)}>Pay bill</TextAction>
+                </div>
+                {open && !confirming && (
+                    <div style={inset}>
+                        <TextAction onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)}>History</TextAction>
+                        {c.statement_balance != null && (
+                            <TextAction onClick={() => router.push(`/accounts/credit-cards/cycles?id=${c.id}`)}>Cycles</TextAction>
+                        )}
+                        <TextAction onClick={() => openEditCard(c)}>Edit details</TextAction>
+                        {spacer}
+                        <TextAction tone="danger" onClick={() => confirmDelete('card', c.id, `${c.bank_name} ${c.card_name}`)}>Delete card</TextAction>
+                    </div>
+                )}
+                {renderDeleteConfirm('card', c.id)}
+            </div>
+        );
+    };
+
+    const renderBankRow = (b: BankAccount) => {
+        const key = `bank-${b.id}`;
+        const open = expandedKey === key;
+        const meta = [b.account_type || 'Savings', b.last_four ? `••${b.last_four}` : null, b.is_default ? 'Default' : null].filter(Boolean).join(' · ');
+        const confirming = deleteConfirm?.type === 'bank' && deleteConfirm.id === b.id;
+        return (
+            <div key={b.id} style={rowSt}>
+                <div {...lineProps(key, () => toggleRow(key))} style={{ ...lineSt, alignItems: 'center' }}>
+                    <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: b.color || 'var(--accent)' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{b.name}</p>
+                        <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>{meta}</p>
+                    </div>
+                    <p style={{ ...type.num, margin: 0, flexShrink: 0 }}>{fmt(b.current_balance)}</p>
+                </div>
+                {open && !confirming && (
+                    <div style={inset}>
+                        <TextAction onClick={() => router.push('/transactions')}>History</TextAction>
+                        <TextAction onClick={() => openEditBank(b)}>Edit details</TextAction>
+                        {!b.is_default && <TextAction onClick={() => handleSetDefault(b.id)}>Make default</TextAction>}
+                        {spacer}
+                        <TextAction tone="danger" onClick={() => confirmDelete('bank', b.id, b.name)}>Delete account</TextAction>
+                    </div>
+                )}
+                {renderDeleteConfirm('bank', b.id)}
+            </div>
+        );
+    };
+
+    const renderWalletRow = (w: Wallet) => {
+        const editingBalance = editingWalletBalanceId === w.id;
+        return (
+            <div key={w.id} style={rowSt}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <div {...lineProps(null, () => openEditWallet(w))} style={{ ...lineSt, alignItems: 'center', flex: 1 }}>
+                        <span aria-hidden="true" style={{ width: 32, height: 32, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', fontSize: 'var(--text-title)' }}>{w.emoji}</span>
+                        <p style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0, margin: 0 }}>{w.name}</p>
+                        {editingBalance ? (
+                            <input autoFocus type="number" aria-label={`${w.name} balance`} value={walletBalanceInput}
+                                onChange={e => setWalletBalanceInput(e.target.value)}
+                                onClick={e => e.stopPropagation()}
+                                onBlur={() => saveWalletBalance(w)}
+                                onKeyDown={e => { if (e.key === 'Enter') saveWalletBalance(w); if (e.key === 'Escape') setEditingWalletBalanceId(null); }}
+                                style={{ ...type.num, width: 120, flexShrink: 0, padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-visible)', background: 'var(--glass-fill-1)', outline: 'none', boxSizing: 'border-box' }}
+                            />
+                        ) : (
+                            <button type="button" title="Tap to edit" onClick={e => { e.stopPropagation(); startWalletBalanceEdit(w); }}
+                                style={{ ...type.num, flexShrink: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+                                {fmt(w.balance)}
+                            </button>
+                        )}
+                    </div>
+                    <button type="button" className="fin-icon-btn fin-row-hover-action" aria-label={`Delete ${w.name}`}
+                        onClick={() => confirmDelete('wallet', w.id, w.name)}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+                {renderDeleteConfirm('wallet', w.id)}
+            </div>
+        );
+    };
+
+    const skeletonRows = (
+        <Rows>
+            {[1, 2].map(i => (
+                <div key={i}>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <Skeleton width="120px" height={14} borderRadius={4} />
+                        <Skeleton width="80px" height={11} borderRadius={4} />
+                    </div>
+                    <Skeleton width={80} height={18} borderRadius={4} />
+                </div>
+            ))}
+        </Rows>
+    );
+
+    const addOptions = [
+        { label: 'Bank account', hint: 'Balances and your default account', open: openAddBank },
+        { label: 'Credit card',  hint: 'Limit, billing date and bills',     open: openAddCard },
+        { label: 'Wallet',       hint: 'UPI apps, cash or prepaid balances', open: openAddWallet },
+    ];
+
+    const closeBank   = () => setShowBankModal(false);
+    const closeCard   = () => setShowCardModal(false);
+    const closeWallet = () => setShowWalletModal(false);
+    const footerSt: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 };
+    const pairSt: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 };
+
     return (
         <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── Toast ── */}
-                {toast && mounted && createPortal(
-                    <div role="status" style={{ position: 'fixed', top: 'calc(20px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, fontFamily: 'var(--font-body)', zIndex: 20000, whiteSpace: 'nowrap', boxShadow: 'var(--shadow-elevated)', display: 'flex', alignItems: 'center', gap: 14 }}>
-                        <span>{toast.text}</span>
-                        {toast.action && (
-                            <button type="button" onClick={() => { const run = toast.action!.run; setToast(null); run(); }}
-                                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-body)', padding: 0 }}>
-                                {toast.action.label}
-                            </button>
-                        )}
-                    </div>,
-                    document.body
+                {/* ── PAGE HEADER: title, then the page's actions ── */}
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.meta, margin: 0 }}>
+                            {plural(banks.length, 'bank account')} · {plural(cards.length, 'card')} · {plural(wallets.length, 'wallet')}
+                        </p>
+                        <h1 style={{ ...type.heading, margin: 0 }}>Accounts</h1>
+                    </div>
+                    <div className="fin-page-actions">
+                        <Button onClick={() => setShowAddChooser(true)}>Add account</Button>
+                    </div>
+                </div>
+
+                {/* ── NET WORTH: every total in one card ── */}
+                {dataLoading ? <SkeletonCard height={190} /> : (
+                    <Card>
+                        <p style={{ ...type.label, margin: 0 }}>Net worth</p>
+                        <p className="type-display" style={{ ...type.display, margin: '6px 0 0', color: netWorth < 0 ? 'var(--color-exp-text)' : 'var(--text-primary)' }}>
+                            {netWorth < 0 ? '−' : ''}₹<CountUp value={Math.abs(netWorth)} duration={1000} enabled={mounted} format={inr} />
+                        </p>
+                        <div className="dash-stats">
+                            <Stat className="dash-stat" label="In banks" value={fmt(totalBanks)} sub={plural(banks.length, 'account')} />
+                            <Stat className="dash-stat" label="Owed on cards" value={fmt(totalCards)}
+                                sub={usedPct != null ? `${usedPct}% of your limits` : cards.length === 0 ? 'No cards' : '—'} />
+                            <Stat className="dash-stat" label="In wallets" value={fmt(totalWallets)} sub={plural(wallets.length, 'wallet')} />
+                            <Stat className="dash-stat" label="Next card bill" value={bill ? fmt(bill.amount) : '—'}
+                                sub={bill ? (bill.days < 0 ? `${bill.cardName}, overdue` : `${bill.cardName}, due ${formatDate(bill.dueDate)}`) : 'No bill due'}
+                                subTone={bill ? (bill.days < 0 ? 'bad' : bill.days <= 7 ? 'caution' : 'neutral') : 'neutral'} />
+                        </div>
+                    </Card>
                 )}
 
-                {/* ── NET WORTH HEADER ── */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px 20px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', margin: '0 0 4px', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Net Worth</p>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: isMobile ? '32px' : '2.5rem', fontWeight: 800, color: netWorth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: '20px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                            {netWorth < 0 ? '−' : ''}₹<CountUp value={Math.abs(netWorth)} duration={1000} enabled={mounted} format={inr} />
-                        </div>
-                        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                            {[
-                                { label: 'Bank Balance', value: totalBanks,   color: 'var(--color-inc)' },
-                                { label: 'CC Debt',      value: totalCards,   color: 'var(--color-exp)' },
-                                { label: 'Wallets',      value: totalWallets, color: 'var(--color-inc)' },
-                            ].map(pill => (
-                                <div key={pill.label}>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 3px', fontFamily: 'var(--font-body)' }}>{pill.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: 700, color: pill.color, margin: 0, fontVariantNumeric: 'tabular-nums' }}>₹<CountUp value={pill.value} enabled={mounted} format={inr} /></p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                <div className="fin-two">
+                    <div style={colSt}>
+                        {/* ── CREDIT CARDS, soonest bill first ── */}
+                        <Card>
+                            <CardHeader title="Credit cards" sub={cards.length >= 2 ? 'Soonest bill first' : 'Bills and limits'}
+                                action={<TextAction onClick={openAddCard}>Add card</TextAction>} />
+                            {dataLoading ? skeletonRows : cards.length === 0 ? (
+                                <p style={{ ...type.body, margin: 0 }}>No cards yet. Add one to track balances and due dates.</p>
+                            ) : (
+                                <Rows>{sortedCards.map(renderCardRow)}</Rows>
+                            )}
+                        </Card>
 
-                {/* ── BANK ACCOUNTS ── */}
-                <div>
-                    <SectionHead title="Bank Accounts" total={fmt(totalBanks)} totalColor="var(--color-inc)" onAdd={openAddBank} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {dataLoading ? [1, 2].map(i => (
-                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div className="glass-field" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                        <Skeleton width="120px" height={14} borderRadius={4} />
-                                        <Skeleton width="80px" height={11} borderRadius={4} />
-                                    </div>
-                                    <Skeleton width={80} height={20} borderRadius={4} />
-                                </div>
-                                <div style={{ padding: '10px 16px' }}><Skeleton width="120px" height={10} borderRadius={4} /></div>
-                            </div>
-                        )) : banks.map(b => (
-                            <div key={b.id} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                {/* Coloured band */}
-                                <div style={{ background: b.color || 'var(--accent)', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                            <span style={{ fontSize: '16px' }}>{b.icon || '🏦'}</span>
-                                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)' }}>{b.name}</span>
-                                            {b.is_default && <Badge bg="rgba(255,255,255,0.22)" color="white">Default</Badge>}
-                                        </div>
-                                        {b.last_four && <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-mono)', margin: '0 0 2px' }}>••••&nbsp;&nbsp;{b.last_four}</p>}
-                                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', fontFamily: 'var(--font-body)', margin: 0 }}>{b.account_type || 'Savings'}</p>
-                                    </div>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'white', margin: 0, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                        {fmt(b.current_balance)}
-                                    </p>
-                                </div>
-                                {/* Action row */}
-                                <div style={{ display: 'flex', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--glass-border)' }}>
-                                    <button type="button" onClick={() => router.push('/transactions')} style={outlineBtn}>History</button>
-                                    <button type="button" onClick={() => openEditBank(b)} style={outlineBtn}><Pencil size={12} /> Edit</button>
-                                    {!b.is_default && (
-                                        <button type="button" onClick={() => handleSetDefault(b.id)} style={{ ...outlineBtn, marginLeft: 'auto' }} title="Set as default">
-                                            <Star size={12} /> Default
-                                        </button>
-                                    )}
-                                    <button type="button" onClick={() => confirmDelete('bank', b.id, b.name)} style={{ ...iconBtn, marginLeft: b.is_default ? 'auto' : 0 }}>
-                                        <Trash2 size={14} color="var(--color-exp)" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                        {!dataLoading && banks.length === 0 && (
-                            <EmptyState icon={Landmark} title="No bank accounts yet" subtitle="Add a bank account to start tracking your balances." />
-                        )}
-                        {!dataLoading && (
-                            <button type="button" onClick={openAddBank} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
-                                <Plus size={14} /> Add Bank Account
-                            </button>
-                        )}
+                        {/* ── BANK ACCOUNTS ── */}
+                        <Card>
+                            <CardHeader title="Bank accounts" sub={dataLoading ? undefined : `${fmt(totalBanks)} across ${plural(banks.length, 'account')}`}
+                                action={<TextAction onClick={openAddBank}>Add account</TextAction>} />
+                            {dataLoading ? skeletonRows : banks.length === 0 ? (
+                                <p style={{ ...type.body, margin: 0 }}>No bank accounts yet. Add one to start tracking balances.</p>
+                            ) : (
+                                <Rows>{banks.map(renderBankRow)}</Rows>
+                            )}
+                        </Card>
                     </div>
-                </div>
 
-                {/* ── CREDIT CARDS ── */}
-                <div>
-                    <SectionHead title="Credit Cards" total={fmt(totalCards)} totalColor="var(--color-exp)" onAdd={openAddCard} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {dataLoading ? [1, 2].map(i => (
-                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                <div className="glass-field" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <Skeleton width="120px" height={14} borderRadius={4} />
-                                    <Skeleton width={70} height={20} borderRadius={4} />
-                                </div>
-                                <div style={{ padding: '14px 16px' }}><Skeleton width="100%" height={5} borderRadius={999} /></div>
-                            </div>
-                        )) : cards.map(c => {
-                            const dueDays = getDueDays(c.billing_date, c.due_days);
-                            const utilPct = c.credit_limit > 0 ? Math.min(100, (Number(c.current_outstanding_balance) / Number(c.credit_limit)) * 100) : 0;
-                            const utilColor = utilPct > 30 ? 'var(--color-warn)' : 'var(--accent)';
-                            const dueUrgent = dueDays !== null && dueDays <= 7;
-                            const dueLabel  = dueDays === null ? null : dueDays < 0 ? 'Overdue' : dueDays === 0 ? 'Due today' : `Due in ${dueDays}d`;
-
-                            return (
-                                <div key={c.id} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                                    {/* Coloured panel */}
-                                    <div style={{ background: c.color, padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 700, color: 'white', fontFamily: 'var(--font-display)' }}>
-                                                    {c.bank_name} {c.card_name}
-                                                </span>
-                                                <Badge bg="rgba(255,255,255,0.22)" color="white">{Math.round(utilPct)}% used</Badge>
-                                            </div>
-                                            {c.last_four && (
-                                                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', fontFamily: 'var(--font-mono)', margin: 0 }}>
-                                                    {c.network} ••{c.last_four}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', fontWeight: 700, color: 'white', margin: '0 0 4px', fontVariantNumeric: 'tabular-nums' }}>
-                                                {fmt(c.current_outstanding_balance)}
-                                            </p>
-                                            {dueLabel && (
-                                                <p style={{ fontSize: '11px', fontWeight: dueUrgent ? 700 : 400, color: dueUrgent ? 'var(--color-warn)' : 'rgba(255,255,255,0.65)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                                    {dueLabel}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {/* Details + utilisation */}
-                                    <div style={{ padding: '14px 16px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Limit: {fmt(c.credit_limit)}</span>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Available: {fmt(Math.max(0, c.credit_limit - c.current_outstanding_balance))}</span>
-                                        </div>
-                                        <ProgressBar pct={utilPct} color={utilColor} height={5} />
-                                        {c.statement_balance != null ? (
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', flexWrap: 'wrap', gap: '4px' }}>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                    Statement: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(c.statement_amount_due ?? c.statement_balance)}</span>
-                                                    {c.statement_due_date && <> · due {formatDate(c.statement_due_date)}</>}
-                                                </span>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                                    New charges: <span style={{ fontFamily: 'var(--font-mono)', color: (c.new_charges_since_statement ?? 0) > 0 ? 'var(--color-warn)' : 'var(--text-primary)' }}>
-                                                        {(c.new_charges_since_statement ?? 0) >= 0 ? '+' : '−'}{fmt(c.new_charges_since_statement ?? 0)}
-                                                    </span>
-                                                </span>
-                                            </div>
-                                        ) : (
-                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', margin: '8px 0 0' }}>
-                                                Set a billing date to see statement balance vs. new charges
-                                            </p>
-                                        )}
-                                        {c.statement_balance != null && (
-                                            <CardUnpaidNote cardId={c.id} notPaidTick={notPaidTick} onReview={() => openPayCard(c, { review: true })} />
-                                        )}
-                                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                                            <button type="button" onClick={() => router.push(`/transactions?credit_card_id=${c.id}`)} style={outlineBtn}>History</button>
-                                            {c.statement_balance != null && (
-                                                <button type="button" onClick={() => router.push(`/accounts/credit-cards/cycles?id=${c.id}`)} style={outlineBtn}>Cycles</button>
-                                            )}
-                                            <button type="button" onClick={() => openPayCard(c)} style={outlineBtn}>Pay Bill</button>
-                                            <button type="button" onClick={() => openEditCard(c)} style={outlineBtn}><Pencil size={12} /> Edit</button>
-                                            <button type="button" onClick={() => confirmDelete('card', c.id, `${c.bank_name} ${c.card_name}`)} style={{ ...iconBtn, marginLeft: 'auto' }}>
-                                                <Trash2 size={14} color="var(--color-exp)" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {!dataLoading && cards.length === 0 && (
-                            <EmptyState icon={CreditCardIcon} title="No cards yet" subtitle="Add a credit card to track balances and due dates." />
-                        )}
-                        {!dataLoading && (
-                            <button type="button" onClick={openAddCard} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)' }}>
-                                <Plus size={14} /> Add Credit Card
-                            </button>
-                        )}
+                    <div style={colSt}>
+                        {/* ── WALLETS & UPI ── */}
+                        <Card>
+                            <CardHeader title="Wallets and UPI" sub={dataLoading ? undefined : `${fmt(totalWallets)} in ${plural(wallets.length, 'wallet')}`}
+                                action={<TextAction onClick={openAddWallet}>Add wallet</TextAction>} />
+                            {dataLoading ? skeletonRows : wallets.length === 0 ? (
+                                <p style={{ ...type.body, margin: 0 }}>No wallets yet. Add one to track UPI apps, cash or prepaid balances.</p>
+                            ) : (
+                                <Rows>{wallets.map(renderWalletRow)}</Rows>
+                            )}
+                        </Card>
                     </div>
-                </div>
-
-                {/* ── WALLETS & UPI ── */}
-                <div>
-                    <SectionHead title="Wallets & UPI" total={fmt(totalWallets)} totalColor="var(--color-inc)" onAdd={openAddWallet} />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {dataLoading ? [1, 2, 3, 4].map(i => (
-                            <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', height: 100 }} />
-                        )) : wallets.map(w => (
-                            <GCard key={w.id} padding="var(--space-4)">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                                    <span style={{ fontSize: '24px', lineHeight: 1 }}>{w.emoji}</span>
-                                    <div style={{ display: 'flex', gap: '2px' }}>
-                                        <button type="button" style={iconBtn} onClick={() => openEditWallet(w)}><Pencil size={13} /></button>
-                                        <button type="button" style={iconBtn} onClick={() => confirmDelete('wallet', w.id, w.name)}><Trash2 size={13} color="var(--color-exp)" /></button>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}</p>
-                                {editingWalletBalanceId === w.id ? (
-                                    <input autoFocus type="number" value={walletBalanceInput}
-                                        onChange={e => setWalletBalanceInput(e.target.value)}
-                                        onBlur={() => saveWalletBalance(w)}
-                                        onKeyDown={e => { if (e.key === 'Enter') saveWalletBalance(w); if (e.key === 'Escape') setEditingWalletBalanceId(null); }}
-                                        style={{ width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--accent)', borderRadius: 6, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
-                                    />
-                                ) : (
-                                    <p onClick={() => startWalletBalanceEdit(w)} title="Tap to edit"
-                                        style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: 'var(--accent)', margin: 0, cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
-                                        {fmt(w.balance)}
-                                    </p>
-                                )}
-                            </GCard>
-                        ))}
-                    </div>
-                    {!dataLoading && wallets.length === 0 && (
-                        <EmptyState icon={WalletIcon} title="No wallets yet" subtitle="Add a wallet to track UPI apps, cash, or prepaid balances." />
-                    )}
-                    {!dataLoading && (
-                        <button type="button" onClick={openAddWallet} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontFamily: 'var(--font-body)', marginTop: '10px' }}>
-                            <Plus size={14} /> Add Wallet
-                        </button>
-                    )}
                 </div>
 
             </div>
 
-            {/* ═══ MODALS ═══ */}
+            {/* ═══ DIALOGS ═══ */}
 
-            {/* Bank Account Modal */}
-            {showBankModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowBankModal(false)}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-                            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingBank ? 'Edit Account' : 'Add Bank Account'}</span>
-                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowBankModal(false)}><X size={16} /></button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div><label style={labelSt}>Account Name *</label><input style={inputSt} value={bankForm.name} onChange={e => setBankForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Savings" /></div>
-                            <div><label style={labelSt}>Account Type</label><select style={inputSt} value={bankForm.account_type} onChange={e => setBankForm(f => ({ ...f, account_type: e.target.value }))}>{ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                            <div><label style={labelSt}>Last 4 Digits (optional)</label><input style={inputSt} value={bankForm.last_four} maxLength={4} placeholder="1234" onChange={e => setBankForm(f => ({ ...f, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) }))} /></div>
-                            <div><label style={labelSt}>Current Balance (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={bankForm.starting_balance} onChange={e => setBankForm(f => ({ ...f, starting_balance: e.target.value }))} placeholder="0" /></div>
-                            <div><label style={labelSt}>Balance As Of (optional)</label><input style={inputSt} type="date" value={bankForm.balance_as_of} onChange={e => setBankForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
-                        </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowBankModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveBank} disabled={saving || !bankForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !bankForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                                {saving ? 'Saving…' : editingBank ? 'Save Changes' : 'Add Account'}
-                            </button>
+            {/* Add chooser */}
+            <Modal isOpen={showAddChooser} onClose={() => setShowAddChooser(false)} title="Add account" maxWidth="360px">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    {addOptions.map(o => (
+                        <button key={o.label} type="button" className="pressable" onClick={() => { setShowAddChooser(false); o.open(); }}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', width: '100%', padding: 'var(--space-3)', background: 'var(--glass-fill-1)', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', textAlign: 'left' }}>
+                            <span style={{ ...type.bodyStrong, flexShrink: 0 }}>{o.label}</span>
+                            <span style={{ ...type.meta, ...truncate, minWidth: 0, textAlign: 'right' }}>{o.hint}</span>
+                        </button>
+                    ))}
+                </div>
+            </Modal>
+
+            {/* Bank account dialog */}
+            <Modal isOpen={showBankModal} onClose={closeBank} title={editingBank ? 'Edit bank account' : 'Add bank account'} maxWidth="440px"
+                footer={
+                    <div style={footerSt}>
+                        <Button type="button" variant="secondary" onClick={closeBank}>Cancel</Button>
+                        <Button type="submit" form="bank-form" disabled={saving || !bankForm.name.trim()}>
+                            {saving ? 'Saving…' : editingBank ? 'Save changes' : 'Add account'}
+                        </Button>
+                    </div>
+                }>
+                <form id="bank-form" onSubmit={e => { e.preventDefault(); saveBank(); }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div><label style={labelSt}>Name</label><input style={inputSt} value={bankForm.name} onChange={e => setBankForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Savings" /></div>
+                    <div><label style={labelSt}>Account type</label><select style={inputSt} value={bankForm.account_type} onChange={e => setBankForm(f => ({ ...f, account_type: e.target.value }))}>{ACCOUNT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+                    <div><label style={labelSt}>Last 4 digits (optional)</label><input style={inputSt} value={bankForm.last_four} maxLength={4} placeholder="1234" onChange={e => setBankForm(f => ({ ...f, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) }))} /></div>
+                    <div><label style={labelSt}>Current balance</label><input style={numInputSt} type="number" value={bankForm.starting_balance} onChange={e => setBankForm(f => ({ ...f, starting_balance: e.target.value }))} placeholder="0" /></div>
+                    <div><label style={labelSt}>Balance as of (optional)</label><input style={inputSt} type="date" value={bankForm.balance_as_of} onChange={e => setBankForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
+                </form>
+            </Modal>
+
+            {/* Credit card dialog */}
+            <Modal isOpen={showCardModal} onClose={closeCard} title={editingCard ? 'Edit credit card' : 'Add credit card'} maxWidth="440px"
+                footer={
+                    <div style={footerSt}>
+                        <Button type="button" variant="secondary" onClick={closeCard}>Cancel</Button>
+                        <Button type="submit" form="card-form" disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()}>
+                            {saving ? 'Saving…' : editingCard ? 'Save changes' : 'Add card'}
+                        </Button>
+                    </div>
+                }>
+                <form id="card-form" onSubmit={e => { e.preventDefault(); saveCard(); }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={pairSt}>
+                        <div><label style={labelSt}>Bank name</label><input style={inputSt} value={cardForm.bank_name} onChange={e => setCardForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="HDFC" /></div>
+                        <div><label style={labelSt}>Card name</label><input style={inputSt} value={cardForm.card_name} onChange={e => setCardForm(f => ({ ...f, card_name: e.target.value }))} placeholder="Millennia" /></div>
+                    </div>
+                    <div style={pairSt}>
+                        <div><label style={labelSt}>Last 4 digits</label><input style={inputSt} value={cardForm.last_four} maxLength={4} placeholder="5678" onChange={e => setCardForm(f => ({ ...f, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) }))} /></div>
+                        <div><label style={labelSt}>Network</label><select style={inputSt} value={cardForm.network} onChange={e => setCardForm(f => ({ ...f, network: e.target.value }))}>{NETWORKS.map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+                    </div>
+                    <div style={pairSt}>
+                        <div><label style={labelSt}>Credit limit</label><input style={numInputSt} type="number" value={cardForm.credit_limit} onChange={e => setCardForm(f => ({ ...f, credit_limit: e.target.value }))} placeholder="100000" /></div>
+                        <div><label style={labelSt}>Outstanding</label><input style={numInputSt} type="number" value={cardForm.outstanding_balance} onChange={e => setCardForm(f => ({ ...f, outstanding_balance: e.target.value }))} placeholder="0" /></div>
+                    </div>
+                    <div><label style={labelSt}>Balance as of (optional)</label><input style={inputSt} type="date" value={cardForm.balance_as_of} onChange={e => setCardForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
+                    <div style={pairSt}>
+                        <div><label style={labelSt}>Billing date (1 to 28)</label><input style={numInputSt} type="number" min={1} max={28} value={cardForm.billing_date} onChange={e => setCardForm(f => ({ ...f, billing_date: e.target.value }))} placeholder="5" /></div>
+                        <div><label style={labelSt}>Due days after billing</label><input style={numInputSt} type="number" value={cardForm.due_days} onChange={e => setCardForm(f => ({ ...f, due_days: e.target.value }))} placeholder="20" /></div>
+                    </div>
+                    <div style={pairSt}>
+                        <div><label style={labelSt}>Interest rate (APR, %)</label><input style={numInputSt} type="number" step="0.1" value={cardForm.interest_rate_pct} onChange={e => setCardForm(f => ({ ...f, interest_rate_pct: e.target.value }))} placeholder="42" /></div>
+                        <div />
+                    </div>
+                    <div>
+                        <label style={labelSt}>Colour</label>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                            {CARD_COLORS.map(col => (
+                                <button type="button" key={col} aria-label={`Colour ${col}`} aria-pressed={cardForm.color === col} onClick={() => setCardForm(f => ({ ...f, color: col }))}
+                                    style={{ width: 28, height: 28, borderRadius: '50%', background: col, border: cardForm.color === col ? '2px solid var(--text-primary)' : '2px solid transparent', cursor: 'pointer' }} />
+                            ))}
                         </div>
                     </div>
-                </div>,
-                document.body
-            )}
-
-            {/* Credit Card Modal */}
-            {showCardModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowCardModal(false)}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 480, maxHeight: '90vh', display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-                            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingCard ? 'Edit Card' : 'Add Credit Card'}</span>
-                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowCardModal(false)}><X size={16} /></button>
-                        </div>
-                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div><label style={labelSt}>Bank Name *</label><input style={inputSt} value={cardForm.bank_name} onChange={e => setCardForm(f => ({ ...f, bank_name: e.target.value }))} placeholder="HDFC" /></div>
-                                <div><label style={labelSt}>Card Name *</label><input style={inputSt} value={cardForm.card_name} onChange={e => setCardForm(f => ({ ...f, card_name: e.target.value }))} placeholder="Millennia" /></div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div><label style={labelSt}>Last 4 Digits</label><input style={inputSt} value={cardForm.last_four} maxLength={4} placeholder="5678" onChange={e => setCardForm(f => ({ ...f, last_four: e.target.value.replace(/\D/g, '').slice(0, 4) }))} /></div>
-                                <div><label style={labelSt}>Network</label><select style={inputSt} value={cardForm.network} onChange={e => setCardForm(f => ({ ...f, network: e.target.value }))}>{NETWORKS.map(n => <option key={n} value={n}>{n}</option>)}</select></div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div><label style={labelSt}>Credit Limit (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={cardForm.credit_limit} onChange={e => setCardForm(f => ({ ...f, credit_limit: e.target.value }))} placeholder="100000" /></div>
-                                <div><label style={labelSt}>Outstanding (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={cardForm.outstanding_balance} onChange={e => setCardForm(f => ({ ...f, outstanding_balance: e.target.value }))} placeholder="0" /></div>
-                            </div>
-                            <div><label style={labelSt}>Balance As Of (optional)</label><input style={inputSt} type="date" value={cardForm.balance_as_of} onChange={e => setCardForm(f => ({ ...f, balance_as_of: e.target.value }))} /></div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div><label style={labelSt}>Billing Date (1–28)</label><input style={inputSt} type="number" min={1} max={28} value={cardForm.billing_date} onChange={e => setCardForm(f => ({ ...f, billing_date: e.target.value }))} placeholder="5" /></div>
-                                <div><label style={labelSt}>Due Days After</label><input style={inputSt} type="number" value={cardForm.due_days} onChange={e => setCardForm(f => ({ ...f, due_days: e.target.value }))} placeholder="20" /></div>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div><label style={labelSt}>Interest Rate / APR (%)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" step="0.1" value={cardForm.interest_rate_pct} onChange={e => setCardForm(f => ({ ...f, interest_rate_pct: e.target.value }))} placeholder="42" /></div>
-                                <div />
-                            </div>
-                            <div>
-                                <label style={labelSt}>Card Color</label>
-                                <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                                    {CARD_COLORS.map(col => (
-                                        <button type="button" key={col} onClick={() => setCardForm(f => ({ ...f, color: col }))} style={{ width: 28, height: 28, borderRadius: '50%', background: col, border: cardForm.color === col ? '3px solid var(--text-primary)' : '2px solid transparent', cursor: 'pointer' }} />
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowCardModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveCard} disabled={saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim()} style={{ flex: 2, padding: 10, background: saving || !cardForm.bank_name.trim() || !cardForm.card_name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                                {saving ? 'Saving…' : editingCard ? 'Save Changes' : 'Add Card'}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+                </form>
+            </Modal>
 
             {/* Pay Bill Modal -- same chrome as Add Transaction's shared <Modal>,
                 a Cycle picker sourced from the existing GET /:id/cycles
@@ -953,19 +970,12 @@ export default function AccountsPage() {
                     onClose={() => setShowPayModal(false)}
                     title={`Pay ${payingCard.bank_name} ${payingCard.card_name}`}
                     footer={
-                        <button type="button" onClick={savePay} disabled={payDisabled}
-                            style={{
-                                width: '100%', height: 48, border: 'none', borderRadius: 'var(--radius-md)',
-                                background: payDisabled ? 'var(--border-subtle)' : PAY_TINT,
-                                color: 'white', fontSize: '14.5px', fontWeight: 600, fontFamily: 'var(--font-body)',
-                                cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1,
-                                boxShadow: '0 12px 26px -10px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.25)',
-                            }}>
+                        <Button type="button" onClick={savePay} disabled={payDisabled} style={{ width: '100%', height: 48 }}>
                             {saving ? 'Recording…'
                                 : linkId ? 'Link and record as paid'
                                 : recordingPast ? `Record${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''} as paid`
                                 : `Pay${payForm.amount ? ` ₹${Number(payForm.amount).toLocaleString('en-IN')}` : ''}`}
-                        </button>
+                        </Button>
                     }
                 >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -988,17 +998,17 @@ export default function AccountsPage() {
                         {unpaidIdxs.length > 0 && !recordingPast && (
                             <button type="button" data-testid="unpaid-nudge" onClick={() => pickCycle(payCycles[unpaidIdxs[0]], unpaidIdxs[0])}
                                 style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '11px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
-                                    background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-warn) 30%, transparent)', fontFamily: 'var(--font-body)' }}>
-                                <AlertTriangle size={16} color="var(--color-warn)" style={{ flexShrink: 0, marginTop: 1 }} />
+                                    background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)' }}>
+                                <AlertTriangle size={16} color="var(--color-warn-text)" style={{ flexShrink: 0, marginTop: 1 }} />
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    <span style={{ ...type.bodyStrong, display: 'block' }}>
                                         {unpaidIdxs.length} older statement{unpaidIdxs.length > 1 ? 's look' : ' looks'} unpaid
                                     </span>
-                                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                    <span style={{ ...type.meta, display: 'block' }}>
                                         Paid {unpaidIdxs.length > 1 ? 'them' : 'it'} outside the app? Record {unpaidIdxs.length > 1 ? 'them' : 'it'} so your balance is right.
                                     </span>
                                 </span>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-warn)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Review ›</span>
+                                <span style={{ ...type.label, color: 'var(--color-warn-text)', alignSelf: 'center', whiteSpace: 'nowrap' }}>Review ›</span>
                             </button>
                         )}
 
@@ -1007,16 +1017,16 @@ export default function AccountsPage() {
                                 <label style={labelSt}>Cycle</label>
                                 <div onClick={() => setShowCycleSheet(true)} style={triggerSt}>
                                     <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontSize: 14, color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <div style={{ ...type.bodyStrong, ...truncate }}>
                                             {selectedLabel || 'Select a cycle'}
                                         </div>
-                                        {selectedRow && <div style={{ fontSize: 10.5, color: STATUS_TONE_COLOR[selectedRow.statusTone], marginTop: 2 }}>{selectedRow.status}</div>}
+                                        {selectedRow && <div style={{ ...type.meta, color: CYCLE_TONE_TEXT[selectedRow.statusTone], marginTop: 2 }}>{selectedRow.status}</div>}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                                         {selectedRow && (
                                             <div data-testid="cycle-trigger-amount" style={{ textAlign: 'right' }}>
-                                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: cycleAmountColor(selectedRow.amount ?? 0) }}>{fmtCycleAmount(selectedRow.amount)}</div>
-                                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{selectedRow.caption}</div>
+                                                <div style={{ ...type.num, color: CYCLE_TONE_TEXT[cycleAmountTone(selectedRow.amount ?? 0)] }}>{fmtCycleAmount(selectedRow.amount)}</div>
+                                                <div style={{ ...type.meta, marginTop: 1 }}>{selectedRow.caption}</div>
                                             </div>
                                         )}
                                         <ChevronDown size={14} color="var(--text-muted)" />
@@ -1029,7 +1039,7 @@ export default function AccountsPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <label style={labelSt}>Pay by</label>
                                 <div onClick={() => setShowPayMethodSheet(true)} style={triggerSt}>
-                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <span style={{ ...type.body, color: 'var(--text-primary)', ...truncate }}>
                                         {PAY_METHOD_ICONS[payForm.payment_method]} {payForm.payment_method}
                                     </span>
                                     <ChevronDown size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
@@ -1038,7 +1048,7 @@ export default function AccountsPage() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <label style={labelSt}>Date</label>
                                 <div onClick={() => setShowPayDateSheet(true)} style={triggerSt}>
-                                    <span style={{ fontSize: 14, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{recordingAll ? 'Each on its due date' : payDateLabel}</span>
+                                    <span style={{ ...type.body, color: 'var(--text-primary)', ...truncate }}>{recordingAll ? 'Each on its due date' : payDateLabel}</span>
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ stroke: 'var(--text-muted)', flexShrink: 0 }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
                                     </svg>
@@ -1049,22 +1059,22 @@ export default function AccountsPage() {
                         <div>
                             <label style={labelSt}>Amount</label>
                             <div style={{ position: 'relative' }}>
-                                <span style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: PAY_TINT, fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 20 }}>₹</span>
+                                <span style={{ ...type.figure, color: 'var(--text-secondary)', position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }}>₹</span>
                                 <input type="number" min="0.01" step="any" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))} placeholder="0"
-                                    style={{ width: '100%', padding: '14px 16px 14px 36px', background: 'var(--glass-fill-1)', border: `1px solid color-mix(in srgb, ${PAY_TINT} 30%, transparent)`, borderRadius: 10, fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 700, color: PAY_TINT, boxSizing: 'border-box', fontVariantNumeric: 'tabular-nums' }} />
+                                    style={{ ...type.figure, width: '100%', padding: '14px 16px 14px 36px', background: 'var(--glass-fill-1)', border: '1px solid var(--border-visible)', borderRadius: 'var(--radius-md)', boxSizing: 'border-box' }} />
                             </div>
                             {(cardOnly || linkId) && (
-                                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
+                                <div style={{ ...type.meta, paddingTop: 6 }}>
                                     {linkId ? 'Uses the linked bank debit\'s amount and date.' : 'Card side only. Your bank balance in the app won\'t change.'}
                                 </div>
                             )}
                             {needsBank && banks.length > 0 && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text-muted)', paddingTop: 6, fontFamily: 'var(--font-body)' }}>
-                                    from <b style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'account'}</b>
+                                <div style={{ ...type.meta, display: 'flex', alignItems: 'center', gap: 6, paddingTop: 6 }}>
+                                    from <span style={{ ...type.label, color: 'var(--text-primary)' }}>{banks.find(b => String(b.id) === payForm.bank_account_id)?.name || 'account'}</span>
                                     {banks.length > 1 && (
                                         <>
                                             <span style={{ color: 'var(--border-visible)' }}>·</span>
-                                            <span onClick={() => setShowPayAccountSheet(true)} style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }}>change</span>
+                                            <button type="button" className="fin-link" onClick={() => setShowPayAccountSheet(true)} style={{ padding: 0 }}>change</button>
                                         </>
                                     )}
                                 </div>
@@ -1078,16 +1088,16 @@ export default function AccountsPage() {
                                         const on = payChoice === value;
                                         return (
                                             <button key={value} type="button" role="radio" aria-checked={on} data-testid={testId} onClick={() => setPayChoice(value)}
-                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-body)',
-                                                    background: on ? `color-mix(in srgb, ${PAY_TINT} 14%, transparent)` : 'var(--glass-fill-1)',
-                                                    border: `1px solid ${on ? `color-mix(in srgb, ${PAY_TINT} 40%, transparent)` : 'var(--glass-border)'}` }}>
+                                                style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
+                                                    background: on ? 'var(--glass-fill-3)' : 'var(--glass-fill-1)',
+                                                    border: '1px solid var(--glass-border)' }}>
                                                 <span aria-hidden style={{ width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginTop: 2, display: 'grid', placeItems: 'center',
-                                                    border: `2px solid ${on ? PAY_TINT : 'var(--text-muted)'}` }}>
-                                                    {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: PAY_TINT }} />}
+                                                    border: `2px solid ${on ? 'var(--accent)' : 'var(--text-muted)'}` }}>
+                                                    {on && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)' }} />}
                                                 </span>
                                                 <span style={{ minWidth: 0 }}>
-                                                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</span>
-                                                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-secondary)' }}>{desc}</span>
+                                                    <span style={{ ...type.bodyStrong, display: 'block' }}>{title}</span>
+                                                    <span style={{ ...type.meta, display: 'block' }}>{desc}</span>
                                                 </span>
                                             </button>
                                         );
@@ -1098,11 +1108,10 @@ export default function AccountsPage() {
                                         return (
                                             <div role="radiogroup" aria-label="Where the money came from" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                                 {found.length > 0 && (
-                                                    <div data-testid="record-all-found" style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, fontFamily: 'var(--font-body)', color: 'var(--text-secondary)',
-                                                        background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)' }}>
-                                                        <b style={{ color: 'var(--text-primary)' }}>Found the bank payment for {found.length} of {unpaidIdxs.length}.</b> {found.length > 1 ? 'They' : 'It'} will be linked, not added again:
+                                                    <div data-testid="record-all-found" style={{ ...type.meta, padding: '10px 12px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                                                        <span style={{ ...type.label, color: 'var(--text-primary)' }}>Found the bank payment for {found.length} of {unpaidIdxs.length}.</span> {found.length > 1 ? 'They' : 'It'} will be linked, not added again:
                                                         {found.map(i => (
-                                                            <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 3 }}>
+                                                            <div key={i} style={{ ...type.numSmall, marginTop: 3 }}>
                                                                 {fmt(allMatches[i]!.amount)} · {candidateFrom(allMatches[i]!)} · {formatDate(String(allMatches[i]!.date))}
                                                             </div>
                                                         ))}
@@ -1110,7 +1119,7 @@ export default function AccountsPage() {
                                                 )}
                                                 {rest > 0 && (
                                                     <>
-                                                        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                                        <span style={{ ...type.bodyStrong }}>
                                                             {found.length ? `The other ${rest}:` : 'Where did the money come from?'}
                                                         </span>
                                                         {option('new', `Add as new payments from ${bankName}`, 'Records the bank side too.', 'choice-new')}
@@ -1122,15 +1131,15 @@ export default function AccountsPage() {
                                     }
                                     return (
                                         <div role="radiogroup" aria-label="Where the money came from" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>
+                                            <span style={{ ...type.bodyStrong }}>
                                                 {payCandidates === null ? 'Looking for the bank payment…'
                                                     : payCandidates.length ? 'We found what looks like this payment' : 'Where did the money come from?'}
                                             </span>
                                             {(payCandidates ?? []).map((c, n) => option(`link:${c.id}`,
                                                 <>{fmt(c.amount)} from {candidateFrom(c)}{n === 0 && c.score >= LINK_DEFAULT_SCORE && (
-                                                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-inc)', background: 'color-mix(in srgb, var(--color-inc) 14%, transparent)', borderRadius: 999, padding: '2px 6px', verticalAlign: 'middle' }}>Best match</span>
+                                                    <span style={{ ...type.label, marginLeft: 6, color: 'var(--color-inc-text)' }}>Best match</span>
                                                 )}</>,
-                                                <>{formatDate(String(c.date))} · &ldquo;{c.description}&rdquo;<br /><span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--text-muted)' }}>{c.reason}</span></>,
+                                                <>{formatDate(String(c.date))} · &ldquo;{c.description}&rdquo;<br /><span style={{ ...type.numSmall, color: 'var(--text-muted)' }}>{c.reason}</span></>,
                                                 `choice-link-${c.id}`))}
                                             {option('new', `Add it as a new payment from ${bankName}`,
                                                 payCandidates?.length ? 'Only if the one above is something else.' : 'Records the bank side too.', 'choice-new')}
@@ -1143,27 +1152,26 @@ export default function AccountsPage() {
                                     const due = Number(payingCard.statement_remaining ?? payingCard.statement_amount_due ?? 0);
                                     const out = Number(payingCard.current_outstanding_balance) || 0;
                                     return amt > 0 && (
-                                        <div data-testid="pay-effect" style={{ padding: '10px 12px', borderRadius: 'var(--radius-md)', fontSize: 12, fontFamily: 'var(--font-body)', display: 'grid', gap: 4,
-                                            background: 'color-mix(in srgb, var(--color-inc) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)' }}>
-                                            <b style={{ color: 'var(--text-primary)' }}>Saving fixes:</b>
+                                        <div data-testid="pay-effect" style={{ ...type.meta, padding: '10px 12px', borderRadius: 'var(--radius-md)', display: 'grid', gap: 4, background: 'var(--glass-fill-1)' }}>
+                                            <span style={{ ...type.label, color: 'var(--text-primary)' }}>Saving fixes:</span>
                                             {payingCard.statement_due_date && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                                     <span>Latest statement due</span>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(due)} → {fmt(Math.max(0, due - amt))}</span>
+                                                    <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{fmt(due)} → {fmt(Math.max(0, due - amt))}</span>
                                                 </div>
                                             )}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                                 <span>Outstanding</span>
-                                                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{fmt(out)} → {fmt(out - amt)}</span>
+                                                <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{fmt(out)} → {fmt(out - amt)}</span>
                                             </div>
                                             {(linkId || (recordingAll && unpaidIdxs.some(i => allMatches[i]))) && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                                     <span>Linked bank debit</span>
                                                     <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>Counted as a card payment, not spending</span>
                                                 </div>
                                             )}
                                             {recordingAll && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: 'var(--text-secondary)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                                                     <span>Payments recorded</span>
                                                     <span style={{ color: 'var(--text-primary)' }}>{unpaidIdxs.length}, one per statement</span>
                                                 </div>
@@ -1187,14 +1195,14 @@ export default function AccountsPage() {
                             const recordAll = idx === 2 && unpaidIdxs.length >= 2 ? (
                                 <button key="record-all" type="button" data-testid="record-all" onClick={pickRecordAll}
                                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', margin: '6px 0 4px', padding: '11px 14px',
-                                        borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-body)',
-                                        background: recordingAll ? 'var(--accent-subtle)' : `color-mix(in srgb, ${PAY_TINT} 12%, transparent)`,
-                                        border: `1px dashed color-mix(in srgb, ${PAY_TINT} 40%, transparent)` }}>
+                                        borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: 'pointer',
+                                        background: recordingAll ? 'var(--glass-fill-3)' : 'var(--glass-fill-1)',
+                                        border: '1px dashed var(--border-visible)' }}>
                                     <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Record all {unpaidIdxs.length} as paid</span>
-                                        <span style={{ fontSize: 10.5, color: 'var(--text-secondary)' }}>One payment per statement, each on its due date</span>
+                                        <span style={{ ...type.bodyStrong }}>Record all {unpaidIdxs.length} as paid</span>
+                                        <span style={{ ...type.meta }}>One payment per statement, each on its due date</span>
                                     </span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: PAY_TINT }}>{fmt(unpaidTotal)}</span>
+                                    <span style={{ ...type.num }}>{fmt(unpaidTotal)}</span>
                                 </button>
                             ) : null;
                             // An older statement that billed nothing and saw no activity is just noise.
@@ -1210,24 +1218,24 @@ export default function AccountsPage() {
                                     data-testid={`cycle-row-${idx}`}
                                     style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, width: '100%', padding: '11px 14px',
-                                        borderRadius: 'var(--radius-md)', border: 'none', textAlign: 'left', fontFamily: 'var(--font-body)',
-                                        background: active ? 'var(--accent-subtle)' : 'transparent',
+                                        borderRadius: 'var(--radius-md)', border: 'none', textAlign: 'left',
+                                        background: active ? 'var(--glass-fill-3)' : 'transparent',
                                         cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
                                     }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                                        <span style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--text-primary)' }}>{cycle.label}</span>
-                                        <span style={{ fontSize: 10.5, color: disabled ? 'var(--text-muted)' : STATUS_TONE_COLOR[row.statusTone] }}>{row.status}</span>
+                                        <span style={{ ...type.bodyStrong }}>{cycle.label}</span>
+                                        <span style={{ ...type.meta, color: disabled ? 'var(--text-muted)' : CYCLE_TONE_TEXT[row.statusTone] }}>{row.status}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: disabled ? 'var(--text-muted)' : cycleAmountColor(row.amount ?? 0) }}>{fmtCycleAmount(row.amount)}</span>
-                                        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{row.caption}</span>
+                                        <span style={{ ...type.num, color: disabled ? 'var(--text-muted)' : CYCLE_TONE_TEXT[cycleAmountTone(row.amount ?? 0)] }}>{fmtCycleAmount(row.amount)}</span>
+                                        <span style={{ ...type.meta }}>{row.caption}</span>
                                     </div>
                                 </button>
                                 )}
                                 {!skip && idx >= 2 && (unpaidShares[idx] ?? 0) > 0 && (
                                     <button type="button" data-testid={`not-paid-${idx}`} onClick={() => toggleNotPaid(cycle)}
-                                        style={{ alignSelf: 'flex-start', margin: '-4px 0 6px 14px', padding: '4px 9px', borderRadius: 999, background: 'none', cursor: 'pointer',
-                                            border: '1px solid var(--glass-border)', color: 'var(--text-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+                                        style={{ ...type.meta, alignSelf: 'flex-start', margin: '-4px 0 6px 14px', padding: '4px 9px', borderRadius: 999, background: 'none', cursor: 'pointer',
+                                            border: '1px solid var(--glass-border)' }}>
                                         {notPaid.has(closeDateOf(cycle)) ? 'Ask me again' : 'Not paid'}
                                     </button>
                                 )}
@@ -1235,7 +1243,7 @@ export default function AccountsPage() {
                             );
                         })}
                         {payCycles.length > 2 && (
-                            <p style={{ margin: 0, padding: '10px 14px 2px', fontSize: 11, lineHeight: 1.45, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+                            <p style={{ ...type.meta, margin: 0, padding: '10px 14px 2px', color: 'var(--text-muted)' }}>
                                 {unpaidIdxs.length > 0 ? OLDER_UNPAID_NOTE : OLDER_STATEMENTS_NOTE}
                             </p>
                         )}
@@ -1251,7 +1259,7 @@ export default function AccountsPage() {
                             const active = payForm.payment_method === m;
                             return (
                                 <button key={m} type="button" onClick={() => { setPayForm(f => ({ ...f, payment_method: m })); setShowPayMethodSheet(false); }}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                                    style={sheetRowSt(active)}>
                                     <span style={{ flexShrink: 0 }}>{PAY_METHOD_ICONS[m]}</span>
                                     <span style={{ flex: 1 }}>{m}</span>
                                     {active && <Check size={16} />}
@@ -1271,7 +1279,7 @@ export default function AccountsPage() {
                                 const active = payForm.date === q.value;
                                 return (
                                     <button key={q.value} type="button" onClick={() => pickPayDate(q.value)}
-                                        style={{ padding: '7px 14px', borderRadius: 'var(--radius-full)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`, background: active ? 'var(--accent-subtle)' : 'var(--glass-fill-1)', color: active ? 'var(--accent)' : 'var(--text-muted)' }}>
+                                        style={{ ...type.label, padding: '7px 14px', borderRadius: 'var(--radius-full)', cursor: 'pointer', border: `1px solid ${active ? 'var(--border-visible)' : 'var(--border-subtle)'}`, background: active ? 'var(--glass-fill-3)' : 'var(--glass-fill-1)', color: active ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                                         {q.label}
                                     </button>
                                 );
@@ -1280,13 +1288,13 @@ export default function AccountsPage() {
                         <div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                                 <button type="button" aria-label="Previous month" onClick={() => { let m = payCalMonth - 1, y = payCalYear; if (m < 0) { m = 11; y--; } setPayCalMonth(m); setPayCalYear(y); }}
-                                    style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: 16, lineHeight: 1 }}>‹</button>
-                                <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-display)' }}>{MONTHS[payCalMonth]} {payCalYear}</span>
+                                    style={{ ...type.num, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, lineHeight: 1 }}>‹</button>
+                                <span style={{ ...type.title }}>{MONTHS[payCalMonth]} {payCalYear}</span>
                                 <button type="button" aria-label="Next month" onClick={() => { let m = payCalMonth + 1, y = payCalYear; if (m > 11) { m = 0; y++; } setPayCalMonth(m); setPayCalYear(y); }}
-                                    style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, fontSize: 16, lineHeight: 1 }}>›</button>
+                                    style={{ ...type.num, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', cursor: 'pointer', width: 34, height: 34, lineHeight: 1 }}>›</button>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', marginBottom: 4 }}>
-                                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 500, padding: '4px 0', fontFamily: 'var(--font-body)' }}>{d}</div>))}
+                                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} style={{ ...type.meta, textAlign: 'center', color: 'var(--text-muted)', padding: '4px 0' }}>{d}</div>))}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
                                 {buildCalDays(payCalMonth, payCalYear).map((cell, i) => {
@@ -1298,7 +1306,7 @@ export default function AccountsPage() {
                                     const isOtherMonth = cell.month !== 'cur';
                                     return (
                                         <div key={i} onClick={() => handlePayDayClick(cell.day, cell.month)}
-                                            style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, cursor: 'pointer', margin: '0 auto', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', backgroundColor: isSelected ? 'var(--accent)' : 'transparent', color: isSelected ? 'white' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--accent)' : 'none', outlineOffset: '-2px' }}>
+                                            style={{ ...type.num, width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: '0 auto', backgroundColor: isSelected ? 'var(--glass-fill-3)' : 'transparent', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)', opacity: isOtherMonth && !isSelected ? 0.4 : 1, outline: (!isSelected && isToday) ? '2px solid var(--text-secondary)' : 'none', outlineOffset: '-2px' }}>
                                             {cell.day}
                                         </div>
                                     );
@@ -1318,7 +1326,7 @@ export default function AccountsPage() {
                             const active = payForm.bank_account_id === String(b.id);
                             return (
                                 <button key={b.id} type="button" onClick={() => { setPayForm(f => ({ ...f, bank_account_id: String(b.id) })); setShowPayAccountSheet(false); }}
-                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', fontWeight: active ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', border: 'none', background: active ? 'var(--accent-subtle)' : 'transparent', color: active ? 'var(--accent)' : 'var(--text-primary)', textAlign: 'left' }}>
+                                    style={sheetRowSt(active)}>
                                     {b.name}
                                     {active && <Check size={16} />}
                                 </button>
@@ -1328,54 +1336,37 @@ export default function AccountsPage() {
                 </Modal>
             )}
 
-            {/* Wallet Modal */}
-            {showWalletModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowWalletModal(false)}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both', zIndex: 10000 }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-                            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingWallet ? 'Edit Wallet' : 'Add Wallet'}</span>
-                            <button type="button" style={{ background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 6, borderRadius: '50%', display: 'flex' }} onClick={() => setShowWalletModal(false)}><X size={16} /></button>
-                        </div>
-                        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div>
-                                <label style={labelSt}>Emoji</label>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
-                                    {WALLET_EMOJIS.map(em => (
-                                        <button type="button" key={em} onClick={() => setWalletForm(f => ({ ...f, emoji: em }))} style={{ fontSize: 22, background: walletForm.emoji === em ? 'var(--accent-subtle)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--accent)' : 'transparent'}`, borderRadius: 8, padding: '4px 8px', cursor: 'pointer' }}>
-                                            {em}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <div><label style={labelSt}>Wallet Name *</label><input style={inputSt} value={walletForm.name} onChange={e => setWalletForm(f => ({ ...f, name: e.target.value }))} placeholder="PhonePe, Paytm, Cash…" /></div>
-                            <div><label style={labelSt}>Balance (₹)</label><input style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} type="number" value={walletForm.balance} onChange={e => setWalletForm(f => ({ ...f, balance: e.target.value }))} placeholder="0" /></div>
-                        </div>
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-subtle)', display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={() => setShowWalletModal(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                            <button type="button" onClick={saveWallet} disabled={saving || !walletForm.name.trim()} style={{ flex: 2, padding: 10, background: saving || !walletForm.name.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                                {saving ? 'Saving…' : editingWallet ? 'Save Changes' : 'Add Wallet'}
-                            </button>
+            {/* Wallet dialog */}
+            <Modal isOpen={showWalletModal} onClose={closeWallet} title={editingWallet ? 'Edit wallet' : 'Add wallet'} maxWidth="440px"
+                footer={
+                    <div style={footerSt}>
+                        <Button type="button" variant="secondary" onClick={closeWallet}>Cancel</Button>
+                        <Button type="submit" form="wallet-form" disabled={saving || !walletForm.name.trim()}>
+                            {saving ? 'Saving…' : editingWallet ? 'Save changes' : 'Add wallet'}
+                        </Button>
+                    </div>
+                }>
+                <form id="wallet-form" onSubmit={e => { e.preventDefault(); saveWallet(); }} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div>
+                        <label style={labelSt}>Emoji</label>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                            {WALLET_EMOJIS.map(em => (
+                                <button type="button" key={em} aria-pressed={walletForm.emoji === em} onClick={() => setWalletForm(f => ({ ...f, emoji: em }))}
+                                    style={{ fontSize: 'var(--text-heading)', background: walletForm.emoji === em ? 'var(--glass-fill-3)' : 'transparent', border: `2px solid ${walletForm.emoji === em ? 'var(--text-primary)' : 'transparent'}`, borderRadius: 'var(--radius-md)', padding: '4px 8px', cursor: 'pointer' }}>
+                                    {em}
+                                </button>
+                            ))}
                         </div>
                     </div>
-                </div>,
-                document.body
-            )}
-
-            {/* Delete Confirm */}
-            {deleteConfirm && mounted && createPortal(
-                <>
-                    <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)' }} />
-                    <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', borderRadius: 'var(--radius-xl)', padding: 28, zIndex: 10000, width: 340, maxWidth: '90vw' }}>
-                        <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>Delete {deleteConfirm.name}?</p>
-                        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>This action cannot be undone.</p>
-                        <div style={{ display: 'flex', gap: 10 }}>
-                            <button type="button" onClick={() => setDeleteConfirm(null)} className="glass-field" style={{ flex: 1, borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancel</button>
-                            <button type="button" onClick={executeDelete} style={{ flex: 1, background: 'var(--color-exp)', border: 'none', borderRadius: 10, padding: 10, fontSize: 14, fontWeight: 600, color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Delete</button>
-                        </div>
+                    <div><label style={labelSt}>Wallet name</label><input style={inputSt} value={walletForm.name} onChange={e => setWalletForm(f => ({ ...f, name: e.target.value }))} placeholder="PhonePe, Paytm, Cash…" /></div>
+                    <div><label style={labelSt}>Balance</label><input style={numInputSt} type="number" value={walletForm.balance} onChange={e => setWalletForm(f => ({ ...f, balance: e.target.value }))} placeholder="0" /></div>
+                </form>
+                {editingWallet && (
+                    <div style={{ marginTop: 'var(--space-4)' }}>
+                        <TextAction tone="danger" onClick={() => { const w = editingWallet; setShowWalletModal(false); confirmDelete('wallet', w.id, w.name); }}>Delete wallet</TextAction>
                     </div>
-                </>,
-                document.body
-            )}
+                )}
+            </Modal>
 
         </>
     );
