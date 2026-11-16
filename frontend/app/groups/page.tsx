@@ -1,19 +1,20 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { groupsAPI, transactionsAPI } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, Stat, TONE_TEXT } from '@/components/ui/CardParts';
+import { Tabs } from '@/components/ui/Tabs';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { toast } from '@/store/toastStore';
 import { fmt } from '@/lib/utils';
-import {
-    Plus, Users, X, Check, ChevronRight,
-    ArrowLeft, Trash2, PlusCircle, } from 'lucide-react';
+import { type, truncate } from '@/lib/typography';
+import { groupBalances, balanceSentence, sortSplitsPendingFirst, budgetPct as calcBudgetPct } from '@/lib/groups';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Member  { id?: number; name: string; email?: string }
@@ -23,11 +24,32 @@ interface Share   { id: number; member: string; amount: number; settled: boolean
 interface Split   { id: number; description: string; total_amount: number; paid_by: string; date: string; shares: Share[] }
 interface Settlement { from: string; to: string; amount: number }
 
+// The group's own icon is a data choice, so these stay as emoji.
 const EMOJIS = ['👥','🏠','✈️','🎉','🍕','💼','🏋️','🎮','🛒','💊','📚','🌿'];
 
-const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
-const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
-const iconBt: React.CSSProperties  = { background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' };
+const TABS_BASE = [
+    { key: 'transactions', label: 'Transactions' },
+    { key: 'splits', label: 'Splits' },
+    { key: 'settle', label: 'Settle up' },
+];
+
+const selectStyle: React.CSSProperties = {
+    ...type.body, color: 'var(--text-primary)', width: '100%', height: 40, padding: '0 var(--space-3)',
+    background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
+    outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+};
+
+/** A labelled control the shared Input cannot render itself (select). */
+function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }}>
+            <label htmlFor={htmlFor} style={type.label}>{label}</label>
+            {children}
+        </div>
+    );
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export default function GroupsPage() {
     const { user } = useAuthStore();
@@ -35,7 +57,6 @@ export default function GroupsPage() {
 
     const [groups,          setGroups]          = useState<Group[]>([]);
     const [loadingList,     setLoadingList]     = useState(true);
-    const [mounted,         setMounted]         = useState(false);
     const [selectedGroup,   setSelectedGroup]   = useState<Group | null>(null);
     const [members,         setMembers]         = useState<Member[]>([]);
     const [transactions,    setTransactions]    = useState<Transaction[]>([]);
@@ -63,16 +84,15 @@ export default function GroupsPage() {
     const [showTxModal,     setShowTxModal]     = useState(false);
     const [txSearch,        setTxSearch]        = useState('');
     const [txResults,       setTxResults]       = useState<Transaction[]>([]);
+    const [searchingTx,     setSearchingTx]     = useState(false);
     const [linkingTx,       setLinkingTx]       = useState(false);
-
-    useEffect(() => { setMounted(true); }, []);
 
     const customTotal  = Object.values(splitCustom).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
     const splitTotalNum = parseFloat(splitTotal) || 0;
     const customDiff   = splitTotalNum - customTotal;
     const customTallyOk = Math.abs(customDiff) < 0.01;
 
-    // ── Data loading (all unchanged) ─────────────────────────────────────────
+    // ── Data loading ─────────────────────────────────────────────────────────
     const loadGroups = useCallback(async () => {
         setLoadingList(true);
         try { const res = await groupsAPI.getAll(); setGroups(res.data.groups); }
@@ -93,9 +113,9 @@ export default function GroupsPage() {
     }, [selectedGroup]);
     useEffect(() => { if (activeTab === 'settle') loadSettlements(); }, [activeTab, loadSettlements]);
 
-    // ── Group CRUD (all unchanged) ────────────────────────────────────────────
+    // ── Group CRUD ────────────────────────────────────────────────────────────
     const openCreate = () => { setEditingGroup(null); setFormName(''); setFormEmoji('👥'); setFormDesc(''); setFormBudget(''); setFormMembers([{ name: '' }]); setShowModal(true); };
-    const openEdit = (g: Group, e: React.MouseEvent) => { e.stopPropagation(); setEditingGroup(g); setFormName(g.name); setFormEmoji(g.emoji); setFormDesc(g.description || ''); setFormBudget(g.budget ? String(g.budget) : ''); setFormMembers(members.length ? [...members] : [{ name: '' }]); setShowModal(true); };
+    const openEdit = (g: Group, e?: React.MouseEvent) => { e?.stopPropagation(); setEditingGroup(g); setFormName(g.name); setFormEmoji(g.emoji); setFormDesc(g.description || ''); setFormBudget(g.budget ? String(g.budget) : ''); setFormMembers(members.length ? [...members] : [{ name: '' }]); setShowModal(true); };
     const saveGroup = async () => {
         if (!formName.trim()) return; setSaving(true);
         const validMembers = formMembers.filter(m => m.name.trim());
@@ -103,14 +123,17 @@ export default function GroupsPage() {
         try { if (editingGroup) await groupsAPI.update(String(editingGroup.id), payload); else await groupsAPI.create(payload); setShowModal(false); await loadGroups(); if (selectedGroup && editingGroup?.id === selectedGroup.id) await openGroup({ ...selectedGroup, ...payload } as Group); }
         finally { setSaving(false); }
     };
-    const deleteGroup = async (g: Group, e: React.MouseEvent) => { e.stopPropagation(); if (!confirm(`Delete "${g.name}"? Transactions will be unlinked.`)) return; await groupsAPI.delete(String(g.id)); if (selectedGroup?.id === g.id) setSelectedGroup(null); await loadGroups(); };
+    // Returns true when the group was deleted (the confirm was accepted).
+    const deleteGroup = async (g: Group, e?: React.MouseEvent): Promise<boolean> => { e?.stopPropagation(); if (!confirm(`Delete "${g.name}"? Transactions will be unlinked.`)) return false; await groupsAPI.delete(String(g.id)); if (selectedGroup?.id === g.id) setSelectedGroup(null); await loadGroups(); return true; };
 
-    // ── Split CRUD (all unchanged) ────────────────────────────────────────────
+    // ── Split CRUD ────────────────────────────────────────────────────────────
+    const openAddSplit = () => { setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); setSplitDate(new Date().toISOString().split('T')[0]); setSplitMode('equal'); setShowSplitModal(true); };
     const openEditSplit = (sp: Split) => {
         setEditingSplit(sp); setSplitDesc(sp.description); setSplitTotal(String(sp.total_amount)); setSplitPaidBy(sp.paid_by); setSplitDate(String(sp.date).split('T')[0]);
         const amounts = sp.shares.map(s => s.amount); const allEqual = amounts.every(a => Math.abs(a - amounts[0]) < 0.01); setSplitMode(allEqual ? 'equal' : 'custom');
         const customMap: Record<string, string> = {}; sp.shares.forEach(s => { customMap[s.member] = String(s.amount); }); setSplitCustom(customMap); setShowSplitModal(true);
     };
+    const closeSplit = () => { setShowSplitModal(false); setEditingSplit(null); };
     const saveSplit = async () => {
         if (!selectedGroup || !splitDesc || !splitTotal || !splitPaidBy) return; setSavingSplit(true);
         const allMemberNames = [...members.map(m => m.name), 'Me'].filter(Boolean);
@@ -128,7 +151,14 @@ export default function GroupsPage() {
         try { await groupsAPI.settleShare(String(selectedGroup.id), String(split.id), String(share.id)); await openGroup(selectedGroup); if (activeTab === 'settle') await loadSettlements(); toast.success(`${share.member}'s share marked as settled`); }
         catch { toast.error('Failed to settle share'); }
     };
-    const searchTx = async (q: string) => { setTxSearch(q); if (q.length < 2) { setTxResults([]); return; } const res = await transactionsAPI.search(q); setTxResults(res.data.transactions || []); };
+    const searchTx = async (q: string) => {
+        setTxSearch(q);
+        if (q.length < 2) { setTxResults([]); return; }
+        setSearchingTx(true);
+        try { const res = await transactionsAPI.search(q); setTxResults(res.data.transactions || []); }
+        finally { setSearchingTx(false); }
+    };
+    const closeTxModal = () => { setShowTxModal(false); setTxSearch(''); setTxResults([]); };
     const linkTx = async (tx: Transaction) => { if (!selectedGroup) return; setLinkingTx(true); try { await groupsAPI.linkTransaction(String(selectedGroup.id), String(tx.id)); setShowTxModal(false); setTxSearch(''); setTxResults([]); await openGroup(selectedGroup); } finally { setLinkingTx(false); } };
     const unlinkTx = async (tx: Transaction) => {
         if (!selectedGroup) return;
@@ -137,75 +167,191 @@ export default function GroupsPage() {
         await openGroup(selectedGroup);
     };
 
-    const tabStyle = (active: boolean): React.CSSProperties => ({ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: active ? 600 : 400, border: 'none', background: active ? 'var(--accent)' : undefined, color: active ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all 0.15s' });
+    // ── Dialogs (shared by the list and the detail view) ──────────────────────
+    const addMember    = () => setFormMembers([...formMembers, { name: '' }]);
+    const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
+    const updateMember = (i: number, field: keyof Member, val: string) => { const updated = [...formMembers]; updated[i] = { ...updated[i], [field]: val }; setFormMembers(updated); };
+
+    const allMemberNames = [...members.map(m => m.name), 'Me'];
+
+    const groupDialog = (
+        <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingGroup ? 'Edit group' : 'New group'} maxWidth="480px"
+            footer={
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                    <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+                    <Button type="button" onClick={saveGroup} isLoading={saving} disabled={!formName.trim()}>{editingGroup ? 'Save changes' : 'Create group'}</Button>
+                </div>
+            }
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <p style={{ ...type.label, margin: 0 }}>Icon</p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                        {EMOJIS.map(em => (
+                            <button key={em} type="button" onClick={() => setFormEmoji(em)} aria-pressed={formEmoji === em} aria-label={`Icon ${em}`}
+                                style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', fontSize: 'var(--text-title)', border: 'none', background: 'var(--glass-fill-1)', boxShadow: formEmoji === em ? 'inset 0 0 0 2px var(--text-primary)' : 'none', cursor: 'pointer' }}>
+                                {em}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <Input label="Group name" value={formName} onChange={e => setFormName(e.target.value)} placeholder="Trip to Goa, Flat expenses" />
+                <Input label="Description (optional)" value={formDesc} onChange={e => setFormDesc(e.target.value)} />
+                <Input label="Budget (optional)" type="number" value={formBudget} onChange={e => setFormBudget(e.target.value)} placeholder="0" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <p style={{ ...type.label, margin: 0 }}>Members</p>
+                    {formMembers.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                            <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                                <Input aria-label="Member name" value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" />
+                            </div>
+                            <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+                                <Input aria-label="Member email" value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (optional)" />
+                            </div>
+                            {formMembers.length > 1 && <TextAction quiet onClick={() => removeMember(i)} aria-label={`Remove member ${m.name || i + 1}`}>Remove</TextAction>}
+                        </div>
+                    ))}
+                    <div><TextAction onClick={addMember}>Add a member</TextAction></div>
+                </div>
+                {editingGroup && (
+                    <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-4)' }}>
+                        <TextAction quiet tone="danger" onClick={async () => { if (await deleteGroup(editingGroup)) setShowModal(false); }}>Delete this group</TextAction>
+                        <p style={{ ...type.meta, margin: 0 }}>Removes the group and its splits. Linked transactions stay in your transactions.</p>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+
+    const splitDisabled = !splitDesc || !splitTotal || !splitPaidBy || (splitMode === 'custom' && !customTallyOk && customTotal > 0);
+
+    const splitDialog = (
+        <Modal isOpen={showSplitModal} onClose={closeSplit} title={editingSplit ? 'Edit split' : 'Add split'} maxWidth="480px"
+            footer={
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                    <Button type="button" variant="secondary" onClick={closeSplit}>Cancel</Button>
+                    <Button type="button" onClick={saveSplit} isLoading={savingSplit} disabled={splitDisabled}>{editingSplit ? 'Save changes' : 'Add split'}</Button>
+                </div>
+            }
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <Input label="Description" value={splitDesc} onChange={e => setSplitDesc(e.target.value)} placeholder="Dinner, Uber, etc." />
+                <Input label="Total amount" type="number" value={splitTotal} onChange={e => setSplitTotal(e.target.value)} placeholder="0.00" />
+                <Input label="Date" type="date" value={splitDate} onChange={e => setSplitDate(e.target.value)} />
+                <Field label="Paid by" htmlFor="split-paid-by">
+                    <select id="split-paid-by" value={splitPaidBy} onChange={e => setSplitPaidBy(e.target.value)} style={selectStyle}>
+                        <option value="">Select</option>
+                        {allMemberNames.map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                </Field>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <p style={{ ...type.label, margin: 0 }}>How to split</p>
+                    <Tabs tabs={[{ key: 'equal', label: 'Equal' }, { key: 'custom', label: 'Custom' }]} active={splitMode} onChange={k => setSplitMode(k as 'equal' | 'custom')} />
+                </div>
+                {splitMode === 'custom' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                        {allMemberNames.map(n => (
+                            <Input key={n} label={n} type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" />
+                        ))}
+                        <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+                            <span style={type.label}>Sum of shares</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                                <span style={{ ...type.num, color: customTallyOk && customTotal > 0 ? TONE_TEXT.good : customTotal > 0 ? TONE_TEXT.bad : 'var(--text-primary)' }}>
+                                    {fmt(customTotal)}{splitTotalNum > 0 && ` / ${fmt(splitTotalNum)}`}
+                                </span>
+                                {customTallyOk && splitTotalNum > 0 && <span style={{ ...type.meta, color: TONE_TEXT.good }}>Balanced</span>}
+                                {!customTallyOk && customTotal > 0 && splitTotalNum > 0 && (
+                                    <span style={{ ...type.meta, color: customDiff > 0 ? TONE_TEXT.caution : TONE_TEXT.bad }}>
+                                        {customDiff > 0 ? `${fmt(customDiff)} unallocated` : `${fmt(-customDiff)} over total`}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+
+    const txDialog = (
+        <Modal isOpen={showTxModal} onClose={closeTxModal} title="Add an existing transaction" maxWidth="480px">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <Input label="Search transactions" value={txSearch} onChange={e => searchTx(e.target.value)} placeholder="Description or merchant" />
+                {txSearch.length < 2 ? (
+                    <p style={{ ...type.meta, margin: 0 }}>Type at least two characters to search.</p>
+                ) : searchingTx && txResults.length === 0 ? (
+                    <p style={{ ...type.meta, margin: 0 }}>Searching.</p>
+                ) : txResults.length === 0 ? (
+                    <p style={{ ...type.meta, margin: 0 }}>No results.</p>
+                ) : (
+                    <Rows>
+                        {txResults.map(tx => (
+                            <div key={tx.id}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                                    <p style={{ ...type.meta, margin: 0 }}>{String(tx.date).split('T')[0]}</p>
+                                </div>
+                                <span style={{ ...type.num, flexShrink: 0, color: tx.type === 'income' ? TONE_TEXT.good : 'var(--text-primary)' }}>{fmt(Number(tx.amount))}</span>
+                                <TextAction onClick={() => linkTx(tx)} disabled={linkingTx} aria-label={`Add ${tx.description}`}>Add</TextAction>
+                            </div>
+                        ))}
+                    </Rows>
+                )}
+            </div>
+        </Modal>
+    );
 
     // ── LIST VIEW ─────────────────────────────────────────────────────────────
     if (!selectedGroup) {
         return (
             <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
 
-                    {/* Header */}
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div>
-                                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Groups</h1>
-                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                    {groups.length > 0 ? `${groups.length} group${groups.length !== 1 ? 's' : ''}` : 'Track shared expenses with friends & family'}
-                                </p>
-                            </div>
-                            <button type="button" onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 14px', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                <Plus size={14} /> New Group
-                            </button>
+                    <div className="fin-page-head">
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ ...type.meta, margin: 0 }}>
+                                {groups.length > 0 ? plural(groups.length, 'group') : 'Track shared expenses with friends and family'}
+                            </p>
+                            <h1 style={{ ...type.heading, margin: 0 }}>Groups</h1>
+                        </div>
+                        <div className="fin-page-actions">
+                            <Button type="button" onClick={openCreate}>New group</Button>
                         </div>
                     </div>
 
-                    {/* Group cards */}
                     {loadingList ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                             {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
                         </div>
                     ) : groups.length === 0 ? (
-                        <EmptyState
-                            icon={Users}
-                            title="No groups yet"
-                            subtitle="Create a group to split expenses with friends or family"
-                            action={
-                                <button type="button" onClick={openCreate} style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>New Group</button>
-                            }
-                        />
+                        <Card>
+                            <CardHeader title="No groups yet" sub="Create a group to split expenses with friends or family" action={<Button type="button" onClick={openCreate}>New group</Button>} flush />
+                        </Card>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                             {groups.map(g => {
-                                const budgetPct = g.budget ? (Number(g.total_spent) / Number(g.budget)) * 100 : null;
+                                const pct = calcBudgetPct(Number(g.total_spent), Number(g.budget));
                                 return (
-                                    <div key={g.id} onClick={() => openGroup(g)} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', transition: 'border-color var(--transition-fast)' }}
-                                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'}
-                                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = 'var(--glass-border)'}>
-                                        <div style={{ fontSize: '2rem', lineHeight: 1, flexShrink: 0 }}>{g.emoji}</div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px' }}>{g.name}</span>
-                                                <Badge>{g.member_count} member{Number(g.member_count) !== 1 ? 's' : ''}</Badge>
-                                            </div>
-                                            {budgetPct !== null ? (
-                                                <div>
-                                                    <ProgressBar pct={budgetPct} height={4} />
-                                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '3px 0 0', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>
-                                                        {fmt(Number(g.total_spent))} / {fmt(Number(g.budget))} budget
-                                                    </p>
+                                    <div key={g.id} role="button" tabIndex={0}
+                                        style={{ borderRadius: 'var(--radius-lg)' }}
+                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGroup(g); } }}>
+                                        <Card onClick={() => openGroup(g)}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+                                                <span aria-hidden="true" style={{ fontSize: 'var(--text-figure)', lineHeight: 1, flexShrink: 0 }}>{g.emoji}</span>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{g.name}</p>
+                                                    <p style={{ ...type.meta, margin: 0 }}>{plural(Number(g.member_count), 'member')}</p>
+                                                    {pct !== null ? (
+                                                        <div style={{ marginTop: 'var(--space-2)' }}>
+                                                            <ProgressBar pct={pct} height={4} color="var(--text-secondary)" />
+                                                            <p style={{ ...type.meta, margin: 'var(--space-1) 0 0' }}>{fmt(Number(g.total_spent))} of {fmt(Number(g.budget))} budget</p>
+                                                        </div>
+                                                    ) : (
+                                                        <p style={{ ...type.meta, margin: 'var(--space-1) 0 0' }}>{fmt(Number(g.total_spent))} spent</p>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                                    Spent: <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(g.total_spent))}</span>
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-                                            <button type="button" onClick={e => openEdit(g, e)} className="glass-field" style={{ padding: '5px 10px', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>Edit</button>
-                                            <button type="button" onClick={e => deleteGroup(g, e)} className="glass-field" style={{ padding: '5px 7px', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><Trash2 size={13} /></button>
-                                            <ChevronRight size={16} color="var(--text-muted)" />
-                                        </div>
+                                            </div>
+                                        </Card>
                                     </div>
                                 );
                             })}
@@ -213,337 +359,161 @@ export default function GroupsPage() {
                     )}
                 </div>
 
-                {showModal && (<GroupModal editing={editingGroup} formName={formName} setFormName={setFormName} formEmoji={formEmoji} setFormEmoji={setFormEmoji} formDesc={formDesc} setFormDesc={setFormDesc} formBudget={formBudget} setFormBudget={setFormBudget} formMembers={formMembers} setFormMembers={setFormMembers} saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)} />)}
+                {groupDialog}
             </>
         );
     }
 
     // ── DETAIL VIEW ───────────────────────────────────────────────────────────
-    const allMemberNames = [...members.map(m => m.name), 'Me'];
-    const unsettledCount = splits.reduce((s, sp) => s + sp.shares.filter(sh => !sh.settled).length, 0);
-    const youOwe = splits.reduce((sum, sp) => {
-        const myShare = sp.shares.find(sh => sh.member === 'Me');
-        if (myShare && !myShare.settled && sp.paid_by !== 'Me') sum += myShare.amount;
-        return sum;
-    }, 0);
-    const owedToYou = splits.reduce((sum, sp) => {
-        if (sp.paid_by === 'Me') sum += sp.shares.filter(sh => sh.member !== 'Me' && !sh.settled).reduce((s, sh) => s + sh.amount, 0);
-        return sum;
-    }, 0);
-    const budgetPct = selectedGroup.budget ? (Number(selectedGroup.total_spent) / Number(selectedGroup.budget)) * 100 : null;
+    const { youOwe, owedToYou, unsettledCount } = groupBalances(splits);
+    const net = owedToYou - youOwe;
+    const pct = calcBudgetPct(Number(selectedGroup.total_spent), Number(selectedGroup.budget));
+    const tabs = TABS_BASE.map(t => t.key === 'splits' ? { ...t, label: `Splits${unsettledCount > 0 ? ` (${unsettledCount})` : ''}` } : t);
 
     return (
         <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* Back + header */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '16px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <button type="button" onClick={() => setSelectedGroup(null)} className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
-                            <ArrowLeft size={14} /> Groups
-                        </button>
-                        <span style={{ fontSize: '1.8rem', lineHeight: 1 }}>{selectedGroup.emoji}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{selectedGroup.name}</h1>
-                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
-                                {members.length} member{members.length !== 1 ? 's' : ''}
-                                {selectedGroup.budget && <span> · Budget {fmt(Number(selectedGroup.budget))}</span>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                    <div><TextAction quiet onClick={() => setSelectedGroup(null)}>Groups</TextAction></div>
+                    <div className="fin-page-head">
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{ ...type.meta, margin: 0 }}>
+                                {plural(members.length, 'member')}{selectedGroup.budget ? ` · Budget ${fmt(Number(selectedGroup.budget))}` : ''}
                             </p>
+                            <h1 style={{ ...type.heading, ...truncate, margin: 0 }}>{selectedGroup.emoji} {selectedGroup.name}</h1>
                         </div>
-                        <button type="button" onClick={e => openEdit(selectedGroup, e)} className="glass-field" style={{ padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'var(--font-body)', flexShrink: 0 }}>Edit</button>
-                    </div>
-                </div>
-
-                {/* You owe / Owed to you GCards */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <GCard>
-                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>You Owe</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: youOwe > 0 ? 'var(--color-exp)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {youOwe > 0 ? fmt(youOwe) : '—'}
-                        </p>
-                    </GCard>
-                    <GCard>
-                        <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>Owed to You</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: owedToYou > 0 ? 'var(--color-inc)' : 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                            {owedToYou > 0 ? fmt(owedToYou) : '—'}
-                        </p>
-                    </GCard>
-                </div>
-
-                {/* Budget bar */}
-                {budgetPct !== null && (
-                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '14px 16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Group Budget</span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(selectedGroup.total_spent))} / {fmt(Number(selectedGroup.budget))}</span>
+                        <div className="fin-page-actions">
+                            <Button type="button" variant="secondary" onClick={() => openEdit(selectedGroup)}>Edit group</Button>
                         </div>
-                        <ProgressBar pct={budgetPct} height={6} />
                     </div>
-                )}
-
-                {/* Tabs */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    {(['transactions', 'splits', 'settle'] as const).map(t => (
-                        <button key={t} type="button" onClick={() => setActiveTab(t)} className={activeTab === t ? undefined : 'glass-field'} style={tabStyle(activeTab === t)}>
-                            {t === 'transactions' ? 'Transactions' : t === 'splits' ? `Splits${unsettledCount > 0 ? ` (${unsettledCount})` : ''}` : 'Settle Up'}
-                        </button>
-                    ))}
                 </div>
 
                 {loadingDetail ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <SkeletonCard height={180} />
+                ) : (
+                    <Card>
+                        <p style={{ ...type.label, margin: 0 }}>Your balance in this group</p>
+                        <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmt(Math.abs(net))}</p>
+                        <p style={{ ...type.meta, margin: '6px 0 0' }}>{balanceSentence(net, youOwe, owedToYou)}</p>
+                        <div className="dash-stats">
+                            <Stat className="dash-stat" label="You owe" value={youOwe > 0 ? fmt(youOwe) : 'None'} />
+                            <Stat className="dash-stat" label="Owed to you" value={owedToYou > 0 ? fmt(owedToYou) : 'None'} />
+                            <Stat className="dash-stat" label="Spent so far" value={fmt(Number(selectedGroup.total_spent))} sub={pct !== null ? `${Math.round(pct)}% of the budget` : 'No budget set'} />
+                        </div>
+                        {pct !== null && (
+                            <div style={{ marginTop: 'var(--space-4)' }}>
+                                <ProgressBar pct={pct} height={6} color="var(--text-secondary)" />
+                            </div>
+                        )}
+                    </Card>
+                )}
+
+                <Tabs tabs={tabs} active={activeTab} onChange={k => setActiveTab(k as 'transactions' | 'splits' | 'settle')} />
+
+                {loadingDetail ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                         {[1, 2].map(i => <SkeletonCard key={i} height={80} />)}
                     </div>
                 ) : (
                     <>
                         {/* Transactions tab */}
                         {activeTab === 'transactions' && (
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                                    <button type="button" onClick={() => setShowTxModal(true)} className="glass-field" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                        <PlusCircle size={13} /> Add Existing
-                                    </button>
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Button type="button" variant="secondary" onClick={() => setShowTxModal(true)}>Add existing</Button>
                                 </div>
                                 {transactions.length === 0 ? (
-                                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No transactions linked. Add one above.</div>
-                                ) : transactions.map(tx => (
-                                    <div key={tx.id} className="glass-surface" style={{ borderRadius: 'var(--radius-md)', padding: '12px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>{tx.description}</p>
-                                            <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
-                                        </div>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: tx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)', marginRight: '12px', fontVariantNumeric: 'tabular-nums' }}>
-                                            {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
-                                        </span>
-                                        <button type="button" onClick={() => unlinkTx(tx)} style={iconBt}><X size={14} /></button>
-                                    </div>
-                                ))}
-                            </div>
+                                    <Card><p style={{ ...type.meta, margin: 0 }}>No transactions linked. Add one above.</p></Card>
+                                ) : (
+                                    <Card>
+                                        <CardHeader title="Linked transactions" />
+                                        <Rows>
+                                            {transactions.map(tx => (
+                                                <div key={tx.id}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                                                        <p style={{ ...type.meta, margin: 0 }}>{String(tx.date).split('T')[0]}</p>
+                                                    </div>
+                                                    <span style={{ ...type.num, flexShrink: 0, color: tx.type === 'income' ? TONE_TEXT.good : 'var(--text-primary)' }}>
+                                                        {tx.type === 'income' ? '+' : '−'}{fmt(Number(tx.amount))}
+                                                    </span>
+                                                    <button type="button" className="fin-link fin-link-quiet fin-row-hover-action fin-row-hover-action-touch" aria-label={`Remove ${tx.description} from this group`} onClick={() => unlinkTx(tx)}>Remove</button>
+                                                </div>
+                                            ))}
+                                        </Rows>
+                                    </Card>
+                                )}
+                            </>
                         )}
 
                         {/* Splits tab */}
                         {activeTab === 'splits' && (
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                                    <button type="button" onClick={() => { setEditingSplit(null); setSplitDesc(''); setSplitTotal(''); setSplitPaidBy(''); setSplitCustom({}); setSplitDate(new Date().toISOString().split('T')[0]); setSplitMode('equal'); setShowSplitModal(true); }}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', fontSize: '13px', cursor: 'pointer', color: 'white', fontWeight: 600, fontFamily: 'var(--font-body)' }}>
-                                        <Plus size={13} /> Add Split
-                                    </button>
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                    <Button type="button" onClick={openAddSplit}>Add split</Button>
                                 </div>
                                 {splits.length === 0 ? (
-                                    <div className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No splits yet.</div>
-                                ) : splits.map(sp => {
+                                    <Card><p style={{ ...type.meta, margin: 0 }}>No splits yet.</p></Card>
+                                ) : sortSplitsPendingFirst(splits).map(sp => {
                                     const isSettled = sp.shares.every(sh => sh.settled);
                                     const perPerson = sp.shares.length > 0 ? sp.total_amount / sp.shares.length : 0;
                                     return (
-                                        <div key={sp.id} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', marginBottom: '10px', overflow: 'hidden' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '14px 16px 10px' }}>
-                                                <div>
-                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{sp.description}</p>
-                                                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                                        Paid by {sp.paid_by} · {fmt(perPerson)}/person
-                                                    </p>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(sp.total_amount)}</span>
-                                                    <Badge color={isSettled ? 'var(--color-inc)' : 'var(--color-warn)'} bg={isSettled ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-warn) 10%, transparent)'}>
-                                                        {isSettled ? 'Settled' : 'Pending'}
-                                                    </Badge>
-                                                    <button type="button" onClick={() => openEditSplit(sp)} className="glass-field" style={{ padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Edit</button>
-                                                </div>
-                                            </div>
-                                            <div style={{ borderTop: '1px solid var(--glass-border)', padding: '8px 16px 12px' }}>
+                                        <Card key={sp.id}>
+                                            <CardHeader
+                                                title={sp.description}
+                                                sub={<>Paid by {sp.paid_by} · {fmt(perPerson)} each · {isSettled ? 'Settled' : <span style={{ color: TONE_TEXT.caution }}>Pending</span>}</>}
+                                                action={<>
+                                                    <span style={type.num}>{fmt(sp.total_amount)}</span>
+                                                    <TextAction onClick={() => openEditSplit(sp)} aria-label={`Edit ${sp.description}`}>Edit</TextAction>
+                                                </>}
+                                            />
+                                            <Rows>
                                                 {sp.shares.map(sh => (
-                                                    <div key={sh.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                                                        <div style={{ width: 26, height: 26, borderRadius: '50%', background: sh.settled ? 'color-mix(in srgb, var(--color-inc) 12%, transparent)' : 'var(--glass-fill-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: sh.settled ? 'var(--color-inc)' : 'var(--text-secondary)', flexShrink: 0, fontFamily: 'var(--font-display)' }}>
-                                                            {sh.member[0]?.toUpperCase() || '?'}
+                                                    <div key={sh.id}>
+                                                        <p style={{ ...type.bodyStrong, ...truncate, flex: 1, margin: 0 }}>{sh.member}</p>
+                                                        <span style={{ ...type.num, flexShrink: 0 }}>{fmt(sh.amount)}</span>
+                                                        <div style={{ minWidth: 64, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+                                                            {sh.settled ? (
+                                                                <span style={type.meta}>Settled</span>
+                                                            ) : (
+                                                                <TextAction onClick={() => settleShare(sp, sh)} aria-label={`Settle up ${sh.member}`}>Settle up</TextAction>
+                                                            )}
                                                         </div>
-                                                        <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{sh.member}</span>
-                                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(sh.amount)}</span>
-                                                        {sh.settled ? (
-                                                            <Badge color="var(--color-inc)" bg="color-mix(in srgb, var(--color-inc) 10%, transparent)"><Check size={10} /></Badge>
-                                                        ) : (
-                                                            <button type="button" onClick={() => settleShare(sp, sh)} style={{ padding: '4px 10px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-sm)', color: 'white', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                                                Settle Up
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 ))}
-                                            </div>
-                                        </div>
+                                            </Rows>
+                                        </Card>
                                     );
                                 })}
-                            </div>
+                            </>
                         )}
 
-                        {/* Settle Up tab */}
+                        {/* Settle up tab */}
                         {activeTab === 'settle' && (
-                            <div>
-                                {settlements.length === 0 ? (
-                                    <div className="glass-surface" style={{ border: '1px solid color-mix(in srgb, var(--color-inc) 20%, transparent)', borderRadius: 'var(--radius-lg)', padding: '32px', textAlign: 'center' }}>
-                                        <Check size={28} color="var(--color-inc)" style={{ marginBottom: '8px' }} />
-                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-inc)', fontFamily: 'var(--font-display)' }}>All settled up!</p>
-                                    </div>
-                                ) : settlements.map((s, i) => (
-                                    <div key={i} className="glass-surface" style={{ borderRadius: 'var(--radius-md)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 16px' }}>
-                                        <span style={{ fontWeight: 600, color: 'var(--color-exp)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{s.from}</span>
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-body)' }}>owes</span>
-                                        <span style={{ fontWeight: 600, color: 'var(--color-inc)', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{s.to}</span>
-                                        <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(s.amount)}</span>
-                                    </div>
-                                ))}
-                            </div>
+                            settlements.length === 0 ? (
+                                <Card><p style={{ ...type.meta, margin: 0 }}>All settled up.</p></Card>
+                            ) : (
+                                <Card>
+                                    <CardHeader title="Who pays whom" sub="The fewest payments that clear every pending split" />
+                                    <Rows>
+                                        {settlements.map((s, i) => (
+                                            <div key={i}>
+                                                <p style={{ ...type.bodyStrong, ...truncate, flex: 1, margin: 0 }}>{s.from} pays {s.to}</p>
+                                                <span style={{ ...type.num, flexShrink: 0 }}>{fmt(s.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </Rows>
+                                </Card>
+                            )
                         )}
                     </>
                 )}
             </div>
 
-            {/* Group Modal */}
-            {showModal && (<GroupModal editing={editingGroup} formName={formName} setFormName={setFormName} formEmoji={formEmoji} setFormEmoji={setFormEmoji} formDesc={formDesc} setFormDesc={setFormDesc} formBudget={formBudget} setFormBudget={setFormBudget} formMembers={formMembers} setFormMembers={setFormMembers} saving={saving} onSave={saveGroup} onClose={() => setShowModal(false)} />)}
-
-            {/* Add Split Modal */}
-            {showSplitModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
-                    onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false); }}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editingSplit ? 'Edit Split' : 'Add Split'}</h3>
-                            <button type="button" onClick={() => { setShowSplitModal(false); setEditingSplit(null); }} style={iconBt}><X size={18} /></button>
-                        </div>
-                        {([
-                            { label: 'Description', value: splitDesc, set: setSplitDesc, placeholder: 'Dinner, Uber, etc.', type: 'text' },
-                            { label: 'Total Amount', value: splitTotal, set: setSplitTotal, placeholder: '0.00', type: 'number' },
-                            { label: 'Date', value: splitDate, set: setSplitDate, placeholder: '', type: 'date' },
-                        ] as const).map(f => (
-                            <div key={f.label} style={{ marginBottom: '14px' }}>
-                                <label style={labelSt}>{f.label}</label>
-                                <input value={f.value} onChange={e => (f.set as (v: string) => void)(e.target.value)} type={f.type} placeholder={f.placeholder} style={inputSt} />
-                            </div>
-                        ))}
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={labelSt}>Paid By</label>
-                            <select value={splitPaidBy} onChange={e => setSplitPaidBy(e.target.value)} style={inputSt}>
-                                <option value="">Select…</option>
-                                {allMemberNames.map(n => <option key={n} value={n}>{n}</option>)}
-                            </select>
-                        </div>
-                        <div style={{ marginBottom: '14px' }}>
-                            <label style={{ ...labelSt, marginBottom: 6 }}>Split Mode</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                {(['equal', 'custom'] as const).map(m => (
-                                    <button key={m} type="button" onClick={() => setSplitMode(m)} className={splitMode === m ? undefined : 'glass-field'} style={{ padding: '6px 16px', borderRadius: '999px', fontSize: '13px', border: 'none', background: splitMode === m ? 'var(--accent)' : undefined, color: splitMode === m ? 'white' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                        {m === 'equal' ? 'Equal' : 'Custom'}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        {splitMode === 'custom' && (
-                            <div style={{ marginBottom: '14px' }}>
-                                <label style={labelSt}>Custom Amounts</label>
-                                {allMemberNames.map(n => (
-                                    <div key={n} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                                        <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{n}</span>
-                                        <input type="number" value={splitCustom[n] || ''} onChange={e => setSplitCustom(p => ({ ...p, [n]: e.target.value }))} placeholder="0.00" style={{ width: '90px', padding: '6px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'var(--font-mono)' }} />
-                                    </div>
-                                ))}
-                                <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: 9, background: customTallyOk ? 'color-mix(in srgb, var(--color-inc) 8%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 8%, transparent)' : 'var(--glass-fill-1)', border: `1px solid ${customTallyOk ? 'color-mix(in srgb, var(--color-inc) 25%, transparent)' : customTotal > 0 ? 'color-mix(in srgb, var(--color-exp) 25%, transparent)' : 'var(--glass-border)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Sum of shares</span>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: customTallyOk ? 'var(--color-inc)' : customTotal > 0 ? 'var(--color-exp)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{fmt(customTotal)}{splitTotalNum > 0 && ` / ${fmt(splitTotalNum)}`}</span>
-                                        {customTallyOk && splitTotalNum > 0 && <span style={{ fontSize: '11px', color: 'var(--color-inc)', fontFamily: 'var(--font-body)' }}>✓ Balanced</span>}
-                                        {!customTallyOk && customTotal > 0 && splitTotalNum > 0 && <span style={{ fontSize: '11px', color: customDiff > 0 ? 'var(--color-warn)' : 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>{customDiff > 0 ? `${fmt(customDiff)} unallocated` : `${fmt(-customDiff)} over total`}</span>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        <button type="button" onClick={saveSplit} disabled={savingSplit || !splitDesc || !splitTotal || !splitPaidBy || (splitMode === 'custom' && !customTallyOk && customTotal > 0)}
-                            style={{ width: '100%', padding: '11px', background: 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: 'pointer', fontFamily: 'var(--font-body)', opacity: (savingSplit || (splitMode === 'custom' && !customTallyOk && customTotal > 0)) ? 0.6 : 1 }}>
-                            {savingSplit ? (editingSplit ? 'Saving…' : 'Adding…') : (editingSplit ? 'Save Changes' : 'Add Split')}
-                        </button>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            {/* Link Transaction Modal */}
-            {showTxModal && mounted && createPortal(
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
-                    onClick={e => { if (e.target === e.currentTarget) { setShowTxModal(false); setTxSearch(''); setTxResults([]); } }}>
-                    <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Link Transaction</h3>
-                            <button type="button" onClick={() => { setShowTxModal(false); setTxSearch(''); setTxResults([]); }} style={iconBt}><X size={18} /></button>
-                        </div>
-                        <input value={txSearch} onChange={e => searchTx(e.target.value)} placeholder="Search transactions…" style={{ ...inputSt, marginBottom: '12px' }} />
-                        <div style={{ overflowY: 'auto', flex: 1 }}>
-                            {txResults.map(tx => (
-                                <div key={tx.id} onClick={() => !linkingTx && linkTx(tx)} className="glass-field" style={{ padding: '10px 12px', borderRadius: 9, cursor: 'pointer', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-2)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'var(--glass-fill-1)'}>
-                                    <div>
-                                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{tx.description}</p>
-                                        <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{String(tx.date).split('T')[0]}</p>
-                                    </div>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '13px', color: tx.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(Number(tx.amount))}</span>
-                                </div>
-                            ))}
-                            {txSearch.length >= 2 && txResults.length === 0 && (<p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', fontFamily: 'var(--font-body)' }}>No results.</p>)}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {groupDialog}
+            {splitDialog}
+            {txDialog}
         </>
-    );
-}
-
-// ─── Group Create/Edit Modal ──────────────────────────────────────────────────
-function GroupModal({ editing, formName, setFormName, formEmoji, setFormEmoji, formDesc, setFormDesc, formBudget, setFormBudget, formMembers, setFormMembers, saving, onSave, onClose }: {
-    editing: Group | null; formName: string; setFormName: (v: string) => void; formEmoji: string; setFormEmoji: (v: string) => void; formDesc: string; setFormDesc: (v: string) => void; formBudget: string; setFormBudget: (v: string) => void; formMembers: Member[]; setFormMembers: (v: Member[]) => void; saving: boolean; onSave: () => void; onClose: () => void;
-}) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => { setMounted(true); }, []);
-    const addMember    = () => setFormMembers([...formMembers, { name: '' }]);
-    const removeMember = (i: number) => setFormMembers(formMembers.filter((_, idx) => idx !== i));
-    const updateMember = (i: number, field: keyof Member, val: string) => { const updated = [...formMembers]; updated[i] = { ...updated[i], [field]: val }; setFormMembers(updated); };
-    const inputSt: React.CSSProperties = { width: '100%', padding: '9px 12px', borderRadius: 9, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'var(--font-body)', outline: 'none' };
-    const labelSt: React.CSSProperties = { fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: 4, fontFamily: 'var(--font-body)' };
-    if (!mounted) return null;
-    return createPortal(
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="glass-surface glass-sheet" style={{ borderRadius: 'var(--radius-xl)', width: '100%', maxWidth: '420px', padding: '24px', maxHeight: '90vh', overflowY: 'auto', animation: 'springIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{editing ? 'Edit Group' : 'New Group'}</h3>
-                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><X size={18} /></button>
-                </div>
-                <div style={{ marginBottom: '14px' }}>
-                    <label style={labelSt}>Emoji</label>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {EMOJIS.map(em => (<button key={em} type="button" onClick={() => setFormEmoji(em)} className={formEmoji === em ? undefined : 'glass-field'} style={{ width: 36, height: 36, borderRadius: 8, fontSize: '1.1rem', border: formEmoji === em ? '2px solid var(--accent)' : 'none', background: formEmoji === em ? 'var(--accent-subtle)' : undefined, cursor: 'pointer' }}>{em}</button>))}
-                    </div>
-                </div>
-                <div style={{ marginBottom: 14 }}><label style={labelSt}>Name *</label><input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Trip to Goa, Flat Expenses…" style={inputSt} /></div>
-                <div style={{ marginBottom: 14 }}><label style={labelSt}>Description</label><input value={formDesc} onChange={e => setFormDesc(e.target.value)} placeholder="Optional" style={inputSt} /></div>
-                <div style={{ marginBottom: 14 }}><label style={labelSt}>Budget (optional)</label><input type="number" value={formBudget} onChange={e => setFormBudget(e.target.value)} placeholder="0" style={inputSt} /></div>
-                <div style={{ marginBottom: 20 }}>
-                    <label style={labelSt}>Members</label>
-                    {formMembers.map((m, i) => (
-                        <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
-                            <input value={m.name} onChange={e => updateMember(i, 'name', e.target.value)} placeholder="Name" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
-                            <input value={m.email || ''} onChange={e => updateMember(i, 'email', e.target.value)} placeholder="Email (opt)" style={{ flex: 1, padding: '7px 10px', borderRadius: 8, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-body)', outline: 'none' }} />
-                            {formMembers.length > 1 && (<button type="button" onClick={() => removeMember(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-exp)', display: 'flex', alignItems: 'center' }}><X size={14} /></button>)}
-                        </div>
-                    ))}
-                    <button type="button" onClick={addMember} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', padding: '2px 0', fontFamily: 'var(--font-body)' }}>
-                        <Plus size={13} /> Add member
-                    </button>
-                </div>
-                <button type="button" onClick={onSave} disabled={saving || !formName.trim()} style={{ width: '100%', padding: '11px', background: saving || !formName.trim() ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontWeight: 600, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
-                    {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Group'}
-                </button>
-            </div>
-        </div>,
-        document.body
     );
 }
