@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useRef } from 'react';
-import { Upload, Loader2, Trash2, CheckCircle2, Info } from 'lucide-react';
 import { importAPI, type CamsHolding } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
+import { Rows } from '@/components/ui/CardParts';
+import { type, truncate } from '@/lib/typography';
 
 type Step = 'upload' | 'parsing' | 'review' | 'success';
 
@@ -83,6 +84,8 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
         }
     };
 
+    const openPicker = () => fileInputRef.current?.click();
+
     // ── STEP: upload ─────────────────────────────────────────────────────────
     if (step === 'upload') {
         return (
@@ -95,7 +98,10 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }}
                 />
                 <div
-                    onClick={() => fileInputRef.current?.click()}
+                    role="button"
+                    tabIndex={0}
+                    onClick={openPicker}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); } }}
                     onDragOver={e => { e.preventDefault(); setDragOver(true); }}
                     onDragLeave={() => setDragOver(false)}
                     onDrop={e => {
@@ -104,45 +110,40 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                         const f = e.dataTransfer.files?.[0];
                         if (f) handleFileSelect(f);
                     }}
-                    className={dragOver ? undefined : 'glass-field'}
                     style={{
-                        border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--glass-border)'}`,
+                        border: `1px dashed ${dragOver ? 'var(--border-visible)' : 'var(--glass-border)'}`,
                         borderRadius: 'var(--radius-lg)',
                         padding: '32px 16px',
                         textAlign: 'center',
                         cursor: 'pointer',
                         transition: 'border-color 150ms ease',
-                        background: dragOver ? 'var(--accent-subtle)' : undefined,
+                        background: dragOver ? 'var(--glass-fill-2)' : 'var(--glass-fill-1)',
                     }}
                 >
-                    <Upload size={28} style={{ margin: '0 auto 10px', color: 'var(--text-muted)' }} />
                     {file ? (
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{file.name}</p>
+                        <p style={{ ...type.bodyStrong, margin: 0 }}>{file.name}</p>
                     ) : (
                         <>
-                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-body)' }}>
+                            <p style={{ ...type.bodyStrong, margin: '0 0 4px' }}>
                                 Drag &amp; drop your CAMS CAS PDF here
                             </p>
-                            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                            <p style={{ ...type.meta, margin: 0 }}>
                                 or click to browse
                             </p>
                         </>
                     )}
                 </div>
 
-                <div className="glass-field" style={{ display: 'flex', gap: 10, padding: '10px 12px', borderRadius: 10 }}>
-                    <Info size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 1 }} />
-                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                        A CAMS CAS (Consolidated Account Statement) lists all your mutual fund holdings in one PDF.
-                        Get yours free at <strong>camsonline.com</strong> — request a CAS by PAN or email, and CAMS
-                        will send the PDF to your registered email.
-                    </p>
-                </div>
+                <p style={{ ...type.meta, margin: 0, lineHeight: 1.5 }}>
+                    A CAMS CAS (Consolidated Account Statement) lists all your mutual fund holdings in one PDF.
+                    Get yours free at <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>camsonline.com</strong> — request a CAS by PAN or email, and CAMS
+                    will send the PDF to your registered email.
+                </p>
 
-                {error && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+                {error && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{error}</p>}
 
                 <Button onClick={handleParse} disabled={!file} style={{ width: '100%' }}>
-                    Parse Statement
+                    Parse statement
                 </Button>
             </div>
         );
@@ -151,12 +152,14 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
     // ── STEP: parsing ────────────────────────────────────────────────────────
     if (step === 'parsing') {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 16px', gap: 12 }}>
-                <Loader2 size={32} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
+            <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 16px', gap: 12 }}>
+                <div
+                    aria-hidden="true"
+                    style={{ width: 28, height: 28, border: '2px solid var(--text-secondary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}
+                />
+                <p style={{ ...type.bodyStrong, margin: 0 }}>
                     Reading your CAMS statement...
                 </p>
-                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }
@@ -165,48 +168,43 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
     if (step === 'review') {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    Found <strong style={{ color: 'var(--text-primary)' }}>{holdings.length}</strong> holding{holdings.length !== 1 ? 's' : ''}. Review before importing to your portfolio.
+                <p style={{ ...type.body, margin: 0 }}>
+                    Found <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{holdings.length}</strong> holding{holdings.length !== 1 ? 's' : ''}. Review before importing to your portfolio.
                 </p>
 
-                {error && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+                {error && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{error}</p>}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '360px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
                     {holdings.length === 0 && (
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                        <p style={{ ...type.meta, margin: 0 }}>
                             No holdings found in this statement.
                         </p>
                     )}
-                    {holdings.map((h, idx) => (
-                        <div key={idx} className="glass-field" style={{ display: 'grid', gridTemplateColumns: '1fr 28px', gap: 8, alignItems: 'center', padding: '10px', borderRadius: 8 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {h.scheme_name}
-                                </p>
-                                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                    <span>Folio: {h.folio_number}</span>
-                                    <span>Units: {Number(h.units).toLocaleString('en-IN', { maximumFractionDigits: 3 })}</span>
-                                    <span>NAV: {fmt(h.nav)}</span>
-                                    <span>Value: {fmt(h.current_value)}</span>
-                                    <span style={{
-                                        fontWeight: 600, padding: '1px 6px', borderRadius: 999,
-                                        background: 'color-mix(in srgb, var(--accent) 14%, transparent)', color: 'var(--accent)'
-                                    }}>
-                                        New / Update
-                                    </span>
+                    <Rows>
+                        {holdings.map((h, idx) => (
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{h.scheme_name}</p>
+                                    <div style={{ ...type.numSmall, display: 'flex', gap: '0 12px', flexWrap: 'wrap' }}>
+                                        <span>Folio: {h.folio_number}</span>
+                                        <span>Units: {Number(h.units).toLocaleString('en-IN', { maximumFractionDigits: 3 })}</span>
+                                        <span>NAV: {fmt(h.nav)}</span>
+                                        <span>Value: {fmt(h.current_value)}</span>
+                                        <span>New / Update</span>
+                                    </div>
                                 </div>
+                                <Button type="button" variant="secondary" size="sm" onClick={() => removeRow(idx)} aria-label={`Remove ${h.scheme_name}`}>
+                                    Remove
+                                </Button>
                             </div>
-                            <button type="button" onClick={() => removeRow(idx)} style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-                                <Trash2 size={14} />
-                            </button>
-                        </div>
-                    ))}
+                        ))}
+                    </Rows>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--glass-border)' }}>
-                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 12, borderTop: '1px solid var(--glass-border)' }}>
+                    <Button type="button" variant="secondary" onClick={onClose}>
                         Cancel
-                    </button>
+                    </Button>
                     <Button onClick={handleImport} isLoading={importing} disabled={holdings.length === 0}>
                         Import {holdings.length} holding{holdings.length !== 1 ? 's' : ''}
                     </Button>
@@ -218,12 +216,11 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
     // ── STEP: success ────────────────────────────────────────────────────────
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: 16, textAlign: 'center' }}>
-            <CheckCircle2 size={40} style={{ color: 'var(--color-inc)' }} />
             <div>
-                <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px', fontFamily: 'var(--font-display)' }}>
+                <p style={{ ...type.title, margin: '0 0 4px' }}>
                     Portfolio updated
                 </p>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
+                <p style={{ ...type.body, margin: 0 }}>
                     {result?.created ?? 0} fund{(result?.created ?? 0) !== 1 ? 's' : ''} added, {result?.updated ?? 0} updated.
                 </p>
             </div>

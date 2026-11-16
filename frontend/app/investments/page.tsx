@@ -2,41 +2,33 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Briefcase, Wallet, TrendingUp, Layers, FileUp } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { useIsMobile } from '@/hooks/useWindowSize';
 import { investmentAPI, CreateInvestmentPayload } from '@/lib/api';
-import { StatTile } from '@/components/ui/StatTile';
 import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, Stat } from '@/components/ui/CardParts';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { CamsImporter } from '@/components/investments/CamsImporter';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SkeletonCard } from '@/components/ui/Skeleton';
-import { Badge } from '@/components/ui/Badge';
 import { toast } from '@/store/toastStore';
 import { Investment, InvestmentSummary, INVESTMENT_TYPES, GROUP_LABELS } from '@/types/investments';
 import { fmt } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
+import { groupHoldings, largestHolding, liveCount, signedMoney, signedPct, gainText, updatedLabel } from '@/lib/investments';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserQuery } from '@/hooks/queries';
 
 const NO_INVESTMENTS: Investment[] = [];
 
-const fmtSigned = (n: number) => (n >= 0 ? '+' : '-') + '₹' + Math.round(Math.abs(n)).toLocaleString('en-IN');
-
-const relativeTime = (iso?: string | null) => {
-    if (!iso) return null;
-    const diffMs = Date.now() - new Date(iso).getTime();
-    const hrs = Math.floor(diffMs / 3_600_000);
-    if (hrs < 1) return 'just now';
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-};
-
 // Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const errSt: React.CSSProperties = { fontSize: 11, color: 'var(--color-exp)', margin: '4px 0 0', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { ...type.body, width: '100%', height: 40, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' };
+const labelSt: React.CSSProperties = { ...type.label, display: 'block', marginBottom: 6 };
+const errSt: React.CSSProperties = { ...type.meta, color: 'var(--color-exp-text)', margin: '4px 0 0' };
+const inset: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px var(--space-3)', padding: '6px var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' };
+const rowSt: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 'var(--space-3)', cursor: 'pointer', borderRadius: 'var(--radius-md)', minWidth: 0 };
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -51,10 +43,13 @@ const emptyForm = {
     account_label: '',
 };
 
+const onKeyActivate = (fn: () => void) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); }
+};
+
 export default function InvestmentsPage() {
     const router = useRouter();
     const { user, isLoading, loadFromStorage } = useAuthStore();
-    const isMobile = useIsMobile();
 
     // Holdings + summary from the shared cache: revisits show them at once
     // and refresh in the background.
@@ -233,8 +228,11 @@ export default function InvestmentsPage() {
         }, 4000);
     };
 
-    // ── Derived: group holdings by type ─────────────────────────────────────
+    const openAdd = () => { setShowAdd(true); setFormErrors({}); };
 
+    // ── Derived ─────────────────────────────────────────────────────────────
+
+    const now = new Date();
     const visibleInvestments = investments.filter(inv => !pendingDelete.has(inv.id));
     const filteredInvestments = searchQuery.trim()
         ? visibleInvestments.filter(inv => {
@@ -245,13 +243,11 @@ export default function InvestmentsPage() {
           })
         : visibleInvestments;
 
-    const groups = Object.keys(GROUP_LABELS)
-        .map(type => ({
-            type,
-            label: GROUP_LABELS[type],
-            holdings: filteredInvestments.filter(inv => inv.type === type),
-        }))
-        .filter(g => g.holdings.length > 0);
+    const allGroups = groupHoldings(visibleInvestments, GROUP_LABELS);
+    const groups = groupHoldings(filteredInvestments, GROUP_LABELS);
+    const largest = largestHolding(visibleInvestments);
+    const liveHoldings = liveCount(visibleInvestments);
+    const count = visibleInvestments.length;
 
     if (isLoading || !user) {
         return (
@@ -264,162 +260,156 @@ export default function InvestmentsPage() {
         );
     }
 
+    // ── Rows ────────────────────────────────────────────────────────────────
+
+    const renderHolding = (inv: Investment) => {
+        const open = () => openInvestment(inv);
+        const gainColor = inv.unrealized_gain >= 0 ? 'var(--color-inc-text)' : 'var(--color-exp-text)';
+        const meta1 = [inv.ticker_or_folio, `${inv.units} units`, `bought at ${fmt(inv.purchase_price_per_unit)}`].filter(Boolean).join(' · ');
+        const updated = inv.price_source === 'mfapi' ? updatedLabel(inv.last_price_updated_at, now) : null;
+        return (
+            <div key={inv.id} role="button" tabIndex={0} className="pressable" onClick={open} onKeyDown={onKeyActivate(open)} style={rowSt}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{inv.name}</p>
+                    <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>{meta1}</p>
+                    <p style={{ ...type.numSmall, ...truncate, margin: 0 }}>
+                        Price {fmt(inv.current_nav_or_price)}
+                        {inv.price_source === 'mfapi' && (
+                            <>
+                                {' · '}
+                                <span style={{ color: 'var(--color-inc-text)' }}>Live price</span>
+                                {updated && `, updated ${updated}`}
+                            </>
+                        )}
+                    </p>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <p style={{ ...type.num, margin: 0 }}>{fmt(inv.current_value)}</p>
+                    <p style={{ ...type.numSmall, margin: 0, color: gainColor }}>{gainText(inv.unrealized_gain, inv.unrealized_gain_pct)}</p>
+                </div>
+            </div>
+        );
+    };
+
+    const showTwo = groups.length > 1;
+
     return (
         <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── HEADER ── */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 4px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                            Investments
-                        </h1>
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Track your portfolio across all asset types
-                        </p>
+                {/* ── PAGE HEADER ── */}
+                <div className="fin-page-head">
+                    <div style={{ minWidth: 0 }}>
+                        {count > 0 ? (
+                            <p style={{ ...type.meta, margin: 0 }}>{count} holding{count !== 1 ? 's' : ''}</p>
+                        ) : !loading ? (
+                            <p style={{ ...type.meta, margin: 0 }}>Track your portfolio across all asset types</p>
+                        ) : null}
+                        <h1 style={{ ...type.heading, margin: 0 }}>Investments</h1>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                        <Button variant={isMobile ? 'icon' : 'secondary'} size={isMobile ? 'md' : 'md'} onClick={() => setShowCamsImport(true)} title="Import from CAMS">
-                            <FileUp size={16} />{!isMobile && ' Import from CAMS'}
-                        </Button>
-                        <Button variant={isMobile ? 'icon' : 'primary'} onClick={() => { setShowAdd(true); setFormErrors({}); }} title="Add Investment">
-                            <Plus size={16} />{!isMobile && ' Add Investment'}
-                        </Button>
+                    <div className="fin-page-actions">
+                        <Button variant="secondary" onClick={() => setShowCamsImport(true)}>Import from CAMS</Button>
+                        <Button onClick={openAdd}>Add investment</Button>
                     </div>
                 </div>
 
-                {/* ── SUMMARY ── */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                    {loading || !summary ? (
-                        [1, 2, 3, 4].map(i => <StatTile key={i} label="" value="" loading />)
-                    ) : (
-                        <>
-                            <StatTile label="Total Invested" value={fmt(summary.total_invested)} icon={<Wallet size={16} />} />
-                            <StatTile label="Current Value" value={fmt(summary.total_current_value)} icon={<Briefcase size={16} />} />
-                            <StatTile
-                                label="Unrealized Gain"
-                                value={fmtSigned(summary.total_unrealized_gain)}
-                                subLabel={`${summary.total_unrealized_gain_pct >= 0 ? '+' : ''}${summary.total_unrealized_gain_pct}%`}
-                                icon={<TrendingUp size={16} />}
-                                accentColor={summary.total_unrealized_gain >= 0 ? 'var(--color-inc)' : 'var(--color-exp)'}
-                            />
-                            <StatTile label="Holdings" value={String(investments.length)} icon={<Layers size={16} />} />
-                        </>
-                    )}
-                </div>
-
-                {/* ── SEARCH ── */}
-                {!loading && investments.length > 0 && (
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        placeholder="Search by name, ticker, or type…"
-                        className="glass-field"
-                        style={{ width: '100%', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' }}
-                    />
-                )}
-
-                {/* ── HOLDINGS ── */}
                 {loading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {[1, 2, 3].map(i => <SkeletonCard key={i} height={90} />)}
-                    </div>
+                    <>
+                        <SkeletonCard height={150} />
+                        <div className="fin-two">
+                            <SkeletonCard height={220} />
+                            <SkeletonCard height={220} />
+                        </div>
+                    </>
                 ) : investments.length === 0 ? (
                     <EmptyState
                         icon={Briefcase}
                         title="No investments tracked yet"
                         subtitle="Add your first holding to start tracking your portfolio."
-                        action={<Button onClick={() => setShowAdd(true)}><Plus size={14} /> Add Investment</Button>}
-                    />
-                ) : groups.length === 0 ? (
-                    <EmptyState
-                        icon={Briefcase}
-                        title="No holdings match your search"
-                        subtitle={`Nothing found for "${searchQuery}".`}
-                        action={<Button variant="secondary" onClick={() => setSearchQuery('')}>Clear search</Button>}
+                        action={<Button onClick={() => setShowAdd(true)}>Add investment</Button>}
                     />
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {groups.map(group => {
-                            const groupTotal = group.holdings.reduce((s, h) => s + h.current_value, 0);
-                            return (
-                                <div key={group.type}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '0 4px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                                {group.label}
-                                            </span>
-                                            <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{group.holdings.length}</Badge>
-                                        </div>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                                            {fmt(groupTotal)}
-                                        </span>
-                                    </div>
-                                    <Card padding={0}>
-                                        {group.holdings.map((inv, idx) => {
-                                            const isGain = inv.unrealized_gain >= 0;
-                                            return (
-                                                <div
-                                                    key={inv.id}
-                                                    onClick={() => openInvestment(inv)}
-                                                    style={{
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                                                        padding: '12px 16px',
-                                                        borderBottom: idx < group.holdings.length - 1 ? '1px solid var(--glass-border)' : 'none',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                >
-                                                    <div style={{ minWidth: 0, flex: '1 1 140px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                            <p style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {inv.name}
-                                                            </p>
-                                                            {inv.price_source === 'mfapi' && (
-                                                                <Badge color="var(--color-inc)" bg="var(--glass-fill-2)">Live</Badge>
-                                                            )}
-                                                        </div>
-                                                        {inv.ticker_or_folio && (
-                                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                                {inv.ticker_or_folio}
-                                                            </p>
-                                                        )}
-                                                        {inv.price_source === 'mfapi' && inv.last_price_updated_at && (
-                                                            <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>
-                                                                Updated {relativeTime(inv.last_price_updated_at)}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', minWidth: 70 }}>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Units</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{inv.units}</p>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', minWidth: 80, display: 'none' }} className="inv-col-buy">
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Avg. Buy</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(inv.purchase_price_per_unit)}</p>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', minWidth: 80 }}>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Current</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(inv.current_nav_or_price)}</p>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', minWidth: 90 }}>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Value</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(inv.current_value)}</p>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', minWidth: 90 }}>
-                                                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>Gain</p>
-                                                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 600, color: isGain ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                                                            {fmtSigned(inv.unrealized_gain)} ({isGain ? '+' : ''}{inv.unrealized_gain_pct}%)
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </Card>
+                    <>
+                        {/* ── SUMMARY ── */}
+                        {summary && count > 0 && (
+                            <Card>
+                                <p style={{ ...type.label, margin: 0 }}>Current value</p>
+                                <p className="type-display" style={{ ...type.display, margin: '6px 0 4px' }}>{fmt(summary.total_current_value)}</p>
+                                <p style={{ ...type.num, margin: 0 }}>
+                                    <span style={{ color: summary.total_unrealized_gain >= 0 ? 'var(--color-inc-text)' : 'var(--color-exp-text)' }}>
+                                        {gainText(summary.total_unrealized_gain, summary.total_unrealized_gain_pct)}
+                                    </span>
+                                    <span style={type.body}> on what you put in</span>
+                                </p>
+                                <div className="dash-stats">
+                                    <Stat className="dash-stat" label="Invested" value={fmt(summary.total_invested)}
+                                        sub={`Across ${allGroups.length} asset type${allGroups.length !== 1 ? 's' : ''}`} />
+                                    <Stat className="dash-stat" label="Unrealised gain" value={signedMoney(summary.total_unrealized_gain)}
+                                        sub={signedPct(summary.total_unrealized_gain, summary.total_unrealized_gain_pct)}
+                                        subTone={summary.total_unrealized_gain >= 0 ? 'good' : 'bad'} />
+                                    <Stat className="dash-stat" label="Holdings" value={count}
+                                        sub={liveHoldings > 0 ? `${liveHoldings} live price${liveHoldings !== 1 ? 's' : ''}` : 'Manual prices'} />
+                                    <Stat className="dash-stat" label="Largest holding" value={fmt(largest?.value ?? 0)}
+                                        sub={largest ? `${largest.name}, ${largest.pct}%` : undefined} />
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </Card>
+                        )}
+
+                        {/* ── SEARCH ── */}
+                        {investments.length > 5 && (
+                            <input
+                                type="text"
+                                aria-label="Search holdings"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search holdings"
+                                style={{ ...inputSt, height: 36 }}
+                            />
+                        )}
+
+                        {/* ── HOLDINGS ── */}
+                        {groups.length === 0 ? (
+                            <EmptyState
+                                icon={Briefcase}
+                                title="No holdings match your search"
+                                subtitle={`Nothing found for "${searchQuery}".`}
+                                action={<Button variant="secondary" onClick={() => setSearchQuery('')}>Clear search</Button>}
+                            />
+                        ) : (
+                            <div className={showTwo ? 'fin-two' : undefined}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                                    {groups.map(group => (
+                                        <Card key={group.type}>
+                                            <CardHeader
+                                                title={group.label}
+                                                sub={`${group.count} holding${group.count !== 1 ? 's' : ''} · ${group.pct}% of your portfolio`}
+                                                action={<span style={type.num}>{fmt(group.total)}</span>}
+                                            />
+                                            <Rows>{group.holdings.map(renderHolding)}</Rows>
+                                        </Card>
+                                    ))}
+                                </div>
+                                {showTwo && (
+                                    <div style={{ minWidth: 0 }}>
+                                        <Card>
+                                            <CardHeader title="Where it is held" sub="Share of your portfolio by type" />
+                                            <Rows>
+                                                {groups.map(group => (
+                                                    <div key={group.type} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                                            <span style={type.bodyStrong}>{group.label}</span>
+                                                            <span style={type.numSmall}>{group.pct}%</span>
+                                                        </div>
+                                                        <ProgressBar pct={group.pct} height={4} color="var(--text-secondary)" />
+                                                    </div>
+                                                ))}
+                                            </Rows>
+                                        </Card>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -432,50 +422,48 @@ export default function InvestmentsPage() {
             </Modal>
 
             {/* ═══ ADD INVESTMENT MODAL ═══ */}
-            <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setFormErrors({}); }} title="Add Investment" maxWidth="480px"
+            <Modal isOpen={showAdd} onClose={() => { setShowAdd(false); setFormErrors({}); }} title="Add investment" maxWidth="480px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => { setShowAdd(false); setFormErrors({}); }} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="add-investment-form" disabled={formLoading} style={{ padding: 10, background: formLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {formLoading ? 'Adding…' : 'Add Investment'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setFormErrors({}); }}>Cancel</Button>
+                        <Button type="submit" form="add-investment-form" isLoading={formLoading}>Add investment</Button>
                     </div>
                 }
             >
                 <form id="add-investment-form" onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div>
-                        <label style={labelSt}>Type</label>
-                        <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ ...inputSt, cursor: 'pointer' }}>
+                        <label htmlFor="inv-type" style={labelSt}>Type</label>
+                        <select id="inv-type" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} style={{ ...inputSt, cursor: 'pointer' }}>
                             {INVESTMENT_TYPES.map(t => (
                                 <option key={t} value={t}>{GROUP_LABELS[t]}</option>
                             ))}
                         </select>
                     </div>
                     <div>
-                        <label style={labelSt}>Name *</label>
-                        <input style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. Axis Bluechip Fund, Reliance, SBI FD…" />
+                        <label htmlFor="inv-name" style={labelSt}>Name</label>
+                        <input id="inv-name" style={inputSt} value={form.name} onChange={e => handleFieldChange('name', e.target.value)} onBlur={() => handleFieldBlur('name')} placeholder="e.g. Axis Bluechip Fund, Reliance, SBI FD…" />
                         {formErrors.name && <p style={errSt}>{formErrors.name}</p>}
                     </div>
                     <div>
-                        <label style={labelSt}>Ticker / Folio (optional)</label>
-                        <input style={inputSt} value={form.ticker_or_folio} onChange={e => setForm({ ...form, ticker_or_folio: e.target.value })} placeholder="e.g. RELIANCE, 123456789" />
+                        <label htmlFor="inv-ticker" style={labelSt}>Ticker or folio (optional)</label>
+                        <input id="inv-ticker" style={inputSt} value={form.ticker_or_folio} onChange={e => setForm({ ...form, ticker_or_folio: e.target.value })} placeholder="e.g. RELIANCE, 123456789" />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                            <label style={labelSt}>Units *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={form.units} onChange={e => handleFieldChange('units', e.target.value)} onBlur={() => handleFieldBlur('units')} placeholder="10" />
+                            <label htmlFor="inv-units" style={labelSt}>Units</label>
+                            <input id="inv-units" type="number" min="0" step="any" style={inputSt} value={form.units} onChange={e => handleFieldChange('units', e.target.value)} onBlur={() => handleFieldBlur('units')} placeholder="10" />
                             {formErrors.units && <p style={errSt}>{formErrors.units}</p>}
                         </div>
                         <div>
-                            <label style={labelSt}>Purchase Date *</label>
-                            <input type="date" max={today()} style={inputSt} value={form.purchase_date} onChange={e => handleFieldChange('purchase_date', e.target.value)} onBlur={() => handleFieldBlur('purchase_date')} />
+                            <label htmlFor="inv-date" style={labelSt}>Purchase date</label>
+                            <input id="inv-date" type="date" max={today()} style={inputSt} value={form.purchase_date} onChange={e => handleFieldChange('purchase_date', e.target.value)} onBlur={() => handleFieldBlur('purchase_date')} />
                             {formErrors.purchase_date && <p style={errSt}>{formErrors.purchase_date}</p>}
                         </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
-                            <label style={labelSt}>Purchase Price / Unit *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={form.purchase_price_per_unit}
+                            <label htmlFor="inv-buy" style={labelSt}>Purchase price per unit</label>
+                            <input id="inv-buy" type="number" min="0" step="any" style={inputSt} value={form.purchase_price_per_unit}
                                 onChange={e => {
                                     const value = e.target.value;
                                     setForm(prev => ({ ...prev, purchase_price_per_unit: value, current_nav_or_price: prev.current_nav_or_price || value }));
@@ -486,53 +474,46 @@ export default function InvestmentsPage() {
                             {formErrors.purchase_price_per_unit && <p style={errSt}>{formErrors.purchase_price_per_unit}</p>}
                         </div>
                         <div>
-                            <label style={labelSt}>Current NAV / Price *</label>
-                            <input type="number" min="0" step="any" style={inputSt} value={form.current_nav_or_price} onChange={e => handleFieldChange('current_nav_or_price', e.target.value)} onBlur={() => handleFieldBlur('current_nav_or_price')} placeholder="120" />
+                            <label htmlFor="inv-now" style={labelSt}>Current NAV or price</label>
+                            <input id="inv-now" type="number" min="0" step="any" style={inputSt} value={form.current_nav_or_price} onChange={e => handleFieldChange('current_nav_or_price', e.target.value)} onBlur={() => handleFieldBlur('current_nav_or_price')} placeholder="120" />
                             {formErrors.current_nav_or_price && <p style={errSt}>{formErrors.current_nav_or_price}</p>}
                         </div>
                     </div>
                     <div>
-                        <label style={labelSt}>Account Label (optional)</label>
-                        <input style={inputSt} value={form.account_label} onChange={e => setForm({ ...form, account_label: e.target.value })} placeholder="e.g. Zerodha, HDFC Demat…" />
+                        <label htmlFor="inv-account" style={labelSt}>Account label (optional)</label>
+                        <input id="inv-account" style={inputSt} value={form.account_label} onChange={e => setForm({ ...form, account_label: e.target.value })} placeholder="e.g. Zerodha, HDFC Demat…" />
                     </div>
                 </form>
             </Modal>
 
             {/* ═══ UPDATE PRICE MODAL ═══ */}
-            <Modal isOpen={!!activeInvestment} onClose={() => setActiveInvestment(null)} title={activeInvestment?.name || 'Update Investment'} maxWidth="380px"
+            <Modal isOpen={!!activeInvestment} onClose={() => setActiveInvestment(null)} title={activeInvestment?.name || 'Update investment'} maxWidth="380px"
                 footer={
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button type="button" onClick={() => setActiveInvestment(null)} className="glass-field" style={{ padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                        <button type="submit" form="update-price-form" disabled={priceLoading} style={{ padding: 10, background: priceLoading ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: priceLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
-                            {priceLoading ? 'Saving…' : 'Save'}
-                        </button>
+                        <Button type="button" variant="secondary" onClick={() => setActiveInvestment(null)}>Cancel</Button>
+                        <Button type="submit" form="update-price-form" isLoading={priceLoading}>Save price</Button>
                     </div>
                 }
             >
                 <form id="update-price-form" onSubmit={handlePriceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div>
-                        <label style={labelSt}>Current NAV / Price</label>
-                        <input type="number" min="0" step="any" style={inputSt} value={priceValue} onChange={e => setPriceValue(e.target.value)} autoFocus />
+                        <label htmlFor="inv-price" style={labelSt}>Current NAV or price</label>
+                        <input id="inv-price" type="number" min="0" step="any" style={inputSt} value={priceValue} onChange={e => setPriceValue(e.target.value)} autoFocus />
                         {priceError && <p style={errSt}>{priceError}</p>}
                     </div>
                 </form>
 
-                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--glass-border)' }}>
+                <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--glass-border)' }}>
                     {confirmDelete ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <button type="button" onClick={handleDelete}
-                                style={{ flex: 1, padding: 10, borderRadius: 10, background: 'color-mix(in srgb, var(--color-exp) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                Confirm Delete
-                            </button>
-                            <button type="button" onClick={() => setConfirmDelete(false)} className="glass-field" style={{ flex: 1, padding: 10, borderRadius: 10, color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                                Cancel
-                            </button>
+                        <div style={inset}>
+                            <span style={{ ...type.meta, flex: '1 1 160px', color: 'var(--text-primary)' }}>Delete this holding?</span>
+                            <span style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                                <TextAction tone="danger" onClick={handleDelete}>Delete holding</TextAction>
+                                <TextAction quiet onClick={() => setConfirmDelete(false)}>Keep it</TextAction>
+                            </span>
                         </div>
                     ) : (
-                        <button type="button" onClick={() => setConfirmDelete(true)}
-                            style={{ width: '100%', padding: 10, borderRadius: 10, background: 'transparent', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', color: 'var(--color-exp)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            Delete this holding
-                        </button>
+                        <TextAction tone="danger" onClick={() => setConfirmDelete(true)}>Delete this holding</TextAction>
                     )}
                 </div>
             </Modal>
