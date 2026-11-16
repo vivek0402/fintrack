@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { TONE_TEXT } from '@/components/ui/CardParts';
 import { personalLoansAPI, accountsAPI } from '@/lib/api';
+import { type } from '@/lib/typography';
 import { toast } from '@/store/toastStore';
+import { Field, selectStyle, textareaStyle } from './fields';
 
 interface LoanLike {
     id: string;
@@ -20,12 +25,6 @@ interface Props {
 }
 
 const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
-const labelStyle: React.CSSProperties = { fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontFamily: 'var(--font-body)' };
-// Same reasoning as PersonalLoanModal.tsx: Input.tsx's label has no htmlFor/id
-// and DatePicker's trigger is a non-native div, so neither is reachable via
-// getByLabelText/fireEvent.change -- use plain labelled native inputs instead.
-const inputBase: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', color: 'var(--text-primary)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '0.875rem', fontFamily: 'var(--font-body)', outline: 'none', padding: '10px 12px', boxSizing: 'border-box' };
 
 export function RepaymentModal({ isOpen, onClose, onSuccess, loan }: Props) {
     const [amount, setAmount] = useState('');
@@ -88,38 +87,26 @@ export function RepaymentModal({ isOpen, onClose, onSuccess, loan }: Props) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Record repayment ${verb} ${loan.counterparty_name}`}
             footer={
-                <button type="submit" form="repayment-form" disabled={loading}
-                    style={{ width: '100%', height: '48px', border: 'none', borderRadius: 'var(--radius-md)', background: 'var(--accent)', color: 'white', fontSize: '14.5px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'var(--font-body)' }}>
-                    {loading ? 'Saving…' : 'Record repayment'}
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                    <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                    <Button type="submit" form="repayment-form" isLoading={loading}>Record repayment</Button>
+                </div>
             }>
-            <form id="repayment-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div>
-                    <label htmlFor="repay-amount" style={labelStyle}>Amount</label>
-                    <input id="repay-amount" type="number" min="0.01" step="any" style={inputBase} value={amount} onChange={e => setAmount(e.target.value)} required />
-                </div>
-                <div>
-                    <label htmlFor="repay-date" style={labelStyle}>Date</label>
-                    <input id="repay-date" type="date" style={inputBase} value={date} onChange={e => setDate(e.target.value)} required />
-                </div>
+            <form id="repayment-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <Input label="Amount" type="number" min="0.01" step="any" value={amount} onChange={e => setAmount(e.target.value)} required />
+                <Input label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
                 {accounts.length > 0 && (
-                    <div>
-                        <label htmlFor="repay-account" style={labelStyle}>Account (optional — affects its balance)</label>
-                        <select id="repay-account" value={accountId ?? ''} onChange={e => setAccountId(e.target.value ? Number(e.target.value) : null)} style={{ ...inputBase, cursor: 'pointer' }}>
+                    <Field label="Account (optional, changes its balance)" htmlFor="repay-account">
+                        <select id="repay-account" value={accountId ?? ''} onChange={e => setAccountId(e.target.value ? Number(e.target.value) : null)} style={selectStyle}>
                             <option value="">Don&apos;t track against an account</option>
                             {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
                         </select>
-                    </div>
+                    </Field>
                 )}
-                <div>
-                    <label htmlFor="repay-notes" style={labelStyle}>Notes (optional)</label>
-                    <textarea id="repay-notes" rows={2} style={{ ...inputBase, resize: 'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} />
-                </div>
-                {error && (
-                    <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: '10px', fontSize: '0.8rem', color: 'var(--color-exp)', fontFamily: 'var(--font-body)' }}>
-                        {error}
-                    </div>
-                )}
+                <Field label="Notes (optional)" htmlFor="repay-notes">
+                    <textarea id="repay-notes" rows={2} style={textareaStyle} value={notes} onChange={e => setNotes(e.target.value)} />
+                </Field>
+                {error && <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>}
             </form>
         </Modal>
     );

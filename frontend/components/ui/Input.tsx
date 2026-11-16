@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { type } from '@/lib/typography';
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
@@ -12,15 +12,21 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
     suffix?: React.ReactNode;
 }
 
-export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus, onBlur, ...props }: InputProps) {
+export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus, onBlur, id, 'aria-describedby': describedByProp, ...props }: InputProps) {
     const [focused, setFocused] = useState(false);
+    // The label is linked to the field (and hint/error to it) so screen readers,
+    // getByLabelText and click-the-label-to-focus all work. A caller's own id wins.
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
+    const messageId = `${inputId}-message`;
+    const describedBy = [describedByProp, error || hint ? messageId : undefined].filter(Boolean).join(' ') || undefined;
 
     const leading = icon ?? prefix;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', width: '100%' }}>
             {label && (
-                <label style={type.label}>
+                <label htmlFor={inputId} style={type.label}>
                     {label}
                 </label>
             )}
@@ -31,6 +37,9 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
                     </div>
                 )}
                 <input
+                    id={inputId}
+                    aria-describedby={describedBy}
+                    aria-invalid={error ? true : undefined}
                     onFocus={e => { setFocused(true);  onFocus?.(e); }}
                     onBlur={e  => { setFocused(false); onBlur?.(e);  }}
                     style={{
@@ -61,8 +70,8 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
                     </div>
                 )}
             </div>
-            {error && <p style={{ fontSize: 'var(--text-caption)', color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
-            {!error && hint && <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{hint}</p>}
+            {error && <p id={messageId} style={{ fontSize: 'var(--text-caption)', color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+            {!error && hint && <p id={messageId} style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{hint}</p>}
         </div>
     );
 }

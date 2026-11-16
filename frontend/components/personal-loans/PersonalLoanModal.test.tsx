@@ -31,7 +31,7 @@ describe('PersonalLoanModal', () => {
 
     it('switches to "Borrowed" and submits that direction instead', async () => {
         render(<PersonalLoanModal isOpen onClose={vi.fn()} onSuccess={vi.fn()} />);
-        fireEvent.click(screen.getByRole('button', { name: /^borrowed$/i }));
+        fireEvent.click(screen.getByRole('button', { name: /i borrowed money/i }));
         fill('Raj', '2000', '2026-09-13');
         fireEvent.click(screen.getByRole('button', { name: /add loan/i }));
 

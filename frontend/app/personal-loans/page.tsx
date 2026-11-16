@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Trash2, Ban, Handshake } from 'lucide-react';
 import { personalLoansAPI } from '@/lib/api';
-import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, Stat, TONE_TEXT } from '@/components/ui/CardParts';
+import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
-import { Skeleton } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import { PersonalLoanModal } from '@/components/personal-loans/PersonalLoanModal';
 import { RepaymentModal } from '@/components/personal-loans/RepaymentModal';
 import { LoanDetailModal } from '@/components/personal-loans/LoanDetailModal';
 import { toast } from '@/store/toastStore';
+import { fmt, formatDate } from '@/lib/utils';
+import { type, truncate } from '@/lib/typography';
+import { isOverdue, netPosition, num, overdueFirst, positionSentence, splitLoans, sumOutstanding } from '@/lib/personalLoans';
 
 type Loan = {
     id: string; direction: 'lent' | 'borrowed'; counterparty_name: string;
@@ -23,75 +25,77 @@ const STATUS_LABEL: Record<Loan['status'], string> = {
     outstanding: 'Outstanding', partially_repaid: 'Partially repaid', repaid: 'Repaid', written_off: 'Written off',
 };
 
-// principal_amount / repaid_amount / outstanding_amount all come back from the
-// API as Postgres NUMERIC strings (e.g. "4000.00"), not JS numbers -- normalize
-// before any arithmetic or comparison. See RepaymentModal.tsx for the bug this
-// guards against ("4000.00" + 0.01 silently string-concatenates).
-function num(v: number | string): number {
-    return typeof v === 'string' ? parseFloat(v) : v;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** A row that opens the loan's details on tap, Enter or Space. */
+function openProps(onOpen: () => void) {
+    return {
+        role: 'button' as const,
+        tabIndex: 0,
+        onClick: onOpen,
+        // Only react to the row's own key presses, not ones bubbling from a button inside it.
+        onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.target !== e.currentTarget) return;
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); }
+        },
+    };
 }
 
-function isOverdue(loan: Loan) {
-    if (!loan.due_date || loan.status === 'repaid' || loan.status === 'written_off') return false;
-    return new Date(loan.due_date) < new Date(new Date().toDateString());
-}
+const rowColumn: React.CSSProperties = { flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-1)', cursor: 'pointer' };
 
-function LoanRow({ loan, onRepay, onWriteOff, onDelete, confirmDeleteId, deletingId, onConfirmDelete, onCancelDelete, onOpenDetail }: {
-    loan: Loan; onRepay: (l: Loan) => void; onWriteOff: (l: Loan) => void; onDelete: (l: Loan) => void;
-    confirmDeleteId: string | null; deletingId: string | null; onConfirmDelete: (id: string) => void; onCancelDelete: () => void;
-    onOpenDetail: (id: string) => void;
-}) {
+function ActiveLoanRow({ loan, onOpen, onRepay }: { loan: Loan; onOpen: (id: string) => void; onRepay: (l: Loan) => void }) {
     const principal = num(loan.principal_amount);
     const repaid = num(loan.repaid_amount);
-    const outstanding = num(loan.outstanding_amount);
     const pct = principal > 0 ? (repaid / principal) * 100 : 0;
-    const settled = loan.status === 'repaid' || loan.status === 'written_off';
+    const overdue = isOverdue(loan);
     return (
-        <GCard style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div onClick={() => onOpenDetail(loan.id)}
-                    role="button" tabIndex={0}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(loan.id); } }}
-                    style={{ cursor: 'pointer' }}>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>{loan.counterparty_name}</div>
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
-                        <Badge>{STATUS_LABEL[loan.status]}</Badge>
-                        {isOverdue(loan) && <Badge color="var(--color-exp)" bg="var(--color-exp-subtle)">Overdue</Badge>}
-                    </div>
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: loan.direction === 'lent' ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>
-                    ₹{Math.round(outstanding).toLocaleString('en-IN')}
-                </div>
+        <div {...openProps(() => onOpen(loan.id))} style={rowColumn}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+                <p style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0, margin: 0 }}>{loan.counterparty_name}</p>
+                <button type="button" className="fin-link fin-link-quiet fin-row-hover-action fin-row-hover-action-touch"
+                    aria-label={`Record repayment for ${loan.counterparty_name}`}
+                    onClick={e => { e.stopPropagation(); onRepay(loan); }}>
+                    Record repayment
+                </button>
+                <span style={{ ...type.num, flexShrink: 0 }}>{fmt(num(loan.outstanding_amount))}</span>
             </div>
-            {!settled && <ProgressBar pct={pct} />}
-            {!settled && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => onRepay(loan)} style={{ flex: 1, padding: '8px 0', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-border)', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                        Record repayment
-                    </button>
-                    <button onClick={() => onWriteOff(loan)} aria-label="Write off" style={{ width: 36, borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                        <Ban size={15} />
-                    </button>
+            <p style={{ ...type.meta, margin: 0 }}>
+                {STATUS_LABEL[loan.status]}
+                {overdue && loan.due_date
+                    ? <span style={{ color: TONE_TEXT.bad }}> · Overdue since {formatDate(loan.due_date)}</span>
+                    : loan.due_date ? ` · due ${formatDate(loan.due_date)}` : ' · no due date'}
+            </p>
+            <ProgressBar pct={pct} height={4} color="var(--text-secondary)" />
+        </div>
+    );
+}
+
+function SettledSection({ loans, open, onToggle, onOpen, divider }: { loans: Loan[]; open: boolean; onToggle: () => void; onOpen: (id: string) => void; divider: boolean }) {
+    return (
+        <div style={divider ? { borderTop: '1px solid var(--glass-border)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)' } : undefined}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', minWidth: 0 }}>
+                    <p style={{ ...type.bodyStrong, margin: 0 }}>Settled</p>
+                    <p style={{ ...type.meta, margin: 0 }}>{plural(loans.length, 'loan')}</p>
+                </div>
+                <TextAction quiet onClick={onToggle} aria-expanded={open}>{open ? 'Hide' : 'Show'}</TextAction>
+            </div>
+            {open && (
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                    <Rows>
+                        {loans.map(l => (
+                            <div key={l.id} {...openProps(() => onOpen(l.id))} style={{ cursor: 'pointer' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{l.counterparty_name}</p>
+                                    <p style={{ ...type.meta, margin: 0 }}>{STATUS_LABEL[l.status]}</p>
+                                </div>
+                                <span style={{ ...type.num, flexShrink: 0 }}>{fmt(num(l.principal_amount))}</span>
+                            </div>
+                        ))}
+                    </Rows>
                 </div>
             )}
-            {settled && (
-                confirmDeleteId === loan.id ? (
-                    <div style={{ display: 'flex', gap: '4px', alignSelf: 'flex-end' }}>
-                        <button type="button" onClick={() => onDelete(loan)} disabled={deletingId === loan.id}
-                            style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--color-exp) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', color: 'var(--color-exp)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            {deletingId === loan.id ? '…' : 'Delete'}
-                        </button>
-                        <button type="button" onClick={() => onCancelDelete()} style={{ padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--glass-border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                            Cancel
-                        </button>
-                    </div>
-                ) : (
-                    <button type="button" onClick={() => onConfirmDelete(loan.id)} aria-label="Delete" style={{ alignSelf: 'flex-end', border: 'none', background: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                        <Trash2 size={14} />
-                    </button>
-                )
-            )}
-        </GCard>
+        </div>
     );
 }
 
@@ -101,10 +105,9 @@ export default function PersonalLoansPage() {
     const [loadError, setLoadError] = useState(false);
     const [showAdd, setShowAdd] = useState(false);
     const [repayLoan, setRepayLoan] = useState<Loan | null>(null);
-    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
     const [detailLoanId, setDetailLoanId] = useState<string | null>(null);
+    const [showSettled, setShowSettled] = useState(false);
 
     const refresh = useCallback(() => {
         setLoading(true); setLoadError(false);
@@ -129,7 +132,6 @@ export default function PersonalLoansPage() {
         // Optimistically hide the row, then give the user an undo window before
         // actually deleting -- same pattern as goals/page.tsx and TransactionList.
         setPendingDelete(prev => new Set([...prev, id]));
-        setConfirmDeleteId(null);
 
         let cancelled = false;
         toast.undo('Loan deleted', () => {
@@ -139,7 +141,6 @@ export default function PersonalLoansPage() {
 
         setTimeout(async () => {
             if (cancelled) return;
-            setDeletingId(id);
             try {
                 await personalLoansAPI.delete(id);
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
@@ -147,67 +148,100 @@ export default function PersonalLoansPage() {
             } catch {
                 toast.error('Failed to delete loan');
                 setPendingDelete(prev => { const s = new Set(prev); s.delete(id); return s; });
-            } finally {
-                setDeletingId(null);
             }
         }, 4000);
     };
 
     const visibleLoans = loans.filter(l => !pendingDelete.has(l.id));
-    const active = visibleLoans.filter(l => l.status === 'outstanding' || l.status === 'partially_repaid');
-    const settled = visibleLoans.filter(l => l.status === 'repaid' || l.status === 'written_off');
-    const owedToYou = active.filter(l => l.direction === 'lent');
-    const youOwe = active.filter(l => l.direction === 'borrowed');
+    const { owedToYou: lentRaw, youOwe: borrowedRaw, settled } = splitLoans(visibleLoans);
+    const owedToYou = overdueFirst(lentRaw);
+    const youOwe = overdueFirst(borrowedRaw);
+
+    const owedTotal = sumOutstanding(owedToYou);
+    const oweTotal = sumOutstanding(youOwe);
+    const net = netPosition(owedToYou, youOwe);
+    const netRounded = Math.round(net);
+    const netText = netRounded > 0 ? `+${fmt(netRounded)}` : netRounded < 0 ? `−${fmt(-netRounded)}` : fmt(0);
+    const overdueLoans = [...owedToYou, ...youOwe].filter(l => isOverdue(l));
+    const firstOverdue = overdueLoans[0];
+    const hasActive = owedToYou.length + youOwe.length > 0;
+
+    const settledSection = (divider: boolean) => (
+        <SettledSection loans={settled} open={showSettled} onToggle={() => setShowSettled(v => !v)} onOpen={setDetailLoanId} divider={divider} />
+    );
 
     return (
-        <div style={{ maxWidth: '640px', margin: '0 auto', padding: 'var(--space-6) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)' }}>Personal Loans</h1>
-                <button onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: 'var(--radius-md)', border: 'none', background: 'var(--accent)', color: 'white', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                    <Plus size={15} /> Add
-                </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
+            <div className="fin-page-head">
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.meta, margin: 0 }}>Money you have lent or borrowed</p>
+                    <h1 style={{ ...type.heading, margin: 0 }}>Personal loans</h1>
+                </div>
+                <div className="fin-page-actions">
+                    <Button type="button" onClick={() => setShowAdd(true)}>Add loan</Button>
+                </div>
             </div>
 
             {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <Skeleton height={80} /><Skeleton height={80} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <SkeletonCard height={160} /><SkeletonCard height={120} />
                 </div>
             ) : loadError ? (
-                <EmptyState icon={Handshake} title="Couldn't load your personal loans" subtitle="Check your connection and try again." animated={false} />
+                <Card>
+                    <CardHeader title="Couldn't load your personal loans" sub="Check your connection and try again."
+                        action={<Button type="button" variant="secondary" onClick={refresh}>Try again</Button>} flush />
+                </Card>
             ) : loans.length === 0 ? (
-                <EmptyState icon={Handshake} title="No personal loans yet" subtitle="Track money you've lent to or borrowed from friends and family." />
+                <Card>
+                    <CardHeader title="No personal loans yet" sub="Track money you've lent to or borrowed from friends and family."
+                        action={<Button type="button" onClick={() => setShowAdd(true)}>Add loan</Button>} flush />
+                </Card>
             ) : (
                 <>
-                    {owedToYou.length > 0 && (
-                        <section>
-                            <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Owed to you</h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {owedToYou.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
-                            </div>
-                        </section>
+                    <Card>
+                        <p style={{ ...type.label, margin: 0 }}>Net position</p>
+                        <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{netText}</p>
+                        <p style={{ ...type.meta, margin: '6px 0 0' }}>{positionSentence(net, hasActive, overdueLoans.length)}</p>
+                        <div className="dash-stats">
+                            <Stat className="dash-stat" label="Owed to you" value={fmt(owedTotal)} sub={plural(owedToYou.length, 'loan')} />
+                            <Stat className="dash-stat" label="You owe" value={fmt(oweTotal)} sub={plural(youOwe.length, 'loan')} />
+                            <Stat className="dash-stat" label="Overdue" value={String(overdueLoans.length)}
+                                sub={firstOverdue && firstOverdue.due_date ? `${firstOverdue.counterparty_name}, since ${formatDate(firstOverdue.due_date)}` : 'None'} />
+                        </div>
+                    </Card>
+
+                    {hasActive && (
+                        <div className="fin-two">
+                            {owedToYou.length > 0 && (
+                                <Card>
+                                    <CardHeader title="Owed to you" sub="Overdue first" action={<span style={type.num}>{fmt(owedTotal)}</span>} />
+                                    <Rows>
+                                        {owedToYou.map(l => <ActiveLoanRow key={l.id} loan={l} onOpen={setDetailLoanId} onRepay={setRepayLoan} />)}
+                                    </Rows>
+                                </Card>
+                            )}
+                            {youOwe.length > 0 && (
+                                <Card>
+                                    <CardHeader title="You owe" sub="What you have borrowed" action={<span style={type.num}>{fmt(oweTotal)}</span>} />
+                                    <Rows>
+                                        {youOwe.map(l => <ActiveLoanRow key={l.id} loan={l} onOpen={setDetailLoanId} onRepay={setRepayLoan} />)}
+                                    </Rows>
+                                    {settled.length > 0 && settledSection(true)}
+                                </Card>
+                            )}
+                        </div>
                     )}
-                    {youOwe.length > 0 && (
-                        <section>
-                            <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>You owe</h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {youOwe.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
-                            </div>
-                        </section>
-                    )}
-                    {settled.length > 0 && (
-                        <section>
-                            <h2 style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '10px' }}>Settled</h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {settled.map(l => <LoanRow key={l.id} loan={l} onRepay={setRepayLoan} onWriteOff={handleWriteOff} onDelete={handleDelete} confirmDeleteId={confirmDeleteId} deletingId={deletingId} onConfirmDelete={setConfirmDeleteId} onCancelDelete={() => setConfirmDeleteId(null)} onOpenDetail={setDetailLoanId} />)}
-                            </div>
-                        </section>
+
+                    {settled.length > 0 && youOwe.length === 0 && (
+                        <Card>{settledSection(false)}</Card>
                     )}
                 </>
             )}
 
             <PersonalLoanModal isOpen={showAdd} onClose={() => setShowAdd(false)} onSuccess={refresh} />
             <RepaymentModal isOpen={!!repayLoan} onClose={() => setRepayLoan(null)} onSuccess={refresh} loan={repayLoan} />
-            <LoanDetailModal isOpen={!!detailLoanId} onClose={() => setDetailLoanId(null)} loanId={detailLoanId} onRepay={setRepayLoan} />
+            <LoanDetailModal isOpen={!!detailLoanId} onClose={() => setDetailLoanId(null)} loanId={detailLoanId} onRepay={setRepayLoan}
+                onWriteOff={handleWriteOff} onDelete={handleDelete} />
         </div>
     );
 }
