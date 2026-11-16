@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, TrendingUp, TrendingDown, LayoutDashboard, PiggyBank, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { transactionsAPI } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
+import { type, truncate } from '@/lib/typography';
+import { TextAction } from '@/components/ui/CardParts';
+
+const caption = { ...type.label, color: 'var(--text-muted)', padding: '8px 16px 4px' } as const;
+const note = { ...type.body, padding: '20px', textAlign: 'center' } as const;
 
 export function GlobalSearch() {
     const [query, setQuery]     = useState('');
@@ -59,9 +63,9 @@ export function GlobalSearch() {
     const topCategories   = [...new Set(results.map(tx => tx.category_name).filter(Boolean))].slice(0, 3) as string[];
 
     const quickActions = [
-        { label: 'Go to Budgets',    icon: <PiggyBank size={14} />,      onClick: () => { close(); router.push('/budgets'); } },
-        { label: 'Add Transaction',  icon: <Plus size={14} />,           onClick: () => { close(); router.push('/transactions?add=true'); } },
-        { label: 'Go to Dashboard',  icon: <LayoutDashboard size={14} />, onClick: () => { close(); router.push('/'); } },
+        { label: 'Go to Budgets',    onClick: () => { close(); router.push('/budgets'); } },
+        { label: 'Add transaction',  onClick: () => { close(); router.push('/transactions?add=true'); } },
+        { label: 'Go to Dashboard',  onClick: () => { close(); router.push('/'); } },
     ];
 
     const rowHover = (e: React.MouseEvent<HTMLElement>, enter: boolean) => {
@@ -71,12 +75,18 @@ export function GlobalSearch() {
     return (
         <>
             <button
+                type="button"
                 onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
-                className="glass-field"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', borderRadius: '10px', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer', marginBottom: '8px', fontFamily: 'var(--font-body)' }}
+                style={{
+                    ...type.body,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)',
+                    width: '100%', height: 36, padding: '0 var(--space-3)',
+                    background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer', marginBottom: 'var(--space-2)',
+                }}
             >
-                <Search size={14} />
-                Search… (Ctrl+K)
+                <span>Search</span>
+                <span style={{ ...type.meta, color: 'var(--text-muted)' }}>Ctrl K</span>
             </button>
 
             {open && mounted && createPortal(
@@ -87,107 +97,87 @@ export function GlobalSearch() {
                     <div className="glass-surface glass-sheet" style={{ position: 'fixed', top: 'calc(80px + var(--sa-top))', left: '50%', transform: 'translateX(-50%)', width: '90%', maxWidth: '580px', borderRadius: 'var(--radius-lg)', zIndex: 10000, overflow: 'hidden', animation: 'springIn 260ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
 
                         {/* Search input */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)' }}>
-                            <Search size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '14px 16px', borderBottom: '1px solid var(--glass-border)' }}>
                             <input
                                 ref={inputRef}
                                 value={query}
                                 onChange={e => setQuery(e.target.value)}
-                                placeholder="Search transactions…"
-                                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.95rem', fontFamily: 'var(--font-body)' }}
+                                placeholder="Search transactions"
+                                aria-label="Search transactions"
+                                style={{ ...type.body, color: 'var(--text-primary)', flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none' }}
                             />
-                            {query
-                                ? <button onClick={() => setQuery('')} aria-label="Clear search" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}><X size={16} /></button>
-                                : <span className="glass-field" style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', borderRadius: '4px', padding: '2px 6px' }}>ESC</span>
-                            }
+                            {query && (
+                                <TextAction quiet onClick={() => setQuery('')} aria-label="Clear search">Clear</TextAction>
+                            )}
                         </div>
 
                         <div style={{ maxHeight: '420px', overflowY: 'auto' }}>
                             {loading && (
-                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)' }}>Searching…</div>
+                                <div style={note}>Searching…</div>
                             )}
 
                             {!loading && query.length >= 2 && results.length === 0 && (
-                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem', fontFamily: 'var(--font-body)' }}>No results found</div>
+                                <div style={note}>No results found</div>
                             )}
 
-                            {/* ── Matching transactions ───────────────────────────────── */}
+                            {/* Matching transactions */}
                             {topTransactions.length > 0 && (
                                 <>
-                                    <div style={{ padding: '8px 16px 4px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-body)' }}>
-                                        Transactions
-                                    </div>
+                                    <div style={caption}>Transactions</div>
                                     {topTransactions.map(tx => {
                                         const isIncome = tx.type === 'income';
                                         return (
                                             <div key={tx.id}
                                                 onClick={() => navigateToTransactions(query)}
-                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
+                                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
                                                 onMouseEnter={e => rowHover(e, true)}
                                                 onMouseLeave={e => rowHover(e, false)}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                                                    <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isIncome ? 'rgba(5,150,105,0.12)' : 'rgba(225,29,72,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        {isIncome
-                                                            ? <TrendingUp size={13} color="var(--color-inc)" />
-                                                            : <TrendingDown size={13} color="var(--color-exp)" />
-                                                        }
-                                                    </div>
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <p style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tx.description}</p>
-                                                        <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>{tx.category_name || 'Uncategorized'} · {formatDate(tx.date)}</p>
-                                                    </div>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
+                                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>{tx.category_name || 'Uncategorized'} · {formatDate(tx.date)}</p>
                                                 </div>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', fontWeight: 600, color: isIncome ? 'var(--color-inc)' : 'var(--color-exp)', flexShrink: 0, marginLeft: '12px' }}>
-                                                    {isIncome ? '+' : '-'}{formatCurrency(parseFloat(tx.amount), user?.currency)}
+                                                <span style={{ ...type.num, flexShrink: 0, color: isIncome ? 'var(--color-inc-text)' : 'var(--text-primary)' }}>
+                                                    {isIncome ? '+' : '−'}{formatCurrency(parseFloat(tx.amount), user?.currency)}
                                                 </span>
                                             </div>
                                         );
                                     })}
                                     {results.length > 5 && (
-                                        <button onClick={() => navigateToTransactions(query)}
-                                            style={{ display: 'block', width: '100%', padding: '8px 16px', background: 'none', border: 'none', borderBottom: '1px solid var(--glass-border)', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', fontFamily: 'var(--font-body)', textAlign: 'left', fontWeight: 500 }}
-                                            onMouseEnter={e => rowHover(e, true)}
-                                            onMouseLeave={e => rowHover(e, false)}>
-                                            See all {results.length} results →
-                                        </button>
+                                        <div style={{ padding: '2px 16px', borderBottom: '1px solid var(--glass-border)' }}>
+                                            <TextAction onClick={() => navigateToTransactions(query)}>
+                                                See all {results.length} results
+                                            </TextAction>
+                                        </div>
                                     )}
                                 </>
                             )}
 
-                            {/* ── Matching categories ─────────────────────────────────── */}
+                            {/* Matching categories */}
                             {topCategories.length > 0 && (
                                 <>
-                                    <div style={{ padding: '8px 16px 4px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-body)' }}>
-                                        Categories
-                                    </div>
+                                    <div style={caption}>Categories</div>
                                     {topCategories.map(cat => (
                                         <div key={cat}
                                             onClick={() => navigateToTransactions(`category:${cat}`)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', padding: '10px 16px', cursor: 'pointer', borderBottom: '1px solid var(--glass-border)' }}
                                             onMouseEnter={e => rowHover(e, true)}
                                             onMouseLeave={e => rowHover(e, false)}>
-                                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-                                            <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{cat}</span>
-                                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', marginLeft: 'auto' }}>Filter by category →</span>
+                                            <span style={{ ...type.bodyStrong, ...truncate }}>{cat}</span>
+                                            <span style={{ ...type.meta, flexShrink: 0 }}>Filter by category</span>
                                         </div>
                                     ))}
                                 </>
                             )}
 
-                            {/* ── Quick actions ────────────────────────────────────────── */}
-                            <div style={{ padding: '8px 16px 4px', fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: 'var(--font-body)' }}>
-                                Quick actions
-                            </div>
+                            {/* Quick actions */}
+                            <div style={caption}>Quick actions</div>
                             {quickActions.map(action => (
                                 <div key={action.label}
                                     onClick={action.onClick}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 16px', cursor: 'pointer' }}
+                                    style={{ ...type.body, padding: '10px 16px', cursor: 'pointer' }}
                                     onMouseEnter={e => rowHover(e, true)}
                                     onMouseLeave={e => rowHover(e, false)}>
-                                    <div className="glass-field" style={{ width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--text-secondary)' }}>
-                                        {action.icon}
-                                    </div>
-                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{action.label}</span>
+                                    {action.label}
                                 </div>
                             ))}
                         </div>

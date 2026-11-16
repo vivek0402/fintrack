@@ -23,6 +23,7 @@ import { recordMoreVisit } from '@/lib/morePins';
 import { syncAppPrefs } from '@/lib/appPrefs';
 import { morePageHrefs } from './MorePanel';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { type } from '@/lib/typography';
 
 // /transactions used to be excluded -- it had its own header add button.
 // That's gone now (removed along with the top bar's + icon), so the
@@ -134,10 +135,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             position: 'absolute', bottom: '100%', left: '50%',
                             transform: 'translateX(-50%)', marginBottom: '8px',
                             backgroundColor: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)',
-                            borderRadius: '6px', padding: '4px 10px', fontSize: '12px',
+                            borderRadius: '6px', padding: '4px 10px', ...type.meta,
                             color: 'var(--text-primary)', whiteSpace: 'nowrap', pointerEvents: 'none',
                         }}>
-                            Add Transaction
+                            Add transaction
                         </div>
                     )}
                     <button
@@ -152,7 +153,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             background: 'var(--accent)',
                             border: 'none', cursor: 'pointer',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            boxShadow: addFabHover ? '0 6px 28px var(--accent-subtle)' : '0 4px 20px var(--accent-border)',
+                            boxShadow: 'var(--shadow-card)',
                             transform: addFabPressed ? 'scale(0.93)' : addFabHover ? 'scale(1.1)' : 'scale(1)',
                             transition: 'transform 180ms cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease',
                         }}

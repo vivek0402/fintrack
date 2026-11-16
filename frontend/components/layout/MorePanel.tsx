@@ -3,9 +3,9 @@
 import { forwardRef, useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-    Target, Trophy, X, Settings, LineChart, Briefcase, Bot, Gauge, Waves,
-    PiggyBank, Compass, CreditCard, Users, HelpCircle,
-    FileText, Award, Handshake, LayoutGrid, List,
+    Target, Trophy, Settings, LineChart, Briefcase, Bot, Gauge, Waves,
+    PiggyBank, Compass, CreditCard, Users,
+    FileText, Award, Handshake,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { MoreMenuStyle } from '@/store/themeStore';
@@ -13,6 +13,8 @@ import { useBudgets, useGoals, useAccounts } from '@/hooks/queries';
 import type { MoreAlert } from '@/hooks/useMoreAlerts';
 import { pinnedMorePages } from '@/lib/morePins';
 import { toAmount } from '@/types/finance';
+import { type } from '@/lib/typography';
+import { TextAction } from '@/components/ui/CardParts';
 
 type Item = { href: string; icon: typeof Target; label: string; sub: string };
 
@@ -116,7 +118,8 @@ function useLiveFigures(enabled: boolean): Record<string, [string, Tone]> {
     return out;
 }
 
-const TONE_COLOR: Record<string, string> = { good: 'var(--color-inc)', bad: 'var(--color-exp)', warn: 'var(--color-warn)' };
+// Text on the glass card: the AA text-colour tokens, not the fill colours.
+const TONE_COLOR: Record<string, string> = { good: 'var(--color-inc-text)', bad: 'var(--color-exp-text)', warn: 'var(--color-warn-text)' };
 
 interface MorePanelProps {
     closing: boolean;
@@ -130,14 +133,7 @@ interface MorePanelProps {
     onOpenTour?: () => void;
 }
 
-const sectionLabel: CSSProperties = {
-    fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-    color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', padding: '12px 4px 8px',
-};
-const iconBtn: CSSProperties = {
-    background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer',
-    padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)',
-};
+const sectionLabel: CSSProperties = { ...type.meta, color: 'var(--text-muted)', padding: '12px 4px 8px' };
 
 /**
  * The More card: springs up out of the dock (transform + opacity only -- no
@@ -165,22 +161,16 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                 <div ref={handleRef} style={{ flexShrink: 0, touchAction: 'none' }}>
                 <div className="more-grab" />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 14px 6px 20px' }}>
-                    <span style={{ fontSize: 'var(--text-h2)', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>More</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                        <button type="button" style={iconBtn}
-                            onClick={() => onStyleChange(style === 'grid' ? 'list' : 'grid')}
-                            aria-label={style === 'grid' ? 'Show as a list' : 'Show as a grid'}
-                            title={style === 'grid' ? 'Show as a list' : 'Show as a grid'}>
-                            {style === 'grid' ? <List size={19} /> : <LayoutGrid size={19} />}
-                        </button>
+                    <span style={type.title}>More</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                        <TextAction quiet onClick={() => onStyleChange(style === 'grid' ? 'list' : 'grid')}
+                            aria-label={style === 'grid' ? 'Show as a list' : 'Show as a grid'}>
+                            {style === 'grid' ? 'List' : 'Grid'}
+                        </TextAction>
                         {onOpenTour && (
-                            <button type="button" style={iconBtn} onClick={onOpenTour} title="Replay the app tour" aria-label="Replay the app tour">
-                                <HelpCircle size={19} />
-                            </button>
+                            <TextAction quiet onClick={onOpenTour} aria-label="Replay the app tour">Tour</TextAction>
                         )}
-                        <button type="button" style={iconBtn} onClick={onClose} aria-label="Close">
-                            <X size={19} />
-                        </button>
+                        <TextAction quiet onClick={onClose} aria-label="Close">Close</TextAction>
                     </div>
                 </div>
                 </div>
@@ -191,8 +181,8 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                         <button type="button" className={`more-rise more-attn more-attn-${top.tone} pressable`} style={rise()}
                             onClick={() => onNavigate(top.href)}>
                             <span className="more-attn-dot" aria-hidden />
-                            <span style={{ flex: 1, minWidth: 0 }}>{top.line}</span>
-                            <span aria-hidden style={{ color: 'var(--text-muted)' }}>›</span>
+                            <span style={{ ...type.body, color: 'var(--text-primary)', flex: 1, minWidth: 0 }}>{top.line}</span>
+                            <span aria-hidden style={{ ...type.meta, color: 'var(--text-muted)' }}>Open</span>
                         </button>
                     )}
                     {style === 'grid' ? (
@@ -204,11 +194,11 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                         padding: '10px', borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-2)',
                                         border: '1px solid var(--glass-border)', cursor: 'pointer', textAlign: 'left' }}
                                         onClick={() => onNavigate(href)}>
-                                        <span style={{ position: 'relative', width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--accent-subtle)' }}>
-                                            <Icon size={16} color="var(--accent)" />
+                                        <span style={{ position: 'relative', width: 28, height: 28, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--glass-fill-2)' }}>
+                                            <Icon size={16} color="var(--text-primary)" />
                                             {byHref[href] && <span className={`more-badge more-badge-${byHref[href].tone}`}>{byHref[href].badge}</span>}
                                         </span>
-                                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
+                                        <span style={{ ...type.label, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -221,11 +211,11 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                             return (
                                                 <button key={href} type="button" className="more-rise more-tile" style={rise()}
                                                     onClick={() => onNavigate(href)} aria-current={active ? 'page' : undefined}>
-                                                    <span className="more-tile-icon" style={active ? { background: 'var(--accent-subtle)', borderColor: 'var(--accent-border)' } : undefined}>
-                                                        <Icon size={20} color={active ? 'var(--accent)' : 'var(--text-primary)'} />
+                                                    <span className="more-tile-icon" style={active ? { boxShadow: 'inset 0 0 0 2px var(--text-primary)', borderColor: 'transparent' } : undefined}>
+                                                        <Icon size={20} color="var(--text-primary)" />
                                                         {byHref[href] && <span className={`more-badge more-badge-${byHref[href].tone}`}>{byHref[href].badge}</span>}
                                                     </span>
-                                                    <span style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}>{label}</span>
+                                                    <span style={{ color: active ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: active ? 500 : 400 }}>{label}</span>
                                                 </button>
                                             );
                                         })}
@@ -245,13 +235,13 @@ export const MorePanel = forwardRef<HTMLDivElement, MorePanelProps & { handleRef
                                     return (
                                         <button key={href} type="button" className="more-rise more-row pressable" style={rise()}
                                             onClick={() => onNavigate(href)} aria-current={active ? 'page' : undefined}>
-                                            <span className="more-row-icon"><Icon size={17} color={active ? 'var(--accent)' : 'var(--text-primary)'} /></span>
+                                            <span className="more-row-icon"><Icon size={17} color="var(--text-primary)" /></span>
                                             <span style={{ flex: 1, minWidth: 0, display: 'grid' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>{label}</span>
-                                                <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
+                                                <span style={type.bodyStrong}>{label}</span>
+                                                <span style={{ ...type.meta, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
                                             </span>
                                             {fig && (
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: fig[1] ? TONE_COLOR[fig[1]] : 'var(--text-secondary)' }}>
+                                                <span style={{ ...type.numSmall, whiteSpace: 'nowrap', color: fig[1] ? TONE_COLOR[fig[1]] : 'var(--text-secondary)' }}>
                                                     {fig[0]}
                                                 </span>
                                             )}

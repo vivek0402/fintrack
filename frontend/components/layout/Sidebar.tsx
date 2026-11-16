@@ -16,6 +16,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { GlobalSearch } from './GlobalSearch';
 import { useTransitionNavigate } from '@/lib/viewTransition';
 import { InstallPWA } from '@/components/ui/InstallPWA';
+import { type } from '@/lib/typography';
 
 // Always-visible daily-driver set — keeps the primary nav short
 const coreItems = [
@@ -97,17 +98,14 @@ export function Sidebar() {
                 }}>
                 <div
                     style={{
-                        position: 'relative',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
                         gap: sidebarCollapsed ? 0 : 'var(--space-3)',
                         padding: sidebarCollapsed ? '11px 0' : '11px var(--space-3)',
                         borderRadius: 'var(--radius-md)',
-                        background: isActive ? 'var(--accent-subtle)' : 'transparent',
-                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
-                        fontSize: 'var(--text-body)',
-                        fontWeight: isActive ? 600 : 400,
+                        ...(isActive ? type.bodyStrong : type.body),
+                        background: isActive ? 'var(--glass-fill-3)' : 'transparent',
                         transition: 'background var(--transition-fast), color var(--transition-fast)',
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
@@ -126,18 +124,6 @@ export function Sidebar() {
                         }
                     }}
                 >
-                    {isActive && (
-                        <span style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            width: '3px',
-                            height: '60%',
-                            borderRadius: '0 3px 3px 0',
-                            background: 'var(--accent)',
-                        }} />
-                    )}
                     <Icon size={17} color="currentColor" style={{ flexShrink: 0 }} />
                     {!sidebarCollapsed && label}
                 </div>
@@ -215,26 +201,10 @@ export function Sidebar() {
                 padding: '0 var(--space-2)',
                 marginBottom: 'var(--space-8)',
             }}>
-                <span style={{
-                    fontFamily: 'var(--font-display)',
-                    fontWeight: 800,
-                    fontSize: '21px',
-                    color: 'var(--text-primary)',
-                    letterSpacing: '-0.02em',
-                }}>
+                <span style={type.heading}>
                     Fin
+                    {!sidebarCollapsed && <span style={{ fontWeight: 500, color: 'var(--accent-text)' }}>Track</span>}
                 </span>
-                {!sidebarCollapsed && (
-                    <span style={{
-                        fontFamily: 'var(--font-display)',
-                        fontWeight: 500,
-                        fontSize: '21px',
-                        color: 'var(--accent)',
-                        letterSpacing: '-0.02em',
-                    }}>
-                        Track
-                    </span>
-                )}
             </div>
 
             {!sidebarCollapsed && <GlobalSearch />}
@@ -258,14 +228,12 @@ export function Sidebar() {
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',
                         border: 'none',
-                        color: 'var(--text-muted)',
-                        fontSize: 'var(--text-body)',
-                        fontFamily: 'var(--font-body)',
+                        ...type.body,
                         cursor: 'pointer',
                         transition: 'color var(--transition-fast)',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'; }}
                 >
                     <span style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : 'var(--space-3)' }}>
                         <MoreHorizontal size={17} color="currentColor" />
@@ -280,13 +248,9 @@ export function Sidebar() {
                     <div key={group.label} style={{ marginTop: 'var(--space-4)' }}>
                         {!sidebarCollapsed && (
                             <p style={{
-                                fontSize: 'var(--text-label)',
-                                fontWeight: 700,
+                                ...type.meta,
                                 color: 'var(--text-muted)',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.08em',
                                 margin: '0 0 var(--space-2) var(--space-3)',
-                                fontFamily: 'var(--font-body)',
                             }}>
                                 {group.label}
                             </p>
@@ -302,7 +266,7 @@ export function Sidebar() {
             <div style={{ flexShrink: 0 }}>
                 <div style={{
                     height: '1px',
-                    background: 'linear-gradient(90deg, transparent, var(--border-visible) 20%, var(--border-visible) 80%, transparent)',
+                    background: 'var(--glass-border)',
                     margin: 'var(--space-5) 0',
                 }} />
 
@@ -312,39 +276,22 @@ export function Sidebar() {
                         height: '36px',
                         borderRadius: '50%',
                         flexShrink: 0,
-                        background: 'linear-gradient(135deg, var(--accent), var(--color-inc))',
+                        background: 'var(--accent)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontFamily: 'var(--font-display)',
-                        fontSize: '13px',
-                        fontWeight: 700,
+                        ...type.meta,
+                        fontWeight: 500,
                         color: '#fff',
-                        boxShadow: '0 0 0 2px var(--bg-surface-1), 0 0 0 3px var(--accent-border)',
                     }}>
                         {initials}
                     </div>
                     {!sidebarCollapsed && (
                         <div style={{ minWidth: 0 }}>
-                            <p style={{
-                                fontSize: 'var(--text-body)',
-                                fontWeight: 600,
-                                color: 'var(--text-primary)',
-                                margin: 0,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}>
+                            <p style={{ ...type.bodyStrong, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {user?.full_name}
                             </p>
-                            <p style={{
-                                fontSize: 'var(--text-caption)',
-                                color: 'var(--text-muted)',
-                                margin: '1px 0 0 0',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}>
+                            <p style={{ ...type.meta, color: 'var(--text-muted)', margin: '1px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {user?.email}
                             </p>
                         </div>
@@ -356,7 +303,7 @@ export function Sidebar() {
                 <button
                     type="button"
                     onClick={handleLogout}
-                    title={sidebarCollapsed ? 'Logout' : undefined}
+                    title={sidebarCollapsed ? 'Log out' : undefined}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -367,16 +314,14 @@ export function Sidebar() {
                         borderRadius: 'var(--radius-md)',
                         background: 'transparent',
                         border: '1px solid transparent',
-                        color: 'var(--text-secondary)',
-                        fontSize: 'var(--text-body)',
-                        fontFamily: 'var(--font-body)',
+                        ...type.body,
                         cursor: 'pointer',
                         transition: 'background var(--transition-fast), color var(--transition-fast)',
                     }}
                     onMouseEnter={e => {
                         const el = e.currentTarget as HTMLElement;
-                        el.style.background = 'var(--color-exp-subtle)';
-                        el.style.color = 'var(--color-exp)';
+                        el.style.background = 'var(--glass-fill-2)';
+                        el.style.color = 'var(--text-primary)';
                     }}
                     onMouseLeave={e => {
                         const el = e.currentTarget as HTMLElement;
@@ -385,7 +330,7 @@ export function Sidebar() {
                     }}
                 >
                     <LogOut size={17} />
-                    {!sidebarCollapsed && 'Logout'}
+                    {!sidebarCollapsed && 'Log out'}
                 </button>
             </div>
         </aside>

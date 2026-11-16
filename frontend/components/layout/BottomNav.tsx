@@ -8,6 +8,7 @@ import { usePresence } from '@/hooks/usePresence';
 import { useThemeStore } from '@/store/themeStore';
 import { MorePanel } from './MorePanel';
 import { useMoreAlerts } from '@/hooks/useMoreAlerts';
+import { type } from '@/lib/typography';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
@@ -191,10 +192,10 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         return (
                             <a key={href} href={href} className="press-shrink" onClick={e => { e.preventDefault(); navigate(href); }}
                                 style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0 }}>
-                                <div key={active ? 'active' : 'inactive'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: active ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: active ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
-                                    <Icon size={19} color={active ? 'var(--text-primary)' : 'var(--text-muted)'} fill={active ? 'currentColor' : 'none'} />
+                                <div key={active ? 'active' : 'inactive'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: active ? 'var(--glass-fill-3)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: active ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                                    <Icon size={19} color={active ? 'var(--text-primary)' : 'var(--text-muted)'} />
                                 </div>
-                                <span style={{ fontSize: 'var(--text-caption)', color: active ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: active ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                                <span style={{ ...type.meta, color: active ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: active ? 500 : 400, transition: 'color 200ms ease', whiteSpace: 'nowrap' }}>
                                     {label}
                                 </span>
                             </a>
@@ -206,10 +207,10 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         aria-label={moreAlerts.urgent ? 'More, something needs attention' : undefined}
                         style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', flex: 1, minWidth: 0, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}>
                         {moreAlerts.urgent && !moreOpen && <span className="more-tab-dot" aria-hidden />}
-                        <div key={moreOpen ? 'open' : 'closed'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: moreActive || moreOpen ? 'rgba(255,255,255,0.15)' : 'transparent', boxShadow: moreActive || moreOpen ? 'inset 0 1px 0 rgba(255,255,255,0.18)' : undefined, transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
+                        <div key={moreOpen ? 'open' : 'closed'} style={{ width: '42px', height: '26px', borderRadius: 'var(--radius-md)', background: moreActive || moreOpen ? 'var(--glass-fill-3)' : 'transparent', transition: 'background 200ms ease', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: moreOpen ? 'popIn 380ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined }}>
                             <MoreHorizontal size={19} color={moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)'} />
                         </div>
-                        <span style={{ fontSize: 'var(--text-caption)', color: moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 600 : 400, transition: 'color 200ms ease', fontFamily: 'var(--font-body)', whiteSpace: 'nowrap' }}>
+                        <span style={{ ...type.meta, color: moreActive || moreOpen ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: moreActive || moreOpen ? 500 : 400, transition: 'color 200ms ease', whiteSpace: 'nowrap' }}>
                             More
                         </span>
                     </button>
@@ -228,7 +229,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                         borderRadius: 'var(--radius-full)', background: 'var(--accent)', border: 'none',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         cursor: 'pointer', overflow: 'hidden', padding: 0,
-                        boxShadow: '0 14px 30px -10px rgba(37,99,235,0.75), inset 0 1px 0 rgba(255,255,255,0.25)',
+                        boxShadow: 'var(--shadow-card)',
                     }}
                 >
                     <Plus size={24} color="#fff" strokeWidth={2.5} />
