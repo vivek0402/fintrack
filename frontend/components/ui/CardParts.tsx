@@ -48,15 +48,16 @@ export function TextAction({ children, onClick, quiet = false, tone, disabled, '
 }
 
 /** On/off switch. Give it a visible `label`, or an `aria-label` when the surrounding text already names it. */
-export function Switch({ checked, onChange, label, labelSide = 'right', 'aria-label': ariaLabel }: {
+export function Switch({ checked, onChange, label, labelSide = 'right', disabled, 'aria-label': ariaLabel }: {
     checked: boolean;
     onChange: (next: boolean) => void;
     label?: string;
     labelSide?: 'left' | 'right';
+    disabled?: boolean;
     'aria-label'?: string;
 }) {
     return (
-        <button type="button" role="switch" aria-checked={checked} aria-label={ariaLabel} className="fin-switch" onClick={() => onChange(!checked)}>
+        <button type="button" role="switch" aria-checked={checked} aria-label={ariaLabel} disabled={disabled} className="fin-switch" onClick={() => onChange(!checked)}>
             {label && labelSide === 'left' && label}
             <span className="fin-switch-track" aria-hidden="true" />
             {label && labelSide === 'right' && label}

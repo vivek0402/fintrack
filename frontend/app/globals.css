@@ -455,7 +455,8 @@ aside, aside nav {
   transition: background var(--transition-fast), color var(--transition-fast);
 }
 .fin-tab:hover { color: var(--text-primary); }
-.fin-tab[aria-pressed="true"] { background: var(--glass-fill-3); color: var(--text-primary); }
+.fin-tab[aria-pressed="true"], .fin-tab[aria-checked="true"] { background: var(--glass-fill-3); color: var(--text-primary); }
+.fin-tab:disabled, .fin-switch:disabled { opacity: 0.5; cursor: default; }
 .fin-tab:focus-visible, .fin-switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 @media (max-width: 767.98px) {
   .fin-tabs { display: flex; min-width: 100%; width: max-content; }

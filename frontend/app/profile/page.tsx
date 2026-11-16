@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Globe, Palette, ChevronRight, Download, Trash2, Bell, Zap, LayoutGrid, List } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { profileAPI, aiAPI, transactionsAPI } from '@/lib/api';
-import { Badge } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, Rows, Stat, Switch, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
+import { Tabs } from '@/components/ui/Tabs';
+import { type, truncate } from '@/lib/typography';
 import { useThemeStore } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
@@ -27,23 +29,18 @@ const CURRENCIES = [
     { code: 'SGD', label: 'Singapore Dollar' },
 ];
 
-const inputSt: React.CSSProperties = { width: '100%', padding: '10px 12px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
+const NOTIF_ROWS = [
+    { key: 'budgetAlerts' as const,  label: 'Budget alerts',          sub: 'When a category exceeds 80% of budget' },
+    { key: 'billReminders' as const, label: 'Bill due reminders',      sub: '3 days before a recurring bill is due' },
+    { key: 'goalAlerts' as const,    label: 'Goal milestone alerts',   sub: 'At 25%, 50%, 75%, and 100% funded' },
+    { key: 'weeklySummary' as const, label: 'Weekly spending summary', sub: 'Every Sunday with your week\'s totals' },
+];
 
-function SettingsRow({ icon, label, sub, onClick, destructive }: { icon: React.ReactNode; label: string; sub?: string; onClick?: () => void; destructive?: boolean }) {
-    return (
-        <button type="button" onClick={onClick} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: onClick ? 'pointer' : 'default', textAlign: 'left' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: destructive ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ color: destructive ? 'var(--color-exp)' : 'var(--accent)' }}>{icon}</span>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '14px', fontWeight: 500, color: destructive ? 'var(--color-exp)' : 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{label}</p>
-                {sub && <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0', fontFamily: 'var(--font-body)' }}>{sub}</p>}
-            </div>
-            {onClick && <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />}
-        </button>
-    );
-}
+const selectStyle: React.CSSProperties = {
+    ...type.body, color: 'var(--text-primary)', width: '100%', height: 40, padding: '0 var(--space-3)',
+    background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
+    outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+};
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -196,254 +193,146 @@ export default function ProfilePage() {
         : 1;
 
     const passStrength = passForm.new_password.length < 6 ? 'weak' : passForm.new_password.length < 10 ? 'good' : 'strong';
-    const passColor    = passStrength === 'weak' ? 'var(--color-exp)' : passStrength === 'good' ? 'var(--color-warn)' : 'var(--color-inc)';
-    const passWidth    = passStrength === 'weak' ? '25%' : passStrength === 'good' ? '60%' : '100%';
-
-    const sectionCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '12px' };
-    const divider: React.CSSProperties = { height: '1px', background: 'var(--border-subtle)', margin: '8px 0' };
+    const passTone = passStrength === 'weak' ? 'bad' : passStrength === 'good' ? 'caution' : 'good';
 
     return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '32px', animation: 'fadeUp 200ms ease forwards' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
 
-                {/* ── HEADER ── */}
-                <div className="glass-surface" style={{ borderRadius: 'var(--radius-xl)', padding: '24px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'white' }}>{initials}</span>
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '3px' }}>
-                                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                    {profile?.full_name || user?.full_name || 'User'}
-                                </h1>
-                                <Badge>Pro Member</Badge>
-                            </div>
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                {profile?.email || user?.email}
-                            </p>
-                        </div>
+            <div className="fin-page-head">
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.meta, margin: 0 }}>Your account and how the app behaves</p>
+                    <h1 style={{ ...type.heading, margin: 0 }}>Profile</h1>
+                </div>
+                <div className="fin-page-actions">
+                    <Button variant="secondary" onClick={() => { logout(); router.push('/login'); }}>Sign out</Button>
+                </div>
+            </div>
+
+            <Card>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ ...type.heading, color: '#fff' }}>{initials}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ ...type.heading, margin: 0, ...truncate }}>{profile?.full_name || user?.full_name || 'User'}</h2>
+                        <p style={{ ...type.meta, margin: '2px 0 0', ...truncate }}>{profile?.email || user?.email}</p>
                     </div>
                 </div>
-
-                {/* ── STATS ROW ── */}
                 {!loading && profile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                        {[
-                            { label: 'Transactions', value: profile.total_transactions ?? 0 },
-                            { label: 'Budgets',      value: profile.total_budgets      ?? 0 },
-                            { label: 'Months',       value: monthsTracked },
-                        ].map(s => (
-                            <div key={s.label} className="glass-surface" style={{ borderRadius: 'var(--radius-lg)', padding: 'var(--space-4)', textAlign: 'center' }}>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.2rem', fontWeight: 700, color: 'var(--accent)', margin: '0 0 3px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                    {s.value}
-                                </p>
-                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{s.label}</p>
-                            </div>
-                        ))}
+                    <div className="dash-stats">
+                        <Stat className="dash-stat" label="Transactions" value={profile.total_transactions ?? 0} />
+                        <Stat className="dash-stat" label="Budgets" value={profile.total_budgets ?? 0} />
+                        <Stat className="dash-stat" label="Months tracked" value={monthsTracked} />
                     </div>
                 )}
+            </Card>
 
-                {/* ── APPEARANCE CARD ── */}
-                <div className="glass-surface" style={sectionCard}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
-                        <Palette size={16} color="var(--accent)" />
-                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Appearance</h2>
-                    </div>
-
-                    {/* Mode toggle */}
-                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>Mode</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
-                        {([
-                            { key: 'light' as const, label: '☀️ Light' },
-                            { key: 'dark'  as const, label: '🌙 Dark'  },
-                        ]).map(m => (
-                            <button
-                                key={m.key}
-                                type="button"
-                                onClick={() => setTheme(m.key)}
-                                style={{
-                                    padding: '9px 8px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: theme === m.key ? 'var(--glass-fill-3)' : 'transparent',
-                                    boxShadow: theme === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                                    border: 'none', cursor: 'pointer',
-                                    fontSize: '13px', color: 'var(--text-primary)',
-                                    fontFamily: 'var(--font-body)',
-                                    fontWeight: theme === m.key ? 600 : 400,
-                                    transition: 'all 0.15s',
-                                }}
-                            >
-                                {m.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* More menu layout (phone bottom bar) -- also switchable from the menu itself */}
-                    <p style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '18px 0 8px', fontFamily: 'var(--font-body)' }}>More menu</p>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', padding: '4px', background: 'var(--glass-fill-1)', borderRadius: 'var(--radius-md)', maxWidth: '280px' }}>
-                        {([
-                            { key: 'grid' as const, label: 'Grid', Icon: LayoutGrid },
-                            { key: 'list' as const, label: 'List', Icon: List },
-                        ]).map(m => (
-                            <button
-                                key={m.key}
-                                type="button"
-                                onClick={() => setMoreMenuStyle(m.key)}
-                                aria-pressed={moreMenuStyle === m.key}
-                                style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                    padding: '9px 8px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    background: moreMenuStyle === m.key ? 'var(--glass-fill-3)' : 'transparent',
-                                    boxShadow: moreMenuStyle === m.key ? '0 1px 4px rgba(0,0,0,0.12)' : 'none',
-                                    border: 'none', cursor: 'pointer',
-                                    fontSize: '13px', color: 'var(--text-primary)',
-                                    fontFamily: 'var(--font-body)',
-                                    fontWeight: moreMenuStyle === m.key ? 600 : 400,
-                                    transition: 'background-color 0.15s, box-shadow 0.15s',
-                                }}
-                            >
-                                <m.Icon size={15} /> {m.label}
-                            </button>
-                        ))}
-                    </div>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>
-                        Grid is quickest to scan. List shows a live figure next to each page.
-                    </p>
-                </div>
-
-                {/* ── ACCOUNT SECTION ── */}
-                <div className="glass-surface" style={sectionCard}>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>Account</h2>
-
-                    {/* Edit Profile form */}
-                    <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>Personal Info</p>
-                    <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <Input label="Full Name" type="text" placeholder="Your full name" icon={<User size={15} />} value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} required />
-                        <Input label="Email Address" type="email" placeholder="your@email.com" icon={<Mail size={15} />} value={profileForm.email} onChange={e => setProfileForm({ ...profileForm, email: e.target.value })} required />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <label style={labelSt}>Currency</label>
-                            <div style={{ position: 'relative' }}>
-                                <Globe size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                                <select value={profileForm.currency} onChange={e => setProfileForm({ ...profileForm, currency: e.target.value })}
-                                    style={{ ...inputSt, paddingLeft: 36, cursor: 'pointer' }}>
+            <div className="fin-two">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                    <Card>
+                        <CardHeader title="Account" sub="Your name, email and currency" />
+                        <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                            <Input label="Full name" type="text" placeholder="Your full name" value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} required />
+                            <Input label="Email" type="email" placeholder="your@email.com" value={profileForm.email} onChange={e => setProfileForm({ ...profileForm, email: e.target.value })} required />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                                <label htmlFor="profile-currency" style={type.label}>Currency</label>
+                                <select id="profile-currency" value={profileForm.currency} onChange={e => setProfileForm({ ...profileForm, currency: e.target.value })} style={selectStyle}>
                                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
                                 </select>
                             </div>
-                        </div>
-                        <Button type="submit" isLoading={profileLoading} size="md">Save Changes</Button>
-                    </form>
-
-                    {/* Change Password — collapsed behind a row by default; a security
-                        action most people touch once a year shouldn't sit permanently
-                        open, same reasoning as the add-transaction form's "More details". */}
-                    <div style={{ ...divider, margin: '16px 0 0' }} />
-                    <button type="button" onClick={() => setPasswordFormOpen(o => !o)}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Lock size={15} color="var(--accent)" />
-                        </div>
-                        <p style={{ flex: 1, fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>Change password</p>
-                        <ChevronRight size={16} color="var(--text-muted)" style={{ flexShrink: 0, transform: passwordFormOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
-                    </button>
-
-                    {passwordFormOpen && (
-                        <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '4px' }}>
-                            <Input label="Current Password" type="password" placeholder="••••••••" icon={<Lock size={15} />} value={passForm.current_password} onChange={e => setPassForm({ ...passForm, current_password: e.target.value })} required />
-                            <Input label="New Password" type="password" placeholder="••••••••" icon={<Lock size={15} />} value={passForm.new_password} onChange={e => setPassForm({ ...passForm, new_password: e.target.value })} required />
-                            <Input label="Confirm New Password" type="password" placeholder="••••••••" icon={<Lock size={15} />} value={passForm.confirm_password} onChange={e => setPassForm({ ...passForm, confirm_password: e.target.value })} required />
-                            {passForm.new_password && (
-                                <div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Password strength</span>
-                                        <span style={{ fontSize: '11px', color: passColor, fontFamily: 'var(--font-body)', textTransform: 'capitalize' }}>{passStrength}</span>
-                                    </div>
-                                    <div style={{ height: '4px', background: 'var(--border-subtle)', borderRadius: '2px', overflow: 'hidden' }}>
-                                        <div style={{ height: '100%', width: passWidth, background: passColor, borderRadius: '2px', transition: 'all 0.3s ease' }} />
-                                    </div>
-                                </div>
-                            )}
-                            <Button type="submit" variant="secondary" isLoading={passLoading} size="md">Update Password</Button>
+                            <Button type="submit" isLoading={profileLoading} size="md">Save changes</Button>
                         </form>
-                    )}
-                </div>
 
-                {/* ── PREFERENCES SECTION (Data + App merged — each was a full card
-                     shell for one or two rows) ── */}
-                <div className="glass-surface" style={sectionCard}>
-                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>Preferences</h2>
-                    <div style={divider} />
-                    <SettingsRow icon={<Download size={16} />} label="Export Data" sub="Download all transactions as CSV" onClick={exporting ? undefined : handleExport} />
-                    <div style={divider} />
-                    <SettingsRow icon={<Trash2 size={16} />} label="Clear AI Cache" sub="Force-refresh AI analysis results" onClick={clearingCache ? undefined : handleClearCache} />
-                    <div style={divider} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <Zap size={16} color="var(--accent)" />
+                        {/* Change password stays collapsed: a security action most people touch
+                            once a year shouldn't sit permanently open. */}
+                        <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--glass-border)' }}>
+                            <TextAction onClick={() => setPasswordFormOpen(o => !o)} aria-expanded={passwordFormOpen} aria-controls="profile-password-form">
+                                Change password
+                            </TextAction>
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>Proactive spending alerts</p>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0', fontFamily: 'var(--font-body)' }}>Budget warnings and coaching on dashboard</p>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={coachEnabled}
-                            onClick={() => toggleCoach(!coachEnabled)}
-                            style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: coachEnabled ? 'var(--accent)' : 'var(--border-subtle)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
-                        >
-                            <span style={{ position: 'absolute', top: '2px', left: coachEnabled ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
-                        </button>
-                    </div>
-                </div>
 
-                {/* ── NOTIFICATIONS SECTION ── */}
-                <div className="glass-surface" style={sectionCard}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <Bell size={16} color="var(--accent)" />
-                        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Notifications</h2>
-                    </div>
-                    {([
-                        { key: 'budgetAlerts' as const,  label: 'Budget alerts',          sub: 'When a category exceeds 80% of budget' },
-                        { key: 'billReminders' as const, label: 'Bill due reminders',      sub: '3 days before a recurring bill is due' },
-                        { key: 'goalAlerts' as const,    label: 'Goal milestone alerts',   sub: 'At 25%, 50%, 75%, and 100% funded' },
-                        { key: 'weeklySummary' as const, label: 'Weekly spending summary', sub: 'Every Sunday with your week\'s totals' },
-                    ]).map(({ key, label, sub }) => (
-                        <div key={key}>
-                            <div style={divider} />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0' }}>
+                        {passwordFormOpen && (
+                            <form id="profile-password-form" onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', paddingTop: 'var(--space-2)' }}>
+                                <Input label="Current password" type="password" placeholder="••••••••" value={passForm.current_password} onChange={e => setPassForm({ ...passForm, current_password: e.target.value })} required />
+                                <Input label="New password" type="password" placeholder="••••••••" value={passForm.new_password} onChange={e => setPassForm({ ...passForm, new_password: e.target.value })} required />
+                                <Input label="Confirm new password" type="password" placeholder="••••••••" value={passForm.confirm_password} onChange={e => setPassForm({ ...passForm, confirm_password: e.target.value })} required />
+                                {passForm.new_password && (
+                                    <p style={{ ...type.meta, margin: 0 }}>
+                                        Strength: <span style={{ color: TONE_TEXT[passTone] }}>{passStrength}</span>
+                                    </p>
+                                )}
+                                <Button type="submit" variant="secondary" isLoading={passLoading} size="md">Update password</Button>
+                            </form>
+                        )}
+                    </Card>
+
+                    <Card>
+                        <CardHeader title="Your data" sub="Take it with you, or refresh the AI" />
+                        <Rows>
+                            <div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{label}</p>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '1px 0 0', fontFamily: 'var(--font-body)' }}>{sub}</p>
+                                    <p style={{ ...type.bodyStrong, margin: 0 }}>Export data</p>
+                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>Download all transactions as CSV</p>
                                 </div>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={notifPrefs[key]}
-                                    onClick={() => toggleNotif(key)}
-                                    style={{ position: 'relative', width: '44px', height: '24px', borderRadius: '12px', background: notifPrefs[key] ? 'var(--accent)' : 'var(--border-subtle)', border: 'none', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
-                                >
-                                    <span style={{ position: 'absolute', top: '2px', left: notifPrefs[key] ? '22px' : '2px', width: '20px', height: '20px', borderRadius: '50%', background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.25)', display: 'block' }} />
-                                </button>
+                                <TextAction onClick={handleExport} disabled={exporting}>{exporting ? 'Exporting' : 'Export CSV'}</TextAction>
                             </div>
-                        </div>
-                    ))}
+                            <div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, margin: 0 }}>Clear AI cache</p>
+                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>Force-refresh AI analysis results</p>
+                                </div>
+                                <TextAction onClick={handleClearCache} disabled={clearingCache}>{clearingCache ? 'Clearing' : 'Clear cache'}</TextAction>
+                            </div>
+                        </Rows>
+                    </Card>
                 </div>
 
-                {/* ── SECURITY (Android app only — renders nothing on web) ── */}
-                <SecuritySection />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                    <Card>
+                        <CardHeader title="Appearance" sub="How the app looks" />
+                        <p style={{ ...type.label, margin: '0 0 var(--space-2)' }}>Mode</p>
+                        <Tabs
+                            tabs={[{ key: 'light', label: 'Light' }, { key: 'dark', label: 'Dark' }]}
+                            active={theme}
+                            onChange={k => setTheme(k as 'light' | 'dark')}
+                        />
+                        <p style={{ ...type.label, margin: 'var(--space-4) 0 var(--space-2)' }}>More menu</p>
+                        <Tabs
+                            tabs={[{ key: 'grid', label: 'Grid' }, { key: 'list', label: 'List' }]}
+                            active={moreMenuStyle}
+                            onChange={k => setMoreMenuStyle(k as 'grid' | 'list')}
+                        />
+                        <p style={{ ...type.meta, margin: 'var(--space-2) 0 0' }}>
+                            Grid is quickest to scan. List shows a live figure next to each page.
+                        </p>
+                    </Card>
 
-                {/* ── SIGN OUT ── */}
-                <button
-                    type="button"
-                    onClick={() => { logout(); router.push('/login'); }}
-                    style={{ width: '100%', padding: '14px', background: 'color-mix(in srgb, var(--color-exp) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--color-exp) 20%, transparent)', borderRadius: 'var(--radius-lg)', color: 'var(--color-exp)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 14%, transparent)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'color-mix(in srgb, var(--color-exp) 8%, transparent)'; }}
-                >
-                    Sign Out
-                </button>
+                    <Card>
+                        <CardHeader title="Notifications" sub="What the app tells you about" />
+                        <Rows>
+                            <div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, margin: 0 }}>Spending alerts on the dashboard</p>
+                                    <p style={{ ...type.meta, margin: '2px 0 0' }}>Budget warnings and coaching</p>
+                                </div>
+                                <Switch checked={coachEnabled} onChange={toggleCoach} aria-label="Spending alerts on the dashboard" />
+                            </div>
+                            {NOTIF_ROWS.map(({ key, label, sub }) => (
+                                <div key={key}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <p style={{ ...type.bodyStrong, margin: 0 }}>{label}</p>
+                                        <p style={{ ...type.meta, margin: '2px 0 0' }}>{sub}</p>
+                                    </div>
+                                    <Switch checked={notifPrefs[key]} onChange={() => toggleNotif(key)} aria-label={label} />
+                                </div>
+                            ))}
+                        </Rows>
+                    </Card>
 
+                    {/* Android app only; renders nothing on web. */}
+                    <SecuritySection />
+                </div>
             </div>
+        </div>
     );
 }
