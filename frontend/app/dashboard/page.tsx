@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback, type ReactNode, type RefObject } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback, type ReactNode, type RefObject } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, X, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -281,6 +281,7 @@ export default function DashboardPage() {
     const [briefingExpanded, setBriefingExpanded] = useState(false);
     const [healthDetailsOpen, setHealthDetailsOpen] = useState(false);
     const [opportunitiesOpen, setOpportunitiesOpen] = useState(false);
+    const [poolHowOpen, setPoolHowOpen] = useState(false);
     const [briefTab, setBriefTab] = useState<'today' | 'week'>('today');
     // Coach alerts render as rows in the Brief card (see briefCard below).
     const coach = useCoachAlerts({ summary, budgets, goals, loading: dataLoading }, coachEnabled);
@@ -313,7 +314,6 @@ export default function DashboardPage() {
     const daysInMonth = new Date(year, month, 0).getDate();
     const daysElapsed = isCurrentMonth ? Math.max(today.getDate(), 1) : daysInMonth;
     const daysLeft    = isCurrentMonth ? daysInMonth - today.getDate() : 0;
-    const runway      = (summary?.total_income ?? 0) - (summary?.total_expenses ?? 0);
     const dailyBurn   = (summary?.total_expenses ?? 0) / daysElapsed;
 
     // ── Health Score teaser — same engine as the Insights → Health tab ──
@@ -425,14 +425,6 @@ export default function DashboardPage() {
             .map(([, v]) => v);
     }, [trends]);
 
-    // Top categories by spend (for the categories column)
-    const topCategories = useMemo(() => {
-        return [...budgets]
-            .filter((b: any) => parseFloat(b.spent) > 0)
-            .sort((a: any, b: any) => parseFloat(b.spent) - parseFloat(a.spent))
-            .slice(0, 5);
-    }, [budgets]);
-
     // Over-budget count
     const overBudget = budgets.filter(b => toAmount(b.spent) > toAmount(b.amount)).length;
 
@@ -486,7 +478,6 @@ export default function DashboardPage() {
 
     const todayAction = activeBriefTab === 'today' ? dailyBrief?.action_of_the_day : null;
     const weekAction  = activeBriefTab === 'week' ? briefing?.action_of_the_week : null;
-    const hasNotices  = !!todayAction || !!weekAction || coach.alerts.length > 0 || showUtil || showDti || opportunities.length > 0;
 
     const refreshDailyBrief = async () => {
         if (dailyBriefCooldown > 0) return;
@@ -519,6 +510,85 @@ export default function DashboardPage() {
         </button>
     );
 
+    // Needs attention: every notice in one list, most urgent first.
+    // Tier 0 bad, 1 caution, 2 info, 3 neutral; the sort is stable, so notices
+    // keep their original order within a tier.
+    const notices: { key: string; tier: 0 | 1 | 2 | 3; node: ReactNode }[] = [];
+    if (todayAction) notices.push({ key: 'today-action', tier: 2, node: <NoticeRow key="today-action" tone="info" title={todayAction} sub="Suggested for today" /> });
+    if (weekAction) notices.push({ key: 'week-action', tier: 2, node: <NoticeRow key="week-action" tone="info" title={weekAction} sub="Suggested for this week" /> });
+    coach.alerts.forEach(a => {
+        notices.push({
+            key: a.id,
+            tier: a.severity === 'danger' ? 0 : a.severity === 'warning' ? 1 : 2,
+            node: (
+                <NoticeRow key={a.id} tone={a.severity === 'danger' ? 'bad' : a.severity === 'warning' ? 'caution' : 'info'} title={a.message} sub={a.sub}>
+                    {a.actionLabel && a.href && <TextAction onClick={() => router.push(a.href!)}>{a.actionLabel}</TextAction>}
+                    {dismissButton(`Dismiss: ${a.message}`, () => coach.dismiss(a.id))}
+                </NoticeRow>
+            ),
+        });
+    });
+    // Tolerates an incomplete response (no aggregate): no notice, not a crashed dashboard.
+    if (showUtil) notices.push({
+        key: 'util', tier: 0,
+        node: (
+            <NoticeRow key="util" tone="bad" title={`Credit utilization is at ${Math.round(utilPct)}%`} sub="Above 50% can affect your credit score and loan eligibility">
+                <TextAction onClick={() => router.push('/net-worth')}>Pay down</TextAction>
+                {dismissButton('Dismiss credit utilization notice', () => setUtilAlertDismissed(true))}
+            </NoticeRow>
+        ),
+    });
+    if (showDti) notices.push({
+        key: 'dti', tier: 1,
+        node: (
+            <NoticeRow key="dti" tone="caution" title={`Debt payments take ${Math.round(dti.dti_ratio)}% of your income`} sub="The payoff optimizer can shorten this">
+                <TextAction onClick={() => router.push('/debt-intelligence')}>Open optimizer</TextAction>
+                {dismissButton('Dismiss debt-to-income notice', () => setDtiAlertDismissed(true))}
+            </NoticeRow>
+        ),
+    });
+    if (opportunities.length > 0) notices.push({
+        key: 'opportunities', tier: 3,
+        node: (
+            <React.Fragment key="opportunities">
+                <NoticeRow
+                    title={oppSavings > 0
+                        ? `${opportunities.length} ${opportunities.length === 1 ? 'way' : 'ways'} to save ${fmt(oppSavings)} a year`
+                        : `${opportunities.length} ${opportunities.length === 1 ? 'opportunity' : 'opportunities'} to review`}
+                    sub="Found in your spending">
+                    <TextAction onClick={() => setOpportunitiesOpen(v => !v)}>{opportunitiesOpen ? 'Hide' : 'Review'}</TextAction>
+                </NoticeRow>
+                {opportunitiesOpen && opportunities.map((opp: any) => {
+                    const isDismissing = dismissingIds.has(opp.id);
+                    return (
+                        <div key={opp.id} style={{ alignItems: 'flex-start', opacity: isDismissing ? 0 : 1, transition: 'opacity 250ms ease' }}>
+                            <span style={{ paddingTop: 6, display: 'flex' }}>
+                                <StatusDot tone={opp.priority === 1 ? 'bad' : opp.priority === 2 ? 'caution' : 'neutral'} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ ...type.bodyStrong, margin: 0 }}>{opp.title}</p>
+                                <p style={{ ...type.meta, margin: '2px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {opp.description}
+                                </p>
+                                {opp.amount_saved != null && (
+                                    <p style={{ ...type.numSmall, margin: '4px 0 0', color: 'var(--color-inc-text)' }}>
+                                        Save {fmt(parseFloat(opp.amount_saved))} a year
+                                    </p>
+                                )}
+                                <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 2 }}>
+                                    <TextAction onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</TextAction>
+                                    <TextAction quiet onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</TextAction>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </React.Fragment>
+        ),
+    });
+    notices.sort((a, b) => a.tier - b.tier);
+    const hasNotices = notices.length > 0;
+
     // "Label: value" pairs under a brief's narrative.
     const briefPoints = (points: any[]) => points.length > 0 && (
         <p style={{ ...type.meta, margin: '0 0 var(--space-4)', display: 'flex', flexWrap: 'wrap', gap: '4px var(--space-4)' }}>
@@ -532,7 +602,7 @@ export default function DashboardPage() {
         dailyBriefLoading && !dailyBrief ? (
             <Skeleton width="100%" height={60} borderRadius={6} style={{ marginBottom: 'var(--space-4)' }} />
         ) : dailyBriefError && !dailyBrief ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: hasNotices ? 'var(--space-4)' : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', marginBottom: 0 }}>
                 <p style={{ ...type.body, margin: 0 }}>Couldn&apos;t load today&apos;s brief.</p>
                 <TextAction onClick={() => fetchDailyBrief({ skipCache: true })}>Try again</TextAction>
             </div>
@@ -564,104 +634,62 @@ export default function DashboardPage() {
         </>
     ) : null;
 
-    const briefCard = (activeBriefTab || hasNotices) && (
-        <Card className="dash-o3">
-            <CardHeader
-                title={activeBriefTab ? 'Brief' : 'Needs attention'}
-                sub={activeBriefTab === 'today'
-                    ? new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
-                    : activeBriefTab === 'week'
-                    ? `Week of ${new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}`
-                    : undefined}
-                action={<>
-                    {activeBriefTab === 'today' && (
-                        <button type="button" className="fin-icon-btn"
-                            title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
-                            aria-label={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
-                            onClick={refreshDailyBrief}
-                            disabled={dailyBriefRefreshing || dailyBriefCooldown > 0}>
-                            <RefreshCw size={14} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
-                        </button>
-                    )}
-                    {hasDaily && hasWeekly && (
-                        <div role="tablist" aria-label="Brief period" style={{ display: 'inline-flex', gap: 2, padding: 2, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
-                            {(['today', 'week'] as const).map(k => {
-                                const on = activeBriefTab === k;
-                                return (
-                                    <button key={k} type="button" role="tab" aria-selected={on} onClick={() => setBriefTab(k)}
-                                        style={{ ...type.label, border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 'var(--radius-sm)', background: on ? 'var(--glass-fill-3)' : 'transparent', color: on ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'background var(--transition-fast), color var(--transition-fast)' }}>
-                                        {k === 'today' ? 'Today' : 'This week'}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </>}
-                flush={!briefBody && !hasNotices}
-            />
-
-            {briefBody}
-
-            {hasNotices && (
-                <Rows style={briefBody ? { borderTop: '1px solid var(--glass-border)', paddingTop: 'var(--space-3)' } : undefined}>
-                    {todayAction && <NoticeRow tone="info" title={todayAction} sub="Suggested for today" />}
-                    {weekAction && <NoticeRow tone="info" title={weekAction} sub="Suggested for this week" />}
-
-                    {coach.alerts.map(a => (
-                        <NoticeRow key={a.id} tone={a.severity === 'danger' ? 'bad' : a.severity === 'warning' ? 'caution' : 'info'} title={a.message} sub={a.sub}>
-                            {dismissButton(`Dismiss: ${a.message}`, () => coach.dismiss(a.id))}
-                        </NoticeRow>
-                    ))}
-
-                    {/* Tolerates an incomplete response (no aggregate): no notice, not a crashed dashboard. */}
-                    {showUtil && (
-                        <NoticeRow tone="bad" title={`Credit utilization is at ${Math.round(utilPct)}%`} sub="Above 50% can affect your credit score and loan eligibility">
-                            <TextAction onClick={() => router.push('/net-worth')}>Pay down</TextAction>
-                            {dismissButton('Dismiss credit utilization notice', () => setUtilAlertDismissed(true))}
-                        </NoticeRow>
-                    )}
-                    {showDti && (
-                        <NoticeRow tone="caution" title={`Debt payments take ${Math.round(dti.dti_ratio)}% of your income`} sub="The payoff optimizer can shorten this">
-                            <TextAction onClick={() => router.push('/debt-intelligence')}>Open optimizer</TextAction>
-                            {dismissButton('Dismiss debt-to-income notice', () => setDtiAlertDismissed(true))}
-                        </NoticeRow>
-                    )}
-
-                    {opportunities.length > 0 && (
-                        <NoticeRow
-                            title={oppSavings > 0
-                                ? `${opportunities.length} ${opportunities.length === 1 ? 'way' : 'ways'} to save ${fmt(oppSavings)} a year`
-                                : `${opportunities.length} ${opportunities.length === 1 ? 'opportunity' : 'opportunities'} to review`}
-                            sub="Found in your spending">
-                            <TextAction onClick={() => setOpportunitiesOpen(v => !v)}>{opportunitiesOpen ? 'Hide' : 'Review'}</TextAction>
-                        </NoticeRow>
-                    )}
-                    {opportunitiesOpen && opportunities.map((opp: any) => {
-                        const isDismissing = dismissingIds.has(opp.id);
+    // Refresh button and Today / This week switch; in the header when the brief
+    // is the whole card, on the brief's own line when notices come first.
+    const briefControls = (
+        <>
+            {activeBriefTab === 'today' && (
+                <button type="button" className="fin-icon-btn"
+                    title={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
+                    aria-label={dailyBriefCooldown > 0 ? `Wait ${dailyBriefCooldown}s to refresh again` : 'Refresh daily brief'}
+                    onClick={refreshDailyBrief}
+                    disabled={dailyBriefRefreshing || dailyBriefCooldown > 0}>
+                    <RefreshCw size={14} style={{ animation: dailyBriefRefreshing ? 'spin 0.7s linear infinite' : 'none' }} />
+                </button>
+            )}
+            {hasDaily && hasWeekly && (
+                <div role="tablist" aria-label="Brief period" style={{ display: 'inline-flex', gap: 2, padding: 2, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                    {(['today', 'week'] as const).map(k => {
+                        const on = activeBriefTab === k;
                         return (
-                            <div key={opp.id} style={{ alignItems: 'flex-start', opacity: isDismissing ? 0 : 1, transition: 'opacity 250ms ease' }}>
-                                <span style={{ paddingTop: 6, display: 'flex' }}>
-                                    <StatusDot tone={opp.priority === 1 ? 'bad' : opp.priority === 2 ? 'caution' : 'neutral'} />
-                                </span>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <p style={{ ...type.bodyStrong, margin: 0 }}>{opp.title}</p>
-                                    <p style={{ ...type.meta, margin: '2px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                        {opp.description}
-                                    </p>
-                                    {opp.amount_saved != null && (
-                                        <p style={{ ...type.numSmall, margin: '4px 0 0', color: 'var(--color-inc-text)' }}>
-                                            Save {fmt(parseFloat(opp.amount_saved))} a year
-                                        </p>
-                                    )}
-                                    <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 2 }}>
-                                        <TextAction onClick={() => handleActOnOpportunity(opp)}>{opp.action_label}</TextAction>
-                                        <TextAction quiet onClick={() => handleDismissOpportunity(opp.id)}>Dismiss</TextAction>
-                                    </div>
-                                </div>
-                            </div>
+                            <button key={k} type="button" role="tab" aria-selected={on} onClick={() => setBriefTab(k)}
+                                style={{ ...type.label, border: 'none', cursor: 'pointer', padding: '4px 10px', borderRadius: 'var(--radius-sm)', background: on ? 'var(--glass-fill-3)' : 'transparent', color: on ? 'var(--text-primary)' : 'var(--text-secondary)', transition: 'background var(--transition-fast), color var(--transition-fast)' }}>
+                                {k === 'today' ? 'Today' : 'This week'}
+                            </button>
                         );
                     })}
-                </Rows>
+                </div>
+            )}
+        </>
+    );
+
+    const briefDateSub = activeBriefTab === 'today'
+        ? new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })
+        : activeBriefTab === 'week'
+        ? `Week of ${new Date((briefing.week_of || '').split('T')[0] + 'T00:00:00').toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })}`
+        : undefined;
+
+    const needsCard = (activeBriefTab || hasNotices) && (
+        <Card className="dash-o2">
+            {hasNotices ? (
+                <>
+                    <CardHeader title="Needs attention" sub={`${notices.length} ${notices.length === 1 ? 'thing' : 'things'}, most urgent first`} />
+                    <Rows>{notices.map(n => n.node)}</Rows>
+                    {activeBriefTab && (
+                        <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--glass-border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                                <p style={{ ...type.label, margin: 0 }}>{activeBriefTab === 'today' ? "Today's brief" : "This week's brief"}</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>{briefControls}</div>
+                            </div>
+                            {briefBody}
+                        </div>
+                    )}
+                </>
+            ) : (
+                <>
+                    <CardHeader title="Brief" sub={briefDateSub} action={briefControls} flush={!briefBody} />
+                    {briefBody}
+                </>
             )}
         </Card>
     );
@@ -669,7 +697,7 @@ export default function DashboardPage() {
     // ── Stat strip under the net figure ───────────────────────────────────────
     const dailyIncome = heroIncome > 0 ? heroIncome / daysInMonth : 0;
     const loadingValue = <Skeleton width="70%" height={22} borderRadius={4} />;
-    const stats: { label: string; value: ReactNode; sub: string; tone?: Tone }[] = [
+    const stats: { label: string; value: ReactNode; sub: ReactNode; tone?: Tone }[] = [
         {
             label: 'Savings rate',
             value: `${savingsPct}%`,
@@ -677,25 +705,44 @@ export default function DashboardPage() {
             tone: savingsPct >= 20 ? 'good' : savingsPct >= 10 ? 'caution' : 'bad',
         },
         {
-            label: 'Daily spend',
-            value: fmt(dailyBurn),
-            sub: dailyBurn === 0 ? 'No spending yet'
-                : dailyIncome === 0 ? 'per day so far'
-                : dailyBurn > dailyIncome ? `${fmt(dailyBurn - dailyIncome)} above daily income` : 'Below daily income',
-            tone: dailyIncome > 0 && dailyBurn > dailyIncome ? 'caution' : 'neutral',
-        },
-        {
-            label: 'Days left',
-            value: `${daysLeft}`,
-            sub: runway >= 0 ? `${fmt(runway)} left` : `${fmt(Math.abs(runway))} deficit`,
-            tone: runway >= 0 ? 'neutral' : 'bad',
-        },
-        {
             label: 'Invested',
             value: !investmentRatio || investmentRatio.income_this_month === 0 ? '—' : `${Math.round(investmentRatio.ratio_pct)}%`,
             sub: investmentRatio ? `${fmt(investmentRatio.invested_this_month)} of income` : 'No investment data',
         },
+        {
+            label: 'Health score',
+            value: healthScoreTeaser ? String(healthScoreTeaser.score) : '—',
+            sub: healthScoreTeaser
+                ? <TextAction onClick={() => setHealthDetailsOpen(v => !v)}>{healthDetailsOpen ? 'Hide details' : `${healthScoreTeaser.label} · see why`}</TextAction>
+                : 'Add transactions to see it',
+        },
+        {
+            label: 'Days left',
+            value: `${daysLeft}`,
+            sub: isCurrentMonth ? `of ${daysInMonth}` : 'Month ended',
+            tone: 'neutral',
+        },
     ];
+
+    // The daily spend sentence for the Spending card (it used to be a stat).
+    const dailySentence = dailyBurn > 0
+        ? ` ${fmt(dailyBurn)} a day so far${dailyIncome > 0 && dailyBurn > dailyIncome ? `, ${fmt(dailyBurn - dailyIncome)} above your daily income` : ''}.`
+        : '';
+
+    // Budgets, most used first: over the limit (biggest overrun first), then
+    // fully used, then by percent used.
+    const budgetGroup = (b: any) => {
+        const spent = parseFloat(b.spent), limit = parseFloat(b.amount);
+        return limit > 0 && spent > limit ? 0 : limit > 0 && spent >= limit ? 1 : 2;
+    };
+    const budgetPct = (b: any) => { const limit = parseFloat(b.amount); return limit > 0 ? (parseFloat(b.spent) / limit) * 100 : 0; };
+    const topBudgets = [...budgets].sort((a: any, b: any) => {
+        const ga = budgetGroup(a), gb = budgetGroup(b);
+        if (ga !== gb) return ga - gb;
+        if (ga === 0) return (parseFloat(b.spent) - parseFloat(b.amount)) - (parseFloat(a.spent) - parseFloat(a.amount));
+        return budgetPct(b) - budgetPct(a);
+    }).slice(0, 4);
+    const hasSpendTop = !dataLoading && (!!guiltFreeData || dailyBurn > 0);
 
     const hasCards = (creditUtilization?.per_card?.length ?? 0) > 0;
 
@@ -761,10 +808,10 @@ export default function DashboardPage() {
                             </div>
                         </Card>
 
-                        {briefCard}
+                        {needsCard}
 
                         {/* ── RECENT TRANSACTIONS ── */}
-                        <Card className="dash-o5">
+                        <Card className="dash-o4">
                             <CardHeader title="Recent transactions" action={<TextAction onClick={() => router.push('/transactions')}>View all</TextAction>} flush={!dataLoading && transactions.length === 0} />
                             {dataLoading ? (
                                 <Rows>
@@ -812,27 +859,41 @@ export default function DashboardPage() {
 
                     <div className="dash-col">
 
-                        {/* ── FREE TO SPEND (what is left after budgets and goal savings) ── */}
-                        {!dataLoading && guiltFreeData && (
-                            <Card className="dash-o2">
-                                <p style={{ ...type.label, margin: 0 }}>Free to spend</p>
-                                <p style={{ ...type.figure, margin: '4px 0 14px', color: guiltFreeData.remaining > 0 ? 'var(--text-primary)' : 'var(--color-warn-text)', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
-                                    {fmt(guiltFreeData.remaining)}
-                                </p>
-                                <ProgressBar pct={guiltFreeData.usedPct} height={6} color={guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)'} />
-                                <p style={{ ...type.meta, margin: '10px 0 0' }}>
-                                    {fmt(guiltFreeData.unbudgetedSpent)} of a {fmt(guiltFreeData.pool)} pool used.
-                                    {' '}The pool is {fmt(guiltFreeData.income)} income minus {fmt(guiltFreeData.totalBudgeted)} in budgets{guiltFreeData.goalMonthly > 0 ? ` and ${fmt(guiltFreeData.goalMonthly)} for goals` : ''}.
-                                </p>
-                            </Card>
-                        )}
+                        {/* ── SPENDING: free to spend, then budgets most used first ── */}
+                        <Card className="dash-o3">
+                            <CardHeader title="Spending" flush
+                                action={<TextAction onClick={() => router.push('/budgets')}>{budgets.length === 0 && !dataLoading ? 'Set budgets' : 'See all budgets'}</TextAction>} />
 
-                        {/* ── BUDGETS ── */}
-                        <Card className="dash-o4">
-                            <CardHeader title="Budgets"
-                                sub={overBudget > 0 ? <span style={{ color: 'var(--color-exp-text)' }}>{overBudget} over limit</span> : undefined}
-                                action={<TextAction onClick={() => router.push('/budgets')}>{!dataLoading && budgets.length === 0 ? 'Set budgets' : 'See all'}</TextAction>}
-                                flush={!dataLoading && budgets.length === 0} />
+                            {!dataLoading && guiltFreeData ? (
+                                <div style={{ marginTop: 'var(--space-4)' }}>
+                                    <p style={{ ...type.label, margin: 0 }}>Free to spend</p>
+                                    <p style={{ ...type.figure, margin: '4px 0 14px', color: guiltFreeData.remaining > 0 ? 'var(--text-primary)' : 'var(--color-warn-text)', animation: 'numberReveal 400ms cubic-bezier(0.22,1,0.36,1) both' }}>
+                                        {fmt(guiltFreeData.remaining)}
+                                    </p>
+                                    <ProgressBar pct={guiltFreeData.usedPct} height={6} color={guiltFreeData.usedPct > 80 ? 'var(--color-warn)' : 'var(--color-inc)'} />
+                                    <p style={{ ...type.meta, margin: '10px 0 0' }}>
+                                        {fmt(guiltFreeData.unbudgetedSpent)} of a {fmt(guiltFreeData.pool)} pool used.{dailySentence}
+                                        {' '}
+                                        <TextAction quiet onClick={() => setPoolHowOpen(v => !v)}>{poolHowOpen ? 'Hide' : 'See how'}</TextAction>
+                                    </p>
+                                    {poolHowOpen && (
+                                        <p style={{ ...type.meta, margin: '6px 0 0' }}>
+                                            The pool is {fmt(guiltFreeData.income)} income minus {fmt(guiltFreeData.totalBudgeted)} in budgets{guiltFreeData.goalMonthly > 0 ? ` and ${fmt(guiltFreeData.goalMonthly)} for goals` : ''}.
+                                        </p>
+                                    )}
+                                </div>
+                            ) : !dataLoading && dailyBurn > 0 ? (
+                                <p style={{ ...type.meta, margin: 'var(--space-4) 0 0' }}>{dailySentence.trim()}</p>
+                            ) : null}
+
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-3)',
+                                margin: 'var(--space-5) 0 var(--space-3)',
+                                ...(hasSpendTop ? { paddingTop: 'var(--space-4)', borderTop: '1px solid var(--glass-border)' } : null),
+                            }}>
+                                <p style={{ ...type.label, margin: 0 }}>Budgets, most used first</p>
+                                {overBudget > 0 && <span style={{ ...type.meta, color: 'var(--color-exp-text)' }}>{overBudget} over</span>}
+                            </div>
                             {dataLoading ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                                     {[1, 2].map(i => <div key={i}><Skeleton width="50%" height={12} borderRadius={4} style={{ marginBottom: '6px' }} /><Skeleton width="100%" height={4} borderRadius={999} /></div>)}
@@ -841,16 +902,17 @@ export default function DashboardPage() {
                                 <p style={{ ...type.body, margin: 'var(--space-2) 0 0' }}>No budgets for this month yet.</p>
                             ) : (
                                 <Rows>
-                                    {budgets.slice(0, 4).map((b: any) => {
+                                    {topBudgets.map((b: any) => {
                                         const spent = parseFloat(b.spent), limit = parseFloat(b.amount);
                                         const pct  = limit > 0 ? (spent / limit) * 100 : 0;
                                         const over = pct > 100;
+                                        const full = limit > 0 && spent === limit;
                                         return (
                                             <div key={b.id ?? b.category_id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-2)' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--space-3)' }}>
                                                     <span style={{ ...type.bodyStrong, ...truncate, minWidth: 0 }}>{b.name ?? b.category_name}</span>
                                                     <span style={{ ...type.numSmall, flexShrink: 0, color: over ? 'var(--color-exp-text)' : 'var(--text-secondary)' }}>
-                                                        {over ? `${fmt(spent - limit)} over` : `${fmt(spent)} / ${fmt(limit)}`}
+                                                        {over ? `${fmt(spent - limit)} over` : full ? 'Fully used' : `${fmt(spent)} / ${fmt(limit)}`}
                                                     </span>
                                                 </div>
                                                 <ProgressBar pct={pct} height={4} color={pct >= 85 ? 'var(--color-warn)' : 'var(--text-secondary)'} />
@@ -859,36 +921,6 @@ export default function DashboardPage() {
                                     })}
                                 </Rows>
                             )}
-                        </Card>
-
-                        {/* ── TOP CATEGORIES ── */}
-                        <Card className="dash-o6">
-                            <CardHeader title="Top categories" action={<TextAction onClick={() => router.push('/analytics')}>See all</TextAction>} flush={!dataLoading && topCategories.length === 0} />
-                            {dataLoading ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                                    {[1, 2, 3].map(i => <Skeleton key={i} width="100%" height={14} borderRadius={4} />)}
-                                </div>
-                            ) : topCategories.length === 0 ? (
-                                <p style={{ ...type.body, margin: 'var(--space-2) 0 0' }}>No spending recorded yet.</p>
-                            ) : (
-                                <Rows>
-                                    {topCategories.map((b: any) => (
-                                        <div key={b.id ?? b.category_id}>
-                                            <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{b.name ?? b.category_name}</span>
-                                            <span style={{ ...type.num, flexShrink: 0 }}>{fmt(parseFloat(b.spent))}</span>
-                                        </div>
-                                    ))}
-                                </Rows>
-                            )}
-                        </Card>
-
-                        {/* ── FINANCIAL HEALTH: score here, the detail widgets open below the grid ── */}
-                        <Card className="dash-o7">
-                            <CardHeader flush title="Financial health"
-                                sub={healthScoreTeaser
-                                    ? <>{healthScoreTeaser.label} · <span style={{ ...type.numSmall, color: 'var(--text-primary)' }}>{healthScoreTeaser.score} / 100</span></>
-                                    : 'Add transactions to see your score'}
-                                action={<TextAction onClick={() => setHealthDetailsOpen(v => !v)}>{healthDetailsOpen ? 'Hide details' : 'Details'}</TextAction>} />
                         </Card>
                     </div>
                 </div>

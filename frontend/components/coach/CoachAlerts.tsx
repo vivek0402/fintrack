@@ -13,6 +13,9 @@ export interface CoachAlert {
   severity: 'danger' | 'warning' | 'info';
   message: string;
   sub?: string;
+  /** Optional link shown on the notice row. */
+  actionLabel?: string;
+  href?: string;
 }
 
 export interface CoachAlertsProps {
@@ -22,7 +25,7 @@ export interface CoachAlertsProps {
   loading: boolean;
 }
 
-function buildAlerts(
+export function buildAlerts(
   summary: CoachAlertsProps['summary'],
   budgets: any[],
   goals: Goal[],
@@ -49,6 +52,8 @@ function buildAlerts(
         severity: pct >= 100 ? 'danger' : 'warning',
         message: `${b.name ?? b.category_name} budget is ${Math.round(pct)}% used`,
         sub: `${daysLeft} days left this month`,
+        actionLabel: 'Adjust limit',
+        href: '/budgets',
       });
     }
   }
@@ -70,6 +75,8 @@ function buildAlerts(
         severity: 'warning',
         message: `${g.name} goal is ${Math.round(pct)}% funded`,
         sub: `Needs ${fmt(monthlyNeeded)}/mo to hit deadline`,
+        actionLabel: 'View goal',
+        href: '/goals',
       });
     }
   }
@@ -85,6 +92,8 @@ function buildAlerts(
         id: `rec-${r.id}`,
         severity: 'info',
         message: `${r.description} ${fmt(parseFloat(r.amount))} due ${daysUntil === 0 ? 'today' : `in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`}`,
+        actionLabel: 'View',
+        href: '/budgets?tab=recurring',
       });
     }
   }
@@ -100,6 +109,8 @@ function buildAlerts(
         severity: 'warning',
         message: `Spending ~${Math.round(weekPct)}% of monthly budget per week`,
         sub: `${fmt(expenses)} spent in ${daysElapsed} days`,
+        actionLabel: 'See budgets',
+        href: '/budgets',
       });
     }
   }
