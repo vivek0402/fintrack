@@ -4,15 +4,14 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-    AreaChart, Area, LineChart, Line, PieChart, Pie, Cell,
+    LineChart, Line,
     XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer,
 } from 'recharts';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/toastStore';
-import { analyticsAPI, transactionsAPI, aiAPI, accountsAPI, insightsAPI } from '@/lib/api';
+import { analyticsAPI, transactionsAPI, aiAPI, insightsAPI } from '@/lib/api';
 import { GCard } from '@/components/ui/GCard';
-import { Badge } from '@/components/ui/Badge';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { useThemeStore } from '@/store/themeStore';
@@ -20,12 +19,14 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { CountUp } from '@/components/ui/CountUp';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, Rows, Stat, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUserQuery, useAccounts, fetchAnalyticsOverview } from '@/hooks/queries';
+import { useUserQuery, fetchAnalyticsOverview } from '@/hooks/queries';
 import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
-    Download, Sparkles, RefreshCw, Wallet, TrendingUp, TrendingDown, ChevronLeft, ChevronDown, ChevronRight, Brain, CheckCircle2, AlertTriangle,
+    Download, RefreshCw, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Brain, CheckCircle2, AlertTriangle,
     FileText, Search, Camera, BarChart3,
 } from 'lucide-react';
 const NO_ROWS: any[] = [];
@@ -43,19 +44,28 @@ const CalendarTab = dynamic(() => import('@/components/analytics/CalendarTab').t
 const HealthTab = dynamic(() => import('@/components/analytics/health/HealthTab').then(m => m.HealthTab), { ssr: false, loading: vizSkeleton(400) });
 import { exportToCSV, formatDate, fmt, isNonSavingsExpense, isRealIncome } from '@/lib/utils';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
+import { type, truncate } from '@/lib/typography';
+import { shareRows, comparePeriod, dayOfWeekSummary } from '@/lib/analytics';
 
-// Every section of the page is a visible chip (the row scrolls horizontally on
-// mobile). Deep links land here too: /reports, /year-review, /insights and
+// One row of tabs, always visible (the row scrolls sideways on mobile).
+// Overview, Spending, Income and Trends share one data view and period.
+// Deep links land here too: /reports, /year-review, /insights and
 // /health-score all redirect to ?tab=<key>.
 const OUTER_TABS = [
     { key: 'overview',    label: 'Overview' },
+    { key: 'spending',    label: 'Spending' },
+    { key: 'income',      label: 'Income' },
+    { key: 'trends',      label: 'Trends' },
     { key: 'health',      label: 'Health' },
     { key: 'insights',    label: 'Insights' },
     { key: 'reports',     label: 'Reports' },
-    { key: 'year-review', label: 'Year Review' },
+    { key: 'year-review', label: 'Year review' },
     { key: 'calendar',    label: 'Calendar' },
 ];
 const ALL_TAB_KEYS = OUTER_TABS.map(t => t.key);
+
+type DataSection = 'overview' | 'spending' | 'income' | 'trends';
+const isDataSection = (t: string): t is DataSection => t === 'overview' || t === 'spending' || t === 'income' || t === 'trends';
 
 const MONTH_NAMES = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -64,17 +74,16 @@ const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 // This ensures charts update when the theme changes.
 type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; };
 // Values mirror DESIGN.md's dark theme (default) tokens: --color-inc,
-// --accent (used for `exp`/`accent2` in this chart, not --color-exp -- see
-// readChartColors() below), --accent-subtle, --border-subtle, --text-muted,
-// --bg-surface-1. Only used for the brief pre-hydration/SSR window.
-const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#2563eb', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080' };
+// --color-exp, --accent (used for `accent2`), --accent-subtle, --border-subtle,
+// --text-muted. Only used for the brief pre-hydration/SSR window.
+const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#dc2626', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080' };
 function readChartColors(): ChartColors {
     if (typeof document === 'undefined') return DEFAULT_CC;
     const s = getComputedStyle(document.documentElement);
     const g = (v: string, fallbackKey: keyof ChartColors) => s.getPropertyValue(v).trim() || DEFAULT_CC[fallbackKey] || '';
     return {
         inc: g('--color-inc', 'inc'),
-        exp: g('--accent', 'exp'),
+        exp: g('--color-exp', 'exp'),
         accent2: g('--accent', 'accent2'),
         tint: g('--accent-subtle', 'tint'),
         border: g('--border-subtle', 'border'),
@@ -83,13 +92,16 @@ function readChartColors(): ChartColors {
 }
 
 // ── Shared custom tooltip ──────────────────────────────────────────────────────
+const tooltipBox: React.CSSProperties = { background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 14px', boxShadow: 'var(--shadow-card)' };
+
 function ChartTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '10px 14px', boxShadow: 'var(--shadow-card)' }}>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{label}</p>
+        <div style={tooltipBox}>
+            <p style={{ ...type.label, margin: '0 0 6px' }}>{label}</p>
             {payload.map((p: any) => (
-                <p key={p.name} style={{ fontSize: '13px', color: p.stroke || p.fill, margin: '3px 0', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                <p key={p.name} style={{ ...type.numSmall, margin: '3px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span aria-hidden="true" style={{ width: 8, height: 2, background: p.stroke || p.fill, flexShrink: 0 }} />
                     {p.name}: {fmt(p.value)}
                 </p>
             ))}
@@ -97,19 +109,48 @@ function ChartTooltip({ active, payload, label }: any) {
     );
 }
 
-// ── Section header ─────────────────────────────────────────────────────────────
-function SectionHead({ title }: { title: string }) {
-    return <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 14px' }}>{title}</h2>;
+function SavingsTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={tooltipBox}>
+            <p style={{ ...type.label, margin: '0 0 6px' }}>{label}</p>
+            <p style={{ ...type.numSmall, margin: 0 }}>Savings rate: {payload[0].value}%</p>
+        </div>
+    );
 }
 
+// ── Page header + tabs, shared by every tab ───────────────────────────────────
+function AnalyticsHead({ tab, onTabChange, actions }: { tab: string; onTabChange: (key: string) => void; actions?: React.ReactNode }) {
+    return (
+        <>
+            <div className="fin-page-head">
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.meta, margin: 0 }}>Where your money comes from and goes</p>
+                    <h1 style={{ ...type.heading, margin: 0 }}>Analytics</h1>
+                </div>
+                <div className="fin-page-actions">{actions}</div>
+            </div>
+            <Tabs tabs={OUTER_TABS} active={tab} onChange={onTabChange} />
+        </>
+    );
+}
+
+// Show / Hide card for the heavy visuals: the body renders only when open.
+function ToggleCard({ title, sub, open, onToggle, children }: { title: string; sub: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+    return (
+        <Card>
+            <CardHeader title={title} sub={sub} flush={!open}
+                action={<TextAction onClick={onToggle}>{open ? 'Hide' : 'Show'}</TextAction>} />
+            {open && children}
+        </Card>
+    );
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
-// OVERVIEW TAB (formerly /analytics)
+// OVERVIEW / SPENDING / INCOME / TRENDS (formerly /analytics)
 // ═══════════════════════════════════════════════════════════════════════════
-function AnalyticsOverviewTab() {
+function AnalyticsDataTabs({ section, onTabChange }: { section: DataSection; onTabChange: (key: string) => void }) {
     const chartAnim = useChartAnimation('analytics-overview', 700);
-    const router = useRouter();
-    const { user } = useAuthStore();
     const { theme } = useThemeStore();
     const isMobile = useIsMobile();
     const [cc, setCc] = useState<ChartColors>(DEFAULT_CC);
@@ -123,24 +164,27 @@ function AnalyticsOverviewTab() {
     const currentYear  = selYear;
     const isCurrentMonth = currentMonth === _nowMonth && currentYear === _nowYear;
     const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
+    // Spending and Trends always work in single months; only Overview and Income follow the period choice.
+    const followsPeriod = section === 'overview' || section === 'income';
+    const effectivePeriod: 'month' | 'quarter' | 'year' = followsPeriod ? period : 'month';
 
     const currentQuarter = Math.ceil(currentMonth / 3);
-    const isCurrentPeriod = period === 'year'
+    const isCurrentPeriod = effectivePeriod === 'year'
         ? currentYear === _nowYear
-        : period === 'quarter'
+        : effectivePeriod === 'quarter'
         ? currentQuarter === Math.ceil(_nowMonth / 3) && currentYear === _nowYear
         : isCurrentMonth;
 
-    const navLabel = period === 'year'
+    const navLabel = effectivePeriod === 'year'
         ? String(currentYear)
-        : period === 'quarter'
+        : effectivePeriod === 'quarter'
         ? `Q${currentQuarter} ${currentYear}`
         : `${FULL_MONTHS[currentMonth]} ${currentYear}`;
 
     const goToPrev = () => {
-        if (period === 'year') {
+        if (effectivePeriod === 'year') {
             setSelYear(y => y - 1);
-        } else if (period === 'quarter') {
+        } else if (effectivePeriod === 'quarter') {
             if (currentQuarter === 1) { setSelMonth(10); setSelYear(y => y - 1); }
             else setSelMonth((currentQuarter - 2) * 3 + 1);
         } else {
@@ -150,9 +194,9 @@ function AnalyticsOverviewTab() {
     };
     const goToNext = () => {
         if (isCurrentPeriod) return;
-        if (period === 'year') {
+        if (effectivePeriod === 'year') {
             setSelYear(y => y + 1);
-        } else if (period === 'quarter') {
+        } else if (effectivePeriod === 'quarter') {
             if (currentQuarter === 4) { setSelMonth(1); setSelYear(y => y + 1); }
             else setSelMonth(currentQuarter * 3 + 1);
         } else {
@@ -185,27 +229,14 @@ function AnalyticsOverviewTab() {
     const yearTransactions: any[] = useUserQuery('transactions-year', [currentYear],
         async () => (await transactionsAPI.getAll({ year: currentYear })).data.transactions ?? [],
         { persist: false }).data ?? NO_ROWS;
-    const accountsQuery = useAccounts();
-    const accounts: any[] = accountsQuery.data ?? NO_ROWS;
-    const accountsLoading = accountsQuery.isPending;
     const [allocationPlan, setAllocationPlan]   = useState<any>(null);
     const [allocationLoading, setAllocationLoading] = useState(false);
     const [allocationError, setAllocationError] = useState('');
     const [planGenerated, setPlanGenerated]     = useState(false);
 
-    const [showHeatmap,       setShowHeatmap]       = useState(true);
-    const [showSankey,        setShowSankey]        = useState(true);
-    const [showTrajectory,    setShowTrajectory]    = useState(true);
-
-    // The Overview/Spending/Income/Trends sections used to just be comment-labeled
-    // blocks stacked in one long scroll -- promoted to a real sub-tab switch.
-    const [innerTab, setInnerTab] = useState<'overview' | 'spending' | 'income' | 'trends'>('overview');
-    const INNER_TABS: { key: typeof innerTab; label: string }[] = [
-        { key: 'overview', label: 'Overview' },
-        { key: 'spending', label: 'Spending' },
-        { key: 'income',   label: 'Income' },
-        { key: 'trends',   label: 'Trends' },
-    ];
+    const [showHeatmap,       setShowHeatmap]       = useState(false);
+    const [showSankey,        setShowSankey]        = useState(false);
+    const [showTrajectory,    setShowTrajectory]    = useState(false);
 
     // Re-read CSS custom properties whenever theme changes
     useEffect(() => { setCc(readChartColors()); }, [theme]);
@@ -233,7 +264,7 @@ function AnalyticsOverviewTab() {
         return map;
     }, [trends]);
 
-    // Ordered month list for area chart
+    // Ordered month list for the trend charts
     const areaData = useMemo(() => {
         const entries = Object.entries(trendsMap).map(([key, v]) => {
             const [y, m] = key.split('-');
@@ -253,20 +284,15 @@ function AnalyticsOverviewTab() {
         });
         return days.map((day, i) => ({ day, amount: totals[i] }));
     }, [allTransactions]);
-    const maxWeeklyAmt = Math.max(...weeklyData.map(d => d.amount), 1);
 
     // Monthly income trend for the Income tab
     const incomeAreaData = useMemo(() => areaData.map(d => ({ month: d.month, income: d.income })), [areaData]);
 
     // KPI computations
-    const totalExpenses     = categories.reduce((s, c) => s + parseFloat(c.total ?? 0), 0);
-    const savingsRate       = summary && summary.total_income > 0 ? Math.max(0, Math.round(((summary.total_income - summary.total_expenses) / summary.total_income) * 100)) : 0;
     const lastMonthKey      = (() => { let m = currentMonth - 1, y = currentYear; if (m === 0) { m = 12; y--; } return `${y}-${m}`; })();
     const lastMonthExp      = trendsMap[lastMonthKey]?.expenses ?? 0;
     const lastMonthInc      = trendsMap[lastMonthKey]?.income ?? 0;
     const vsLastMonth       = lastMonthExp > 0 ? Math.round(((( summary?.total_expenses ?? 0) - lastMonthExp) / lastMonthExp) * 100) : null;
-    const incVsLastMonth    = lastMonthInc > 0 ? Math.round((((summary?.total_income ?? 0) - lastMonthInc) / lastMonthInc) * 100) : null;
-    const totalBalance      = accounts.reduce((s: number, a: any) => s + parseFloat(a.current_balance ?? a.starting_balance ?? 0), 0);
 
     const getYearlyTotal = (year: number, type: string) => {
         if (!yearlyData) return 0;
@@ -276,7 +302,7 @@ function AnalyticsOverviewTab() {
     const pctChange = (curr: number, last: number) => last === 0 ? null : ((curr - last) / last * 100).toFixed(1);
 
     const periodStats = useMemo(() => {
-        if (period === 'month') {
+        if (effectivePeriod === 'month') {
             const spent = summary?.total_expenses ?? 0;
             const income = summary?.total_income ?? 0;
             const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -288,17 +314,22 @@ function AnalyticsOverviewTab() {
                 vsLast: vsLastMonth,
                 vsLabel: 'vs Last Month',
                 periodLabel: FULL_MONTHS[currentMonth],
+                days: daysEl,
+                income,
+                previousSpent: lastMonthExp,
+                previousIncome: lastMonthInc,
+                prevName: FULL_MONTHS[currentMonth === 1 ? 12 : currentMonth - 1],
             };
         }
-        if (period === 'quarter') {
+        if (effectivePeriod === 'quarter') {
             const q = Math.ceil(currentMonth / 3);
             const qMonths = [q * 3 - 2, q * 3 - 1, q * 3];
             let qExp = 0, qInc = 0;
             qMonths.forEach(m => { const e = trendsMap[`${currentYear}-${m}`]; if (e) { qExp += e.expenses; qInc += e.income; } });
             const pq = q === 1 ? 4 : q - 1;
             const pqYear = q === 1 ? currentYear - 1 : currentYear;
-            let pqExp = 0;
-            [pq * 3 - 2, pq * 3 - 1, pq * 3].forEach(m => { const e = trendsMap[`${pqYear}-${m}`]; if (e) pqExp += e.expenses; });
+            let pqExp = 0, pqInc = 0;
+            [pq * 3 - 2, pq * 3 - 1, pq * 3].forEach(m => { const e = trendsMap[`${pqYear}-${m}`]; if (e) { pqExp += e.expenses; pqInc += e.income; } });
             const qStart = new Date(currentYear, (q - 1) * 3, 1);
             const qEnd = new Date(currentYear, q * 3, 0);
             const today = new Date();
@@ -312,12 +343,18 @@ function AnalyticsOverviewTab() {
                 vsLast: pqExp > 0 ? Math.round(((qExp - pqExp) / pqExp) * 100) : null,
                 vsLabel: 'vs Last Quarter',
                 periodLabel: `Q${q} ${currentYear}`,
+                days: daysEl,
+                income: qInc,
+                previousSpent: pqExp,
+                previousIncome: pqInc,
+                prevName: `Q${pq} ${pqYear}`,
             };
         }
         // year
         const yExp = getYearlyTotal(currentYear, 'expense');
         const yInc = getYearlyTotal(currentYear, 'income');
         const pyExp = getYearlyTotal(currentYear - 1, 'expense');
+        const pyInc = getYearlyTotal(currentYear - 1, 'income');
         const today = new Date();
         const yearStart = new Date(currentYear, 0, 1);
         const daysEl = currentYear === _nowYear ? Math.round((today.getTime() - yearStart.getTime()) / 86400000) + 1 : 365;
@@ -328,16 +365,13 @@ function AnalyticsOverviewTab() {
             vsLast: pyExp > 0 ? Math.round(((yExp - pyExp) / pyExp) * 100) : null,
             vsLabel: 'vs Last Year',
             periodLabel: String(currentYear),
+            days: daysEl,
+            income: yInc,
+            previousSpent: pyExp,
+            previousIncome: pyInc,
+            prevName: String(currentYear - 1),
         };
-    }, [period, summary, trendsMap, currentMonth, currentYear, isCurrentMonth, vsLastMonth, yearlyData, _nowYear]);
-
-    const hexToRgba = (hex: string, alpha: number) => {
-        if (hex.startsWith('rgb')) return hex; // already rgba — just return
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${alpha})`;
-    };
+    }, [effectivePeriod, summary, trendsMap, currentMonth, currentYear, isCurrentMonth, vsLastMonth, lastMonthExp, lastMonthInc, yearlyData, _nowYear]);
 
     const merchantData = useMemo(() => {
         const map: Record<string, { total: number; count: number }> = {};
@@ -361,7 +395,6 @@ function AnalyticsOverviewTab() {
                 rate: d.income > 0 ? Math.round(((d.income - d.expenses) / d.income) * 100) : 0,
             })),
     [areaData]);
-    const maxMerchantTotal = merchantData.length > 0 ? merchantData[0].total : 1;
 
     const handleGeneratePlan = async (force?: boolean) => {
         setAllocationLoading(true); setAllocationError('');
@@ -375,569 +408,414 @@ function AnalyticsOverviewTab() {
         } finally { setAllocationLoading(false); }
     };
 
-    // ── Shared card wrapper ───────────────────────────────────────────────────
-    const sectionCard: React.CSSProperties = { borderRadius: 'var(--radius-lg)', padding: '20px', marginBottom: '16px' };
+    // ── Figures shared by the sections ────────────────────────────────────────
+    const { totalSpent, income, previousSpent, previousIncome, prevName, periodLabel, savingsRate, days } = periodStats;
+    const kept = income - totalSpent;
+    const spendCompare = comparePeriod(totalSpent, previousSpent, prevName);
+    const incomeCompare = previousIncome > 0 ? comparePeriod(income, previousIncome, prevName, true) : null;
+    const dayWord = `${days} day${days !== 1 ? 's' : ''}`;
+
+    const categoryRows = useMemo(
+        () => shareRows(categories.map((c: any) => ({ name: c.name, total: parseFloat(c.total), color: c.color })), 6),
+        [categories],
+    );
+    const dow = useMemo(() => dayOfWeekSummary(weeklyData.map(d => d.amount)), [weeklyData]);
+    const pmPct = (pm: any) => (paymentTotal > 0 ? Math.round((parseFloat(String(pm.total)) / paymentTotal) * 100) : 0);
+    const topMethod = paymentMethods.reduce<any>((best, pm) => (!best || parseFloat(String(pm.total)) > parseFloat(String(best.total)) ? pm : best), null);
+    const topMerchant = merchantData[0];
+    const topCategory = categoryRows[0];
+
+    const hasTrend = areaData.length > 0;
+    const axisTick = { fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' };
+
+    // The summary card's label and display figure, shared by Overview and Spending.
+    const summaryHead = (label: string, figure: number) => (
+        <>
+            <p style={{ ...type.label, margin: 0 }}>{label}</p>
+            <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{fmt(figure)}</p>
+        </>
+    );
 
     return (
         <>
-            {/* ── HEADER ── */}
-            <div className="glass-surface" style={{ ...sectionCard, marginBottom: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 3px' }}>Analytics</h1>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <button onClick={goToPrev} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', borderRadius: '4px' }} aria-label="Previous period">
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', userSelect: 'none' }}>{navLabel} — spending overview</span>
-                            <button onClick={goToNext} disabled={isCurrentPeriod} style={{ display: 'flex', alignItems: 'center', padding: '2px', background: 'none', border: 'none', cursor: isCurrentPeriod ? 'default' : 'pointer', color: isCurrentPeriod ? 'var(--border-subtle)' : 'var(--text-muted)', borderRadius: '4px' }} aria-label="Next period">
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    </div>
-                    <button type="button" className="glass-field" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                        <Download size={14} /> Export
+            <AnalyticsHead tab={section} onTabChange={onTabChange}
+                actions={<Button variant="secondary" onClick={() => void exportToCSV(allTransactions, 'fintrack-all.csv')}>Export CSV</Button>} />
+
+            {/* ── PERIOD ── */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
+                    <button type="button" className="fin-icon-btn" onClick={goToPrev} aria-label="Previous period">
+                        <ChevronLeft size={16} />
+                    </button>
+                    <span style={{ ...type.title, userSelect: 'none' }}>{navLabel}</span>
+                    <button type="button" className="fin-icon-btn" onClick={goToNext} disabled={isCurrentPeriod} aria-label="Next period">
+                        <ChevronRight size={16} />
                     </button>
                 </div>
-            </div>
-
-            {/* ── INNER SUB-TABS ── */}
-            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
-                {INNER_TABS.map(t => {
-                    const isActive = innerTab === t.key;
-                    return (
-                        <button
-                            key={t.key}
-                            type="button"
-                            onClick={() => setInnerTab(t.key)}
-                            className={isActive ? undefined : 'glass-field'}
+                {followsPeriod && <div style={{ display: 'inline-flex', gap: 2, padding: 3, borderRadius: 'var(--radius-md)', background: 'var(--glass-fill-1)' }}>
+                    {(['month', 'quarter', 'year'] as const).map(p => (
+                        <button key={p} type="button" aria-pressed={period === p} onClick={() => handleSetPeriod(p)}
                             style={{
-                                padding: '7px 15px', borderRadius: 999, border: 'none',
-                                background: isActive ? 'var(--accent)' : undefined,
-                                color: isActive ? '#fff' : 'var(--text-secondary)',
-                                fontSize: '13px', fontWeight: isActive ? 600 : 500, fontFamily: 'var(--font-body)',
-                                cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                                transition: 'all var(--transition-fast)',
-                            }}
-                        >
-                            {t.label}
+                                ...type.label,
+                                color: period === p ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                background: period === p ? 'var(--glass-fill-3)' : 'transparent',
+                                border: 'none', cursor: 'pointer', padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+                                transition: 'background var(--transition-fast), color var(--transition-fast)',
+                            }}>
+                            {p === 'month' ? 'Month' : p === 'quarter' ? 'Quarter' : 'Year'}
                         </button>
-                    );
-                })}
+                    ))}
+                </div>}
             </div>
 
-            {/* ── OVERVIEW ── */}
-            {innerTab === 'overview' && (
+            {dataLoading ? (
                 <>
-                    {/* Period pills + 2x2 KPI grid */}
-                    <div>
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                            {(['month', 'quarter', 'year'] as const).map(p => (
-                                <button key={p} type="button" onClick={() => handleSetPeriod(p)}
-                                    className={period === p ? undefined : 'glass-field'}
-                                    style={{ padding: '6px 14px', borderRadius: '999px', border: period === p ? '1px solid var(--accent)' : undefined, background: period === p ? 'var(--accent)' : undefined, color: period === p ? 'white' : 'var(--text-muted)', fontSize: '13px', fontWeight: period === p ? 600 : 400, cursor: 'pointer', fontFamily: 'var(--font-body)', transition: 'all var(--transition-fast)', textTransform: 'capitalize' }}>
-                                    {p}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            {[
-                                { label: 'Total Spent', value: fmt(periodStats.totalSpent), sub: periodStats.periodLabel, color: 'var(--color-exp)' },
-                                { label: 'Daily Average', value: fmt(periodStats.dailyAvg), sub: period === 'month' ? 'this month' : period === 'quarter' ? 'this quarter' : 'this year', color: 'var(--color-warn)' },
-                                { label: periodStats.vsLabel, value: periodStats.vsLast !== null ? `${periodStats.vsLast > 0 ? '+' : ''}${periodStats.vsLast}%` : '—', sub: 'expenses', color: periodStats.vsLast !== null && periodStats.vsLast > 0 ? 'var(--color-exp)' : 'var(--color-inc)' },
-                                { label: 'Savings Rate', value: `${periodStats.savingsRate}%`, sub: 'of income saved', color: 'var(--accent)' },
-                            ].map(kpi => (
-                                <GCard key={kpi.label}>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
-                                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
-                                </GCard>
-                            ))}
-                        </div>
+                    <SkeletonCard height={150} />
+                    <div className="fin-two">
+                        <SkeletonCard height={220} />
+                        <SkeletonCard height={220} />
                     </div>
-
-                    {/* Income vs Expenses area chart */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <SectionHead title="Income vs Expenses" />
-                        {dataLoading ? <SkeletonCard height={200} /> : areaData.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No trend data yet. Add transactions to see the chart.</p>
-                        ) : (
-                            <ResponsiveContainer width="100%" height={220}>
-                                <AreaChart data={areaData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                                    <defs>
-                                        <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={cc.inc} stopOpacity={0.25} />
-                                            <stop offset="95%" stopColor={cc.inc} stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={cc.exp} stopOpacity={0.20} />
-                                            <stop offset="95%" stopColor={cc.exp} stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
-                                    <YAxis hide />
-                                    <Tooltip content={<ChartTooltip />} />
-                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incGrad)" {...chartAnim} dot={false} />
-                                    <Area type="monotone" dataKey="expenses" name="Expenses" stroke={cc.exp} strokeWidth={2} fill="url(#expGrad)" {...chartAnim} dot={false} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        )}
-                        {!dataLoading && areaData.length > 0 && (
-                            <div style={{ display: 'flex', gap: '16px', marginTop: '10px' }}>
-                                {[{ label: 'Income', color: cc.inc }, { label: 'Expenses', color: cc.exp }].map(l => (
-                                    <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <div style={{ width: 20, height: 2, background: l.color, borderRadius: 1 }} />
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{l.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Savings Rate Sparkline */}
-                    {!dataLoading && savingsRateData.length >= 2 && (
-                        <div className="glass-surface" style={sectionCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Monthly Savings Rate</h2>
-                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', fontWeight: 700, color: savingsRate >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{savingsRate}%</span>
-                            </div>
-                            <ResponsiveContainer width="100%" height={120}>
-                                <LineChart data={savingsRateData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                                    <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 10, fontFamily: 'DM Mono, monospace' }} />
-                                    <YAxis hide domain={['auto', 'auto']} />
-                                    <Tooltip formatter={(v: any) => [`${v}%`, 'Savings rate']} contentStyle={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 8, fontSize: 12 }} />
-                                    <Line type="monotone" dataKey="rate" name="Savings rate" stroke={cc.inc} strokeWidth={2} {...chartAnim} dot={{ r: 3, fill: cc.inc }} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '8px 0 0', fontFamily: 'var(--font-body)' }}>% of income saved after expenses, month by month</p>
-                        </div>
-                    )}
-
-                    {/* Bank Balances */}
-                    {(accountsLoading || accounts.length > 0) && (
-                        <div className="glass-surface" style={sectionCard}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                                <div>
-                                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Bank Balances</p>
-                                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Live balances across all accounts</p>
+                </>
+            ) : (
+                <>
+                    {/* ── OVERVIEW ── */}
+                    {section === 'overview' && (
+                        <>
+                            <Card>
+                                {summaryHead(`Spent in ${periodLabel}`, totalSpent)}
+                                <div className="dash-stats">
+                                    <Stat className="dash-stat" label="Daily average" value={fmt(periodStats.dailyAvg)}
+                                        sub={isCurrentPeriod ? `${dayWord} so far` : dayWord} />
+                                    <Stat className="dash-stat" label={`Compared with ${prevName}`} value={spendCompare.value}
+                                        sub={spendCompare.detail} subTone={spendCompare.tone} />
+                                    <Stat className="dash-stat" label="Money in" value={fmt(income)} sub="All income" />
+                                    <Stat className="dash-stat" label="Savings rate" value={`${savingsRate}%`}
+                                        sub={kept < 0 ? 'Spent more than you earned' : `${fmt(kept)} kept`} subTone={kept < 0 ? 'bad' : 'neutral'} />
                                 </div>
-                                {!accountsLoading && (
-                                    <div style={{ textAlign: 'right' }}>
-                                        <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Total Balance</p>
-                                        <p style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: totalBalance >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
-                                            {fmt(totalBalance)}
-                                        </p>
-                                    </div>
+                            </Card>
+
+                            <div className="fin-two">
+                                <Card>
+                                    <CardHeader title="Income and spending" sub={`Last ${areaData.length} months`} />
+                                    {!hasTrend ? (
+                                        <p style={{ ...type.meta, margin: 0 }}>No trend data yet. Add transactions to see the chart.</p>
+                                    ) : (
+                                        <>
+                                            <ResponsiveContainer width="100%" height={220}>
+                                                <LineChart data={areaData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                                    <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisTick} />
+                                                    <YAxis hide />
+                                                    <Tooltip content={<ChartTooltip />} />
+                                                    <Line type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} {...chartAnim} dot={false} />
+                                                    <Line type="monotone" dataKey="expenses" name="Expenses" stroke={cc.exp} strokeWidth={2} {...chartAnim} dot={false} />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                            <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-3)' }}>
+                                                {[{ label: 'Income', color: cc.inc }, { label: 'Expenses', color: cc.exp }].map(l => (
+                                                    <div key={l.label} style={{ ...type.meta, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <span aria-hidden="true" style={{ width: 8, height: 2, background: l.color, flexShrink: 0 }} />
+                                                        {l.label}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </Card>
+
+                                {savingsRateData.length >= 2 && (
+                                    <Card>
+                                        <CardHeader title="Savings rate" sub="Share of income kept, by month"
+                                            action={<span style={type.num}>{savingsRate}%</span>} />
+                                        <ResponsiveContainer width="100%" height={220}>
+                                            <LineChart data={savingsRateData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                                <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisTick} />
+                                                <YAxis hide domain={['auto', 'auto']} />
+                                                <Tooltip content={<SavingsTooltip />} />
+                                                <Line type="monotone" dataKey="rate" name="Savings rate" stroke={cc.accent2} strokeWidth={2} {...chartAnim} dot={false} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </Card>
                                 )}
                             </div>
-                            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' } as React.CSSProperties}>
-                                {accountsLoading
-                                    ? [1, 2, 3].map(i => <div key={i} className="glass-field" style={{ minWidth: '160px', height: '130px', borderRadius: 'var(--radius-md)', flexShrink: 0, opacity: 0.5 }} />)
-                                    : accounts.map((a: any) => {
-                                        const bal = parseFloat(a.current_balance ?? 0);
-                                        const net = bal - parseFloat(a.starting_balance ?? 0);
-                                        return (
-                                            <div key={a.id} className="glass-field" style={{ borderLeft: `3px solid ${a.color || 'var(--accent)'}`, borderRadius: 'var(--radius-md)', padding: '14px', minWidth: '160px', flexShrink: 0 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                                                    <span style={{ fontSize: '15px' }}>{a.icon || '🏦'}</span>
-                                                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-display)' }}>{a.name}</span>
-                                                    {a.is_default && <Badge style={{ marginLeft: 'auto', flexShrink: 0 }}>default</Badge>}
-                                                </div>
-                                                <p style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 700, color: bal >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(bal)}</p>
-                                                <p style={{ margin: '0 0 4px', fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>Started {fmt(parseFloat(a.starting_balance ?? 0))}</p>
-                                                <p style={{ margin: 0, fontSize: '11px', color: net >= 0 ? 'var(--color-inc)' : 'var(--color-exp)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{net >= 0 ? '▲ +' : '▼ '}{fmt(Math.abs(net))} net</p>
-                                            </div>
-                                        );
-                                    })
-                                }
-                            </div>
-                            {!accountsLoading && (
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                                    <button type="button" onClick={() => router.push('/accounts')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, fontFamily: 'var(--font-body)', padding: 0 }}>Manage accounts →</button>
-                                </div>
-                            )}
-                        </div>
+                        </>
                     )}
-                </>
-            )}
 
-            {/* ── SPENDING ── */}
-            {innerTab === 'spending' && (
-                <>
-                    {/* Spending Breakdown — Pie + list */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <SectionHead title={`Spending — ${FULL_MONTHS[currentMonth]}`} />
-                        {dataLoading ? <SkeletonCard height={150} /> : categories.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '32px 0' }}>No expenses this month.</p>
-                        ) : (
-                            <div style={{ display: 'flex', gap: isMobile ? '12px' : '24px', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
-                                <div style={{ flexShrink: 0 }}>
-                                    <ResponsiveContainer width={120} height={120}>
-                                        <PieChart>
-                                            <Pie data={categories} dataKey="total" nameKey="name" innerRadius={36} outerRadius={54} paddingAngle={2} startAngle={90} endAngle={-270} {...chartAnim}>
-                                                {categories.map((cat: any) => (
-                                                    <Cell key={cat.name} fill={cat.color || cc.exp || '#2563eb'} />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip content={<ChartTooltip />} />
-                                        </PieChart>
-                                    </ResponsiveContainer>
+                    {/* ── SPENDING ── */}
+                    {section === 'spending' && (
+                        <>
+                            <Card>
+                                {summaryHead(`Spent in ${periodLabel} ${currentYear}`, totalSpent)}
+                                <div className="dash-stats">
+                                    <Stat className="dash-stat" label="Biggest category" value={topCategory ? topCategory.name : '—'}
+                                        sub={topCategory ? `${fmt(topCategory.total)} · ${topCategory.pct}%` : 'No spending yet'} />
+                                    <Stat className="dash-stat" label="Busiest day" value={dow.busiest ? dow.busiest.full : '—'}
+                                        sub={dow.busiest ? `${fmt(dow.busiest.amount)} in total` : 'No spending yet'} />
+                                    <Stat className="dash-stat" label="Most used way to pay" value={topMethod ? topMethod.method : '—'}
+                                        sub={topMethod ? `${pmPct(topMethod)}% of spending` : 'No spending yet'} />
+                                    <Stat className="dash-stat" label="Top merchant" value={topMerchant ? topMerchant.name : '—'}
+                                        sub={topMerchant ? fmt(topMerchant.total) : 'No spending yet'} />
                                 </div>
-                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    {categories.slice(0, 6).map((cat: any) => {
-                                        const amt = parseFloat(cat.total ?? 0);
-                                        const pct = totalExpenses > 0 ? Math.round((amt / totalExpenses) * 100) : 0;
-                                        return (
-                                            <div key={cat.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color || cc.exp, flexShrink: 0 }} />
-                                                <span style={{ flex: 1, fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
-                                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(amt)}</span>
-                                                <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{pct}%</Badge>
-                                            </div>
-                                        );
-                                    })}
-                                    <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Total</span>
-                                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(totalExpenses)}</span>
-                                    </div>
+                            </Card>
+
+                            <div className="fin-two">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                                    <Card>
+                                        <CardHeader title="Where it went" sub="By category, biggest first" />
+                                        {categoryRows.length === 0 ? (
+                                            <p style={{ ...type.meta, margin: 0 }}>No expenses this month.</p>
+                                        ) : (
+                                            <Rows>
+                                                {categoryRows.map(row => (
+                                                    <div key={row.name} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                                            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, alignSelf: 'center', background: row.name === 'Everything else' ? 'var(--text-muted)' : (row.color || 'var(--text-muted)') }} />
+                                                            <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{row.name}</span>
+                                                            <span style={type.numSmall}>{row.pct}%</span>
+                                                            <span style={type.num}>{fmt(row.total)}</span>
+                                                        </div>
+                                                        <ProgressBar pct={row.pct} height={4} color="var(--text-secondary)" />
+                                                    </div>
+                                                ))}
+                                            </Rows>
+                                        )}
+                                    </Card>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                                    <Card>
+                                        <CardHeader title="By day of the week" sub={`Weekends carry ${dow.weekendPct}% of spending`} />
+                                        <div style={{ display: 'flex', gap: 'var(--space-2)', height: 120 }}>
+                                            {dow.order.map(d => {
+                                                const isPeak = !!dow.busiest && d.day === dow.busiest.day;
+                                                const share = dow.busiest && dow.busiest.amount > 0 ? Math.max(4, (d.amount / dow.busiest.amount) * 100) : 4;
+                                                return (
+                                                    <div key={d.day} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
+                                                            <div role="img" aria-label={`${d.day}: ${fmt(d.amount)}`}
+                                                                style={{ width: '100%', height: `${share}%`, borderRadius: 'var(--radius-sm)', background: isPeak ? 'var(--text-primary)' : 'var(--text-secondary)', opacity: isPeak ? 1 : 0.5 }} />
+                                                        </div>
+                                                        <span style={{ ...type.micro, textAlign: 'center' }}>{d.day}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </Card>
+
+                                    {paymentMethods.length > 0 && (
+                                        <Card>
+                                            <CardHeader title="How you paid" sub="Share of spending by payment method" />
+                                            <Rows>
+                                                {paymentMethods.map((pm: any) => (
+                                                    <div key={pm.method}>
+                                                        <span style={{ ...type.bodyStrong, ...truncate, flex: 1, minWidth: 0 }}>{pm.method}</span>
+                                                        <span style={type.numSmall}>{pmPct(pm)}%</span>
+                                                        <span style={type.num}>{fmt(pm.total)}</span>
+                                                    </div>
+                                                ))}
+                                            </Rows>
+                                        </Card>
+                                    )}
+
+                                    {merchantData.length > 0 && (
+                                        <Card>
+                                            <CardHeader title="Top merchants" sub="Where you spent the most" />
+                                            <Rows>
+                                                {merchantData.slice(0, 5).map(m => (
+                                                    <div key={m.name}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{m.name}</p>
+                                                            <p style={{ ...type.meta, margin: '2px 0 0' }}>{m.count} order{m.count !== 1 ? 's' : ''}</p>
+                                                        </div>
+                                                        <span style={type.num}>{fmt(m.total)}</span>
+                                                    </div>
+                                                ))}
+                                            </Rows>
+                                        </Card>
+                                    )}
                                 </div>
                             </div>
-                        )}
-                    </div>
 
-                    {/* Day-of-Week Spending Heatmap */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <SectionHead title="Spending by Day of Week" />
-                        {dataLoading ? <SkeletonCard height={120} /> : (() => {
-                            // Mon-first order: indices 1,2,3,4,5,6,0
-                            const monFirst = [1,2,3,4,5,6,0].map(i => weeklyData[i]);
-                            const peakDay  = monFirst.reduce((a, b) => b.amount > a.amount ? b : a, monFirst[0]);
-                            const troughDay = monFirst.filter(d => d.amount > 0).reduce((a, b) => b.amount < a.amount ? b : a, peakDay);
-                            const ratio = troughDay && troughDay.amount > 0 ? (peakDay.amount / troughDay.amount) : 0;
-                            return (
-                                <>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', marginBottom: '10px' }}>
-                                        {monFirst.map((d) => {
-                                            const pct = maxWeeklyAmt > 0 ? d.amount / maxWeeklyAmt : 0;
-                                            const isPeak = d.amount === maxWeeklyAmt && d.amount > 0;
-                                            const intensity = Math.round(pct * 55) + (d.amount > 0 ? 8 : 0);
-                                            return (
-                                                <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                    <span style={{ fontSize: '10px', color: isPeak ? cc.exp : 'var(--text-muted)', fontFamily: 'var(--font-body)', fontWeight: isPeak ? 700 : 400 }}>{d.day}</span>
-                                                    <div style={{ width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)', background: d.amount > 0 ? `color-mix(in srgb, ${cc.exp} ${intensity}%, var(--glass-surface))` : 'var(--glass-surface)', border: isPeak ? `1.5px solid color-mix(in srgb, ${cc.exp} 40%, transparent)` : '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }} />
-                                                    <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1.2 }}>
-                                                        {d.amount > 0 ? (d.amount >= 1000 ? `${Math.round(d.amount/1000)}k` : Math.round(d.amount)) : '—'}
+                            <ToggleCard title="Category trends" sub="Six months per category, improving or getting worse"
+                                open={showTrajectory} onToggle={() => setShowTrajectory(v => !v)}>
+                                <CategoryTrajectory transactions={allTransactions} isMobile={isMobile} />
+                            </ToggleCard>
+
+                            <ToggleCard title="Daily spending, this year" sub="One square per day, darker for more spending"
+                                open={showHeatmap} onToggle={() => setShowHeatmap(v => !v)}>
+                                <SpendingHeatmap transactions={yearTransactions} />
+                            </ToggleCard>
+                        </>
+                    )}
+
+                    {/* ── INCOME ── */}
+                    {section === 'income' && (
+                        <>
+                            <Card>
+                                {summaryHead(`Earned in ${periodLabel}`, income)}
+                                <div className="dash-stats">
+                                    <Stat className="dash-stat" label={`Compared with ${prevName}`} value={incomeCompare ? incomeCompare.value : '—'}
+                                        sub={incomeCompare ? incomeCompare.detail : 'No earlier period to compare'} subTone={incomeCompare ? incomeCompare.tone : 'neutral'} />
+                                    <Stat className="dash-stat" label="Spent" value={fmt(totalSpent)} sub={`In ${periodLabel}`} />
+                                    <Stat className="dash-stat" label="Kept" value={fmt(kept)}
+                                        sub={kept < 0 ? 'Spent more than you earned' : 'Money in less spent'} subTone={kept < 0 ? 'bad' : 'neutral'} />
+                                    <Stat className="dash-stat" label="Savings rate" value={`${savingsRate}%`} sub="Share of income kept" />
+                                </div>
+                            </Card>
+
+                            <div className={yearlyData ? 'fin-two' : undefined}>
+                                <Card>
+                                    <CardHeader title="Income trend" sub={`Last ${incomeAreaData.length} months`} />
+                                    {incomeAreaData.length === 0 ? (
+                                        <p style={{ ...type.meta, margin: 0 }}>No income data yet.</p>
+                                    ) : (
+                                        <ResponsiveContainer width="100%" height={180}>
+                                            <LineChart data={incomeAreaData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                                                <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
+                                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={axisTick} />
+                                                <YAxis hide />
+                                                <Tooltip content={<ChartTooltip />} />
+                                                <Line type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} {...chartAnim} dot={false} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </Card>
+
+                                {yearlyData && (
+                                    <Card>
+                                        <CardHeader title="Year over year" sub={`${yearlyData.years?.current} against ${yearlyData.years?.last}`} />
+                                        <Rows>
+                                            {[
+                                                { label: 'Income', curr: getYearlyTotal(yearlyData.years?.current, 'income'), last: getYearlyTotal(yearlyData.years?.last, 'income'), higherIsBetter: true },
+                                                { label: 'Expenses', curr: getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'expense'), higherIsBetter: false },
+                                                { label: 'Savings', curr: getYearlyTotal(yearlyData.years?.current, 'income') - getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'income') - getYearlyTotal(yearlyData.years?.last, 'expense'), higherIsBetter: true },
+                                            ].map(row => {
+                                                const change = pctChange(row.curr, row.last);
+                                                const isUp = change !== null && parseFloat(change) >= 0;
+                                                // isGood is about the colour; a rise in Expenses is up but not welcome.
+                                                const isGood = row.higherIsBetter ? isUp : !isUp;
+                                                return (
+                                                    <div key={row.label}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <p style={{ ...type.bodyStrong, margin: 0 }}>{row.label}</p>
+                                                            <p style={{ ...type.meta, margin: '2px 0 0' }}>{yearlyData.years?.last}: {fmt(row.last)}</p>
+                                                        </div>
+                                                        <div style={{ textAlign: 'right' }}>
+                                                            <p style={{ ...type.num, margin: 0 }}>{fmt(row.curr)}</p>
+                                                            {change && (
+                                                                <p style={{ ...type.meta, margin: '2px 0 0', color: TONE_TEXT[isGood ? 'good' : 'caution'] }}>
+                                                                    {isUp ? 'Up' : 'Down'} {Math.abs(parseFloat(change))}% on {yearlyData.years?.last}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </Rows>
+                                    </Card>
+                                )}
+                            </div>
+
+                            {/* AI Salary Allocation */}
+                            <Card>
+                                <CardHeader
+                                    title="Salary allocation plan"
+                                    sub={planGenerated && allocationPlan ? allocationPlan.summary : 'An AI-recommended 50/30/20 budget split based on your income and spending history'}
+                                    action={
+                                        planGenerated && allocationPlan && !allocationLoading
+                                            ? <TextAction onClick={() => void handleGeneratePlan(true)}>Regenerate</TextAction>
+                                            : !allocationLoading
+                                            ? <Button size="sm" onClick={() => void handleGeneratePlan()}>Generate plan</Button>
+                                            : undefined
+                                    }
+                                />
+
+                                {allocationError && <p style={{ ...type.meta, color: 'var(--color-exp-text)', margin: '0 0 var(--space-3)' }}>{allocationError}</p>}
+
+                                {allocationLoading && (
+                                    <div style={{ padding: 'var(--space-6) 0', textAlign: 'center' }}>
+                                        <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid var(--border-subtle)', borderTop: '3px solid var(--text-secondary)', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+                                        <p style={{ ...type.meta, marginTop: 'var(--space-3)' }}>Analysing your spending patterns...</p>
+                                    </div>
+                                )}
+
+                                {planGenerated && allocationPlan && !allocationLoading && (
+                                    <>
+                                        {allocationPlan.from_cache && (
+                                            <p style={{ ...type.meta, margin: '0 0 var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                                Cached, updates every 6h
+                                                <TextAction onClick={() => void handleGeneratePlan(true)}>Refresh now</TextAction>
+                                            </p>
+                                        )}
+                                        <Rows>
+                                            <div>
+                                                <span style={{ ...type.bodyStrong, flex: 1 }}>Monthly salary</span>
+                                                <span style={type.num}>{fmt(allocationPlan.salary)}</span>
+                                            </div>
+
+                                            {allocationPlan.month_comparison && (
+                                                <div style={{ flexDirection: 'column', alignItems: 'stretch', gap: 2 }}>
+                                                    <span style={{ ...type.bodyStrong, color: allocationPlan.month_comparison.trend === 'improving' ? TONE_TEXT.good : allocationPlan.month_comparison.trend === 'worsening' ? TONE_TEXT.caution : undefined }}>
+                                                        {allocationPlan.month_comparison.trend === 'improving' ? 'Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? 'Spending increased vs last month' : 'Spending stable vs last month'}
+                                                    </span>
+                                                    <span style={type.meta}>
+                                                        Biggest change: {allocationPlan.month_comparison.biggest_change_category} {allocationPlan.month_comparison.biggest_change_amount >= 0 ? '+' : '−'}{fmt(Math.abs(allocationPlan.month_comparison.biggest_change_amount))}
                                                     </span>
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                    {peakDay.amount > 0 && (
-                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                                            {ratio >= 1.5
-                                                ? <><span style={{ color: cc.exp, fontWeight: 600 }}>{peakDay.day}s</span> are your biggest spend days — {fmt(peakDay.amount)} this month{ratio >= 2 ? `, ${ratio.toFixed(1)}× more than ${troughDay.day}s` : ''}</>
-                                                : <>Spending is spread fairly evenly — peak on <span style={{ color: cc.exp, fontWeight: 600 }}>{peakDay.day}s</span> at {fmt(peakDay.amount)}</>
-                                            }
-                                        </p>
-                                    )}
-                                </>
-                            );
-                        })()}
-                    </div>
+                                            )}
 
-                    {/* Payment Methods */}
-                    {paymentMethods.length > 0 && (
-                        <div className="glass-surface" style={sectionCard}>
-                            <SectionHead title={`Payment Methods — ${FULL_MONTHS[currentMonth]}`} />
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                {paymentMethods.map((pm: any) => {
-                                    const METHOD_COLORS: Record<string, string> = { 'UPI': 'var(--color-inc)', 'Credit Card': 'var(--color-exp)', 'Debit Card': 'var(--accent)', 'Net Banking': 'var(--accent)', 'Wallet': 'var(--color-warn)', 'Cash': 'var(--text-muted)' };
-                                    const color = METHOD_COLORS[pm.method] || 'var(--text-muted)';
-                                    return (
-                                        <div key={pm.method}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                                                    <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{pm.method}</span>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pm.count} txn{pm.count !== 1 ? 's' : ''}</span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <Badge color="var(--text-muted)" bg="var(--glass-fill-2)">{pm.percent}%</Badge>
-                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', minWidth: '80px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(pm.total)}</span>
-                                                </div>
-                                            </div>
-                                            <div style={{ height: '5px', background: 'var(--border-subtle)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{ height: '100%', width: `${pm.percent}%`, background: color, borderRadius: '3px', transition: 'width 0.5s ease' }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)' }}>Total</span>
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700, color: 'var(--color-exp)', fontVariantNumeric: 'tabular-nums' }}>{fmt(paymentTotal)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Merchant Breakdown */}
-                    {!dataLoading && merchantData.length > 0 && (
-                        <div className="glass-surface" style={sectionCard}>
-                            <SectionHead title={`Top Merchants — ${FULL_MONTHS[currentMonth]}`} />
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {merchantData.map((m, i) => (
-                                    <div key={m.name}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', minWidth: 18 }}>{i + 1}</span>
-                                                <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
-                                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', flexShrink: 0 }}>{m.count}×</span>
-                                            </div>
-                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, color: 'var(--color-exp)', flexShrink: 0, marginLeft: 8, fontVariantNumeric: 'tabular-nums' }}>{fmt(m.total)}</span>
-                                        </div>
-                                        <div style={{ height: 4, background: 'var(--border-subtle)', borderRadius: 2, overflow: 'hidden' }}>
-                                            <div style={{ height: '100%', width: `${(m.total / maxMerchantTotal) * 100}%`, background: 'var(--color-exp)', borderRadius: 2, transition: 'width 0.5s ease' }} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Category Trajectory (collapsible) */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <button type="button" onClick={() => setShowTrajectory(v => !v)}
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                Category Trajectory
-                            </h2>
-                            {showTrajectory ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
-                        </button>
-                        {!showTrajectory && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>6-month sparklines per category — green = improving, red = rising</p>}
-                        {showTrajectory && (
-                            <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div className="glass-field" style={{ height: 200, borderRadius: 8 }} /> : <CategoryTrajectory transactions={allTransactions} isMobile={isMobile} />}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Spending Heatmap (collapsible) */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <button type="button" onClick={() => setShowHeatmap(v => !v)}
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                Spending Intensity — Last 12 Months
-                            </h2>
-                            {showHeatmap ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
-                        </button>
-                        {!showHeatmap && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>GitHub-style calendar showing daily spending intensity</p>}
-                        {showHeatmap && (
-                            <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div className="glass-field" style={{ height: 100, borderRadius: 8 }} /> : <SpendingHeatmap transactions={yearTransactions} />}
-                            </div>
-                        )}
-                    </div>
-                </>
-            )}
-
-            {/* ── INCOME ── */}
-            {innerTab === 'income' && (
-                <>
-                    {/* Income KPIs */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        {[
-                            { label: 'Total Income', value: fmt(summary?.total_income ?? 0), sub: FULL_MONTHS[currentMonth], color: 'var(--color-inc)' },
-                            { label: 'vs Last Month', value: incVsLastMonth !== null ? `${incVsLastMonth > 0 ? '+' : ''}${incVsLastMonth}%` : '—', sub: 'income', color: incVsLastMonth !== null && incVsLastMonth >= 0 ? 'var(--color-inc)' : 'var(--color-exp)' },
-                        ].map(kpi => (
-                            <GCard key={kpi.label}>
-                                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{kpi.label}</p>
-                                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 700, color: kpi.color, margin: '0 0 2px', fontVariantNumeric: 'tabular-nums', animation: 'numberReveal 350ms cubic-bezier(0.22,1,0.36,1) both' }}>{kpi.value}</p>
-                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{kpi.sub}</p>
-                            </GCard>
-                        ))}
-                    </div>
-
-                    {/* Income trend chart */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <SectionHead title="Income Trend" />
-                        {dataLoading ? <SkeletonCard height={180} /> : incomeAreaData.length === 0 ? (
-                            <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No income data yet.</p>
-                        ) : (
-                            <ResponsiveContainer width="100%" height={180}>
-                                <AreaChart data={incomeAreaData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                                    <defs>
-                                        <linearGradient id="incTrendGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={cc.inc} stopOpacity={0.25} />
-                                            <stop offset="95%" stopColor={cc.inc} stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid horizontal vertical={false} stroke={cc.border} strokeWidth={1} />
-                                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' }} />
-                                    <YAxis hide />
-                                    <Tooltip content={<ChartTooltip />} />
-                                    <Area type="monotone" dataKey="income" name="Income" stroke={cc.inc} strokeWidth={2} fill="url(#incTrendGrad)" {...chartAnim} dot={false} />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
-
-                    {/* Year over Year */}
-                    {yearlyData && (
-                        <div className="glass-surface" style={sectionCard}>
-                            <SectionHead title={`Year-over-Year — ${yearlyData.years?.current} vs ${yearlyData.years?.last}`} />
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                                {[
-                                    { label: `${yearlyData.years?.current} Income`, curr: getYearlyTotal(yearlyData.years?.current, 'income'), last: getYearlyTotal(yearlyData.years?.last, 'income'), color: 'var(--color-inc)', higherIsBetter: true },
-                                    { label: `${yearlyData.years?.current} Expenses`, curr: getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--color-exp)', higherIsBetter: false },
-                                    { label: `${yearlyData.years?.current} Savings`, curr: getYearlyTotal(yearlyData.years?.current, 'income') - getYearlyTotal(yearlyData.years?.current, 'expense'), last: getYearlyTotal(yearlyData.years?.last, 'income') - getYearlyTotal(yearlyData.years?.last, 'expense'), color: 'var(--accent)', higherIsBetter: true },
-                                ].map(card => {
-                                    const change = pctChange(card.curr, card.last);
-                                    const isUp = change !== null && parseFloat(change) >= 0;
-                                    // isGood drives the badge color; isUp alone (used for the arrow) doesn't say
-                                    // whether a rise is welcome — a rise in Expenses is bad even though it's "up".
-                                    const isGood = card.higherIsBetter ? isUp : !isUp;
-                                    return (
-                                        <div key={card.label} className="glass-field" style={{ borderRadius: 'var(--radius-md)', padding: '14px' }}>
-                                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{card.label}</p>
-                                            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: card.color, margin: '0 0 6px', fontVariantNumeric: 'tabular-nums' }}>{fmt(card.curr)}</p>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
-                                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{yearlyData.years?.last}: {fmt(card.last)}</span>
-                                                {change && <Badge color={isGood ? 'var(--color-inc)' : 'var(--color-exp)'} bg={isGood ? 'color-mix(in srgb, var(--color-inc) 10%, transparent)' : 'color-mix(in srgb, var(--color-exp) 10%, transparent)'}>{isUp ? '↑' : '↓'}{Math.abs(parseFloat(change))}%</Badge>}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* AI Salary Allocation */}
-                    <div className="glass-surface" style={{ ...sectionCard, overflow: 'hidden' }}>
-                        {!planGenerated && !allocationLoading && (
-                            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                                <Wallet size={40} color="var(--accent)" style={{ margin: '0 auto 12px' }} />
-                                <p style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px', fontFamily: 'var(--font-display)' }}>Salary Allocation Plan</p>
-                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 20px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                                    Get an AI-recommended 50/30/20 budget split based on your income and spending history.
-                                </p>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
-                                    {['50/30/20 Rule', 'Goal-Based', 'Indian Context'].map(pill => (
-                                        <span key={pill} className="glass-field" style={{ borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{pill}</span>
-                                    ))}
-                                </div>
-                                {allocationError && <p style={{ color: 'var(--color-exp)', fontSize: '13px', marginBottom: '12px', fontFamily: 'var(--font-body)' }}>{allocationError}</p>}
-                                <Button onClick={() => handleGeneratePlan()} variant="primary" size="md">
-                                    <Sparkles size={16} />Generate My Plan
-                                </Button>
-                            </div>
-                        )}
-
-                        {allocationLoading && (
-                            <div style={{ padding: '40px 0', textAlign: 'center' }}>
-                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '3px solid var(--border-subtle)', borderTop: `3px solid var(--accent)`, animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
-                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '14px', fontFamily: 'var(--font-body)' }}>Analysing your spending patterns…</p>
-                            </div>
-                        )}
-
-                        {planGenerated && allocationPlan && !allocationLoading && (
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                                    <div>
-                                        <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Salary Allocation Plan</p>
-                                        <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '480px', fontFamily: 'var(--font-body)' }}>{allocationPlan.summary}</p>
-                                        {allocationPlan.from_cache && (
-                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontFamily: 'var(--font-body)' }}>
-                                                Cached · updates every 6h
-                                                <button type="button" onClick={() => handleGeneratePlan(true)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '11px', padding: 0, marginLeft: '4px', fontFamily: 'var(--font-body)' }}>Refresh now</button>
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: 'var(--color-inc)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(allocationPlan.salary)}</p>
-                                        <p style={{ margin: '0 0 8px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>monthly salary</p>
-                                        <Button onClick={() => handleGeneratePlan(true)} variant="secondary" size="sm"><RefreshCw size={12} />Regenerate</Button>
-                                    </div>
-                                </div>
-
-                                {allocationPlan.month_comparison && (
-                                    <GCard style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-                                        <span style={{ fontSize: '13px', color: allocationPlan.month_comparison.trend === 'improving' ? 'var(--color-inc)' : allocationPlan.month_comparison.trend === 'worsening' ? 'var(--color-exp)' : 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
-                                            {allocationPlan.month_comparison.trend === 'improving' ? '▲ Spending improved vs last month' : allocationPlan.month_comparison.trend === 'worsening' ? '▼ Spending increased vs last month' : '→ Spending stable vs last month'}
-                                        </span>
-                                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
-                                            Biggest change: {allocationPlan.month_comparison.biggest_change_category} {allocationPlan.month_comparison.biggest_change_amount >= 0 ? '+' : ''}{fmt(Math.abs(allocationPlan.month_comparison.biggest_change_amount))}
-                                        </span>
-                                    </GCard>
-                                )}
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
-                                    {allocationPlan.allocation?.map((bucket: any) => (
-                                        <div key={bucket.bucket} className="glass-field" style={{ borderLeft: `4px solid ${bucket.color}`, borderRadius: 'var(--radius-md)', padding: '16px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{bucket.bucket}</span>
-                                                <Badge color={bucket.color} bg={hexToRgba(bucket.color, 0.12)}>{bucket.percentage}%</Badge>
-                                            </div>
-                                            <p style={{ margin: '0 0 4px', fontSize: '20px', fontWeight: 700, color: bucket.color, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>{fmt(bucket.amount)}</p>
-                                            <p style={{ margin: '0 0 10px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>{bucket.description}</p>
-                                            <div style={{ height: '4px', borderRadius: '2px', background: 'var(--border-subtle)', marginBottom: '10px' }}>
-                                                <div style={{ height: '100%', width: `${bucket.percentage}%`, background: bucket.color, borderRadius: '2px' }} />
-                                            </div>
-                                            {bucket.categories?.map((cat: any, ci: number) => (
-                                                <div key={cat.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: ci < bucket.categories.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>{cat.name}</span>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
-                                                            {cat.recommended_amount > cat.last_month_actual ? <span style={{ color: 'var(--color-inc)', fontSize: '10px' }}>▲ </span> : cat.recommended_amount < cat.last_month_actual ? <span style={{ color: 'var(--color-exp)', fontSize: '10px' }}>▼ </span> : null}
-                                                            {fmt(cat.recommended_amount)}
-                                                        </p>
-                                                        <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', fontVariantNumeric: 'tabular-nums' }}>actual: {fmt(cat.last_month_actual)}</p>
+                                            {allocationPlan.allocation?.map((bucket: any) => (
+                                                <div key={bucket.bucket} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)' }}>
+                                                        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, alignSelf: 'center', background: bucket.color || 'var(--text-muted)' }} />
+                                                        <span style={{ ...type.bodyStrong, flex: 1, minWidth: 0 }}>{bucket.bucket}</span>
+                                                        <span style={type.numSmall}>{bucket.percentage}%</span>
+                                                        <span style={type.num}>{fmt(bucket.amount)}</span>
                                                     </div>
+                                                    {bucket.description && <p style={{ ...type.meta, margin: 0 }}>{bucket.description}</p>}
+                                                    <ProgressBar pct={bucket.percentage} height={4} color="var(--text-secondary)" />
+                                                    {bucket.categories?.map((cat: any) => (
+                                                        <div key={cat.name} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                                            <div style={{ minWidth: 0 }}>
+                                                                <p style={{ ...type.body, ...truncate, margin: 0 }}>{cat.name}</p>
+                                                                <p style={{ ...type.meta, margin: 0 }}>
+                                                                    {cat.recommended_amount > cat.last_month_actual ? 'Up from' : cat.recommended_amount < cat.last_month_actual ? 'Down from' : 'Same as'} {fmt(cat.last_month_actual)} last month
+                                                                </p>
+                                                            </div>
+                                                            <span style={type.numSmall}>{fmt(cat.recommended_amount)}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             ))}
-                                        </div>
-                                    ))}
-                                </div>
+                                        </Rows>
 
-                                {allocationPlan.insights?.length > 0 && (
-                                    <div>
-                                        <p style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Insights</p>
-                                        {allocationPlan.insights.map((insight: string, i: number) => (
-                                            <div key={i} className="glass-field" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
-                                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</div>
-                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>{insight}</span>
+                                        {allocationPlan.insights?.length > 0 && (
+                                            <div style={{ marginTop: 'var(--space-5)' }}>
+                                                <p style={{ ...type.label, margin: '0 0 var(--space-3)' }}>Insights</p>
+                                                <Rows>
+                                                    {allocationPlan.insights.map((insight: string, i: number) => (
+                                                        <div key={i} style={{ alignItems: 'baseline' }}>
+                                                            <span style={type.numSmall}>{i + 1}</span>
+                                                            <span style={{ ...type.body, flex: 1, minWidth: 0 }}>{insight}</span>
+                                                        </div>
+                                                    ))}
+                                                </Rows>
                                             </div>
-                                        ))}
-                                    </div>
+                                        )}
+                                    </>
                                 )}
-                            </div>
-                        )}
-                    </div>
-                </>
-            )}
+                            </Card>
+                        </>
+                    )}
 
-            {/* ── TRENDS ── */}
-            {innerTab === 'trends' && (
-                <>
-                    {/* Money Flow Sankey (collapsible) */}
-                    <div className="glass-surface" style={sectionCard}>
-                        <button type="button" onClick={() => setShowSankey(v => !v)}
-                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                                Where Your Money Flows
-                            </h2>
-                            {showSankey ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronRight size={16} color="var(--text-muted)" />}
-                        </button>
-                        {!showSankey && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>Income sources → spending categories (last 3 months)</p>}
-                        {showSankey && (
-                            <div style={{ marginTop: 16 }}>
-                                {dataLoading ? <div className="glass-field" style={{ height: 200, borderRadius: 8 }} /> : <SankeyFlow transactions={allTransactions} />}
-                            </div>
-                        )}
-                    </div>
+                    {/* ── TRENDS ── */}
+                    {section === 'trends' && (
+                        <ToggleCard title="Where your money flows" sub="Income sources to spending categories, last 3 months"
+                            open={showSankey} onToggle={() => setShowSankey(v => !v)}>
+                            <SankeyFlow transactions={allTransactions} />
+                        </ToggleCard>
+                    )}
                 </>
             )}
         </>
@@ -1521,14 +1399,18 @@ function AnalyticsPageInner() {
     return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px', animation: 'fadeUp 200ms ease forwards' }}>
 
-                <Tabs tabs={OUTER_TABS} active={tab} onChange={setTab} />
-
-                {tab === 'overview' && <AnalyticsOverviewTab />}
-                {tab === 'health' && <HealthTab />}
-                {tab === 'insights' && <InsightsTab />}
-                {tab === 'reports' && <ReportsTab />}
-                {tab === 'year-review' && <YearReviewTab />}
-                {tab === 'calendar' && <CalendarTab />}
+                {isDataSection(tab) ? (
+                    <AnalyticsDataTabs section={tab} onTabChange={setTab} />
+                ) : (
+                    <>
+                        <AnalyticsHead tab={tab} onTabChange={setTab} />
+                        {tab === 'health' && <HealthTab />}
+                        {tab === 'insights' && <InsightsTab />}
+                        {tab === 'reports' && <ReportsTab />}
+                        {tab === 'year-review' && <YearReviewTab />}
+                        {tab === 'calendar' && <CalendarTab />}
+                    </>
+                )}
             </div>
     );
 }
