@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, ShieldCheck, CheckCircle, ArrowLeft } from 'lucide-react';
 import { authAPI } from '@/lib/api';
+import { type } from '@/lib/typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { AuthPanel } from '@/components/auth/AuthPanel';
+
+const H1: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: 'var(--text-figure)', fontWeight: 700, lineHeight: 1.15, color: 'var(--text-primary)', margin: '0 0 6px' };
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
@@ -15,6 +18,7 @@ export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [cooldown, setCooldown] = useState(0);
@@ -69,118 +73,91 @@ export default function ForgotPasswordPage() {
         }
     };
 
+    const errorLine = error && (
+        <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>
+    );
+
     return (
         <AuthPanel>
-            {/* ── Email step ── */}
+            {/* Email step */}
             {step === 'email' && (
                 <>
                     <div style={{ marginBottom: '32px' }}>
-                        <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-full)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                            <Lock size={22} color="var(--accent)" />
-                        </div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                            Forgot password?
-                        </h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Enter your email and we&apos;ll send a reset code.
-                        </p>
+                        <h1 style={H1}>Reset your password</h1>
+                        <p style={{ ...type.meta, margin: 0 }}>Enter your email and we&apos;ll send a reset code.</p>
                     </div>
 
                     <form onSubmit={handleRequestOTP} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />}
+                        <Input label="Email" type="email" placeholder="you@example.com"
                             value={email} onChange={e => setEmail(e.target.value)} autoComplete="off" required />
 
-                        {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
-                                {error}
-                            </div>
-                        )}
+                        {errorLine}
 
                         <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                            Send Reset Code
+                            Send reset code
                         </Button>
                     </form>
 
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
-                        <button type="button" onClick={() => router.push('/login')}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
-                            <ArrowLeft size={13} /> Back to sign in
-                        </button>
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+                        <TextAction onClick={() => router.push('/login')}>Back to sign in</TextAction>
                     </div>
                 </>
             )}
 
-            {/* ── OTP + new password step ── */}
+            {/* Code and new password step */}
             {step === 'otp' && (
                 <>
                     <div style={{ marginBottom: '32px' }}>
-                        <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-full)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                            <ShieldCheck size={22} color="var(--accent)" />
-                        </div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                            Enter your code
-                        </h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
+                        <h1 style={H1}>Enter your code</h1>
+                        <p style={{ ...type.meta, margin: 0 }}>
                             We sent a 6-digit code to{' '}
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{pendingEmail}</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{pendingEmail}</span>
                         </p>
                     </div>
 
                     <form onSubmit={handleReset} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <Input label="6-digit code" type="text" inputMode="numeric" pattern="[0-9]{6}" maxLength={6}
-                            placeholder="000000" icon={<ShieldCheck size={15} />}
+                            placeholder="000000"
                             value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                             autoComplete="one-time-code" required />
 
-                        <Input label="New Password" type="password" placeholder="Min. 6 characters" icon={<Lock size={15} />}
+                        <Input label="New password" type={showPassword ? 'text' : 'password'} placeholder="At least 6 characters"
+                            style={{ paddingRight: '64px' }}
+                            suffix={
+                                <TextAction quiet onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                                    {showPassword ? 'Hide' : 'Show'}
+                                </TextAction>
+                            }
                             value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" required />
 
-                        {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
-                                {error}
-                            </div>
-                        )}
+                        {errorLine}
 
                         <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                            Reset Password
+                            Reset password
                         </Button>
 
-                        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            Didn&apos;t receive it?{' '}
+                        <div style={{ ...type.meta, textAlign: 'center' }}>
                             {cooldown > 0 ? <span>Resend in {cooldown}s</span> : (
-                                <button type="button" onClick={handleResend}
-                                    style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '12px', fontWeight: 500, padding: 0 }}>
-                                    Resend code
-                                </button>
+                                <TextAction quiet onClick={handleResend}>Resend code</TextAction>
                             )}
+                            {' · '}
+                            <TextAction quiet onClick={() => { setStep('email'); setError(''); setOtp(''); setNewPassword(''); }}>
+                                Use a different email
+                            </TextAction>
                         </div>
                     </form>
-
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
-                        <button type="button" onClick={() => { setStep('email'); setError(''); setOtp(''); setNewPassword(''); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
-                            <ArrowLeft size={13} /> Try a different email
-                        </button>
-                    </div>
                 </>
             )}
 
-            {/* ── Done step ── */}
+            {/* Done step */}
             {step === 'done' && (
                 <>
                     <div style={{ marginBottom: '32px' }}>
-                        <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--color-inc) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--color-inc) 25%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                            <CheckCircle size={22} color="var(--color-inc)" />
-                        </div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                            Password reset!
-                        </h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Your password has been updated successfully.
-                        </p>
+                        <h1 style={H1}>Password updated</h1>
+                        <p style={{ ...type.meta, margin: 0 }}>Your password has been updated successfully.</p>
                     </div>
                     <Button size="lg" style={{ width: '100%' }} onClick={() => router.push('/login')}>
-                        Sign In
+                        Sign in
                     </Button>
                 </>
             )}

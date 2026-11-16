@@ -2,12 +2,16 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
+import { type } from '@/lib/typography';
+import { passwordStrength } from '@/lib/auth';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { AuthPanel } from '@/components/auth/AuthPanel';
+
+const H1: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: 'var(--text-figure)', fontWeight: 700, lineHeight: 1.15, color: 'var(--text-primary)', margin: '0 0 6px' };
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -79,9 +83,8 @@ export default function RegisterPage() {
     };
 
     const pw = form.password;
-    const pwStrength = pw.length === 0 ? 0 : pw.length < 6 ? 1 : pw.length < 8 ? 2 : (/\d/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) ? 4 : 3;
-    const strengthColors = ['', 'var(--color-exp)', 'var(--color-warn)', 'var(--accent)', 'var(--color-inc)'];
-    const strengthLabels = ['', 'Too short', 'Fair', 'Good', 'Strong'];
+    const strength = passwordStrength(pw);
+    const strengthColor = [undefined, TONE_TEXT.bad, TONE_TEXT.caution, TONE_TEXT.info, TONE_TEXT.good][strength.level];
 
     const handleOtpChange = (index: number, value: string) => {
         const digit = value.replace(/\D/g, '').slice(-1);
@@ -108,92 +111,77 @@ export default function RegisterPage() {
 
     return (
         <AuthPanel>
-            {/* ── Register step ── */}
+            {/* Register step */}
             {step === 'register' && (
                 <>
                     <div style={{ marginBottom: '32px' }}>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                            Create account
-                        </h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                            Start your financial journey
-                        </p>
+                        <h1 style={H1}>Create your account</h1>
+                        <p style={{ ...type.meta, margin: 0 }}>It takes a minute, and your data stays yours.</p>
                     </div>
 
                     <form onSubmit={handleRegister} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        <Input label="Full Name" type="text" placeholder="Your full name" icon={<User size={15} />}
+                        <Input label="Full name" type="text" placeholder="Your full name"
                             value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} autoComplete="off" required />
 
-                        <Input label="Email" type="email" placeholder="you@example.com" icon={<Mail size={15} />}
+                        <Input label="Email" type="email" placeholder="you@example.com"
                             value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} autoComplete="off" required />
 
                         <div>
-                            <Input label="Password" type={showPassword ? 'text' : 'password'} placeholder="Min. 6 characters" icon={<Lock size={15} />}
+                            <Input label="Password" type={showPassword ? 'text' : 'password'} placeholder="At least 6 characters"
+                                style={{ paddingRight: '64px' }}
                                 suffix={
-                                    <button type="button" onClick={() => setShowPassword(v => !v)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
-                                        {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                                    </button>
+                                    <TextAction quiet onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                                        {showPassword ? 'Hide' : 'Show'}
+                                    </TextAction>
                                 }
                                 value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} autoComplete="new-password" required />
                             {pw.length > 0 && (
-                                <div style={{ marginTop: '8px' }}>
-                                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                                        {[1, 2, 3, 4].map(i => (
-                                            <div key={i} style={{ flex: 1, height: '3px', borderRadius: '2px', background: i <= pwStrength ? strengthColors[pwStrength] : 'var(--border-subtle)', transition: 'background 0.2s' }} />
-                                        ))}
-                                    </div>
-                                    <div style={{ fontSize: '11px', color: strengthColors[pwStrength] }}>{strengthLabels[pwStrength]}</div>
-                                </div>
+                                <p style={{ ...type.meta, margin: '8px 0 0' }}>
+                                    Password strength: <span style={{ color: strengthColor }}>{strength.label}</span>
+                                </p>
                             )}
                         </div>
 
                         {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
-                                {error}
-                            </div>
+                            <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>
                         )}
 
                         <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                            Create Account
+                            Create account
                         </Button>
 
-                        <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, margin: 0 }}>
+                        <p style={{ ...type.meta, textAlign: 'center', margin: 0 }}>
                             By signing up you agree to our{' '}
-                            <span style={{ color: 'var(--accent)' }}>Terms of Service</span> and{' '}
-                            <span style={{ color: 'var(--accent)' }}>Privacy Policy</span>
+                            <span style={{ color: 'var(--accent-text)' }}>Terms of Service</span> and{' '}
+                            <span style={{ color: 'var(--accent-text)' }}>Privacy Policy</span>
                         </p>
                     </form>
 
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-                        Already have an account?{' '}
-                        <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/login')}>Sign in</span>
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+                        <span style={type.body}>Already have an account?</span>{' '}
+                        <TextAction onClick={() => router.push('/login')}>Sign in</TextAction>
                     </div>
                 </>
             )}
 
-            {/* ── OTP verify step ── */}
+            {/* OTP verify step */}
             {step === 'verify' && (
                 <>
                     <div style={{ marginBottom: '32px' }}>
-                        <div style={{ width: '52px', height: '52px', borderRadius: 'var(--radius-full)', background: 'var(--accent-subtle)', border: '1px solid var(--accent-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                            <Mail size={22} color="var(--accent)" />
-                        </div>
-                        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                            Check your email
-                        </h1>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
+                        <h1 style={H1}>Check your email</h1>
+                        <p style={{ ...type.meta, margin: 0 }}>
                             We sent a 6-digit code to{' '}
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{pendingEmail}</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{pendingEmail}</span>
                         </p>
                     </div>
 
                     <form onSubmit={handleVerify} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                             {otpDigits.map((digit, i) => (
                                 <input key={i}
                                     ref={el => { otpRefs.current[i] = el; }}
                                     type="text" inputMode="numeric" pattern="[0-9]*" maxLength={1}
+                                    aria-label={`Digit ${i + 1}`}
                                     value={digit}
                                     onChange={e => handleOtpChange(i, e.target.value)}
                                     onKeyDown={e => handleOtpKeyDown(i, e)}
@@ -201,13 +189,13 @@ export default function RegisterPage() {
                                     onFocus={() => setFocusedOtp(i)}
                                     onBlur={() => setFocusedOtp(null)}
                                     style={{
-                                        width: '48px', height: '56px', textAlign: 'center',
-                                        fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-mono)',
+                                        ...type.stat,
+                                        flex: 1, minWidth: 0, height: '52px', textAlign: 'center',
                                         background: 'var(--glass-fill-1)',
-                                        border: `1.5px solid ${focusedOtp === i || digit ? 'var(--accent)' : 'var(--border-subtle)'}`,
-                                        borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', outline: 'none',
-                                        boxShadow: focusedOtp === i ? '0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent)' : 'none',
-                                        transition: 'border-color 0.15s, box-shadow 0.15s',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        outline: focusedOtp === i ? '2px solid var(--accent-text)' : 'none',
+                                        outlineOffset: '1px',
                                         boxSizing: 'border-box',
                                     }}
                                 />
@@ -215,30 +203,23 @@ export default function RegisterPage() {
                         </div>
 
                         {error && (
-                            <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
-                                {error}
-                            </div>
+                            <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>
                         )}
 
                         <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%' }}>
-                            Verify Email
+                            Verify and continue
                         </Button>
 
-                        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-muted)' }}>
-                            {cooldown > 0 ? `Resend code in ${cooldown}s` : (
-                                <>Didn&apos;t receive it?{' '}
-                                    <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={handleResend}>Resend</span>
-                                </>
+                        <div style={{ ...type.meta, textAlign: 'center' }}>
+                            {cooldown > 0 ? <span>Resend code in {cooldown}s</span> : (
+                                <TextAction quiet onClick={handleResend}>Resend code</TextAction>
                             )}
+                            {' · '}
+                            <TextAction quiet onClick={() => { setStep('register'); setError(''); setOtp(''); setOtpDigits(Array(6).fill('')); }}>
+                                Use a different email
+                            </TextAction>
                         </div>
                     </form>
-
-                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)' }}>
-                        <button type="button" onClick={() => { setStep('register'); setError(''); setOtp(''); setOtpDigits(Array(6).fill('')); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: 0 }}>
-                            <ArrowLeft size={13} /> Back to registration
-                        </button>
-                    </div>
                 </>
             )}
         </AuthPanel>

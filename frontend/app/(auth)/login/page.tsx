@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authAPI } from '@/lib/api';
+import { type } from '@/lib/typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TextAction, TONE_TEXT } from '@/components/ui/CardParts';
 import { AuthPanel } from '@/components/auth/AuthPanel';
+
+const H1: React.CSSProperties = { fontFamily: 'var(--font-display)', fontSize: 'var(--text-figure)', fontWeight: 700, lineHeight: 1.15, color: 'var(--text-primary)', margin: '0 0 6px' };
 
 export default function LoginPage() {
     const router = useRouter();
@@ -39,12 +42,8 @@ export default function LoginPage() {
     return (
         <AuthPanel>
             <div style={{ marginBottom: '32px' }}>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '28px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                    Welcome back
-                </h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    Sign in to your account
-                </p>
+                <h1 style={H1}>Welcome back</h1>
+                <p style={{ ...type.meta, margin: 0 }}>Sign in to your account</p>
             </div>
 
             <form onSubmit={handleSubmit} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -52,7 +51,6 @@ export default function LoginPage() {
                     label="Email"
                     type="email"
                     placeholder="you@example.com"
-                    icon={<Mail size={15} />}
                     value={form.email}
                     onChange={e => setForm({ ...form, email: e.target.value })}
                     autoComplete="off"
@@ -64,12 +62,11 @@ export default function LoginPage() {
                         label="Password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="Your password"
-                        icon={<Lock size={15} />}
+                        style={{ paddingRight: '64px' }}
                         suffix={
-                            <button type="button" onClick={() => setShowPassword(v => !v)}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0, display: 'flex', alignItems: 'center', pointerEvents: 'auto' }}>
-                                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                            </button>
+                            <TextAction quiet onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                                {showPassword ? 'Hide' : 'Show'}
+                            </TextAction>
                         }
                         value={form.password}
                         onChange={e => setForm({ ...form, password: e.target.value })}
@@ -77,29 +74,22 @@ export default function LoginPage() {
                         required
                     />
                     <div style={{ textAlign: 'right', marginTop: '8px' }}>
-                        <button type="button" onClick={() => router.push('/forgot-password')}
-                            style={{ background: 'none', border: 'none', fontSize: '12px', color: 'var(--accent)', fontWeight: 500, cursor: 'pointer', padding: 0 }}>
-                            Forgot password?
-                        </button>
+                        <TextAction onClick={() => router.push('/forgot-password')}>Forgot password?</TextAction>
                     </div>
                 </div>
 
                 {error && (
-                    <div style={{ padding: '10px 14px', background: 'var(--color-exp-subtle)', border: '1px solid color-mix(in srgb, var(--color-exp) 25%, transparent)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--color-exp)' }}>
-                        {error}
-                    </div>
+                    <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>
                 )}
 
                 <Button type="submit" size="lg" isLoading={loading} style={{ width: '100%', marginTop: '4px' }}>
-                    Sign In
+                    Sign in
                 </Button>
             </form>
 
-            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
-                New to FinTrack?{' '}
-                <span style={{ color: 'var(--accent)', fontWeight: 600, cursor: 'pointer' }} onClick={() => router.push('/register')}>
-                    Create account
-                </span>
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+                <span style={type.body}>New to FinTrack?</span>{' '}
+                <TextAction onClick={() => router.push('/register')}>Create account</TextAction>
             </div>
         </AuthPanel>
     );
