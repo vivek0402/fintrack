@@ -46,7 +46,8 @@ const deletePlan = vi.mocked(planningAPI.deletePlan);
 
 async function openAndConfirmDelete() {
     render(<PlanningPage />);
-    fireEvent.click(await screen.findByRole('button', { name: /delete plan/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^edit plan$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /delete this plan/i }));
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
 }
 
@@ -64,7 +65,7 @@ describe('PlanningPage delete plan', () => {
 
         await openAndConfirmDelete();
 
-        await waitFor(() => expect(screen.getByText('Build Your Financial Plan')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Build your financial plan')).toBeInTheDocument());
         expect(deletePlan).toHaveBeenCalledTimes(1);
         expect(toast.success).toHaveBeenCalledWith('Financial plan deleted');
         expect(localStorage.getItem('fintrack-planning-has-credit-card-u1')).toBeNull();
@@ -76,7 +77,7 @@ describe('PlanningPage delete plan', () => {
         await openAndConfirmDelete();
 
         await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Failed to delete your financial plan'));
-        expect(screen.getByText('Your Financial Plan')).toBeInTheDocument();
+        expect(screen.getByText('Edit your financial plan')).toBeInTheDocument();
     });
 
     it('treats a 404 as already deleted', async () => {
@@ -84,6 +85,6 @@ describe('PlanningPage delete plan', () => {
 
         await openAndConfirmDelete();
 
-        await waitFor(() => expect(screen.getByText('Build Your Financial Plan')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getByText('Build your financial plan')).toBeInTheDocument());
     });
 });

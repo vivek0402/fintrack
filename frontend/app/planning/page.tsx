@@ -1,36 +1,31 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { planningAPI } from '@/lib/api';
 import { CategoryField } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
 import { fmt } from '@/lib/utils';
+import { type } from '@/lib/typography';
+import { monthlyWaterfall, driftLabel, riskLabel, moratoriumNote } from '@/lib/planning';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
-import { GCard } from '@/components/ui/GCard';
+import { Card } from '@/components/ui/Card';
+import { CardHeader, TextAction, Rows, Stat, Switch, TONE_TEXT } from '@/components/ui/CardParts';
+import { Input } from '@/components/ui/Input';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { toast } from '@/store/toastStore';
 
-// ── Shared inline style tokens (matches the pattern used on goals/page.tsx etc.) ──
-// Same wash as .glass-field, inlined since these fields live inside already-glass cards.
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
-const labelSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)' };
-const errSt: React.CSSProperties = { fontSize: 12, color: 'var(--color-exp)', margin: '8px 0 0', fontFamily: 'var(--font-body)' };
-const iconBtn: React.CSSProperties = { width: 38, height: 38, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--glass-border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 };
-const outlineBtn: React.CSSProperties = { padding: '8px 14px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', display: 'flex', alignItems: 'center', gap: 6 };
-
 const RISK_OPTIONS = [
-    { value: 'safety', label: 'Safety First' },
-    { value: 'balanced', label: 'Balanced' },
-    { value: 'growth', label: 'Growth First' },
-] as const;
+    { key: 'safety', label: 'Safety first' },
+    { key: 'balanced', label: 'Balanced' },
+    { key: 'growth', label: 'Growth first' },
+];
 
-const STEP_LABELS = ['Income', 'Expenses', 'Credit Card', 'Emergency Fund', 'Goal', 'Loan', 'Risk Profile'];
+const STEP_LABELS = ['Income', 'Expenses', 'Credit card', 'Emergency fund', 'Goal', 'Loan', 'Risk profile'];
 
 type ExpenseRow = { name: string; amount: string; category_id: string };
 
@@ -87,20 +82,15 @@ function isNonNegativeInt(value: string): boolean {
     return Number.isInteger(n) && n >= 0;
 }
 
-// Track + knob boolean switch — no shared Switch component exists yet in
-// components/ui, so this is kept local to the wizard rather than introducing
-// a new shared component for a single page's use.
+// A plain row: label and description on the left, the shared switch on the right.
 function ToggleRow({ checked, onChange, label, description }: { checked: boolean; onChange: (v: boolean) => void; label: string; description?: string }) {
     return (
-        <div className="glass-field" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 16px', borderRadius: 'var(--radius-md)' }}>
-            <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>{label}</p>
-                {description && <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>{description}</p>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
+            <div style={{ minWidth: 0 }}>
+                <p style={{ ...type.bodyStrong, margin: 0 }}>{label}</p>
+                {description && <p style={{ ...type.meta, margin: '2px 0 0' }}>{description}</p>}
             </div>
-            <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
-                style={{ width: 44, height: 26, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0, position: 'relative', background: checked ? 'var(--accent)' : 'var(--border-visible)', transition: 'background 180ms ease' }}>
-                <span style={{ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 180ms cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-            </button>
+            <Switch checked={checked} onChange={onChange} aria-label={label} />
         </div>
     );
 }
@@ -219,6 +209,7 @@ export default function PlanningPage() {
         setForm(EMPTY_FORM);
         setStep(0);
         setStepError('');
+        setEditingPlan(false);
         setActiveTab('monthly');
         setPlanData({ exists: false });
         toast.success('Financial plan deleted');
@@ -356,124 +347,165 @@ export default function PlanningPage() {
 
     const handleBack = () => { setStepError(''); setStep(s => Math.max(0, s - 1)); };
 
+
     // ── Loading state ────────────────────────────────────────────────────────
 
     if (isLoading || !user || loading) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <SkeletonCard height={64} />
                 <SkeletonCard height={320} />
             </div>
         );
     }
 
+    const hasDrift = recalcResult && (recalcResult.driftedExpenses?.length > 0 || recalcResult.incomeDrift);
+
+    // Rendered by both the plan view and the edit screen, since deleting is
+    // reachable from the edit screen.
+    const modals = (
+        <>
+            <Modal isOpen={recalcOpen} onClose={closeRecalc} title="Recalculate from recent spending" maxWidth="520px"
+                footer={
+                    hasDrift ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                            <Button variant="secondary" onClick={closeRecalc} disabled={applying}>Cancel</Button>
+                            <Button onClick={handleApplyRecalculation} isLoading={applying}>Apply</Button>
+                        </div>
+                    ) : (
+                        <Button variant="secondary" style={{ width: '100%' }} onClick={closeRecalc}>Close</Button>
+                    )
+                }
+            >
+                {!recalcResult ? null : !hasDrift ? (
+                    <p style={{ ...type.body, margin: 0 }}>
+                        Your plan still matches your recent spending.
+                    </p>
+                ) : (
+                    <Rows>
+                        {recalcResult.incomeDrift && (
+                            <DriftRow
+                                label="Monthly income"
+                                oldAmount={recalcResult.incomeDrift.declared_amount}
+                                newAmount={recalcResult.incomeDrift.actual_average}
+                                percentDifference={recalcResult.incomeDrift.percent_difference}
+                            />
+                        )}
+                        {recalcResult.driftedExpenses.map((item: any) => (
+                            <DriftRow
+                                key={item.id}
+                                label={item.name}
+                                oldAmount={item.declared_amount}
+                                newAmount={item.actual_average}
+                                percentDifference={item.percent_difference}
+                            />
+                        ))}
+                    </Rows>
+                )}
+            </Modal>
+
+            <Modal isOpen={deleteOpen} onClose={() => !deleting && setDeleteOpen(false)} title="Delete financial plan"
+                footer={
+                    <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                        <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting} style={{ flex: 1 }}>Cancel</Button>
+                        <Button variant="danger" onClick={handleDeletePlan} isLoading={deleting} style={{ flex: 1 }}>Delete</Button>
+                    </div>
+                }
+            >
+                <p style={{ ...type.body, margin: 0 }}>
+                    This removes your plan, its expenses and projections. Your transactions and goals are not affected. You can build a new plan afterwards.
+                </p>
+            </Modal>
+        </>
+    );
+
     // ── Setup wizard (no plan yet, or editing an existing one) ──────────────
 
     if (!planData?.exists || editingPlan) {
+        const setField = <K extends keyof WizardForm>(key: K, value: WizardForm[K]) => setForm(f => ({ ...f, [key]: value }));
+        const mono = { ...type.num };
+
         return (
-            <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 24 }}>
-                <div style={{ marginBottom: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px', fontFamily: 'var(--font-body)' }}>
-                            Step {step + 1} of {STEP_LABELS.length}
+            <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 'var(--space-6)' }}>
+                <div style={{ marginBottom: 'var(--space-6)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        <p style={{ ...type.meta, margin: 0 }}>
+                            {`Step ${step + 1} of ${STEP_LABELS.length}: ${STEP_LABELS[step]}`}
                         </p>
                         {editingPlan && (
-                            <button type="button" onClick={() => { setEditingPlan(false); setStepError(''); }}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-body)', padding: 0 }}>
-                                Cancel
-                            </button>
+                            <TextAction quiet onClick={() => { setEditingPlan(false); setStepError(''); }}>Cancel</TextAction>
                         )}
                     </div>
-                    <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 12px' }}>
-                        {editingPlan ? 'Edit Your Financial Plan' : 'Build Your Financial Plan'}
+                    <h1 style={{ ...type.heading, margin: '4px 0 var(--space-3)' }}>
+                        {editingPlan ? 'Edit your financial plan' : 'Build your financial plan'}
                     </h1>
-                    <div style={{ width: '100%', height: 3, background: 'var(--border-visible)', borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 2, width: `${((step + 1) / STEP_LABELS.length) * 100}%`, transition: 'width 0.4s cubic-bezier(0.16,1,0.3,1)' }} />
+                    <div style={{ width: '100%', height: 3, background: 'var(--border-visible)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'var(--accent)', borderRadius: 'var(--radius-sm)', width: `${((step + 1) / STEP_LABELS.length) * 100}%`, transition: 'width 0.4s cubic-bezier(0.16,1,0.3,1)' }} />
                     </div>
                 </div>
 
-                <GCard padding="28px 24px">
+                <Card>
                     {/* Step 0: Monthly income */}
                     {step === 0 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What&apos;s your monthly income?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>After-tax, take-home pay each month.</p>
-                            <label style={labelSt}>Monthly Income</label>
-                            <div style={{ position: 'relative' }}>
-                                <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>₹</span>
-                                <input type="number" min="0" placeholder="80000" value={form.monthly_income} autoFocus
-                                    onChange={e => setForm(f => ({ ...f, monthly_income: e.target.value }))}
-                                    style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 16, fontVariantNumeric: 'tabular-nums' }} />
-                            </div>
+                            <CardHeader title="What's your monthly income?" sub="After-tax, take-home pay each month." />
+                            <Input label="Monthly income" type="number" min="0" placeholder="80000" prefix="₹" autoFocus
+                                value={form.monthly_income} style={mono}
+                                onChange={e => setField('monthly_income', e.target.value)} />
                         </div>
                     )}
 
                     {/* Step 1: Fixed expenses */}
                     {step === 1 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What are your fixed monthly expenses?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Rent, groceries, utilities — anything recurring every month.</p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                            <CardHeader title="What are your fixed monthly expenses?" sub="Rent, groceries, utilities, anything that repeats every month." />
+                            <div style={{ display: 'flex', flexDirection: 'column', marginBottom: 'var(--space-3)' }}>
                                 {form.expenses.map((exp, i) => (
-                                    <div key={i} className="glass-field" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <input placeholder="e.g. Rent" value={exp.name} onChange={e => updateExpense(i, 'name', e.target.value)} style={{ ...inputSt, background: 'var(--glass-fill-1)' }} />
-                                            <div style={{ position: 'relative', width: 140, flexShrink: 0 }}>
-                                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>₹</span>
-                                                <input type="number" min="0" placeholder="0" value={exp.amount} onChange={e => updateExpense(i, 'amount', e.target.value)}
-                                                    style={{ ...inputSt, background: 'var(--glass-fill-1)', paddingLeft: 26, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }} />
+                                    <div key={i} style={{ padding: 'var(--space-3) 0', borderTop: i > 0 ? '1px solid var(--glass-border)' : undefined, paddingTop: i === 0 ? 0 : undefined }}>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', alignItems: 'center' }}>
+                                            <div style={{ flex: '2 1 180px', minWidth: 0 }}>
+                                                <Input aria-label="Expense name" placeholder="e.g. Rent" value={exp.name} onChange={e => updateExpense(i, 'name', e.target.value)} />
                                             </div>
-                                            <button type="button" onClick={() => removeExpenseRow(i)} disabled={form.expenses.length === 1} style={{ ...iconBtn, opacity: form.expenses.length === 1 ? 0.4 : 1 }}>
-                                                <Trash2 size={14} />
-                                            </button>
+                                            <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                                                <Input aria-label="Expense amount" type="number" min="0" placeholder="0" prefix="₹" value={exp.amount} style={mono}
+                                                    onChange={e => updateExpense(i, 'amount', e.target.value)} />
+                                            </div>
+                                            <TextAction quiet disabled={form.expenses.length === 1} onClick={() => removeExpenseRow(i)}>Remove</TextAction>
                                         </div>
-                                        <CategoryField
-                                            value={exp.category_id}
-                                            onChange={v => updateExpense(i, 'category_id', v)}
-                                            categories={categories}
-                                            allowNone
-                                            noneLabel="No category — can't compare to actual spending"
-                                            placeholder="No category — can't compare to actual spending"
-                                        />
+                                        <div style={{ marginTop: 'var(--space-2)' }}>
+                                            <CategoryField
+                                                value={exp.category_id}
+                                                onChange={v => updateExpense(i, 'category_id', v)}
+                                                categories={categories}
+                                                allowNone
+                                                noneLabel="No category (can't compare to actual spending)"
+                                                placeholder="No category (can't compare to actual spending)"
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <button type="button" onClick={addExpenseRow} style={outlineBtn}>
-                                <Plus size={14} /> Add Expense
-                            </button>
+                            <TextAction onClick={addExpenseRow}>Add an expense</TextAction>
                         </div>
                     )}
 
                     {/* Step 2: Credit card toggle */}
                     {step === 2 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>Do you use a credit card?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>We&apos;ll use this later to show you relevant tips.</p>
-                            <ToggleRow checked={form.has_credit_card} onChange={v => setForm(f => ({ ...f, has_credit_card: v }))} label="I have a credit card" />
+                            <CardHeader title="Do you use a credit card?" sub="We'll use this later to show you relevant tips." />
+                            <ToggleRow checked={form.has_credit_card} onChange={v => setField('has_credit_card', v)} label="I have a credit card" />
                         </div>
                     )}
 
                     {/* Step 3: Emergency fund */}
                     {step === 3 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>Your emergency fund</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>A cash buffer for the unexpected — usually 3 to 12 months of expenses.</p>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={labelSt}>Target (months)</label>
-                                    <input type="number" min="1" value={form.emergency_fund_target_months}
-                                        onChange={e => setForm(f => ({ ...f, emergency_fund_target_months: e.target.value }))}
-                                        style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} />
-                                </div>
-                                <div>
-                                    <label style={labelSt}>Current Balance</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>₹</span>
-                                        <input type="number" min="0" value={form.emergency_fund_current_balance}
-                                            onChange={e => setForm(f => ({ ...f, emergency_fund_current_balance: e.target.value }))}
-                                            style={{ ...inputSt, paddingLeft: 26, fontFamily: 'var(--font-mono)' }} />
-                                    </div>
-                                </div>
+                            <CardHeader title="Your emergency fund" sub="A cash buffer for the unexpected, usually 3 to 12 months of expenses." />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                <Input label="Target in months" type="number" min="1" value={form.emergency_fund_target_months} style={mono}
+                                    onChange={e => setField('emergency_fund_target_months', e.target.value)} />
+                                <Input label="Current balance" type="number" min="0" prefix="₹" value={form.emergency_fund_current_balance} style={mono}
+                                    onChange={e => setField('emergency_fund_current_balance', e.target.value)} />
                             </div>
                         </div>
                     )}
@@ -481,29 +513,17 @@ export default function PlanningPage() {
                     {/* Step 4: Goal */}
                     {step === 4 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>Saving for something specific?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>A trip, a gadget, a down payment — anything with a target amount and date.</p>
-                            <ToggleRow checked={form.has_goal} onChange={v => setForm(f => ({ ...f, has_goal: v }))} label="I'm saving for something specific" />
+                            <CardHeader title="Saving for something specific?" sub="A trip, a gadget, a down payment, anything with a target amount and date." />
+                            <ToggleRow checked={form.has_goal} onChange={v => setField('has_goal', v)} label="I'm saving for something specific" />
                             {form.has_goal && (
-                                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div>
-                                        <label style={labelSt}>Goal Name</label>
-                                        <input placeholder="e.g. Japan Trip" value={form.goal_name} onChange={e => setForm(f => ({ ...f, goal_name: e.target.value }))} style={inputSt} />
-                                    </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                        <div>
-                                            <label style={labelSt}>Goal Amount</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>₹</span>
-                                                <input type="number" min="0" value={form.goal_amount} onChange={e => setForm(f => ({ ...f, goal_amount: e.target.value }))}
-                                                    style={{ ...inputSt, paddingLeft: 26, fontFamily: 'var(--font-mono)' }} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label style={labelSt}>Target (months)</label>
-                                            <input type="number" min="1" value={form.goal_target_months} onChange={e => setForm(f => ({ ...f, goal_target_months: e.target.value }))}
-                                                style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} />
-                                        </div>
+                                <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                                    <Input label="Goal name" placeholder="e.g. Japan Trip" value={form.goal_name}
+                                        onChange={e => setField('goal_name', e.target.value)} />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                        <Input label="Goal amount" type="number" min="0" prefix="₹" value={form.goal_amount} style={mono}
+                                            onChange={e => setField('goal_amount', e.target.value)} />
+                                        <Input label="Target in months" type="number" min="1" value={form.goal_target_months} style={mono}
+                                            onChange={e => setField('goal_target_months', e.target.value)} />
                                     </div>
                                 </div>
                             )}
@@ -513,37 +533,21 @@ export default function PlanningPage() {
                     {/* Step 5: Loan */}
                     {step === 5 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>Do you have a loan?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>Home, car, personal — any loan with a fixed EMI.</p>
-                            <ToggleRow checked={form.has_loan} onChange={v => setForm(f => ({ ...f, has_loan: v }))} label="I have a loan" />
+                            <CardHeader title="Do you have a loan?" sub="Home, car, personal, any loan with a fixed EMI." />
+                            <ToggleRow checked={form.has_loan} onChange={v => setField('has_loan', v)} label="I have a loan" />
                             {form.has_loan && (
-                                <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                        <div>
-                                            <label style={labelSt}>Principal</label>
-                                            <div style={{ position: 'relative' }}>
-                                                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 13 }}>₹</span>
-                                                <input type="number" min="0" value={form.loan_principal} onChange={e => setForm(f => ({ ...f, loan_principal: e.target.value }))}
-                                                    style={{ ...inputSt, paddingLeft: 26, fontFamily: 'var(--font-mono)' }} />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label style={labelSt}>Annual Rate (%)</label>
-                                            <input type="number" min="0" step="0.01" value={form.loan_annual_rate_pct} onChange={e => setForm(f => ({ ...f, loan_annual_rate_pct: e.target.value }))}
-                                                style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} />
-                                        </div>
+                                <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                        <Input label="Principal" type="number" min="0" prefix="₹" value={form.loan_principal} style={mono}
+                                            onChange={e => setField('loan_principal', e.target.value)} />
+                                        <Input label="Annual rate (%)" type="number" min="0" step="0.01" value={form.loan_annual_rate_pct} style={mono}
+                                            onChange={e => setField('loan_annual_rate_pct', e.target.value)} />
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                        <div>
-                                            <label style={labelSt}>Tenure (months)</label>
-                                            <input type="number" min="1" value={form.loan_tenure_months} onChange={e => setForm(f => ({ ...f, loan_tenure_months: e.target.value }))}
-                                                style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} />
-                                        </div>
-                                        <div>
-                                            <label style={labelSt}>Moratorium (months)</label>
-                                            <input type="number" min="0" value={form.loan_moratorium_months} onChange={e => setForm(f => ({ ...f, loan_moratorium_months: e.target.value }))}
-                                                style={{ ...inputSt, fontFamily: 'var(--font-mono)' }} />
-                                        </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                        <Input label="Tenure in months" type="number" min="1" value={form.loan_tenure_months} style={mono}
+                                            onChange={e => setField('loan_tenure_months', e.target.value)} />
+                                        <Input label="Moratorium in months" type="number" min="0" value={form.loan_moratorium_months} style={mono}
+                                            onChange={e => setField('loan_moratorium_months', e.target.value)} />
                                     </div>
                                 </div>
                             )}
@@ -553,25 +557,15 @@ export default function PlanningPage() {
                     {/* Step 6: Risk profile */}
                     {step === 6 && (
                         <div>
-                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 6px' }}>What&apos;s your risk profile?</h2>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontFamily: 'var(--font-body)' }}>This decides how your surplus splits between your emergency fund and investments.</p>
-                            <div className="glass-field" style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 'var(--radius-md)', width: '100%' }}>
-                                {RISK_OPTIONS.map(opt => {
-                                    const isActive = form.risk_profile === opt.value;
-                                    return (
-                                        <button key={opt.value} type="button" onClick={() => setForm(f => ({ ...f, risk_profile: opt.value }))}
-                                            style={{ flex: 1, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: 'none', background: isActive ? 'var(--accent)' : 'transparent', color: isActive ? '#fff' : 'var(--text-secondary)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', cursor: 'pointer', transition: 'all 150ms ease' }}>
-                                            {opt.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <CardHeader title="What's your risk profile?" sub="This decides how your surplus splits between your emergency fund and investments." />
+                            <Tabs tabs={RISK_OPTIONS} active={form.risk_profile}
+                                onChange={key => setField('risk_profile', key as WizardForm['risk_profile'])} />
                         </div>
                     )}
 
-                    {stepError && <p style={errSt}>{stepError}</p>}
+                    {stepError && <p style={{ ...type.meta, color: TONE_TEXT.bad, margin: 'var(--space-3) 0 0' }}>{stepError}</p>}
 
-                    <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-6)' }}>
                         {step > 0 && (
                             <Button variant="secondary" onClick={handleBack} disabled={submitting}>Back</Button>
                         )}
@@ -579,7 +573,18 @@ export default function PlanningPage() {
                             {step === STEP_LABELS.length - 1 ? 'Finish' : 'Continue'}
                         </Button>
                     </div>
-                </GCard>
+                </Card>
+
+                {editingPlan && (
+                    <div style={{ marginTop: 'var(--space-4)' }}>
+                        <TextAction tone="danger" quiet onClick={() => setDeleteOpen(true)}>Delete this plan</TextAction>
+                        <p style={{ ...type.meta, margin: 'var(--space-1) 0 0' }}>
+                            Removes the plan, its expenses and projections. Your transactions and goals are not affected.
+                        </p>
+                    </div>
+                )}
+
+                {modals}
             </div>
         );
     }
@@ -595,27 +600,23 @@ export default function PlanningPage() {
         { key: 'start', label: 'Start' },
         { key: 'monthly', label: 'Monthly' },
         { key: 'portfolio', label: 'Portfolio' },
-        { key: 'five_year', label: '5 Years' },
+        { key: 'five_year', label: 'Five years' },
         ...(hasLoan ? [{ key: 'loan', label: 'Loan' }] : []),
     ];
 
-    const hasDrift = recalcResult && (recalcResult.driftedExpenses?.length > 0 || recalcResult.incomeDrift);
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                    Your Financial Plan
-                </h1>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Button variant="secondary" size="sm" onClick={handleEditClick}>
-                        Edit Plan
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={handleRecalculateClick} isLoading={recalcLoading}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)' }}>
+            <div className="fin-page-head">
+                <div style={{ minWidth: 0 }}>
+                    <p style={{ ...type.meta, margin: 0 }}>How your income is split, month by month</p>
+                    <h1 style={{ ...type.heading, margin: 0 }}>Financial plan</h1>
+                </div>
+                <div className="fin-page-actions">
+                    <Button variant="secondary" onClick={handleRecalculateClick} isLoading={recalcLoading}>
                         Recalculate from recent spending
                     </Button>
-                    <Button variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-                        <Trash2 size={14} /> Delete Plan
+                    <Button variant="secondary" onClick={handleEditClick}>
+                        Edit plan
                     </Button>
                 </div>
             </div>
@@ -644,83 +645,39 @@ export default function PlanningPage() {
                 )}
             </TabPanel>
 
-            <Modal isOpen={recalcOpen} onClose={closeRecalc} title="Recalculate from Recent Spending" maxWidth="520px"
-                footer={
-                    hasDrift ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            <Button variant="secondary" onClick={closeRecalc} disabled={applying}>Cancel</Button>
-                            <Button onClick={handleApplyRecalculation} isLoading={applying}>Apply</Button>
-                        </div>
-                    ) : (
-                        <Button variant="secondary" style={{ width: '100%' }} onClick={closeRecalc}>Close</Button>
-                    )
-                }
-            >
-                {!recalcResult ? null : !hasDrift ? (
-                    <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                        Your plan still matches your recent spending.
-                    </p>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {recalcResult.incomeDrift && (
-                            <DriftRow
-                                label="Monthly Income"
-                                oldAmount={recalcResult.incomeDrift.declared_amount}
-                                newAmount={recalcResult.incomeDrift.actual_average}
-                                percentDifference={recalcResult.incomeDrift.percent_difference}
-                                isIncome
-                            />
-                        )}
-                        {recalcResult.driftedExpenses.map((item: any) => (
-                            <DriftRow
-                                key={item.id}
-                                label={item.name}
-                                oldAmount={item.declared_amount}
-                                newAmount={item.actual_average}
-                                percentDifference={item.percent_difference}
-                            />
-                        ))}
-                    </div>
-                )}
-            </Modal>
-
-            <Modal isOpen={deleteOpen} onClose={() => !deleting && setDeleteOpen(false)} title="Delete Financial Plan"
-                footer={
-                    <div style={{ display: 'flex', gap: 10 }}>
-                        <Button variant="secondary" onClick={() => setDeleteOpen(false)} disabled={deleting} style={{ flex: 1 }}>Cancel</Button>
-                        <Button variant="danger" onClick={handleDeletePlan} isLoading={deleting} style={{ flex: 1 }}>Delete</Button>
-                    </div>
-                }
-            >
-                <p style={{ margin: 0, fontSize: 14, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>
-                    This removes your plan, its expenses and projections. Your transactions and goals are not affected. You can build a new plan afterwards.
-                </p>
-            </Modal>
+            {modals}
         </div>
+    );
+}
+
+// ── Shared pieces ───────────────────────────────────────────────────────────
+
+function NoteCard({ children }: { children: React.ReactNode }) {
+    return <Card><p style={{ ...type.meta, margin: 0 }}>{children}</p></Card>;
+}
+
+// The lead card's caption and display figure, as on Analytics.
+function LeadFigure({ label, figure }: { label: string; figure: string }) {
+    return (
+        <>
+            <p style={{ ...type.label, margin: 0 }}>{label}</p>
+            <p className="type-display" style={{ ...type.display, margin: '6px 0 0' }}>{figure}</p>
+        </>
     );
 }
 
 // ── Recalculate modal: one row per drifted income/expense line item ────────
 
-function DriftRow({ label, oldAmount, newAmount, percentDifference, isIncome }: { label: string; oldAmount: number; newAmount: number; percentDifference: number; isIncome?: boolean }) {
-    const increased = newAmount > oldAmount;
-    const isGood = isIncome ? increased : !increased;
-    const color = isGood ? 'var(--color-inc)' : 'var(--color-exp)';
-
+function DriftRow({ label, oldAmount, newAmount, percentDifference }: { label: string; oldAmount: number; newAmount: number; percentDifference: number }) {
     return (
-        <div className="glass-field" style={{ padding: '12px 14px', borderRadius: 'var(--radius-md)' }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 6px', fontFamily: 'var(--font-body)' }}>{label}</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', textDecoration: 'line-through', fontVariantNumeric: 'tabular-nums' }}>{fmt(oldAmount)}</span>
-                <span style={{ color: 'var(--text-muted)' }}>→</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color, fontVariantNumeric: 'tabular-nums' }}>{fmt(newAmount)}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color, fontFamily: 'var(--font-mono)' }}>
-                    ({percentDifference > 0 ? '+' : ''}{percentDifference.toFixed(0)}%)
-                </span>
+        <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ ...type.bodyStrong, margin: 0 }}>{label}</p>
+                <p style={{ ...type.num, margin: '2px 0' }}>{driftLabel(oldAmount, newAmount, percentDifference)}</p>
+                <p style={{ ...type.meta, margin: 0 }}>
+                    Averaged {fmt(newAmount)} over the last 3 months. You had declared {fmt(oldAmount)}.
+                </p>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                Averaged {fmt(newAmount)} over the last 3 months, you&apos;d declared {fmt(oldAmount)}.
-            </p>
         </div>
     );
 }
@@ -729,129 +686,91 @@ function DriftRow({ label, oldAmount, newAmount, percentDifference, isIncome }: 
 
 function StartTab({ checklist }: { checklist?: { title: string; description: string }[] }) {
     if (!checklist || checklist.length === 0) {
-        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>Your setup checklist will appear here once your plan finishes generating.</p></GCard>;
+        return <NoteCard>Your setup checklist will appear here once your plan finishes generating.</NoteCard>;
     }
     return (
-        <GCard>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Card>
+            <Rows>
                 {checklist.map((item, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 12 }}>
-                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--accent-subtle)', color: 'var(--accent)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
-                            {i + 1}
-                        </span>
+                    <div key={i} style={{ alignItems: 'flex-start' }}>
+                        <span style={{ ...type.numSmall, width: 20, flexShrink: 0 }}>{i + 1}</span>
                         <div style={{ minWidth: 0 }}>
-                            <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>{item.title}</p>
-                            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>{item.description}</p>
+                            <p style={{ ...type.bodyStrong, margin: 0 }}>{item.title}</p>
+                            <p style={{ ...type.meta, margin: '2px 0 0' }}>{item.description}</p>
                         </div>
                     </div>
                 ))}
-            </div>
-        </GCard>
+            </Rows>
+        </Card>
     );
 }
 
-// ── Monthly tab: waterfall from income to month-1 allocations ──────────────
-
-function WaterfallRow({ label, amount, running, note }: { label: string; amount: number; running: number; note?: string }) {
-    const isPositiveAmt = amount >= 0;
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--glass-border)', gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 14, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500 }}>{label}</p>
-                {note && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', fontFamily: 'var(--font-body)' }}>{note}</p>}
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: isPositiveAmt ? 'var(--color-inc)' : 'var(--color-exp)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-                    {isPositiveAmt ? '+' : '−'}{fmt(Math.abs(amount))}
-                </p>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', fontVariantNumeric: 'tabular-nums' }}>
-                    Balance: {fmt(running)}
-                </p>
-            </div>
-        </div>
-    );
-}
+// ── Monthly tab: income, three figures, then where every rupee goes ────────
 
 function MonthlyTab({ plan, expenses, projection }: { plan: any; expenses: any[]; projection: any[] }) {
     const month1 = projection?.[0];
-    if (!month1) {
-        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
-    }
+    if (!month1) return <NoteCard>No projection available.</NoteCard>;
 
-    const hasGoal = plan.goal_amount !== null;
     const hasLoan = plan.loan_principal !== null;
     const inMoratorium = hasLoan && plan.loan_moratorium_months >= 1;
+    const w = monthlyWaterfall(plan, expenses, month1);
 
-    let running = month1.income;
-    const rows: { label: string; amount: number; running: number; note?: string }[] = [];
-
-    expenses.forEach((e: any) => {
-        running -= e.amount;
-        rows.push({ label: e.name, amount: -e.amount, running });
-    });
-
-    if (hasLoan) {
-        running -= month1.loanPayment;
-        rows.push({
-            label: 'Loan Payment',
-            amount: -month1.loanPayment,
-            running,
-            note: inMoratorium ? 'Interest-only — moratorium in effect' : undefined,
-        });
-    }
-
-    if (hasGoal) {
-        running -= month1.goalPayment;
-        rows.push({ label: `Goal: ${plan.goal_name}`, amount: -month1.goalPayment, running });
-    }
-
-    running -= month1.emergencyFundContribution;
-    rows.push({ label: 'Emergency Fund', amount: -month1.emergencyFundContribution, running });
-
-    running -= month1.sipContribution;
-    rows.push({ label: 'SIP / Investments', amount: -month1.sipContribution, running });
-
-    // Small rounding slack absorbs the engine's per-line Math.round() — anything
-    // larger than this is a real reconciliation problem, not display noise.
-    const TOLERANCE = 2;
-    const balanced = Math.abs(running) <= TOLERANCE && !month1.deficit;
+    const sentence = w.balanced
+        ? { text: 'Every rupee is accounted for. The totals add up to your income.', color: undefined }
+        : w.deficit
+            ? { text: "This month's fixed costs exceed your income, so there is nothing left to allocate.", color: TONE_TEXT.caution }
+            : { text: `The allocations are ${fmt(Math.abs(w.endingBalance))} away from your income. This points to a problem in the planning engine.`, color: TONE_TEXT.bad };
 
     return (
-        <GCard>
-            <WaterfallRow label="Monthly Income" amount={month1.income} running={month1.income} />
-            {rows.map((r, i) => <WaterfallRow key={i} {...r} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <Card>
+                <LeadFigure label="Monthly income" figure={fmt(month1.income)} />
+                <p style={{ ...type.meta, margin: 'var(--space-2) 0 0', color: sentence.color ?? type.meta.color }}>{sentence.text}</p>
+                <div className="dash-stats">
+                    <Stat className="dash-stat" label="Fixed costs" value={fmt(w.fixedCosts)}
+                        sub={`${expenses.length} ${expenses.length === 1 ? 'expense' : 'expenses'}`} />
+                    <Stat className="dash-stat" label="Loan"
+                        value={hasLoan ? fmt(month1.loanPayment) : 'None'}
+                        sub={hasLoan ? (inMoratorium ? 'Interest only' : 'Monthly payment') : 'No loan in this plan'} />
+                    <Stat className="dash-stat" label="Saved and invested" value={fmt(w.savedAndInvested)} sub={`${w.savedPct}% of income`} />
+                </div>
+            </Card>
 
-            <div style={{
-                marginTop: 16, padding: '14px 16px', borderRadius: 'var(--radius-md)',
-                background: balanced ? 'var(--color-inc-subtle)' : month1.deficit ? 'var(--color-warn-subtle)' : 'var(--color-exp-subtle)',
-                border: `1px solid ${balanced ? 'var(--color-inc)' : month1.deficit ? 'var(--color-warn)' : 'var(--color-exp)'}`,
-            }}>
-                {balanced ? (
-                    <span style={{ color: 'var(--color-inc)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600 }}>
-                        ✓ Every rupee accounted for — totals reconcile with income.
-                    </span>
-                ) : month1.deficit ? (
-                    <span style={{ color: 'var(--color-warn)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600 }}>
-                        ⚠ This month&apos;s fixed costs exceed income — there&apos;s no surplus to allocate.
-                    </span>
-                ) : (
-                    <span style={{ color: 'var(--color-exp)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600 }}>
-                        ⚠ Mismatch of {fmt(Math.abs(running))} between income and allocations — this likely indicates a bug in the planning engine.
-                    </span>
-                )}
-            </div>
-        </GCard>
+            <Card>
+                <CardHeader title="Where it goes" sub="In order, with what is left after each line" />
+                <Rows>
+                    {w.rows.map((r, i) => (
+                        <div key={i} style={{ justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                            <div style={{ minWidth: 0 }}>
+                                <p style={{ ...type.bodyStrong, margin: 0 }}>{r.label}</p>
+                                {r.note && <p style={{ ...type.meta, margin: '2px 0 0' }}>{r.note}</p>}
+                            </div>
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <p style={{ ...type.num, margin: 0 }}>{r.amount > 0 ? '−' : ''}{fmt(r.amount)}</p>
+                                <p style={{ ...type.meta, margin: '2px 0 0' }}>Left: {fmt(r.running)}</p>
+                            </div>
+                        </div>
+                    ))}
+                </Rows>
+            </Card>
+        </div>
     );
 }
 
-// ── Portfolio tab: emergency fund / SIP / goal allocation by recommended fund ──
+// ── Portfolio tab: how the surplus is split, then funds by role ─────────────
 
-function FundCard({ fund }: { fund: { name: string; plan_type: string; platform: string; reason?: string } }) {
+function FundRows({ funds }: { funds: { name: string; plan_type: string; platform: string }[] }) {
     return (
-        <div className="glass-field" style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 2px', fontFamily: 'var(--font-body)' }}>{fund.name}</p>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{fund.plan_type} · {fund.platform}</p>
-        </div>
+        <Rows>
+            {funds.map(f => (
+                <div key={f.name}>
+                    <div style={{ minWidth: 0 }}>
+                        <p style={{ ...type.bodyStrong, margin: 0 }}>{f.name}</p>
+                        <p style={{ ...type.meta, margin: '2px 0 0' }}>{f.plan_type} · {f.platform}</p>
+                    </div>
+                </div>
+            ))}
+        </Rows>
     );
 }
 
@@ -859,6 +778,8 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
     plan: any; expenses: any[]; month1: any; recommendedFunds: any[]; rationale?: string;
     emergencyFundReachedMonth: number | null; goalReachedMonth: number | null;
 }) {
+    if (!month1) return <NoteCard>No projection available.</NoteCard>;
+
     const efFund = recommendedFunds.find((f: any) => f.role === 'liquidEmergencyFund');
     const equityFunds = recommendedFunds.filter((f: any) => f.role === 'broadMarketIndex' || f.role === 'secondaryIndex' || f.role === 'elssTaxSaver');
     const goalFund = recommendedFunds.find((f: any) => f.role === 'goalFund');
@@ -869,138 +790,120 @@ function PortfolioTab({ plan, expenses, month1, recommendedFunds, rationale, eme
     const efPct = efTarget > 0 ? (plan.emergency_fund_current_balance / efTarget) * 100 : 0;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {rationale && (
-                <GCard><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{rationale}</p></GCard>
-            )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <Card>
+                <CardHeader title="How your surplus is split" sub={`${riskLabel(plan.risk_profile)} risk profile`} flush={false} />
+                <p style={{ ...type.body, margin: 0 }}>{rationale || 'Your surplus is split by your risk profile.'}</p>
+            </Card>
 
-            <GCard>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Emergency Fund</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(plan.emergency_fund_current_balance)} / {fmt(efTarget)}</p>
-                </div>
-                <ProgressBar pct={efPct} color="var(--color-info)" height={6} />
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '8px 0 12px', fontFamily: 'var(--font-body)' }}>
-                    This month&apos;s contribution: {fmt(month1.emergencyFundContribution)}
-                    {emergencyFundReachedMonth != null && ` · On track to reach target by month ${emergencyFundReachedMonth}`}
-                </p>
-                {efFund && <FundCard fund={efFund} />}
-            </GCard>
+            <div className="fin-two">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', minWidth: 0 }}>
+                    <Card>
+                        <CardHeader title="Emergency fund"
+                            sub={`This month ${fmt(month1.emergencyFundContribution)}${emergencyFundReachedMonth != null ? ` · on track for month ${emergencyFundReachedMonth}` : ''}`}
+                            action={<span style={type.num}>{fmt(plan.emergency_fund_current_balance)} of {fmt(efTarget)}</span>} />
+                        <div style={{ marginBottom: 'var(--space-4)' }}>
+                            <ProgressBar pct={efPct} color="var(--text-secondary)" height={6} />
+                        </div>
+                        {efFund && <FundRows funds={[efFund]} />}
+                    </Card>
 
-            <GCard>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
-                    <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>SIP / Investments</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--color-inc)', margin: 0, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(month1.sipContribution)}/mo</p>
+                    {hasGoal && goalFund && (
+                        <Card>
+                            <CardHeader title={`Goal: ${plan.goal_name}`}
+                                sub={`${fmt(month1.goalPayment)} a month${goalReachedMonth != null ? ` · on track for month ${goalReachedMonth}` : ''}`}
+                                action={<span style={type.num}>{fmt(plan.goal_amount)} target</span>} />
+                            <FundRows funds={[goalFund]} />
+                        </Card>
+                    )}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {equityFunds.map((f: any) => <FundCard key={f.name} fund={f} />)}
-                </div>
-            </GCard>
 
-            {hasGoal && goalFund && (
-                <GCard>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10, gap: 8, flexWrap: 'wrap' }}>
-                        <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Goal: {plan.goal_name}</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(plan.goal_amount)} target</p>
-                    </div>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px', fontFamily: 'var(--font-body)' }}>
-                        Contributing {fmt(month1.goalPayment)}/month
-                        {goalReachedMonth != null && ` · On track to reach this goal by month ${goalReachedMonth}`}
-                    </p>
-                    <FundCard fund={goalFund} />
-                </GCard>
-            )}
+                <Card>
+                    <CardHeader title="SIP and investments" sub="Funds to start with"
+                        action={<span style={type.num}>{fmt(month1.sipContribution)} a month</span>} />
+                    <FundRows funds={equityFunds} />
+                </Card>
+            </div>
         </div>
     );
 }
 
-// ── 5-Year tab: year-by-year table from getFiveYearSummary() rows ───────────
+// ── Five years: net worth lead, then a year-by-year table ───────────────────
 
 function FiveYearTab({ plan, summary, summaryText }: { plan: any; summary: any[]; summaryText?: string }) {
-    if (!summary || summary.length === 0) {
-        return <GCard><p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>No projection available.</p></GCard>;
-    }
+    if (!summary || summary.length === 0) return <NoteCard>No projection available.</NoteCard>;
 
     const hasGoal = plan.goal_amount !== null;
-    const columns = ['Year', 'Income', 'Expenses', 'EF Balance', ...(hasGoal ? ['Goal Balance'] : []), 'SIP Balance', 'Net Worth'];
-    const cellSt: React.CSSProperties = { fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)', padding: '8px 4px', borderTop: '1px solid var(--glass-border)', fontVariantNumeric: 'tabular-nums' };
+    const columns = ['Year', 'Income', 'Expenses', 'Emergency fund', ...(hasGoal ? ['Goal'] : []), 'SIP', 'Net worth'];
+    const headSt: React.CSSProperties = { ...type.meta, textAlign: 'right', padding: '0 var(--space-2) var(--space-2)', whiteSpace: 'nowrap' };
+    const cellSt: React.CSSProperties = { ...type.numSmall, textAlign: 'right', padding: 'var(--space-3) var(--space-2)', borderTop: '1px solid var(--glass-border)', whiteSpace: 'nowrap' };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {summaryText && (
-                <GCard><p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>{summaryText}</p></GCard>
-            )}
-            <GCard>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <Card>
+                <LeadFigure label="Net worth after five years" figure={fmt(summary[summary.length - 1].netWorth)} />
+                {summaryText && <p style={{ ...type.body, margin: 'var(--space-3) 0 0' }}>{summaryText}</p>}
+            </Card>
+
+            <Card>
+                <CardHeader title="Year by year" sub="Balances at the end of each year" />
                 <div style={{ overflowX: 'auto' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: `60px repeat(${columns.length - 1}, 1fr)`, gap: 4, minWidth: 560 }}>
-                        {columns.map(c => (
-                            <span key={c} style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: 'var(--font-body)', padding: '0 4px 8px' }}>{c}</span>
-                        ))}
-                        {summary.map((row: any) => (
-                            <Fragment key={row.month}>
-                                <span style={{ fontSize: 13, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontWeight: 600, padding: '8px 4px', borderTop: '1px solid var(--glass-border)' }}>{row.month / 12}</span>
-                                <span style={cellSt}>{fmt(row.income)}</span>
-                                <span style={cellSt}>{fmt(row.fixedExpenses)}</span>
-                                <span style={cellSt}>{fmt(row.emergencyFundBalance)}</span>
-                                {hasGoal && <span style={cellSt}>{fmt(row.goalBalance)}</span>}
-                                <span style={cellSt}>{fmt(row.sipBalance)}</span>
-                                <span style={{ ...cellSt, fontSize: 13, fontWeight: 700, color: 'var(--color-inc)' }}>{fmt(row.netWorth)}</span>
-                            </Fragment>
-                        ))}
-                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
+                        <thead>
+                            <tr>
+                                {columns.map((c, i) => (
+                                    <th key={c} scope="col" style={{ ...headSt, textAlign: i === 0 ? 'left' : 'right' }}>{c}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {summary.map((row: any) => (
+                                <tr key={row.month}>
+                                    <td style={{ ...type.bodyStrong, padding: 'var(--space-3) var(--space-2)', borderTop: '1px solid var(--glass-border)' }}>{row.month / 12}</td>
+                                    <td style={cellSt}>{fmt(row.income)}</td>
+                                    <td style={cellSt}>{fmt(row.fixedExpenses)}</td>
+                                    <td style={cellSt}>{fmt(row.emergencyFundBalance)}</td>
+                                    {hasGoal && <td style={cellSt}>{fmt(row.goalBalance)}</td>}
+                                    <td style={cellSt}>{fmt(row.sipBalance)}</td>
+                                    <td style={cellSt}>{fmt(row.netWorth)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            </GCard>
+            </Card>
         </div>
     );
 }
 
-// ── Loan tab: EMI, moratorium status, outstanding balance over time ────────
+// ── Loan tab: EMI lead, then outstanding balance over time ──────────────────
 
 function LoanTab({ plan, emi, fiveYearSummary }: { plan: any; emi: number; fiveYearSummary: any[] }) {
-    const hasMoratorium = plan.loan_moratorium_months > 0;
-    const statSt: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px', fontFamily: 'var(--font-body)' };
+    const note = moratoriumNote(plan);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <GCard>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div>
-                        <p style={statSt}>Monthly EMI</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(emi)}</p>
-                    </div>
-                    <div>
-                        <p style={statSt}>Principal</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmt(plan.loan_principal)}</p>
-                    </div>
-                    <div>
-                        <p style={statSt}>Annual Rate</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>{plan.loan_annual_rate_pct}%</p>
-                    </div>
-                    <div>
-                        <p style={statSt}>Tenure</p>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 600, color: 'var(--text-secondary)', margin: 0 }}>{plan.loan_tenure_months} months</p>
-                    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <Card>
+                <LeadFigure label="Monthly EMI" figure={fmt(emi)} />
+                {note && <p style={{ ...type.meta, margin: 'var(--space-2) 0 0' }}>{note}</p>}
+                <div className="dash-stats">
+                    <Stat className="dash-stat" label="Principal" value={fmt(plan.loan_principal)} />
+                    <Stat className="dash-stat" label="Annual rate" value={`${plan.loan_annual_rate_pct}%`} />
+                    <Stat className="dash-stat" label="Tenure" value={`${plan.loan_tenure_months} months`} />
                 </div>
-                {hasMoratorium && (
-                    <p style={{ fontSize: 12, color: 'var(--color-warn)', margin: '14px 0 0', fontFamily: 'var(--font-body)' }}>
-                        Interest-only for the first {plan.loan_moratorium_months} month{plan.loan_moratorium_months > 1 ? 's' : ''} — full EMI begins month {plan.loan_moratorium_months + 1}.
-                    </p>
-                )}
-            </GCard>
+            </Card>
 
-            <GCard>
-                <p style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px' }}>Outstanding Balance</p>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <Card>
+                <CardHeader title="Outstanding balance" sub="What is left to pay at the end of each year" />
+                <Rows>
                     {fiveYearSummary.map((row: any) => (
-                        <div key={row.month} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--glass-border)' }}>
-                            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>Year {row.month / 12}</span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: row.loanOutstanding === 0 ? 'var(--color-inc)' : 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
-                                {row.loanOutstanding === 0 ? 'Paid off' : fmt(row.loanOutstanding)}
-                            </span>
+                        <div key={row.month} style={{ justifyContent: 'space-between' }}>
+                            <span style={type.bodyStrong}>Year {row.month / 12}</span>
+                            <span style={type.num}>{row.loanOutstanding === 0 ? 'Paid off' : fmt(row.loanOutstanding)}</span>
                         </div>
                     ))}
-                </div>
-            </GCard>
+                </Rows>
+            </Card>
         </div>
     );
 }
