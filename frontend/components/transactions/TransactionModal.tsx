@@ -935,16 +935,19 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {/* ── Amount: the hero figure, with the cursor in it ── */}
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2) 0' }}>
                     <label htmlFor="tx-amount" style={hiddenLabel}>Amount</label>
-                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 'var(--space-2)', maxWidth: '100%' }}>
+                    <div onClick={() => document.getElementById('tx-amount')?.focus()}
+                        style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 'var(--space-2)', maxWidth: '100%', minWidth: 240, boxSizing: 'border-box',
+                            padding: 'var(--space-3) var(--space-6)', borderRadius: 'var(--radius-lg)', cursor: 'text',
+                            background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)',
+                            ...(amountFocused ? { boxShadow: 'inset 0 0 0 2px var(--text-primary)', borderColor: 'transparent' } : null) }}>
                         <span aria-hidden="true" className="type-display" style={{ ...type.display, color: 'var(--text-secondary)' }}>₹</span>
                         <input id="tx-amount" className="type-display" type="number" inputMode="decimal" placeholder="0" min="0.01" step="any"
                             value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
                             onFocus={() => setAmountFocused(true)} onBlur={() => setAmountFocused(false)}
                             style={{
                                 ...type.display, background: 'transparent', border: 'none', outline: 'none', borderRadius: 0, textAlign: 'left',
-                                borderBottom: `2px solid ${amountFocused ? 'var(--text-primary)' : 'var(--glass-border)'}`,
-                                minWidth: 160, maxWidth: '100%', width: `calc(${Math.max(form.amount.length, 1)}ch + 16px)`,
-                                padding: '0 0 var(--space-1)', boxSizing: 'content-box',
+                                minWidth: 60, maxWidth: '100%', width: `calc(${Math.max(form.amount.length, 1)}ch + 8px)`,
+                                padding: 0, boxSizing: 'content-box',
                             }}
                         />
                     </div>
