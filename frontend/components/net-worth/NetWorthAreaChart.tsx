@@ -3,14 +3,15 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fmt } from '@/lib/utils';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
+import { chartText } from '@/lib/typography';
 
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     const date = new Date(label).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     return (
-        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '10px 14px', fontSize: '0.8rem', boxShadow: 'var(--shadow-modal)' }}>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontWeight: 600, fontFamily: 'var(--font-body)' }}>{date}</p>
-            <p style={{ color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{fmt(payload[0].value)}</p>
+        <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: '10px 14px', fontSize: chartText.caption, boxShadow: 'var(--shadow-modal)' }}>
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 4px', fontWeight: 500, fontFamily: 'var(--font-body)' }}>{date}</p>
+            <p style={{ color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{fmt(payload[0].value)}</p>
         </div>
     );
 }
@@ -28,8 +29,8 @@ export function NetWorthAreaChart({ chartData }: Props) {
                         <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
                     </linearGradient>
                 </defs>
-                <XAxis dataKey="date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })} tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'K'} width={56} />
+                <XAxis dataKey="date" tickFormatter={d => new Date(d).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' })} tick={{ fill: 'var(--text-secondary)', fontSize: chartText.micro }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: 'var(--text-secondary)', fontSize: chartText.micro }} axisLine={false} tickLine={false} tickFormatter={v => '₹' + Math.round(v / 1000) + 'K'} width={56} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#netWorthGradient)" {...chartAnim} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
             </AreaChart>

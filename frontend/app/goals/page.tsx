@@ -25,7 +25,7 @@ import { daysLeft, deadlineLabel, groupGoals, goalsSummary, monthlyNeeded } from
 
 const NO_GOALS: any[] = [];
 
-// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+// Same wash as the shared fields, inlined since these fields live inside already-glass Modals/cards.
 const inputSt: React.CSSProperties = { ...type.body, width: '100%', height: 40, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' };
 const labelSt: React.CSSProperties = { ...type.label, marginBottom: 6, display: 'block' };
 const errSt: React.CSSProperties = { ...type.meta, color: 'var(--color-exp-text)', margin: '4px 0 0' };
@@ -577,8 +577,7 @@ export default function GoalsPage() {
                                     const selected = lifeEventForm.event_type === ev.type;
                                     return (
                                         <button key={ev.type} type="button" aria-pressed={selected} onClick={() => setLifeEventForm({ ...lifeEventForm, event_type: ev.type })}
-                                            className={selected ? undefined : 'glass-field'}
-                                            style={{ padding: '12px 8px', borderRadius: 'var(--radius-md)', border: selected ? '1px solid var(--border-visible)' : undefined, background: selected ? 'var(--glass-fill-3)' : undefined, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                            style={{ padding: '12px 8px', borderRadius: 'var(--radius-md)', background: 'transparent', border: selected ? '1px solid transparent' : '1px solid var(--glass-border)', boxShadow: selected ? 'inset 0 0 0 2px var(--text-primary)' : undefined, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                             <span aria-hidden="true" style={{ fontSize: 'var(--text-heading)', lineHeight: 1 }}>{ev.emoji}</span>
                                             <span style={{ ...type.label, color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{ev.label}</span>
                                         </button>

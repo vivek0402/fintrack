@@ -41,6 +41,7 @@ export const ICON_MAP: Record<string, React.ElementType> = {
     'gift': Gift, 'circle-dot': CircleDot, 'laptop': Laptop, 'package': Package,
 };
 
+// `size` is a pixel prop shared by lucide icons and emoji glyphs; the emoji span needs a numeric fontSize to match the icon box.
 export const CategoryIcon = ({ name, size = 14, color = 'currentColor' }: { name?: string; size?: number; color?: string }) => {
     if (!name) return <span style={{ fontSize: size }}>📦</span>;
     const Icon = ICON_MAP[name];

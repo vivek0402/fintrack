@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { isCategorizableExpense } from '@/lib/utils';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
+import { type, truncate } from '@/lib/typography';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 const MN = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -47,7 +48,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
     }, [transactions]);
 
     if (!categories.length) {
-        return <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>Add expense transactions to see category trends.</p>;
+        return <p style={{ ...type.body, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Add expense transactions to see category trends.</p>;
     }
 
     const cols = isMobile ? 2 : 3;
@@ -57,20 +58,19 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
             {categories.map(cat => {
                 const isUp    = cat.trendPct > 0;
                 const stroke  = isUp ? 'var(--color-exp)' : 'var(--color-inc)';
-                const trendBg = isUp ? 'color-mix(in srgb, var(--color-exp) 10%, transparent)' : 'color-mix(in srgb, var(--color-inc) 10%, transparent)';
                 return (
-                    <div key={cat.name} className="glass-field" style={{ borderRadius: 'var(--radius-md)', padding: '12px', minWidth: 0, overflow: 'hidden' }}>
+                    <div key={cat.name} style={{ border: '1px solid var(--glass-border)', background: 'transparent', borderRadius: 'var(--radius-md)', padding: '12px', minWidth: 0, overflow: 'hidden' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2, gap: 4 }}>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                            <span style={{ ...type.label, color: 'var(--text-primary)', ...truncate, flex: 1 }}>
                                 {cat.name}
                             </span>
                             {cat.trendPct !== 0 && (
-                                <span style={{ fontSize: 10, color: isUp ? 'var(--color-exp)' : 'var(--color-inc)', fontWeight: 700, fontFamily: 'var(--font-mono)', flexShrink: 0, background: trendBg, padding: '1px 5px', borderRadius: 4 }}>
-                                    {isUp ? '▲' : '▼'} {Math.abs(cat.trendPct)}%
+                                <span style={{ ...type.micro, fontWeight: 500, color: isUp ? 'var(--color-exp-text)' : 'var(--color-inc-text)', flexShrink: 0 }}>
+                                    {isUp ? '+' : '−'}{Math.abs(cat.trendPct)}%
                                 </span>
                             )}
                         </div>
-                        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '2px 0 6px', fontVariantNumeric: 'tabular-nums' }}>
+                        <p style={{ ...type.num, margin: '2px 0 6px' }}>
                             {fmt(cat.current)}
                         </p>
                         <ResponsiveContainer width="100%" height={60}>
@@ -84,7 +84,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
                                 <Tooltip
                                     content={({ active, payload }) =>
                                         active && payload?.length ? (
-                                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+                                            <div style={{ background: 'var(--bg-surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '4px 8px', ...type.micro, color: 'var(--text-primary)' }}>
                                                 {payload[0].payload.label}: {fmt(Number(payload[0].value))}
                                             </div>
                                         ) : null
@@ -93,7 +93,7 @@ export function CategoryTrajectory({ transactions, isMobile }: Props) {
                                 <Area type="monotone" dataKey="amount" stroke={stroke} strokeWidth={1.5} fill={`url(#cg-${cat.slug})`} {...chartAnim} dot={false} />
                             </AreaChart>
                         </ResponsiveContainer>
-                        <p style={{ fontSize: 9, color: 'var(--text-muted)', margin: '4px 0 0', fontFamily: 'var(--font-body)', textAlign: 'right' }}>6-month trend</p>
+                        <p style={{ ...type.micro, fontFamily: 'var(--font-body)', margin: '4px 0 0', textAlign: 'right' }}>6-month trend</p>
                     </div>
                 );
             })}

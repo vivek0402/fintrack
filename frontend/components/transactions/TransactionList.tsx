@@ -283,7 +283,7 @@ const TransactionRow = memo(function TransactionRow({
                         flexShrink: 0,
                         marginRight: 12,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '16px',
+                        fontSize: 'var(--text-title)', // sizes the category emoji
                     }}>
                         {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
                     </div>
@@ -349,7 +349,7 @@ const TransactionRow = memo(function TransactionRow({
                     </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
-                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '17px' }}>
+                    <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-md)', flexShrink: 0, background: 'var(--glass-fill-1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 'var(--text-title)' /* sizes the category emoji */ }}>
                         {getSmartIcon(tx.description, tx.category_name, tx.category_icon)}
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>

@@ -100,12 +100,13 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
 }
 
-/* Keyboard focus ring for elements with an interactive role but no native
-   focus styling of their own (e.g. divs used as list rows). Mouse/touch
-   activation never triggers :focus-visible, so this is keyboard-only. */
-[role="button"]:focus-visible {
-  outline: 2px solid var(--accent-border);
-  outline-offset: -2px;
+/* Keyboard focus ring for plain buttons, links and role=button elements (e.g.
+   divs used as list rows), the same ring as the tabs. Mouse/touch activation
+   never triggers :focus-visible, so this is keyboard-only. Text inputs, selects
+   and textareas are not listed: they have their own focus styling. */
+button:focus-visible, a:focus-visible, [role="button"]:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }
 
 /* ── DARK THEME (default) — AMOLED ───────────────────────────────────────────

@@ -39,7 +39,7 @@ const CalendarTab = dynamic(() => import('@/components/analytics/CalendarTab').t
 const HealthTab = dynamic(() => import('@/components/analytics/health/HealthTab').then(m => m.HealthTab), { ssr: false, loading: vizSkeleton(400) });
 import { exportToCSV, formatDate, fmt, isNonSavingsExpense } from '@/lib/utils';
 import { useChartAnimation } from '@/hooks/useChartAnimation';
-import { type, truncate } from '@/lib/typography';
+import { type, truncate, chartText } from '@/lib/typography';
 import { shareRows, comparePeriod, dayOfWeekSummary, patternTitle, patternContext, splitPatterns, patternCount, yearReviewStats } from '@/lib/analytics';
 
 // One row of tabs, always visible (the row scrolls sideways on mobile).
@@ -67,11 +67,11 @@ const FULL_MONTHS = ['', 'January', 'February', 'March', 'April', 'May', 'June',
 
 // ── Chart colour state read from CSS custom properties at runtime ─────────────
 // This ensures charts update when the theme changes.
-type ChartColors = { inc: string; exp: string; accent2: string; tint: string; border: string; faint: string; };
+type ChartColors = { inc: string; exp: string; accent2: string; border: string; faint: string; };
 // Values mirror DESIGN.md's dark theme (default) tokens: --color-inc,
-// --color-exp, --accent (used for `accent2`), --accent-subtle, --border-subtle,
+// --color-exp, --accent (used for `accent2`), --border-subtle,
 // --text-muted. Only used for the brief pre-hydration/SSR window.
-const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#dc2626', accent2: '#2563eb', tint: 'rgba(37, 99, 235, 0.12)', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080' };
+const DEFAULT_CC: ChartColors = { inc: '#16a34a', exp: '#dc2626', accent2: '#2563eb', border: 'rgba(255, 255, 255, 0.06)', faint: '#808080' };
 function readChartColors(): ChartColors {
     if (typeof document === 'undefined') return DEFAULT_CC;
     const s = getComputedStyle(document.documentElement);
@@ -80,7 +80,6 @@ function readChartColors(): ChartColors {
         inc: g('--color-inc', 'inc'),
         exp: g('--color-exp', 'exp'),
         accent2: g('--accent', 'accent2'),
-        tint: g('--accent-subtle', 'tint'),
         border: g('--border-subtle', 'border'),
         faint: g('--text-muted', 'faint'),
     };
@@ -421,7 +420,7 @@ function AnalyticsDataTabs({ section, onTabChange }: { section: DataSection; onT
     const topCategory = categoryRows[0];
 
     const hasTrend = areaData.length > 0;
-    const axisTick = { fill: cc.faint, fontSize: 11, fontFamily: 'DM Mono, monospace' };
+    const axisTick = { fill: cc.faint, fontSize: chartText.micro, fontFamily: 'DM Mono, monospace' };
 
     // The summary card's label and display figure, shared by Overview and Spending.
     const summaryHead = (label: string, figure: number) => (

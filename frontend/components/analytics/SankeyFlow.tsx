@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { type } from '@/lib/typography';
 import { isRealIncome, isCategorizableExpense } from '@/lib/utils';
 
 const fmt = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -87,7 +88,7 @@ export function SankeyFlow({ transactions }: Props) {
     }, [transactions]);
 
     if (!incNodes.length || !expNodes.length) {
-        return <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0', fontFamily: 'var(--font-body)' }}>Add income and expense transactions to see money flow.</p>;
+        return <p style={{ ...type.body, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>Add income and expense transactions to see money flow.</p>;
     }
 
     const W = 380, NW = 14;
@@ -98,8 +99,8 @@ export function SankeyFlow({ transactions }: Props) {
         <div style={{ overflowX: 'auto' }}>
             <svg width="100%" viewBox={`0 0 ${W} ${svgH}`} style={{ maxWidth: W, display: 'block', margin: '0 auto' }}>
                 {/* Column headers */}
-                <text x={NW + 5} y={9} fontSize={9} fontWeight={700} style={{ fill: '#059669' }} fontFamily="var(--font-body)">INCOME</text>
-                <text x={W - NW - 5} y={9} fontSize={9} fontWeight={700} textAnchor="end" style={{ fill: '#e11d48' }} fontFamily="var(--font-body)">EXPENSES</text>
+                <text x={NW + 5} y={9} style={{ ...type.label, fill: 'var(--color-inc-text)' }}>Income</text>
+                <text x={W - NW - 5} y={9} textAnchor="end" style={{ ...type.label, fill: 'var(--color-exp-text)' }}>Expenses</text>
 
                 {/* Bands */}
                 {bands.map((b, i) => (
@@ -112,8 +113,8 @@ export function SankeyFlow({ transactions }: Props) {
                         <rect x={0} y={n.y} width={NW} height={n.h} rx={3} fill={n.color} />
                         {n.h >= 18 && (
                             <>
-                                <text x={NW + 5} y={n.y + Math.min(n.h / 2, 12)} fontSize={9} style={{ fill: 'var(--text-secondary)' }} fontFamily="var(--font-body)">{truncate(n.label)}</text>
-                                {n.h >= 28 && <text x={NW + 5} y={n.y + Math.min(n.h / 2, 12) + 11} fontSize={8} style={{ fill: 'var(--text-muted)' }} fontFamily="var(--font-mono)">{fmt(n.amount)}</text>}
+                                <text x={NW + 5} y={n.y + Math.min(n.h / 2, 12)} style={{ ...type.micro, fontFamily: 'var(--font-body)', fill: 'var(--text-secondary)' }}>{truncate(n.label)}</text>
+                                {n.h >= 28 && <text x={NW + 5} y={n.y + Math.min(n.h / 2, 12) + 13} style={{ ...type.micro, fill: 'var(--text-muted)' }}>{fmt(n.amount)}</text>}
                             </>
                         )}
                     </g>
@@ -125,15 +126,15 @@ export function SankeyFlow({ transactions }: Props) {
                         <rect x={W - NW} y={n.y} width={NW} height={n.h} rx={3} fill={n.color} />
                         {n.h >= 18 && (
                             <>
-                                <text x={W - NW - 5} y={n.y + Math.min(n.h / 2, 12)} fontSize={9} textAnchor="end" style={{ fill: 'var(--text-secondary)' }} fontFamily="var(--font-body)">{truncate(n.label)}</text>
-                                {n.h >= 28 && <text x={W - NW - 5} y={n.y + Math.min(n.h / 2, 12) + 11} fontSize={8} textAnchor="end" style={{ fill: 'var(--text-muted)' }} fontFamily="var(--font-mono)">{fmt(n.amount)}</text>}
+                                <text x={W - NW - 5} y={n.y + Math.min(n.h / 2, 12)} textAnchor="end" style={{ ...type.micro, fontFamily: 'var(--font-body)', fill: 'var(--text-secondary)' }}>{truncate(n.label)}</text>
+                                {n.h >= 28 && <text x={W - NW - 5} y={n.y + Math.min(n.h / 2, 12) + 13} textAnchor="end" style={{ ...type.micro, fill: 'var(--text-muted)' }}>{fmt(n.amount)}</text>}
                             </>
                         )}
                     </g>
                 ))}
             </svg>
 
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', margin: '6px 0 0', fontFamily: 'var(--font-body)' }}>Based on last 3 months · Top 6 expense categories</p>
+            <p style={{ ...type.micro, fontFamily: 'var(--font-body)', textAlign: 'center', margin: '6px 0 0' }}>Based on last 3 months · Top 6 expense categories</p>
         </div>
     );
 }

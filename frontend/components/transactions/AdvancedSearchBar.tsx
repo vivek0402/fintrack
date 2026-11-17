@@ -687,7 +687,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                     <div onClick={e => e.stopPropagation()}
                         style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%', maxWidth: '360px', boxShadow: 'var(--shadow-modal)', animation: 'springIn 280ms cubic-bezier(0.34,1.56,0.64,1) both' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-title)', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Save filter view</h3>
+                            <h3 style={{ ...type.title, margin: 0 }}>Save filter view</h3>
                             <button type="button" onClick={() => setSaveModalOpen(false)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
                                 <X size={16} />
@@ -706,7 +706,7 @@ export function AdvancedSearchBar({ transactions, onFilter, onSetDateContext, in
                                 Cancel
                             </button>
                             <button type="button" onClick={saveView} disabled={!saveViewName.trim()}
-                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: saveViewName.trim() ? 'var(--accent)' : 'var(--glass-fill-1)', color: saveViewName.trim() ? 'white' : 'var(--text-muted)', fontSize: 'var(--text-body)', fontWeight: 500, fontFamily: 'var(--font-body)', cursor: saveViewName.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
+                                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: saveViewName.trim() ? 'var(--accent)' : 'var(--glass-fill-1)', ...type.bodyStrong, color: saveViewName.trim() ? 'white' : 'var(--text-muted)', cursor: saveViewName.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.15s' }}>
                                 Save
                             </button>
                         </div>

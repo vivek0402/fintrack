@@ -49,3 +49,10 @@ export const type = {
 
 /** One line, ellipsis on overflow. Needs a parent with `minWidth: 0`. */
 export const truncate: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+
+/**
+ * Chart text sizes in pixels. recharts props (axis `tick`, tooltip styles) take
+ * numbers, not CSS variables, so these mirror --text-micro / --text-caption /
+ * --text-body. Keep them in step with the tokens in globals.css.
+ */
+export const chartText = { micro: 11, caption: 12, body: 14 } as const;

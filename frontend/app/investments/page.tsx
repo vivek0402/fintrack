@@ -23,7 +23,7 @@ import { useUserQuery } from '@/hooks/queries';
 
 const NO_INVESTMENTS: Investment[] = [];
 
-// Same wash as .glass-field, inlined since these fields live inside already-glass Modals/cards.
+// Same wash as the shared fields, inlined since these fields live inside already-glass Modals/cards.
 const inputSt: React.CSSProperties = { ...type.body, width: '100%', height: 40, background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', padding: '0 12px', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' };
 const labelSt: React.CSSProperties = { ...type.label, display: 'block', marginBottom: 6 };
 const errSt: React.CSSProperties = { ...type.meta, color: 'var(--color-exp-text)', margin: '4px 0 0' };

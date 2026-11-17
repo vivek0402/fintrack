@@ -45,9 +45,9 @@ const TABS = [
     { key: 'one-time',  label: 'One-Time' },
 ];
 
-// Shared by all four tabs — Recurring/Splits/One-Time inherit the glass-field
+// Shared by all four tabs — Recurring/Splits/One-Time inherit the field
 // recipe from here rather than each redeclaring it.
-const inputSt: React.CSSProperties = { width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)' };
+const inputSt: React.CSSProperties = { ...type.body, width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '10px 12px', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' };
 const labelSt: React.CSSProperties = { ...type.label, marginBottom: 6, display: 'block' };
 
 // ── One-Time Expenses: local types & constants ──────────────────────────────
@@ -1632,10 +1632,10 @@ function BudgetsPageInner() {
                         <Modal isOpen={showForm} onClose={() => { setShowForm(false); setFormError(''); }} title={`Set Budget — ${MONTH_NAMES[currentMonth]}`} maxWidth="440px"
                             footer={
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                    <button type="button" onClick={() => { setShowForm(false); setFormError(''); }} className="glass-field" style={{ padding: 10, border: 'none', borderRadius: 10, color: 'var(--text-secondary)', fontSize: 14, fontFamily: 'var(--font-body)', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
-                                    <button type="submit" form="add-budget-form" disabled={formLoading || !formCategory || !formAmount} style={{ padding: 10, background: formLoading || !formCategory || !formAmount ? 'var(--border-subtle)' : 'var(--accent)', border: 'none', borderRadius: 10, color: 'white', fontSize: 14, fontFamily: 'var(--font-body)', cursor: formLoading ? 'not-allowed' : 'pointer', fontWeight: 600 }}>
+                                    <Button type="button" variant="secondary" onClick={() => { setShowForm(false); setFormError(''); }}>Cancel</Button>
+                                    <Button type="submit" form="add-budget-form" disabled={formLoading || !formCategory || !formAmount}>
                                         {formLoading ? 'Saving…' : 'Set Budget'}
-                                    </button>
+                                    </Button>
                                 </div>
                             }
                         >
@@ -1652,12 +1652,9 @@ function BudgetsPageInner() {
                                 </div>
                                 <div>
                                     <label style={labelSt}>Monthly Limit *</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', fontSize: 16 }}>₹</span>
-                                        <input type="number" placeholder="5000" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} style={{ ...inputSt, paddingLeft: 32, fontFamily: 'var(--font-mono)', fontSize: 15, fontVariantNumeric: 'tabular-nums' }} />
-                                    </div>
+                                    <Input type="number" placeholder="5000" min="1" value={formAmount} onChange={e => setFormAmount(e.target.value)} prefix={<span style={type.num}>₹</span>} style={type.num} />
                                 </div>
-                                {formError && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{formError}</p>}
+                                {formError && <p style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{formError}</p>}
                             </form>
                         </Modal>
                     </>

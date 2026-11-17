@@ -280,8 +280,7 @@ export function Sidebar() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        ...type.meta,
-                        fontWeight: 500,
+                        ...type.label,
                         color: '#fff',
                     }}>
                         {initials}

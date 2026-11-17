@@ -23,7 +23,7 @@ describe('EntryFeedback', () => {
 
     it('colours warnings with the warn token', () => {
         render(<EntryFeedback signals={[{ kind: 'duplicate', level: 'warn', text: 'Dup!' }]} />);
-        expect(screen.getByText('Dup!').parentElement).toHaveStyle({ color: 'var(--color-warn)' });
+        expect(screen.getByText('Dup!').parentElement).toHaveStyle({ color: 'var(--color-warn-text)' });
     });
 
     it('links to groups for the split hint', () => {
