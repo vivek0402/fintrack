@@ -136,7 +136,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
 
                 <p style={{ ...type.meta, margin: 0, lineHeight: 1.5 }}>
                     A CAMS CAS (Consolidated Account Statement) lists all your mutual fund holdings in one PDF.
-                    Get yours free at <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>camsonline.com</strong> — request a CAS by PAN or email, and CAMS
+                    Get yours free at <strong style={{ ...type.bodyStrong }}>camsonline.com</strong>. Request a CAS by PAN or email, and CAMS
                     will send the PDF to your registered email.
                 </p>
 
@@ -158,7 +158,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
                     style={{ width: 28, height: 28, border: '2px solid var(--text-secondary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}
                 />
                 <p style={{ ...type.bodyStrong, margin: 0 }}>
-                    Reading your CAMS statement...
+                    Reading your CAMS statement
                 </p>
             </div>
         );
@@ -169,7 +169,7 @@ export function CamsImporter({ onClose, onSuccess }: CamsImporterProps) {
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <p style={{ ...type.body, margin: 0 }}>
-                    Found <strong style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{holdings.length}</strong> holding{holdings.length !== 1 ? 's' : ''}. Review before importing to your portfolio.
+                    Found <strong style={{ ...type.bodyStrong }}>{holdings.length}</strong> holding{holdings.length !== 1 ? 's' : ''}. Review before importing to your portfolio.
                 </p>
 
                 {error && <p role="alert" style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{error}</p>}

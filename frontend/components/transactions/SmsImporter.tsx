@@ -2,9 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, CheckCircle2 } from 'lucide-react';
 import { aiAPI, transactionsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Tabs } from '@/components/ui/Tabs';
+import { TextAction, TONE_TEXT } from '@/components/ui/CardParts';
+import { Field, textareaStyle } from '@/components/personal-loans/fields';
+import { type } from '@/lib/typography';
 
 type Step = 'paste' | 'parsing' | 'review' | 'success';
 
@@ -22,13 +26,10 @@ interface SmsImporterProps {
     onSuccess?: () => void;
 }
 
-const inputSt: React.CSSProperties = {
-    width: '100%', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 8,
-    padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--font-body)',
-};
-const labelSt: React.CSSProperties = {
-    fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 6, display: 'block', fontFamily: 'var(--font-body)',
-};
+const TYPE_TABS = [
+    { key: 'expense', label: 'Expense' },
+    { key: 'income', label: 'Income' },
+];
 
 export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
     const router = useRouter();
@@ -97,27 +98,27 @@ export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
     // ── STEP: paste ──────────────────────────────────────────────────────────
     if (step === 'paste') {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                    <label style={labelSt}>Paste your bank/UPI SMS</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <Field label="Paste your bank or UPI SMS" htmlFor="sms-text">
                     <textarea
+                        id="sms-text"
                         value={smsText}
                         onChange={e => setSmsText(e.target.value)}
-                        placeholder="e.g. Rs.450 debited from a/c XX1234 for UPI to Swiggy on 12-06-26"
+                        placeholder="For example: Rs.450 debited from a/c XX1234 for UPI to Swiggy on 12-06-26"
                         rows={5}
-                        style={{ ...inputSt, resize: 'vertical', fontFamily: 'var(--font-body)' }}
+                        style={textareaStyle}
                     />
-                </div>
+                </Field>
 
-                {error && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+                {error && <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>}
 
                 <Button onClick={handleParse} disabled={!smsText.trim()} style={{ width: '100%' }}>
                     Read message
                 </Button>
 
-                <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', alignSelf: 'center' }}>
-                    Skip — I&apos;ll add it manually
-                </button>
+                <div style={{ alignSelf: 'center' }}>
+                    <TextAction quiet onClick={onClose}>Skip, I will add it manually</TextAction>
+                </div>
             </div>
         );
     }
@@ -125,12 +126,8 @@ export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
     // ── STEP: parsing ────────────────────────────────────────────────────────
     if (step === 'parsing') {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 16px', gap: 12 }}>
-                <Loader2 size={32} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    Reading your message…
-                </p>
-                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <div role="status" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px var(--space-4)' }}>
+                <p style={{ ...type.body, margin: 0 }}>Reading your message</p>
             </div>
         );
     }
@@ -138,48 +135,27 @@ export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
     // ── STEP: review ─────────────────────────────────────────────────────────
     if (step === 'review' && parsed) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, fontFamily: 'var(--font-body)' }}>
-                    Check the details before saving{parsed.category ? <> — suggested category: <strong style={{ color: 'var(--text-primary)' }}>{parsed.category}</strong></> : null}.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <p style={{ ...type.meta, margin: 0 }}>
+                    {`Check the details before saving.${parsed.category ? ` Suggested category: ${parsed.category}.` : ''}`}
                 </p>
 
-                {error && <p style={{ fontSize: 12, color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
+                {error && <p role="alert" style={{ ...type.meta, color: TONE_TEXT.bad, margin: 0 }}>{error}</p>}
 
-                <div>
-                    <label style={labelSt}>Description</label>
-                    <input type="text" value={parsed.description} onChange={e => updateParsed({ description: e.target.value })} style={inputSt} />
+                <Input label="Description" type="text" value={parsed.description} onChange={e => updateParsed({ description: e.target.value })} />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                    <Input label="Amount" type="number" min="0" step="0.01" value={parsed.amount} onChange={e => updateParsed({ amount: parseFloat(e.target.value) || 0 })} />
+                    <Input label="Date" type="date" value={parsed.date} onChange={e => updateParsed({ date: e.target.value })} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div>
-                        <label style={labelSt}>Amount</label>
-                        <input type="number" min="0" step="0.01" value={parsed.amount} onChange={e => updateParsed({ amount: parseFloat(e.target.value) || 0 })} style={inputSt} />
-                    </div>
-                    <div>
-                        <label style={labelSt}>Date</label>
-                        <input type="date" value={parsed.date} onChange={e => updateParsed({ date: e.target.value })} style={inputSt} />
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <span style={type.label}>Type</span>
+                    <Tabs tabs={TYPE_TABS} active={parsed.type} onChange={key => updateParsed({ type: key === 'income' ? 'income' : 'expense' })} />
                 </div>
 
-                <div>
-                    <label style={labelSt}>Type</label>
-                    <button
-                        type="button"
-                        onClick={() => updateParsed({ type: parsed.type === 'income' ? 'expense' : 'income' })}
-                        style={{
-                            padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)', width: '100%',
-                            background: parsed.type === 'income' ? 'color-mix(in srgb, var(--color-inc) 14%, transparent)' : 'color-mix(in srgb, var(--color-exp) 14%, transparent)',
-                            color: parsed.type === 'income' ? 'var(--color-inc)' : 'var(--color-exp)',
-                        }}
-                    >
-                        {parsed.type === 'income' ? 'Income' : 'Expense'}
-                    </button>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
-                    <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                        Cancel
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-2)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--border-subtle)' }}>
+                    <TextAction quiet onClick={onClose}>Cancel</TextAction>
                     <Button onClick={handleConfirm} isLoading={saving} disabled={!parsed.description || parsed.amount <= 0}>
                         Save transaction
                     </Button>
@@ -190,12 +166,9 @@ export function SmsImporter({ onClose, onSuccess }: SmsImporterProps) {
 
     // ── STEP: success ────────────────────────────────────────────────────────
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', gap: 16, textAlign: 'center' }}>
-            <CheckCircle2 size={40} style={{ color: 'var(--color-inc)' }} />
-            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, fontFamily: 'var(--font-display)' }}>
-                Transaction saved.
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px var(--space-4)', gap: 'var(--space-4)', textAlign: 'center' }}>
+            <p style={{ ...type.title, margin: 0 }}>Transaction saved.</p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <Button onClick={() => { onClose(); router.push('/transactions'); }}>
                     View transactions
                 </Button>

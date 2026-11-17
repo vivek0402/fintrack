@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
-    Search, Plus, ChevronDown,
+    ChevronDown,
     Utensils, Car, ShoppingBag, Film, HeartPulse, BookOpen,
     Zap, Home, Briefcase, TrendingUp, Sparkles, Users, Plane,
     Repeat, Gift, CircleDot, Laptop, Package,
@@ -12,6 +12,8 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { randomCategoryColor } from '@/lib/categoryColors';
 import { guessCategoryIcon } from '@/lib/categoryIcons';
 import { categoriesAPI } from '@/lib/api';
+import { TextAction } from '@/components/ui/CardParts';
+import { type } from '@/lib/typography';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,7 +100,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
     return (
         <>
             {text.slice(0, at)}
-            <mark style={{ background: 'none', color: 'var(--accent)', fontWeight: 700 }}>{text.slice(at, at + q.length)}</mark>
+            <mark style={{ ...type.bodyStrong, background: 'none', color: 'inherit' }}>{text.slice(at, at + q.length)}</mark>
             {text.slice(at + q.length)}
         </>
     );
@@ -241,10 +243,7 @@ function PickerBody({
     }, [cursor]);
 
     const groupLabel = (text: string) => (
-        <p key={'lbl-' + text} style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9.5, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: 'var(--text-muted)', padding: '10px 16px 6px', margin: 0,
-        }}>{text}</p>
+        <p key={'lbl-' + text} style={{ ...type.label, padding: '10px 16px 6px', margin: 0 }}>{text}</p>
     );
 
     const row = (entry: Entry, idx: number) => {
@@ -253,7 +252,6 @@ function PickerBody({
             entry.kind === 'none' ? !value
                 : entry.kind === 'cat' ? keyOf(entry.cat) === value
                     : false;
-        const accented = selected || entry.kind === 'create';
 
         return (
             <button
@@ -264,39 +262,32 @@ function PickerBody({
                 data-idx={idx}
                 onClick={() => commit(entry)}
                 onMouseMove={() => { if (!isCursor) setCursor(idx); }}
-                style={{ ...ROW_BASE, height: rowH, backgroundColor: isCursor ? 'var(--glass-fill-2)' : 'transparent' }}
+                style={{ ...ROW_BASE, height: rowH, backgroundColor: isCursor ? 'var(--glass-fill-2)' : 'transparent', boxShadow: selected ? 'inset 0 0 0 2px var(--text-primary)' : 'none' }}
             >
-                <span aria-hidden="true" style={{
-                    position: 'absolute', left: 0, top: 6, bottom: 6, width: 2, borderRadius: '0 2px 2px 0',
-                    backgroundColor: selected ? 'var(--accent)' : isCursor ? 'var(--accent-border)' : 'transparent',
-                }} />
                 <span style={{ flexShrink: 0, width: 15, display: 'grid', placeItems: 'center' }}>
                     {entry.kind === 'cat'
                         ? <CategoryIcon name={entry.cat.icon} size={13} color={entry.cat.color || 'var(--text-muted)'} />
-                        : entry.kind === 'create'
-                            ? <Plus size={13} color="var(--accent)" />
-                            : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                        : null}
                 </span>
                 <span style={{
-                    flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: accented ? 600 : 500,
-                    color: accented ? 'var(--accent)' : 'var(--text-primary)',
+                    ...type.bodyStrong, flex: 1, minWidth: 0,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
                     {entry.kind === 'cat'
                         ? <Highlight text={entry.cat.name} query={query} />
                         : entry.kind === 'create'
-                            ? <>Create &ldquo;<b>{trimmed}</b>&rdquo;</>
+                            ? <>Create &ldquo;{trimmed}&rdquo;</>
                             : noneLabel}
                 </span>
                 {entry.kind === 'cat' && (
                     <>
-                        <span style={{ ...MONO_COL, fontSize: 11, width: 34, letterSpacing: '-0.02em' }}>
+                        <span style={{ ...MONO_COL, fontSize: 'var(--text-micro)', width: 34 }}>
                             {Number(entry.cat.usage_count) > 0
-                                ? <>{entry.cat.usage_count}<span style={{ fontSize: 9.5 }}>×</span></>
+                                ? <>{entry.cat.usage_count}×</>
                                 : ''}
                         </span>
                         {showLastUsed && (
-                            <span style={{ ...MONO_COL, fontSize: 10, width: 46 }}>
+                            <span style={{ ...MONO_COL, fontSize: 'var(--text-micro)', width: 46 }}>
                                 {lastUsedLabel(entry.cat.last_used)}
                             </span>
                         )}
@@ -309,7 +300,7 @@ function PickerBody({
     let rendered: React.ReactNode;
     if (!entries.length) {
         rendered = (
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', padding: '18px 16px', margin: 0 }}>
+            <p style={{ ...type.meta, padding: '18px 16px', margin: 0 }}>
                 {pool.length === 0 ? 'Loading…' : <>No category matches &ldquo;{query}&rdquo;</>}
             </p>
         );
@@ -334,7 +325,6 @@ function PickerBody({
                 display: 'flex', alignItems: 'center', gap: 11, padding: '0 16px', height: 50,
                 borderBottom: '1px solid var(--border-subtle)', flexShrink: 0,
             }}>
-                <Search size={15} color="var(--text-muted)" style={{ flexShrink: 0 }} />
                 <input
                     // Desktop only: on a phone this pops the on-screen keyboard
                     // over the list before you can tap anything.
@@ -342,20 +332,15 @@ function PickerBody({
                     type="text"
                     value={query}
                     onChange={e => { setQuery(e.target.value); setCursor(0); }}
-                    placeholder="Search categories…"
+                    placeholder="Search categories"
                     aria-label="Search categories"
                     autoComplete="off"
                     style={{
                         flex: 1, minWidth: 0, background: 'none', border: 'none', outline: 'none',
-                        color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: 14.5, padding: 0,
+                        ...type.body, color: 'var(--text-primary)', padding: 0,
                     }}
                 />
-                <button type="button" onClick={onClose} aria-label="Close"
-                    style={{
-                        fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)',
-                        border: '1px solid var(--glass-border)', borderRadius: 4, padding: '2px 6px',
-                        background: 'none', cursor: 'pointer', flexShrink: 0,
-                    }}>esc</button>
+                <TextAction quiet onClick={onClose} aria-label="Close">Close</TextAction>
             </div>
 
             <div
@@ -380,9 +365,9 @@ function PickerBody({
                                 if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setCreating(false); }
                             }}
                             style={{
-                                flex: 1, minWidth: 0, padding: '7px 11px', backgroundColor: 'var(--glass-fill-1)',
-                                border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)',
-                                color: 'var(--text-primary)', fontFamily: 'var(--font-body)', fontSize: 12.5, outline: 'none',
+                                ...type.body, flex: 1, minWidth: 0, height: 36, padding: '0 var(--space-3)', backgroundColor: 'var(--glass-fill-1)',
+                                border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
+                                color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box',
                             }}
                         />
                         <input
@@ -393,38 +378,15 @@ function PickerBody({
                                 borderRadius: 'var(--radius-sm)', background: 'none', cursor: 'pointer', flexShrink: 0,
                             }}
                         />
-                        <button type="button" onClick={() => void handleCreate()} disabled={!newName.trim() || saving}
-                            style={{
-                                padding: '7px 14px', backgroundColor: 'var(--accent)', border: 'none',
-                                borderRadius: 'var(--radius-sm)', color: '#fff', fontFamily: 'var(--font-body)',
-                                fontSize: 12.5, fontWeight: 600, flexShrink: 0,
-                                cursor: !newName.trim() || saving ? 'not-allowed' : 'pointer',
-                                opacity: !newName.trim() || saving ? 0.4 : 1,
-                            }}>
-                            {saving ? '…' : 'Add'}
-                        </button>
-                        <button type="button" onClick={() => setCreating(false)} aria-label="Cancel creating a category"
-                            style={{
-                                padding: '7px 10px', backgroundColor: 'var(--glass-fill-1)',
-                                border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-sm)',
-                                color: 'var(--text-secondary)', fontSize: 12.5, cursor: 'pointer', flexShrink: 0,
-                            }}>×</button>
+                        <TextAction onClick={() => void handleCreate()} disabled={!newName.trim() || saving}>{saving ? 'Adding' : 'Add'}</TextAction>
+                        <TextAction quiet onClick={() => setCreating(false)} aria-label="Cancel creating a category">Cancel</TextAction>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                         {allowCreate ? (
-                            <button type="button" onClick={() => { setCreating(true); setNewName(trimmed); }}
-                                style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none',
-                                    border: 'none', color: 'var(--accent)', fontFamily: 'var(--font-body)',
-                                    fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: '2px 0',
-                                }}>
-                                <Plus size={12} /> New category
-                            </button>
+                            <TextAction onClick={() => { setCreating(true); setNewName(trimmed); }}>New category</TextAction>
                         ) : <span />}
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-                            ↑↓ move · ↵ select · esc close
-                        </span>
+                        
                     </div>
                 )}
             </div>
@@ -469,14 +431,13 @@ export function CategoryField({
                 aria-haspopup="listbox"
                 aria-expanded={open}
                 style={{
-                    width: '100%', padding: sm ? '8px' : '10px 12px',
+                    ...type.body, width: '100%', padding: sm ? '0 var(--space-2)' : '0 var(--space-3)', height: sm ? 36 : 40,
                     backgroundColor: 'var(--glass-fill-1)', color: 'var(--text-primary)',
-                    border: '1px solid var(--glass-border)', borderRadius: sm ? 8 : 'var(--radius-md)',
-                    fontSize: sm ? 12 : 14, fontFamily: 'var(--font-body)',
+                    border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)',
                     display: 'flex', alignItems: 'center', gap: sm ? 6 : 9,
                     cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left',
                     opacity: disabled ? 0.5 : 1, boxSizing: 'border-box',
-                    transition: 'border-color 0.15s',
+                    transition: 'border-color var(--transition-fast)',
                 }}
             >
                 {selected && !sm && (

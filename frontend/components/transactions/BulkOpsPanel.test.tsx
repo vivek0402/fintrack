@@ -37,8 +37,8 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof BulkOpsPanel
 }
 
 function confirmBulkDelete() {
-    fireEvent.click(screen.getByTitle('Delete selected'));
-    fireEvent.click(screen.getByText(/^Delete 2$/));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete 2' }));
 }
 
 describe('BulkOpsPanel bulk delete', () => {

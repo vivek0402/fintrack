@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Tag, Trash2, Download, Scissors, X } from 'lucide-react';
 import { transactionsAPI } from '@/lib/api';
 import { CategoryField, CategoryPickerDialog } from '@/components/categories/CategoryPickerDialog';
 import { useCategories } from '@/hooks/useCategories';
@@ -10,6 +9,12 @@ import { toast } from '@/store/toastStore';
 import { exportToCSV, formatCurrency } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { haptics } from '@/lib/haptics';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Rows, TextAction, TONE_TEXT } from '@/components/ui/CardParts';
+import { type } from '@/lib/typography';
+import { splitSummary, formatSplitSentence } from '@/lib/bulkOps';
 
 interface Props {
     selectedIds: Set<string>;
@@ -24,12 +29,17 @@ interface Props {
     onPendingDeleteChange: (updater: (prev: Set<string>) => Set<string>) => void;
 }
 
+// Compact variants of the shared Input for the split lines.
+const lineInputStyle: React.CSSProperties = { height: 36, padding: '0 var(--space-2)' };
+const lineAmountStyle: React.CSSProperties = { ...type.num, height: 36, padding: '0 var(--space-2)' };
+
 export function BulkOpsPanel({
     selectedIds, allTransactions, currency, selectedYear, selectedMonth,
     onSelectAll, onExit, onRefresh, onRemoveIds, onPendingDeleteChange,
 }: Props) {
     const isMobile = useIsMobile();
     const count = selectedIds.size;
+    const plural = count !== 1 ? 's' : '';
     const selectedTxs = allTransactions.filter(tx => selectedIds.has(tx.id));
     const splitTx = count === 1 ? selectedTxs[0] : null;
 
@@ -50,6 +60,15 @@ export function BulkOpsPanel({
     ]);
     const [splitLoading, setSplitLoading] = useState(false);
 
+    // The Modal moves focus to its first control (the close button) once it has
+    // mounted, which would undo the input's autoFocus. Put focus back on the
+    // tag field after that has happened.
+    useEffect(() => {
+        if (!bulkTagOpen) return;
+        const t = setTimeout(() => document.getElementById('bulk-tag-input')?.focus(), 60);
+        return () => clearTimeout(t);
+    }, [bulkTagOpen]);
+
     const openCategorize = () => setBulkCatOpen(true);
     const openSplit = () => {
         setSplitLines([
@@ -58,6 +77,7 @@ export function BulkOpsPanel({
         ]);
         setSplitOpen(true);
     };
+    const closeTag = () => { setBulkTagOpen(false); setTagInput(''); };
 
     const handleBulkCategorize = async (catId: string) => {
         const ids = Array.from(selectedIds);
@@ -78,7 +98,7 @@ export function BulkOpsPanel({
         setProgress(null);
         const okCount = ids.length - failCount;
         if (failCount === 0) toast.success(`Categorized ${okCount} transaction${okCount !== 1 ? 's' : ''}`);
-        else toast.error(`Updated ${okCount} of ${ids.length} — ${failCount} failed`);
+        else toast.error(`Updated ${okCount} of ${ids.length}. ${failCount} failed.`);
         onRefresh();
     };
 
@@ -101,7 +121,7 @@ export function BulkOpsPanel({
         }
         const okCount = ids.length - failCount - skipCount;
         if (failCount === 0) toast.success(`Tagged ${okCount} transaction${okCount !== 1 ? 's' : ''}`);
-        else toast.error(`Tagged ${okCount} of ${ids.length} — ${failCount} failed`);
+        else toast.error(`Tagged ${okCount} of ${ids.length}. ${failCount} failed.`);
         setTagLoading(false);
         setBulkTagOpen(false);
         setTagInput('');
@@ -133,7 +153,7 @@ export function BulkOpsPanel({
                 onRefresh();
             } catch {
                 onPendingDeleteChange(prev => { const s = new Set(prev); ids.forEach(id => s.delete(id)); return s; });
-                toast.error('Some deletions failed — refreshing');
+                toast.error('Some deletions failed. Refreshing.');
                 onRefresh();
             }
         }, 4200);
@@ -145,8 +165,8 @@ export function BulkOpsPanel({
     };
 
     const splitTotal = splitTx ? parseFloat(splitTx.amount) : 0;
-    const splitSum = splitLines.reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
-    const splitValid = splitLines.length >= 2 && Math.abs(splitSum - splitTotal) < 0.01 && splitLines.every(l => parseFloat(l.amount) > 0);
+    const split = splitSummary(splitLines, splitTotal);
+    const splitValid = split.valid;
 
     const handleSplit = async () => {
         if (!splitTx || !splitValid) return;
@@ -172,13 +192,13 @@ export function BulkOpsPanel({
             try {
                 await transactionsAPI.delete(splitTx.id);
             } catch {
-                // Creates succeeded but deleting the original failed — roll back the
+                // Creates succeeded but deleting the original failed: roll back the
                 // new lines instead of leaving the user with duplicated transactions.
                 try {
                     await Promise.all(createdIds.map(id => transactionsAPI.delete(id)));
-                    toast.error('Split failed — no changes were made. Try again.');
+                    toast.error('Split failed. No changes were made. Try again.');
                 } catch {
-                    toast.error(`Split partially failed — check transaction "${splitTx.description}" (${splitTx.date}) for duplicates.`);
+                    toast.error(`Split partially failed. Check transaction "${splitTx.description}" (${splitTx.date}) for duplicates.`);
                 }
                 onRefresh();
                 return;
@@ -188,12 +208,12 @@ export function BulkOpsPanel({
             onExit();
             onRefresh();
         } catch {
-            // A create failed mid-loop — clean up whatever lines were created so
+            // A create failed mid-loop: clean up whatever lines were created so
             // far; the original transaction is untouched.
             if (createdIds.length > 0) {
                 await Promise.all(createdIds.map(id => transactionsAPI.delete(id).catch(() => {})));
             }
-            toast.error('Split failed — no changes were made.');
+            toast.error('Split failed. No changes were made.');
         } finally {
             setSplitLoading(false);
         }
@@ -205,226 +225,162 @@ export function BulkOpsPanel({
 
     return createPortal(
         <>
-            {/* ── Sticky bulk action bar ── */}
+            {/* Floating bulk action bar */}
             <div style={{
                 position: 'fixed', bottom: barBottom, left: '50%', transform: 'translateX(-50%)',
                 zIndex: 990, background: 'var(--glass-sheet-surface)', border: '1px solid var(--glass-border)',
                 backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
                 borderRadius: 'var(--radius-lg)', boxShadow: 'var(--glass-edge)',
-                padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '6px',
-                maxWidth: 'calc(100vw - 32px)', animation: 'fadeUp 180ms ease both',
+                padding: 'var(--space-3) var(--space-4)', display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+                gap: 'var(--space-2) var(--space-4)',
+                width: 'min(640px, calc(100vw - 32px))', animation: 'fadeUp 180ms ease both',
             }}>
                 {progress ? (
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', padding: '0 4px' }}>
-                        Updating {progress.done} of {progress.total}…
+                    <span role="status" style={type.body}>
+                        {`Updating ${progress.done} of ${progress.total}`}
                     </span>
                 ) : (
                     <>
-                        <button onClick={onSelectAll} style={barBtnStyle}>
-                            All&nbsp;{allTransactions.length}
-                        </button>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-body)', flexShrink: 0, padding: '0 4px' }}>
-                            {count} selected
-                        </span>
-                        <button onClick={openCategorize} style={barBtnStyle}>Categorize</button>
-                        <button onClick={() => setBulkTagOpen(true)} style={barBtnStyle}>
-                            <Tag size={12} /> Tag
-                        </button>
-                        {count === 1 && (
-                            <button onClick={openSplit} style={barBtnStyle}>
-                                <Scissors size={12} /> Split
-                            </button>
-                        )}
-                        <button onClick={handleBulkExport} title="Export selected" style={barBtnStyle}>
-                            <Download size={12} />
-                        </button>
-                        <button onClick={() => setBulkDeleteOpen(true)} title="Delete selected" style={{ ...barBtnStyle, color: 'var(--color-exp)', borderColor: 'color-mix(in srgb, var(--color-exp) 30%, transparent)' }}>
-                            <Trash2 size={12} />
-                        </button>
-                        <button onClick={onExit} title="Cancel" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                            <X size={16} />
-                        </button>
+                        <span style={{ ...type.bodyStrong, flexShrink: 0 }}>{`${count} selected`}</span>
+                        <TextAction quiet onClick={onSelectAll}>{`All ${allTransactions.length}`}</TextAction>
+                        <span style={{ flex: 1 }} />
+                        <TextAction onClick={openCategorize}>Categorize</TextAction>
+                        <TextAction onClick={() => setBulkTagOpen(true)}>Tag</TextAction>
+                        {count === 1 && <TextAction onClick={openSplit}>Split</TextAction>}
+                        <TextAction onClick={handleBulkExport} aria-label="Export selected">Export</TextAction>
+                        <TextAction tone="danger" onClick={() => setBulkDeleteOpen(true)} aria-label="Delete selected">Delete</TextAction>
+                        <TextAction quiet onClick={onExit} aria-label="Cancel">Done</TextAction>
                     </>
                 )}
             </div>
 
-            {/* ── Bulk Categorize ── */}
+            {/* Bulk categorize */}
             <CategoryPickerDialog
                 isOpen={bulkCatOpen}
                 onClose={() => setBulkCatOpen(false)}
-                title={`Categorize ${count} transaction${count !== 1 ? 's' : ''}`}
+                title={`Categorize ${count} transaction${plural}`}
                 value=""
                 onChange={id => void handleBulkCategorize(id)}
                 categories={categories}
             />
 
-            {/* ── Bulk Tag ── */}
-            {bulkTagOpen && (
-                <div onClick={() => setBulkTagOpen(false)} style={overlayStyle}>
-                    <div onClick={e => e.stopPropagation()} style={sheetStyle}>
-                        <ModalHeader title={`Tag ${count} transaction${count !== 1 ? 's' : ''}`} onClose={() => { setBulkTagOpen(false); setTagInput(''); }} />
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 16px', fontFamily: 'var(--font-body)' }}>
-                            The tag will be appended to all selected transactions.
-                        </p>
-                        <input
-                            type="text" autoFocus placeholder="Tag name (e.g. tax-deductible)"
-                            value={tagInput}
-                            onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
-                            onKeyDown={e => { if (e.key === 'Enter') void handleBulkTag(); }}
-                            style={{ width: '100%', padding: '10px 14px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '10px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box', marginBottom: '16px' }}
-                        />
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => { setBulkTagOpen(false); setTagInput(''); }} style={cancelStyle}>Cancel</button>
-                            <button onClick={() => void handleBulkTag()} disabled={!tagInput.trim() || tagLoading}
-                                style={{ ...confirmStyle, opacity: !tagInput.trim() || tagLoading ? 0.6 : 1, cursor: !tagInput.trim() || tagLoading ? 'not-allowed' : 'pointer' }}>
-                                {tagLoading ? 'Tagging…' : 'Apply Tag'}
-                            </button>
-                        </div>
+            {/* Bulk tag */}
+            <Modal
+                isOpen={bulkTagOpen}
+                onClose={closeTag}
+                title={`Tag ${count} transaction${plural}`}
+                maxWidth="420px"
+                footer={
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                        <Button type="button" variant="secondary" onClick={closeTag}>Cancel</Button>
+                        <Button type="button" onClick={() => void handleBulkTag()} isLoading={tagLoading} disabled={!tagInput.trim()}>Apply tag</Button>
                     </div>
+                }
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <p style={{ ...type.meta, margin: 0 }}>The tag is added to every selected transaction.</p>
+                    <Input
+                        id="bulk-tag-input"
+                        type="text" autoFocus aria-label="Tag name" placeholder="Tag name, for example tax-deductible"
+                        value={tagInput}
+                        onChange={e => setTagInput(e.target.value.replace(/\s/g, ''))}
+                        onKeyDown={e => { if (e.key === 'Enter') void handleBulkTag(); }}
+                    />
                 </div>
-            )}
+            </Modal>
 
-            {/* ── Bulk Delete confirm ── */}
-            {bulkDeleteOpen && (
-                <div onClick={() => setBulkDeleteOpen(false)} style={overlayStyle}>
-                    <div onClick={e => e.stopPropagation()} style={sheetStyle}>
-                        <ModalHeader title={`Delete ${count} transaction${count !== 1 ? 's' : ''}?`} onClose={() => setBulkDeleteOpen(false)} />
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6, fontFamily: 'var(--font-body)' }}>
-                            {count} transaction{count !== 1 ? 's' : ''} will be removed. You&apos;ll have a few seconds to undo.
-                        </p>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setBulkDeleteOpen(false)} style={cancelStyle}>Cancel</button>
-                            <button onClick={handleBulkDelete}
-                                style={{ ...confirmStyle, background: 'var(--color-exp)' }}>
-                                Delete {count}
-                            </button>
-                        </div>
+            {/* Bulk delete confirm */}
+            <Modal
+                isOpen={bulkDeleteOpen}
+                onClose={() => setBulkDeleteOpen(false)}
+                title={`Delete ${count} transaction${plural}?`}
+                maxWidth="420px"
+                footer={
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                        <Button type="button" variant="secondary" onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="danger" onClick={handleBulkDelete}>{`Delete ${count}`}</Button>
                     </div>
-                </div>
-            )}
+                }
+            >
+                <p style={{ ...type.body, margin: 0 }}>
+                    {`${count} transaction${plural} will be removed. You will have a few seconds to undo.`}
+                </p>
+            </Modal>
 
-            {/* ── Split Transaction ── */}
-            {splitOpen && splitTx && (
-                <div onClick={() => setSplitOpen(false)} style={overlayStyle}>
-                    <div onClick={e => e.stopPropagation()} style={{ ...sheetStyle, maxWidth: '540px' }}>
-                        <ModalHeader title="Split Transaction" onClose={() => setSplitOpen(false)} />
-                        {/* Original amount banner */}
-                        <div style={{ padding: '12px 14px', background: 'var(--glass-fill-1)', borderRadius: '10px', border: '1px solid var(--glass-border)', marginBottom: '16px' }}>
-                            <p style={{ margin: '0 0 2px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-body)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Original</p>
-                            <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                                {formatCurrency(splitTotal, currency)} — {splitTx.description}
-                            </p>
-                        </div>
-                        {/* Split lines */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+            {/* Split transaction */}
+            <Modal
+                isOpen={splitOpen && !!splitTx}
+                onClose={() => setSplitOpen(false)}
+                title="Split transaction"
+                maxWidth="560px"
+                footer={
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                        <Button type="button" variant="secondary" onClick={() => setSplitOpen(false)}>Cancel</Button>
+                        <Button type="button" onClick={() => void handleSplit()} isLoading={splitLoading} disabled={!splitValid}>Split</Button>
+                    </div>
+                }
+            >
+                {splitTx && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                        <Rows>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <p style={{ ...type.bodyStrong, margin: 0 }}>{splitTx.description}</p>
+                                    <p style={{ ...type.meta, margin: 0 }}>The original transaction</p>
+                                </div>
+                                <span style={{ ...type.num, flexShrink: 0 }}>{formatCurrency(splitTotal, currency)}</span>
+                            </div>
+                        </Rows>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                             {splitLines.map((line, i) => (
-                                <div key={i} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', width: '18px', flexShrink: 0, textAlign: 'right', fontFamily: 'var(--font-body)' }}>{i + 1}.</span>
-                                    <input type="number" placeholder="Amount" min="0.01" step="any"
-                                        value={line.amount}
-                                        onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, amount: e.target.value } : l))}
-                                        style={{ width: '96px', flexShrink: 0, padding: '8px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '14px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', outline: 'none', boxSizing: 'border-box' }}
-                                    />
-                                    <input type="text" placeholder="Description"
-                                        value={line.description}
-                                        onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, description: e.target.value } : l))}
-                                        style={{ flex: 1, minWidth: 0, padding: '8px 10px', background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}
-                                    />
-                                    <div style={{ width: '110px', flexShrink: 0 }}>
-                                        <CategoryField
-                                            size="sm"
-                                            placeholder="Category"
-                                            value={line.category_id}
-                                            onChange={v => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, category_id: v } : l))}
-                                            categories={categories}
+                                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+                                    <div style={{
+                                        display: 'grid', alignItems: 'center', gap: 'var(--space-2)',
+                                        gridTemplateColumns: isMobile ? '24px 96px minmax(0, 1fr)' : '24px 96px minmax(0, 1fr) 140px',
+                                    }}>
+                                        <span style={{ ...type.meta, textAlign: 'right' }}>{i + 1}</span>
+                                        <Input type="number" placeholder="Amount" aria-label={`Line ${i + 1} amount`} min="0.01" step="any"
+                                            value={line.amount}
+                                            onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, amount: e.target.value } : l))}
+                                            style={lineAmountStyle}
                                         />
+                                        <Input type="text" placeholder="Description" aria-label={`Line ${i + 1} description`}
+                                            value={line.description}
+                                            onChange={e => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, description: e.target.value } : l))}
+                                            style={lineInputStyle}
+                                        />
+                                        <div style={isMobile ? { gridColumn: '2 / -1' } : undefined}>
+                                            <CategoryField
+                                                size="sm"
+                                                placeholder="Category"
+                                                value={line.category_id}
+                                                onChange={v => setSplitLines(prev => prev.map((l, j) => j === i ? { ...l, category_id: v } : l))}
+                                                categories={categories}
+                                            />
+                                        </div>
                                     </div>
                                     {splitLines.length > 2 && (
-                                        <button onClick={() => setSplitLines(prev => prev.filter((_, j) => j !== i))}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', flexShrink: 0 }}>
-                                            <X size={14} />
-                                        </button>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <TextAction quiet onClick={() => setSplitLines(prev => prev.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`}>Remove</TextAction>
+                                        </div>
                                     )}
                                 </div>
                             ))}
                         </div>
-                        {/* Sum validation row */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '8px 12px', background: 'var(--glass-fill-1)', borderRadius: '8px', border: `1px solid ${splitValid ? 'color-mix(in srgb, var(--color-inc) 30%, transparent)' : 'var(--border-subtle)'}` }}>
-                            <span style={{ fontSize: '13px', fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}>
-                                Sum:&nbsp;
-                                <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: splitValid ? 'var(--color-inc)' : splitSum > splitTotal ? 'var(--color-exp)' : 'var(--text-primary)' }}>
-                                    {formatCurrency(splitSum, currency)}
-                                </span>
-                                <span style={{ color: 'var(--text-muted)' }}>&nbsp;/ {formatCurrency(splitTotal, currency)}</span>
-                                {splitValid && <span style={{ marginLeft: '6px', color: 'var(--color-inc)' }}>✓</span>}
-                            </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                            <p role="status" style={{ ...type.meta, margin: 0, color: split.sentenceKey === 'over' ? TONE_TEXT.bad : undefined }}>
+                                {formatSplitSentence(split, splitTotal, n => formatCurrency(n, currency))}
+                            </p>
                             {splitLines.length < 5 && (
-                                <button onClick={() => setSplitLines(prev => [...prev, { amount: '', category_id: '', description: '' }])}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', fontWeight: 500, fontFamily: 'var(--font-body)' }}>
-                                    + Add line
-                                </button>
+                                <TextAction onClick={() => setSplitLines(prev => [...prev, { amount: '', category_id: '', description: '' }])}>Add a line</TextAction>
                             )}
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setSplitOpen(false)} style={cancelStyle}>Cancel</button>
-                            <button onClick={() => void handleSplit()} disabled={!splitValid || splitLoading}
-                                style={{ ...confirmStyle, opacity: !splitValid || splitLoading ? 0.6 : 1, cursor: !splitValid || splitLoading ? 'not-allowed' : 'pointer' }}>
-                                {splitLoading ? 'Splitting…' : 'Confirm Split'}
-                            </button>
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Modal>
         </>,
         document.body
     );
 }
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function ModalHeader({ title, onClose }: { title: string; onClose: () => void }) {
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>{title}</span>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                <X size={16} />
-            </button>
-        </div>
-    );
-}
-
-// ── Shared styles ─────────────────────────────────────────────────────────────
-
-const barBtnStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px',
-    borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'var(--glass-fill-1)',
-    color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500,
-    cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0, whiteSpace: 'nowrap',
-};
-
-const overlayStyle: React.CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
-    backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-    zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-};
-
-const sheetStyle: React.CSSProperties = {
-    background: 'var(--glass-sheet-surface)', border: '1px solid var(--glass-border)',
-    backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)',
-    borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%',
-    maxWidth: '460px', boxShadow: 'var(--glass-edge)',
-    animation: 'springIn 320ms cubic-bezier(0.34,1.56,0.64,1) both',
-    maxHeight: '85vh', overflowY: 'auto',
-};
-
-const cancelStyle: React.CSSProperties = {
-    padding: '9px 18px', borderRadius: '10px', border: '1px solid var(--glass-border)',
-    background: 'var(--glass-fill-1)', color: 'var(--text-secondary)',
-    fontSize: '14px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)',
-};
-
-const confirmStyle: React.CSSProperties = {
-    padding: '9px 18px', borderRadius: '10px', border: 'none',
-    background: 'var(--accent)', color: 'white',
-    fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
-};
