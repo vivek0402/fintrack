@@ -73,3 +73,10 @@ export function dateChoice(date: string, today: string): 'today' | 'yesterday' |
     if (date === yesterdayOf(today)) return 'yesterday';
     return 'other';
 }
+
+/** An amount from the server ("450.00") as you would type it: whole rupees lose the ".00", paise stay ("450.50"). */
+export function trimAmount(value: number | string): string {
+    const n = typeof value === 'number' ? value : parseFloat(String(value));
+    if (!Number.isFinite(n)) return String(value ?? '');
+    return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}

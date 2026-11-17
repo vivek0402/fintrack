@@ -23,7 +23,7 @@ import { randomCategoryColor } from '@/lib/categoryColors';
 import { usesBankAccount, suggestAccount, rememberAccount } from '@/lib/accountMemory';
 import { haptics } from '@/lib/haptics';
 import { formatCurrency } from '@/lib/utils';
-import { ctaLabel as buildCtaLabel, canSubmit as canSubmitTx, topChoices, dateChoice, yesterdayOf } from '@/lib/addTx';
+import { ctaLabel as buildCtaLabel, canSubmit as canSubmitTx, topChoices, dateChoice, yesterdayOf, trimAmount } from '@/lib/addTx';
 import type { Transaction } from '@/types/finance';
 
 const NO_ITEMS: never[] = [];
@@ -192,7 +192,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     useEffect(() => {
         if (transaction) {
             const rawDate = (transaction.date || '').split('T')[0];
-            setForm({ type: transaction.type, amount: String(transaction.amount), description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment, emi: blankEmi });
+            setForm({ type: transaction.type, amount: trimAmount(transaction.amount), description: transaction.description, notes: transaction.notes || '', date: rawDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: transaction.category_id || '', tags: Array.isArray(transaction.tags) ? transaction.tags : [], payment_method: transaction.payment_method || 'Cash', account_id: transaction.account_id ?? null, to_account_id: null, credit_card_id: transaction.credit_card_id ?? null, goal_id: transaction.goal_id ?? null, investment: blankInvestment, emi: blankEmi });
         } else if (prefill) {
             setForm({ type: prefill.type === 'income' ? 'income' : 'expense', amount: prefill.amount ? String(prefill.amount) : '', description: prefill.description || '', notes: prefill.notes || '', date: prefill.date || defaultDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }), category_id: '', tags: [], payment_method: 'UPI', account_id: null, to_account_id: null, credit_card_id: null, goal_id: null, investment: blankInvestment, emi: blankEmi });
             setTagInput('');

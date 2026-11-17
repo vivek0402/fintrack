@@ -85,3 +85,19 @@ describe('dateChoice', () => {
         expect(yesterdayOf('2024-03-01')).toBe('2024-02-29');
     });
 });
+
+import { trimAmount } from './addTx';
+
+describe('trimAmount', () => {
+    it('drops .00 from whole amounts', () => {
+        expect(trimAmount('450.00')).toBe('450');
+        expect(trimAmount(450)).toBe('450');
+    });
+    it('keeps paise', () => {
+        expect(trimAmount('450.5')).toBe('450.50');
+        expect(trimAmount('1234.75')).toBe('1234.75');
+    });
+    it('passes through anything that is not a number', () => {
+        expect(trimAmount('')).toBe('');
+    });
+});
