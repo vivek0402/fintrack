@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { COVER_ATTR } from '@/lib/appLock';
+import { type } from '@/lib/typography';
 
 // Full-screen frame shared by the lock screen, PIN entry and PIN setup.
 // Portalled to <body> and marked data-lock-root so the globals.css lock rule
@@ -50,17 +51,16 @@ export function LockShell({ children, footer, topAction, cover }: {
 }
 
 export const lockLinkStyle: React.CSSProperties = {
+    ...type.bodyStrong,
     background: 'none', border: 'none', cursor: 'pointer',
     padding: 'var(--space-3) var(--space-4)', minHeight: 44,
-    color: 'var(--accent)', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+    color: 'var(--accent-text)',
 };
 
 export const lockTitleStyle: React.CSSProperties = {
-    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, lineHeight: 1.2,
-    color: 'var(--text-primary)', margin: 0, textAlign: 'center',
+    ...type.heading, margin: 0, textAlign: 'center',
 };
 
 export const lockSubtitleStyle: React.CSSProperties = {
-    fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.5,
-    color: 'var(--text-secondary)', margin: 0, textAlign: 'center', minHeight: 21,
+    ...type.body, margin: 0, textAlign: 'center', minHeight: 21,
 };

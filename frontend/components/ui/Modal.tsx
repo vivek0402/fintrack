@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from './BottomSheet';
 import { usePresence } from '@/hooks/usePresence';
+import { type } from '@/lib/typography';
 
 // Matches .dialog-exit / .scrim-exit in globals.css.
 const DIALOG_EXIT_MS = 240;
@@ -172,12 +173,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                         borderBottom: '1px solid var(--border-subtle)',
                         flexShrink: 0,
                     }}>
-                        <span style={{
-                            fontSize: 'var(--text-h2)',
-                            fontWeight: 700,
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--font-display)',
-                        }}>
+                        <span style={type.heading}>
                             {title}
                         </span>
                         <button

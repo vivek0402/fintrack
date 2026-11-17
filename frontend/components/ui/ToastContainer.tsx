@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { type } from '@/lib/typography';
+import { TextAction } from './CardParts';
 import { useToastStore, type Toast } from '@/store/toastStore';
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
@@ -13,84 +14,39 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         return () => cancelAnimationFrame(t);
     }, []);
 
-    const colors: Record<string, { bg: string; border: string; icon: string }> = {
-        success: { bg: 'rgba(0,229,160,0.12)', border: 'rgba(0,229,160,0.25)', icon: 'var(--color-inc)' },
-        error:   { bg: 'rgba(244,63,94,0.12)',  border: 'rgba(244,63,94,0.25)',  icon: 'var(--color-exp)' },
-        info:    { bg: 'var(--surface-2)',       border: 'var(--border-subtle)',      icon: 'var(--accent)' },
-        undo:    { bg: 'var(--surface-2)',       border: 'var(--border-subtle)',      icon: 'var(--text-primary)' },
+    const dotColor: Record<string, string> = {
+        success: 'var(--color-inc)',
+        error:   'var(--color-exp)',
+        info:    'var(--text-muted)',
+        undo:    'var(--text-muted)',
     };
-
-    const c = colors[toast.type];
-
-    const Icon = toast.type === 'success' ? CheckCircle
-               : toast.type === 'error'   ? AlertCircle
-               : Info;
 
     return (
         <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            padding: '12px 14px',
-            background: c.bg,
-            border: `1px solid ${c.border}`,
+            gap: 'var(--space-3)',
+            padding: 'var(--space-3) var(--space-4)',
+            background: 'var(--bg-surface-2)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-modal)',
-            minWidth: '260px',
-            maxWidth: '380px',
+            boxShadow: 'var(--shadow-card)',
+            minWidth: 260,
+            maxWidth: 380,
             opacity: visible ? 1 : 0,
             transform: visible ? 'translateY(0) scale(1)' : 'translateY(12px) scale(0.97)',
             transition: 'opacity 220ms ease, transform 220ms cubic-bezier(0.34,1.56,0.64,1)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
         }}>
-            <Icon size={16} color={c.icon} style={{ flexShrink: 0 }} />
-            <span style={{
-                flex: 1,
-                fontSize: '13px',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                color: 'var(--text-primary)',
-                lineHeight: 1.4,
-            }}>
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: dotColor[toast.type] }} />
+            <span style={{ ...type.body, color: 'var(--text-primary)', flex: 1 }}>
                 {toast.message}
             </span>
             {toast.type === 'undo' && toast.onUndo && (
-                <button
-                    type="button"
-                    onClick={() => { toast.onUndo!(); onDismiss(); }}
-                    style={{
-                        padding: '4px 10px',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--accent)',
-                        border: 'none',
-                        color: '#fff',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        fontFamily: 'var(--font-body)',
-                        flexShrink: 0,
-                    }}
-                >
+                <TextAction onClick={() => { toast.onUndo!(); onDismiss(); }}>
                     {toast.undoLabel ?? 'Undo'}
-                </button>
+                </TextAction>
             )}
-            <button
-                type="button"
-                onClick={onDismiss}
-                style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--text-muted)',
-                    padding: '2px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                }}
-            >
-                <X size={14} />
-            </button>
+            <TextAction quiet aria-label="Close notification" onClick={onDismiss}>Close</TextAction>
         </div>
     );
 }

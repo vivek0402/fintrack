@@ -1,6 +1,7 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
+import { type } from '@/lib/typography';
 
 interface PullToRefreshIndicatorProps {
     pullDistance: number;
@@ -20,7 +21,7 @@ const REFRESHING_HEIGHT = 56;
 export function PullToRefreshIndicator({ pullDistance, refreshing }: PullToRefreshIndicatorProps) {
     const armed = pullDistance >= THRESHOLD;
     const progress = Math.min(pullDistance / THRESHOLD, 1);
-    const label = refreshing ? 'Refreshing…' : armed ? 'Release to refresh' : 'Pull to refresh';
+    const label = refreshing ? 'Refreshing' : armed ? 'Release to refresh' : 'Pull to refresh';
 
     return (
         <div
@@ -42,18 +43,13 @@ export function PullToRefreshIndicator({ pullDistance, refreshing }: PullToRefre
                 size={16}
                 style={{
                     flexShrink: 0,
-                    color: armed || refreshing ? 'var(--accent)' : 'var(--text-muted)',
+                    color: armed || refreshing ? 'var(--accent-text)' : 'var(--text-muted)',
                     animation: refreshing ? 'spin 0.7s linear infinite' : undefined,
                     transform: refreshing ? undefined : `rotate(${progress * 180}deg)`,
                     transition: 'color 150ms ease',
                 }}
             />
-            <span style={{
-                fontSize: 'var(--text-caption)',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-body)',
-                whiteSpace: 'nowrap',
-            }}>
+            <span style={{ ...type.meta, whiteSpace: 'nowrap' }}>
                 {label}
             </span>
         </div>

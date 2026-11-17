@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
+import { type } from '@/lib/typography';
 
 export function InstallPWA() {
     const [prompt, setPrompt] = useState<Event & { prompt: () => void; userChoice: Promise<{ outcome: string }> } | null>(null);
     const [hidden, setHidden] = useState(false);
 
     useEffect(() => {
-        // Already running as standalone (installed) — never show
+        // Already running as standalone (installed): never show
         if (typeof window !== 'undefined' && window.matchMedia?.('(display-mode: standalone)').matches) {
             setHidden(true);
             return;
@@ -43,8 +44,8 @@ export function InstallPWA() {
                 borderRadius: 'var(--radius-md)',
                 background: 'transparent',
                 border: '1px solid var(--glass-border)',
+                ...type.body,
                 color: 'var(--text-secondary)',
-                fontSize: 'var(--text-body)', fontFamily: 'var(--font-body)',
                 cursor: 'pointer', transition: 'all var(--transition-fast)',
                 marginBottom: 4,
             }}

@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { type } from '@/lib/typography';
+import { Button } from './Button';
 
 interface State { hasError: boolean; error?: Error }
 
@@ -21,18 +23,16 @@ export class PageErrorBoundary extends React.Component<{ children: React.ReactNo
     render() {
         if (!this.state.hasError) return this.props.children;
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: '16px', padding: '40px', textAlign: 'center' }}>
-                <p style={{ fontSize: '40px', lineHeight: 1 }}>😕</p>
-                <p style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', gap: 'var(--space-4)', padding: 'var(--space-8)', textAlign: 'center' }}>
+                <p style={{ ...type.title, margin: 0 }}>
                     Something went wrong{this.props.pageName ? ` on ${this.props.pageName}` : ''}
                 </p>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '320px', lineHeight: 1.5, fontFamily: 'var(--font-body)' }}>
+                <p style={{ ...type.body, margin: 0, maxWidth: 320 }}>
                     {this.state.error?.message || 'An unexpected error occurred.'}
                 </p>
-                <button type="button" onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-                    style={{ padding: '10px 20px', background: 'var(--accent)', border: 'none', borderRadius: 'var(--radius-md)', color: 'white', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+                <Button variant="primary" onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}>
                     Reload page
-                </button>
+                </Button>
             </div>
         );
     }

@@ -8,6 +8,7 @@ import {
 } from '@/lib/appLock';
 import { FinTrackNative, BiometricAvailability } from '@/plugins/FinTrackNativePlugin';
 import { useLockStore } from '@/store/lockStore';
+import { type } from '@/lib/typography';
 import { LockShell, lockLinkStyle, lockSubtitleStyle, lockTitleStyle } from './LockShell';
 import { PinPad } from './PinPad';
 
@@ -166,7 +167,7 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
             <LockShell cover={mode === 'verify'} topAction={cancel}
                 footer={<button type="button" onClick={onForgot} style={lockLinkStyle}>Log in again</button>}>
                 <div className="glass-surface" aria-hidden="true" style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34, color: 'var(--text-primary)' }}>F</span>
+                    <span style={{ ...type.heading, fontSize: 'var(--text-figure)' }}>F</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     <h1 style={lockTitleStyle}>FinTrack is locked</h1>
@@ -181,14 +182,14 @@ export function LockScreen({ mode = 'unlock', promptKey = 0, onSuccess, onForgot
             <LockShell cover={mode === 'verify'} topAction={cancel}
                 footer={<button type="button" onClick={() => setView('pin')} style={lockLinkStyle}>Use PIN instead</button>}>
                 <div className="glass-surface" aria-hidden="true" style={{ width: 72, height: 72, borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34, color: 'var(--text-primary)' }}>F</span>
+                    <span style={{ ...type.heading, fontSize: 'var(--text-figure)' }}>F</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                     <h1 style={lockTitleStyle}>{mode === 'verify' ? 'Confirm it’s you' : 'FinTrack is locked'}</h1>
                     <p style={lockSubtitleStyle}>Touch the sensor to see your money</p>
                 </div>
                 <button type="button" className="glass-surface" aria-label="Unlock with fingerprint" onClick={promptFingerprint}
-                    style={{ width: 112, height: 112, borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', marginTop: 'var(--space-4)', padding: 0 }}>
+                    style={{ width: 112, height: 112, borderRadius: 'var(--radius-full)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', marginTop: 'var(--space-4)', padding: 0 }}>
                     <FingerprintPattern size={52} strokeWidth={1.5} />
                 </button>
             </LockShell>

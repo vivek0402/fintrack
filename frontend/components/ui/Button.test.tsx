@@ -40,11 +40,11 @@ describe('Button', () => {
         expect(off).toHaveStyle({ background: 'var(--glass-fill-1)' });
     });
 
-    it('keeps ghost transparent and danger on its semantic tint', () => {
+    it('keeps ghost transparent and danger as a solid red fill', () => {
         const { rerender } = render(<Button variant="ghost">Skip</Button>);
         expect(screen.getByRole('button')).toHaveStyle({ background: 'transparent' });
         rerender(<Button variant="danger">Delete</Button>);
-        expect(screen.getByRole('button')).toHaveStyle({ background: 'var(--color-exp-subtle)' });
+        expect(screen.getByRole('button')).toHaveStyle({ background: 'var(--color-exp)' });
     });
 });
 
@@ -66,14 +66,15 @@ describe('Input', () => {
             .toContain('border: 1px solid var(--color-exp)');
     });
 
-    it('rests on the glass fill and takes the accent border on focus', () => {
+    it('rests on the glass fill and takes a 2px accent outline on focus', () => {
         // The `variant="glass"` prop was removed on 2026-08-26 once every page
         // was glass -- this is now the only behaviour, not an opt-in.
         render(<Input label="Amount" />);
         const el = screen.getByRole('textbox');
         expect(el).toHaveStyle({ background: 'var(--glass-fill-1)' });
         fireEvent.focus(el);
-        expect(el.getAttribute('style')).toContain('border: 1px solid var(--accent)');
+        expect(el.getAttribute('style')).toContain('outline: 2px solid var(--accent-text)');
+        expect(el.getAttribute('style')).toContain('border: 1px solid var(--glass-border)');
     });
 });
 

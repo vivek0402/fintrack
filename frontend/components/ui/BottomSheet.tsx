@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useRef } from 'react';
 import { usePresence } from '@/hooks/usePresence';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
+import { type } from '@/lib/typography';
 
 interface BottomSheetProps {
     isOpen: boolean;
@@ -127,12 +128,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                             padding: '14px 20px 12px',
                             borderBottom: '1px solid var(--border-subtle)',
                         }}>
-                            <span style={{
-                                fontSize: '16px',
-                                fontWeight: 600,
-                                color: 'var(--text-primary)',
-                                fontFamily: 'var(--font-display)',
-                            }}>
+                            <span style={type.title}>
                                 {title}
                             </span>
                             <button

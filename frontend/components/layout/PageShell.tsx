@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useIsMobile } from '@/hooks/useWindowSize';
+import { type } from '@/lib/typography';
 
 interface PageShellProps {
     title: string;
@@ -26,24 +27,11 @@ export function PageShell({ title, subtitle, headerRight, children }: PageShellP
                 flexWrap: 'wrap',
             }}>
                 <div>
-                    <h1 style={{
-                        fontFamily: 'var(--font-display)',
-                        fontSize: isMobile ? '18px' : '22px',
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        margin: 0,
-                        lineHeight: 1.2,
-                    }}>
+                    <h1 style={{ ...type.heading, margin: 0 }}>
                         {title}
                     </h1>
                     {subtitle && (
-                        <p style={{
-                            fontFamily: 'var(--font-body)',
-                            fontSize: '13px',
-                            fontWeight: 400,
-                            color: 'var(--text-secondary)',
-                            margin: '4px 0 0 0',
-                        }}>
+                        <p style={{ ...type.meta, margin: '4px 0 0 0' }}>
                             {subtitle}
                         </p>
                     )}

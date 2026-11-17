@@ -32,7 +32,7 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
             )}
             <div style={{ position: 'relative' }}>
                 {leading && (
-                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: focused ? 'var(--accent)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color var(--transition-fast)', pointerEvents: 'none' }}>
+                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: focused ? 'var(--accent-text)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', transition: 'color var(--transition-fast)', pointerEvents: 'none' }}>
                         {leading}
                     </div>
                 )}
@@ -47,19 +47,14 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
                         height: '40px',
                         padding: `0 ${suffix ? '38px' : '14px'} 0 ${leading ? '38px' : '14px'}`,
                         background: 'var(--glass-fill-1)',
-                        color: 'var(--text-primary)',
-                        border: `1px solid ${error ? 'var(--color-exp)' : focused ? 'var(--accent)' : 'var(--glass-border)'}`,
+                        border: `1px solid ${error ? 'var(--color-exp)' : 'var(--glass-border)'}`,
                         borderRadius: 'var(--radius-md)',
-                        fontSize: 'var(--text-body)',
-                        fontFamily: 'var(--font-body)',
-                        outline: 'none',
+                        ...type.body,
+                        color: 'var(--text-primary)',
+                        outline: focused ? '2px solid var(--accent-text)' : 'none',
+                        outlineOffset: focused ? 1 : undefined,
                         boxSizing: 'border-box',
-                        transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
-                        boxShadow: error
-                            ? 'color-mix(in srgb, var(--color-exp) 15%, transparent) 0 0 0 3px'
-                            : focused
-                            ? 'color-mix(in srgb, var(--accent) 15%, transparent) 0 0 0 3px'
-                            : 'none',
+                        transition: 'border-color var(--transition-fast)',
                         ...style,
                     }}
                     {...props}
@@ -70,8 +65,8 @@ export function Input({ label, error, hint, icon, prefix, suffix, style, onFocus
                     </div>
                 )}
             </div>
-            {error && <p id={messageId} style={{ fontSize: 'var(--text-caption)', color: 'var(--color-exp)', margin: 0, fontFamily: 'var(--font-body)' }}>{error}</p>}
-            {!error && hint && <p id={messageId} style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-body)' }}>{hint}</p>}
+            {error && <p id={messageId} style={{ ...type.meta, color: 'var(--color-exp-text)', margin: 0 }}>{error}</p>}
+            {!error && hint && <p id={messageId} style={{ ...type.meta, color: 'var(--text-muted)', margin: 0 }}>{hint}</p>}
         </div>
     );
 }

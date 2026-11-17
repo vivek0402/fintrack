@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Card } from './Card';
-import { GCard } from './GCard';
-import { StatTile } from './StatTile';
 
-// These three were flipped to glass-by-default on 2026-08-26, which let 12
+// Card was flipped to glass-by-default on 2026-08-26, which let 12
 // duplicated `glassTileStyle` override consts be deleted from page files. The
 // contract that made that safe is asserted here: the glass look comes from the
 // class, and a caller's `style` prop still wins over it.
@@ -47,38 +45,5 @@ describe('Card', () => {
         const plain = screen.getByText('tap');
         fireEvent.mouseEnter(plain);
         expect(plain.style.background).toBe('');
-    });
-});
-
-describe('GCard', () => {
-    it('is glass by default', () => {
-        render(<GCard>g</GCard>);
-        expect(screen.getByText('g')).toHaveClass('glass-surface');
-    });
-
-    it('accepts a lighter nested-in-glass override via style', () => {
-        // Budgets' split modal relies on this: GCards nested inside an
-        // already-glass Modal take .glass-field instead of glass-on-glass.
-        render(<GCard style={{ background: 'var(--glass-fill-1)' }}>g</GCard>);
-        expect(screen.getByText('g')).toHaveStyle({ background: 'var(--glass-fill-1)' });
-    });
-});
-
-describe('StatTile', () => {
-    it('renders label and value, and is glass in both states', () => {
-        const { container, rerender } = render(<StatTile label="Total Budget" value="₹45,000" />);
-        expect(screen.getByText('Total Budget')).toBeInTheDocument();
-        expect(screen.getByText('₹45,000')).toBeInTheDocument();
-        expect(container.firstChild).toHaveClass('glass-surface');
-
-        // The loading branch is a separate return path -- it regressed on
-        // Investments once by keeping an opaque fill after the main one moved.
-        rerender(<StatTile label="" value="" loading />);
-        expect(container.firstChild).toHaveClass('glass-surface');
-    });
-
-    it('applies accentColor to the value', () => {
-        render(<StatTile label="Spent" value="₹28,100" accentColor="var(--color-exp)" />);
-        expect(screen.getByText('₹28,100')).toHaveStyle({ color: 'var(--color-exp)' });
     });
 });

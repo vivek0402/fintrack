@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { haptics } from '@/lib/haptics';
+import { type } from '@/lib/typography';
 
 interface SwipeableRowProps {
     children: React.ReactNode;
@@ -60,7 +61,7 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
         setTransitioning(true);
 
         if (dragX < -80) {
-            // Swipe left → delete: snap then collapse
+            // Swipe left to delete: snap then collapse
             setDragX(-72);
             if (rowRef.current) rowRef.current.classList.add('swipe-row-exit');
             setTimeout(() => {
@@ -75,22 +76,18 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
         }
     };
 
-    // Reveal opacity scales with drag distance (0→100%)
-    const absRatio = Math.min(Math.abs(dragX) / 80, 1);
-    const deleteOpacity = dragX < 0 ? 0.15 + 0.85 * absRatio : 0.15;
-
     return (
         <div ref={rowRef} style={{ position: 'relative', overflow: 'hidden' }}>
-            {/* Right reveal — delete (red): only visible during active drag */}
+            {/* Right reveal, delete (solid red): only visible during active drag */}
             {isDragging && (
                 <div style={{
                     position: 'absolute', top: 0, bottom: 0, right: 0, width: '80px',
-                    background: `rgba(244, 63, 94, ${deleteOpacity})`,
+                    background: 'var(--color-exp)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
                     pointerEvents: 'none',
                 }}>
-                    <Trash2 size={18} color="var(--color-exp)" />
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--color-exp)', letterSpacing: '0.02em' }}>Delete</span>
+                    <Trash2 size={18} color="#fff" />
+                    <span style={{ ...type.label, color: '#fff' }}>Delete</span>
                 </div>
             )}
 
@@ -100,7 +97,7 @@ export function SwipeableRow({ children, onSwipeLeft }: SwipeableRowProps) {
             {!isDragging && (
                 <div style={{
                     position: 'absolute', top: 0, bottom: 0, right: 0, width: '4px',
-                    background: 'color-mix(in srgb, var(--color-exp) 35%, transparent)',
+                    background: 'var(--border-visible)',
                     pointerEvents: 'none',
                 }} />
             )}

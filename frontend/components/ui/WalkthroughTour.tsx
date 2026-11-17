@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import {
-    Sparkles, LayoutDashboard, ArrowLeftRight,
-    BarChart3, BrainCircuit, CheckCircle2,
-} from 'lucide-react';
+import { X } from 'lucide-react';
+import { type } from '@/lib/typography';
+import { Button } from './Button';
+import { TextAction } from './CardParts';
 
 interface Props {
     isOpen: boolean;
@@ -13,40 +13,28 @@ interface Props {
 
 const STEPS = [
     {
-        iconGradient: 'linear-gradient(135deg, #312e81, #6366f1)',
-        Icon: Sparkles,
-        title: 'Welcome to FinTrack 🎉',
+        title: 'Welcome to FinTrack',
         description: "Your AI-powered personal finance companion. Let's take a 2-minute tour so you know exactly where everything lives and what each feature does.",
     },
     {
-        iconGradient: 'linear-gradient(135deg, #065f46, #00e5a0)',
-        Icon: LayoutDashboard,
-        title: 'Your Financial Command Centre',
-        description: 'The dashboard shows your income, expenses, savings rate, and a 6-month spending trend at a glance. It updates in real-time as you add transactions — check it daily to stay on track.',
+        title: 'Your financial command centre',
+        description: 'The dashboard shows your income, expenses, savings rate, and a 6-month spending trend at a glance. It updates in real-time as you add transactions, so check it daily to stay on track.',
     },
     {
-        iconGradient: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-        Icon: ArrowLeftRight,
-        title: 'Track Every Rupee',
-        description: "Add transactions manually or use Quick Add with natural language — just type '₹500 food at Zomato'. You can also use voice input or scan a receipt. Swipe left on any transaction to delete it, tap to edit.",
+        title: 'Track every rupee',
+        description: "Add transactions manually or use Quick Add with natural language: just type '₹500 food at Zomato'. You can also use voice input or scan a receipt. Swipe left on any transaction to delete it, tap to edit.",
     },
     {
-        iconGradient: 'linear-gradient(135deg, #b45309, #f59e0b)',
-        Icon: BarChart3,
-        title: 'Understand Your Spending',
-        description: "Analytics breaks down exactly where your money goes, category by category. Set monthly budgets per category and FinTrack will warn you — in yellow when you're close, red when you're over.",
+        title: 'Understand your spending',
+        description: "Analytics breaks down exactly where your money goes, category by category. Set monthly budgets per category and FinTrack will warn you, in yellow when you're close and red when you're over.",
     },
     {
-        iconGradient: 'linear-gradient(135deg, #be185d, #ec4899)',
-        Icon: BrainCircuit,
-        title: 'Your Personal Finance AI',
+        title: 'Your personal finance AI',
         description: 'Ask your AI advisor anything about your finances. Parse bank SMS messages automatically, generate detailed monthly reports, scan receipts, and predict if you can afford something.',
     },
     {
-        iconGradient: 'linear-gradient(135deg, #0f766e, #14b8a6)',
-        Icon: CheckCircle2,
-        title: "You're All Set! 🚀",
-        description: 'FinTrack is ready to help you build better money habits. You can revisit this tour anytime by tapping the ❓ button on any screen. Your financial journey starts now.',
+        title: "You're all set",
+        description: 'FinTrack is ready to help you build better money habits. You can revisit this tour anytime from the help button on any screen. Your financial journey starts now.',
     },
 ];
 
@@ -110,189 +98,72 @@ export function WalkthroughTour({ isOpen, onClose }: Props) {
                 .tour-slide {
                     animation: tourFadeIn 0.3s ease forwards;
                 }
-                @media (max-width: 479px) {
-                    .tour-card { padding: 24px 20px 20px !important; }
-                    .tour-title { font-size: 18px !important; }
-                    .tour-desc  { font-size: 13px !important; }
-                }
             `}</style>
 
-            {/* Card — click stops propagation so overlay tap doesn't close */}
             <div
-                className="tour-card"
-                onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="FinTrack tour"
+                className="glass-surface glass-sheet"
                 style={{
                     position: 'relative',
-                    maxWidth: '440px',
+                    maxWidth: 440,
                     width: 'calc(100% - 32px)',
-                    background: 'var(--glass-sheet-surface)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: '20px',
-                    padding: '32px 28px 24px',
-                    boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+                    borderRadius: 'var(--radius-xl)',
+                    padding: 'var(--space-6)',
+                    boxShadow: 'var(--shadow-modal)',
                 }}
             >
-                {/* × close button */}
                 <button
                     type="button"
+                    className="fin-icon-btn"
+                    aria-label="Close tour"
                     onClick={onClose}
-                    style={{
-                        position: 'absolute',
-                        top: '16px',
-                        right: '16px',
-                        color: 'var(--text-muted)',
-                        fontSize: '20px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        lineHeight: 1,
-                        padding: 0,
-                    }}
+                    style={{ position: 'absolute', top: 'var(--space-3)', right: 'var(--space-3)' }}
                 >
-                    ×
+                    <X size={16} />
                 </button>
 
-                {/* Animated slide content */}
                 <div key={animKey} className="tour-slide">
-                    {/* Icon circle */}
-                    <div style={{
-                        width: '72px',
-                        height: '72px',
-                        borderRadius: '50%',
-                        margin: '0 auto 20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: current.iconGradient,
-                        flexShrink: 0,
-                    }}>
-                        <current.Icon size={48} color="white" />
-                    </div>
+                    <p style={{ ...type.meta, margin: 0 }}>{`Step ${step + 1} of ${STEPS.length}`}</p>
+                    <h2 style={{ ...type.heading, margin: 'var(--space-2) 0 var(--space-3)' }}>{current.title}</h2>
+                    <p style={{ ...type.body, margin: 0 }}>{current.description}</p>
 
-                    {/* Step label */}
-                    <div style={{
-                        fontSize: '11px',
-                        letterSpacing: '2px',
-                        color: 'var(--text-muted)',
-                        textTransform: 'uppercase',
-                        marginBottom: '8px',
-                        textAlign: 'center',
-                    }}>
-                        STEP {step + 1} OF 6
-                    </div>
-
-                    {/* Title */}
-                    <div
-                        className="tour-title"
-                        style={{
-                            fontSize: '22px',
-                            fontWeight: 700,
-                            fontFamily: 'var(--font-display)',
-                            color: 'var(--text-primary)',
-                            textAlign: 'center',
-                            marginBottom: '12px',
-                        }}
-                    >
-                        {current.title}
-                    </div>
-
-                    {/* Description */}
-                    <div
-                        className="tour-desc"
-                        style={{
-                            fontSize: '14px',
-                            lineHeight: 1.7,
-                            color: 'var(--text-secondary)',
-                            textAlign: 'center',
-                            marginBottom: '28px',
-                        }}
-                    >
-                        {current.description}
-                    </div>
-
-                    {/* Progress dots */}
-                    <div style={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        gap: '6px',
-                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-5)' }}>
                         {STEPS.map((_, i) => (
-                            <div
+                            <span
                                 key={i}
+                                aria-hidden="true"
                                 style={{
-                                    width: i === step ? '20px' : '6px',
-                                    height: '6px',
-                                    borderRadius: i === step ? '3px' : '50%',
-                                    background: i === step ? 'var(--accent)' : 'var(--glass-border)',
-                                    transition: 'all 0.3s ease',
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    background: i === step ? 'var(--text-primary)' : 'var(--border-visible)',
                                 }}
                             />
                         ))}
                     </div>
 
-                    {/* Button row */}
                     <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        marginTop: '20px',
+                        gap: 'var(--space-3)',
+                        marginTop: 'var(--space-5)',
                     }}>
-                        {/* Left: Skip (steps 1-5) or empty spacer (step 6) */}
                         {!isLast ? (
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                style={{
-                                    color: 'var(--text-muted)',
-                                    fontSize: '14px',
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    padding: 0,
-                                }}
-                            >
-                                Skip
-                            </button>
+                            <TextAction quiet onClick={onClose}>Skip</TextAction>
                         ) : (
                             <div />
                         )}
 
-                        {/* Right: Back + Next/Get Started */}
-                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
                             {!isFirst && (
-                                <button
-                                    type="button"
-                                    onClick={handleBack}
-                                    style={{
-                                        background: 'var(--glass-fill-1)',
-                                        color: 'var(--text-secondary)',
-                                        borderRadius: '8px',
-                                        padding: '10px 18px',
-                                        fontSize: '14px',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    Back
-                                </button>
+                                <Button variant="secondary" onClick={handleBack}>Back</Button>
                             )}
-                            <button
-                                type="button"
-                                onClick={handleNext}
-                                style={{
-                                    background: 'linear-gradient(135deg,#312e81,#6366f1)',
-                                    color: 'white',
-                                    borderRadius: '8px',
-                                    padding: '10px 20px',
-                                    fontSize: '14px',
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                {isLast ? 'Get Started →' : 'Next →'}
-                            </button>
+                            <Button variant="primary" onClick={handleNext}>
+                                {isLast ? 'Get started' : 'Next'}
+                            </Button>
                         </div>
                     </div>
                 </div>
