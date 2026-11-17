@@ -114,9 +114,8 @@ describe('add transaction', () => {
         const { onSuccess } = open();
         await fillBasics('250', 'Coffee');
 
-        const trigger = document.querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!;
-        expect(trigger).toHaveTextContent('Choose');
-        fireEvent.click(trigger);
+        // "More" under the category chips opens the full picker.
+        fireEvent.click(screen.getByRole('button', { name: 'More categories' }));
 
         const search = await waitFor(() =>
             document.querySelector<HTMLInputElement>('input[aria-label="Search categories"]')!
@@ -134,9 +133,9 @@ describe('add transaction', () => {
         });
         fireEvent.click(option);
 
-        // Dialog closes, and the trigger carries the selection.
+        // Dialog closes, and the Food chip is the chosen one.
         await waitFor(() => expect(document.querySelector('[role="listbox"]')).toBeNull());
-        expect(document.querySelector('[aria-haspopup="listbox"]')).toHaveTextContent('Food');
+        expect(screen.getByRole('button', { name: 'Food' })).toHaveAttribute('aria-pressed', 'true');
 
         submit();
         await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledOnce());
@@ -352,19 +351,9 @@ describe('entry feedback', () => {
 describe('EMI conversion', () => {
     const oneCard = { id: 5, bank_name: 'HDFC', card_name: 'Millennia', last_four: '1234' };
 
-    // Payment method lives in a themed sheet (Modal), not a native <select>,
-    // so it's picked by opening the sheet and clicking the row -- same
-    // pattern the app itself uses via setPaymentSheetOpen.
+    // Credit Card is one of the top three payment chips by default.
     async function selectCreditCardPaymentMethod() {
-        const trigger = await waitFor(() => {
-            const el = Array.from(document.querySelectorAll<HTMLElement>('div[role="button"]'))
-                .find(d => d.textContent?.includes('UPI'));
-            expect(el).toBeTruthy();
-            return el!;
-        });
-        fireEvent.click(trigger);
-        const cardOption = await waitFor(() => screen.getByRole('button', { name: /credit card/i }));
-        fireEvent.click(cardOption);
+        fireEvent.click(await waitFor(() => screen.getByRole('button', { name: 'Credit Card' })));
     }
 
     it('does not show the EMI section for the default (non-card) payment method', async () => {
@@ -537,5 +526,90 @@ describe('bank account (several accounts)', () => {
         expect(screen.queryByTestId('account-line')).toBeNull();
         submit();
         await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'Cash', account_id: null })));
+    });
+});
+
+describe('faster to fill', () => {
+    it('keeps the button off until there is an amount and a description, and says what it will do', async () => {
+        open();
+        const btn = () => document.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+        expect(btn()).toBeDisabled();
+        expect(btn()).toHaveTextContent('Add expense');
+        fireEvent.change(amountField(), { target: { value: '450' } });
+        expect(btn()).toBeDisabled();
+        expect(btn()).toHaveTextContent('Add ₹450 expense');
+        fireEvent.change(document.querySelector<HTMLInputElement>('input[type="text"]')!, { target: { value: 'Lunch' } });
+        expect(btn()).not.toBeDisabled();
+        fireEvent.click(screen.getByRole('button', { name: 'Income' }));
+        expect(btn()).toHaveTextContent('Add ₹450 income');
+    });
+
+    it('sends yesterday when the Yesterday chip is chosen', async () => {
+        open();
+        await fillBasics('80', 'Tea');
+        fireEvent.click(screen.getByRole('button', { name: 'Yesterday' }));
+        expect(screen.getByRole('button', { name: 'Yesterday' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: 'Today' })).toHaveAttribute('aria-pressed', 'false');
+        submit();
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(
+            expect.objectContaining({ date: yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) })
+        ));
+    });
+
+    it('shows an older date as its own chosen chip', () => {
+        open({ transaction: { id: 't1', type: 'expense', amount: 10, description: 'Old', date: '2026-01-05', payment_method: 'UPI', category_id: null } as never });
+        expect(screen.getByRole('button', { name: '5 Jan 2026' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: 'Today' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('picks a payment method from the chips, and the rest from More', async () => {
+        open();
+        await fillBasics('120', 'Chai');
+        fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+        expect(screen.getByRole('button', { name: 'Cash' })).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(screen.getByRole('button', { name: 'More payment methods' }));
+        fireEvent.click(await screen.findByRole('button', { name: /Wallet/ }));
+        expect(screen.getByRole('button', { name: 'Wallet' })).toHaveAttribute('aria-pressed', 'true');
+        submit();
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ payment_method: 'Wallet' })));
+    });
+
+    it('"Add and enter another" saves, stays open and clears amount and description but keeps the rest', async () => {
+        const { onSuccess, onClose } = open();
+        await fillBasics('250', 'Coffee');
+        fireEvent.click(screen.getByRole('button', { name: 'Yesterday' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Add and enter another' }));
+
+        await waitFor(() => expect(transactionsAPI.create).toHaveBeenCalledOnce());
+        expect(transactionsAPI.create).toHaveBeenCalledWith(expect.objectContaining({ amount: 250, description: 'Coffee', payment_method: 'Cash' }));
+        await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+        await waitFor(() => expect((amountField() as HTMLInputElement).value).toBe(''));
+        expect(document.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('');
+        expect(onClose).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: 'Yesterday' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.getByRole('button', { name: 'Cash' })).toHaveAttribute('aria-pressed', 'true');
+        await waitFor(() => expect(document.activeElement).toBe(amountField()));
+    });
+
+    it('a normal save still closes the dialog, and editing has no "Add and enter another"', async () => {
+        const { onClose } = open();
+        await fillBasics('250', 'Coffee');
+        submit();
+        await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
+    it('hides "Add and enter another" when editing and says Save changes', () => {
+        open({ transaction: { id: 't1', type: 'expense', amount: 10, description: 'Old', date: '2026-01-05', payment_method: 'UPI', category_id: null } as never });
+        expect(screen.queryByRole('button', { name: 'Add and enter another' })).toBeNull();
+        expect(document.querySelector('button[type="submit"]')).toHaveTextContent('Save changes');
+        expect(document.querySelector('button[type="submit"]')).not.toBeDisabled();
+    });
+
+    it('puts the cursor in the amount field and shows a text Close', async () => {
+        open();
+        await waitFor(() => expect(document.activeElement).toBe(amountField()));
+        expect(screen.getByRole('button', { name: 'Close' })).toHaveTextContent('Close');
     });
 });

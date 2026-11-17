@@ -5,6 +5,7 @@ import { usePresence } from '@/hooks/usePresence';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 import { type } from '@/lib/typography';
+import { TextAction } from './CardParts';
 
 interface BottomSheetProps {
     isOpen: boolean;
@@ -20,12 +21,14 @@ interface BottomSheetProps {
     // whose window already dims what's behind it (the Android widget add
     // sheet over the home screen).
     scrim?: boolean;
+    // See the matching prop on Modal.
+    closeLabel?: string;
 }
 
 // Matches .sheet-exit in globals.css.
 const SHEET_EXIT_MS = 240;
 
-export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0', scrim = true }: BottomSheetProps) {
+export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeight = '90vh', bodyPadding = '20px 20px 0', scrim = true, closeLabel }: BottomSheetProps) {
     const [mounted, setMounted] = useState(false);
     const [dragY, setDragY] = useState(0);
     const touchStartY = useRef(0);
@@ -131,21 +134,25 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                             <span style={type.title}>
                                 {title}
                             </span>
-                            <button
-                                type="button"
-                                onClick={handleClose}
-                                style={{
-                                    background: 'var(--glass-fill-2)',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    display: 'flex',
-                                    padding: '6px',
-                                    borderRadius: '50%',
-                                }}
-                            >
-                                <X size={18} />
-                            </button>
+                            {closeLabel ? (
+                                <TextAction quiet onClick={handleClose} aria-label="Close">{closeLabel}</TextAction>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={handleClose}
+                                    style={{
+                                        background: 'var(--glass-fill-2)',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-muted)',
+                                        display: 'flex',
+                                        padding: '6px',
+                                        borderRadius: '50%',
+                                    }}
+                                >
+                                    <X size={18} />
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -160,6 +167,7 @@ export function BottomSheet({ isOpen, onClose, children, title, footer, maxHeigh
                     <div style={{
                         flexShrink: 0,
                         padding: '16px 20px calc(16px + var(--sa-bottom))',
+                        background: 'var(--bg-surface-1)',
                         borderTop: '1px solid var(--border-subtle)',
                     }}>
                         {footer}

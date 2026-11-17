@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { TextAction } from '@/components/ui/CardParts';
 import { type } from '@/lib/typography';
 import { Modal } from '@/components/ui/Modal';
-import { CategoryField, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
+import { CategoryPickerDialog, CategoryIcon, findCategory } from '@/components/categories/CategoryPickerDialog';
 import { EntryFeedback, EntrySignal } from '@/components/transactions/EntryFeedback';
 import { useCategories } from '@/hooks/useCategories';
 import { toast } from '@/store/toastStore';
@@ -22,6 +22,8 @@ import { INVESTMENT_TYPES, GROUP_LABELS, MfSearchResult } from '@/types/investme
 import { randomCategoryColor } from '@/lib/categoryColors';
 import { usesBankAccount, suggestAccount, rememberAccount } from '@/lib/accountMemory';
 import { haptics } from '@/lib/haptics';
+import { formatCurrency } from '@/lib/utils';
+import { ctaLabel as buildCtaLabel, canSubmit as canSubmitTx, topChoices, dateChoice, yesterdayOf } from '@/lib/addTx';
 import type { Transaction } from '@/types/finance';
 
 const NO_ITEMS: never[] = [];
@@ -159,6 +161,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
     // Once the user picks an account, stop re-suggesting for this entry.
     const accountTouched = useRef(false);
     const [goalSheetOpen, setGoalSheetOpen] = useState(false);
+    const [catPickerOpen, setCatPickerOpen] = useState(false);
+    const [amountFocused, setAmountFocused] = useState(false);
+    // Set by "Add and enter another": the next save keeps the dialog open.
+    const addAnotherRef = useRef(false);
 
     // Four fields by default (amount, description, category, date) --
     // payment method, card, investment details, goal, tags and notes
@@ -210,6 +216,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         // tags or notes may already be filled in, and collapsing them behind a
         // toggle the instant you open to edit would read as data going missing.
         setShowMore(!!transaction);
+        addAnotherRef.current = false;
     }, [transaction, isOpen, defaultDate, prefill]);
 
     // Bank account: suggested from what this person used before for this
@@ -380,6 +387,8 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const another = addAnotherRef.current && !isEditing && !isTransfer;
+        addAnotherRef.current = false;
         setError(''); setLoading(true);
         if (isTransfer) {
             if (!form.account_id || !form.to_account_id) { setError('Select both From and To accounts.'); setLoading(false); return; }
@@ -485,9 +494,10 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             } catch { /* silent */ }
             haptics.success();
             if (submittingEmi) toast.success('EMI purchase recorded');
-            else if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added — new holding tracked' : 'Transaction added — holding updated');
+            else if (createdInvestment) toast.success(createdInvestment.is_new_holding ? 'Transaction added, new holding tracked' : 'Transaction added, holding updated');
             else toast.success(isEditing ? 'Transaction updated' : 'Transaction added');
-            onSuccess?.(); onClose();
+            onSuccess?.();
+            if (another) startAnother(); else onClose();
         } catch (err: any) {
             const isNetworkErr = !err.response;
             // An EMI conversion isn't a plain transaction create -- there's no
@@ -497,9 +507,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             if (isNetworkErr && !isEditing && !submittingEmi) {
                 try {
                     const tempId = await addToQueue('create', payload as Record<string, any>);
-                    toast.info('Saved offline — will sync when reconnected');
+                    toast.info('Saved offline, will sync when reconnected');
                     onOfflineSave?.({ ...(payload as Record<string, any>), id: tempId, _pending: true });
-                    onClose();
+                    if (another) startAnother(); else onClose();
                 } catch {
                     haptics.error();
                     setError('Something went wrong. Please try again.');
@@ -509,6 +519,24 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 setError(err.response?.data?.error || 'Something went wrong.');
             }
         } finally { setLoading(false); }
+    };
+
+    // "Add and enter another": clear what changes from one purchase to the next
+    // and keep what usually repeats (date, method, account, type, category).
+    const startAnother = () => {
+        setForm(prev => ({ ...prev, amount: '', description: '', notes: '', tags: [], goal_id: null, investment: blankInvestment, emi: blankEmi }));
+        setTagInput('');
+        setEntrySignals([]);
+        setMlSuggest(EMPTY_SUGGEST);
+        setPaymentAutoSet(false);
+        accountTouched.current = true;
+        paymentTouched.current = true;
+        setTimeout(() => document.getElementById('tx-amount')?.focus(), 0);
+    };
+
+    const requestAddAnother = () => {
+        addAnotherRef.current = true;
+        (document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit();
     };
 
     const addTag = () => {
@@ -530,7 +558,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
             } catch {
                 setMfResults([]);
                 setMfDropdownOpen(false);
-                toast.error('Fund search failed — try again');
+                toast.error('Fund search failed, try again');
             } finally { setMfLoading(false); }
         }, 300);
     };
@@ -570,7 +598,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         setCalMonth(m); setCalYear(y); setCalOpen(false);
     };
 
-    // Most entries are today or yesterday — these skip the grid entirely.
+    // Most entries are today or yesterday, so these skip the grid entirely.
     const quickDates = useMemo(() => {
         const mk = (offset: number, label: string) => {
             const d = new Date();
@@ -586,6 +614,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         if (quick) return quick.label;
         return `${selectedDate.getDate()} ${SHORT_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
     })();
+
+    const dateChosen = dateChoice(form.date, todayStr);
+    const yesterdayStr = yesterdayOf(todayStr);
 
     const pickDate = (value: string) => {
         setForm((prev: any) => ({ ...prev, date: value }));
@@ -612,6 +643,18 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         background: active ? 'var(--glass-fill-3)' : 'transparent', color: 'var(--text-primary)',
     });
     const emiLabel: React.CSSProperties = { ...type.body, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' };
+    // A choice chip (same chosen treatment as the filter chips): 32 high, the
+    // chosen one gets a 2px primary ring over a transparent border.
+    const chipS = (active: boolean): React.CSSProperties => ({
+        ...(active ? type.bodyStrong : type.meta),
+        display: 'inline-flex', alignItems: 'center', height: 32, padding: '0 14px', maxWidth: '100%',
+        borderRadius: 'var(--radius-full)', cursor: 'pointer', background: 'transparent', whiteSpace: 'nowrap',
+        border: active ? '1px solid transparent' : '1px solid var(--glass-border)',
+        boxShadow: active ? 'inset 0 0 0 2px var(--text-primary)' : 'none',
+        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+    });
+    const chipRow: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 };
+    const hiddenLabel: React.CSSProperties = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 };
 
     // Rendered alongside the main sheet rather than inside the form, so it
     // portals to the body and can never be clipped by the form's own scroll.
@@ -776,16 +819,31 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         </div>
     );
 
-    const amountText = form.amount ? `₹${Number(form.amount).toLocaleString('en-IN')}` : '';
-    const ctaLabel = isEditing
-        ? 'Save changes'
-        : isTransfer
-            ? (amountText ? `Move ${amountText}` : 'Move money')
-            : `Add ${amountText ? `${amountText} ` : ''}${isIncome ? 'income' : 'expense'}`;
+    // Whole rupees read cleanly ("₹450"); keep the paise when there are some.
+    const currency = user?.currency || 'INR';
+    const formatAmount = (n: number) => {
+        const whole = Math.trunc(n);
+        const frac = Math.round((n - whole) * 100);
+        return frac === 0 ? formatCurrency(whole, currency) : `${formatCurrency(whole, currency)}.${String(frac).padStart(2, '0')}`;
+    };
+    const ctaLabel = buildCtaLabel({ editing: isEditing, type: form.type, amount: form.amount, format: formatAmount });
+    const submitReady = canSubmitTx({ amount: form.amount, description: form.description, editing: isEditing });
 
     const modalTitle = isEditing
         ? `Edit ${form.type}`
         : isTransfer ? 'Move money between accounts' : isIncome ? 'Add income' : 'Add expense';
+
+    // The person's most-used categories, in the picker's own "Frequent" order
+    // (usage_count, then the API's order); the chosen one rides along as an extra.
+    const categoryChoices = topChoices(
+        safeCats.map(c => ({ key: String(c.id), cat: c })),
+        Object.fromEntries(safeCats.map(c => [String(c.id), Number(c.usage_count) || 0])),
+        4,
+        form.category_id,
+    );
+    const shownCategoryIds = new Set(categoryChoices.map(c => c.key));
+    const extraSuggestedCats = suggestedCats.filter((c: any) => !shownCategoryIds.has(String(c.id)));
+    const paymentChoices = topChoices(sortedPaymentMethods.map(m => ({ key: m })), paymentUsage, 3, form.payment_method);
 
     const waitingForData = holdUntilReady && (categoriesLoading || !accountsLoaded);
 
@@ -813,25 +871,42 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         {cardSheet}
         {accountSheet}
         {goalSheet}
+        <CategoryPickerDialog
+            isOpen={catPickerOpen}
+            onClose={() => setCatPickerOpen(false)}
+            value={form.category_id}
+            onChange={v => setForm(prev => ({ ...prev, category_id: v }))}
+            categories={safeCats}
+            allowCreate
+            onCreated={() => { void refreshCategories(); }}
+        />
         <Modal
             isOpen={isOpen}
             onClose={onClose}
             scrim={scrim}
             title={modalTitle}
+            closeLabel="Close"
+            initialFocusId="tx-amount"
             footer={waitingForData ? undefined :
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {error && (
                         <p role="alert" style={{ ...type.meta, margin: 0, color: 'var(--color-exp-text)' }}>{error}</p>
                     )}
-                    <button type="submit" form="transaction-form" disabled={loading}
+                    <button type="submit" form="transaction-form" disabled={loading || !submitReady}
+                        onClick={() => { addAnotherRef.current = false; }}
                         style={{
                             width: '100%', height: '48px', border: 'none', borderRadius: 'var(--radius-md)',
                             background: 'var(--accent)', ...type.bodyStrong, color: '#fff',
-                            cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1,
+                            cursor: loading ? 'wait' : submitReady ? 'pointer' : 'default', opacity: loading ? 0.7 : submitReady ? 1 : 0.5,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                         }}>
                         {loading ? 'Saving…' : ctaLabel}
                     </button>
+                    {!isEditing && !isTransfer && (
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <TextAction quiet onClick={requestAddAnother} disabled={loading || !submitReady}>Add and enter another</TextAction>
+                        </div>
+                    )}
                 </div>
             }
         >
@@ -857,13 +932,20 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     })}
                 </div>
 
-                {/* ── Amount ── */}
-                <div>
-                    <label style={labelStyle} htmlFor="tx-amount">Amount</label>
-                    <div style={{ position: 'relative' }}>
-                        <span aria-hidden="true" style={{ ...type.figure, position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none' }}>₹</span>
-                        <input id="tx-amount" type="number" placeholder="0" min="0.01" step="any" value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
-                            style={{ background: 'var(--glass-fill-1)', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)', ...type.figure, outline: 'none', width: '100%', height: 56, padding: '0 16px 0 44px', boxSizing: 'border-box' }}
+                {/* ── Amount: the hero figure, with the cursor in it ── */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2) 0' }}>
+                    <label htmlFor="tx-amount" style={hiddenLabel}>Amount</label>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 'var(--space-2)', maxWidth: '100%' }}>
+                        <span aria-hidden="true" className="type-display" style={{ ...type.display, color: 'var(--text-secondary)' }}>₹</span>
+                        <input id="tx-amount" className="type-display" type="number" inputMode="decimal" placeholder="0" min="0.01" step="any"
+                            value={form.amount === '0' ? '' : form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} required
+                            onFocus={() => setAmountFocused(true)} onBlur={() => setAmountFocused(false)}
+                            style={{
+                                ...type.display, background: 'transparent', border: 'none', outline: 'none', borderRadius: 0, textAlign: 'left',
+                                borderBottom: `2px solid ${amountFocused ? 'var(--text-primary)' : 'var(--glass-border)'}`,
+                                minWidth: 160, maxWidth: '100%', width: `calc(${Math.max(form.amount.length, 1)}ch + 16px)`,
+                                padding: '0 0 var(--space-1)', boxSizing: 'content-box',
+                            }}
                         />
                     </div>
                 </div>
@@ -907,7 +989,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </>
                 )}
 
-                {/* ── Description, the new-category offer, suggested categories ── */}
+                {/* ── Description and the new-category offer ── */}
                 {!isTransfer && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div>
@@ -923,14 +1005,29 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                                 <TextAction quiet onClick={() => setShowNewCategoryPrompt(false)}>Skip</TextAction>
                             </div>
                         )}
+                    </div>
+                )}
 
-                        {suggestedCats.length > 0 && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {/* ── Category: your most-used as chips, the rest behind More ── */}
+                {!isTransfer && (
+                    <div>
+                        <span id="tx-category-label" style={labelStyle}>Category</span>
+                        <div role="group" aria-labelledby="tx-category-label" style={chipRow}>
+                            {categoryChoices.map(({ key, cat }) => (
+                                <button key={key} type="button" aria-pressed={form.category_id === key}
+                                    onClick={() => setForm(prev => ({ ...prev, category_id: key }))}
+                                    style={chipS(form.category_id === key)}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.name}</span>
+                                </button>
+                            ))}
+                            <TextAction onClick={() => setCatPickerOpen(true)} aria-label="More categories">More</TextAction>
+                        </div>
+                        {extraSuggestedCats.length > 0 && (
+                            <div style={{ ...chipRow, marginTop: 8 }}>
                                 <span style={type.meta}>Suggested:</span>
-                                {suggestedCats.map((c: any) => (
-                                    <button key={c.id} type="button" onClick={() => { setForm(prev => ({ ...prev, category_id: String(c.id) })); }}
-                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px', borderRadius: 'var(--radius-full)', background: 'var(--glass-fill-2)', border: 'none', cursor: 'pointer', ...type.label, color: 'var(--text-primary)' }}>
-                                        <CategoryIcon name={c.icon} size={11} color="currentColor" />
+                                {extraSuggestedCats.map((c: any) => (
+                                    <button key={c.id} type="button" onClick={() => setForm(prev => ({ ...prev, category_id: String(c.id) }))}
+                                        style={chipS(false)}>
                                         {c.name}
                                     </button>
                                 ))}
@@ -939,23 +1036,17 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── Category + Date ── */}
+                {/* ── Date: today, yesterday, or pick one ── */}
                 {!isTransfer && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                        <div>
-                            <label style={labelStyle} htmlFor="tx-category">Category</label>
-                            <CategoryField
-                                id="tx-category"
-                                value={form.category_id}
-                                onChange={v => setForm(prev => ({ ...prev, category_id: v }))}
-                                categories={safeCats}
-                                allowCreate
-                                onCreated={() => { void refreshCategories(); }}
-                            />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Date</label>
-                            {dateTrigger}
+                    <div>
+                        <span id="tx-date-label" style={labelStyle}>Date</span>
+                        <div role="group" aria-labelledby="tx-date-label" style={chipRow}>
+                            <button type="button" aria-pressed={dateChosen === 'today'} onClick={() => pickDate(todayStr)} style={chipS(dateChosen === 'today')}>Today</button>
+                            <button type="button" aria-pressed={dateChosen === 'yesterday'} onClick={() => pickDate(yesterdayStr)} style={chipS(dateChosen === 'yesterday')}>Yesterday</button>
+                            {dateChosen === 'other' && selectedDate && (
+                                <button type="button" aria-pressed onClick={() => setCalOpen(true)} style={chipS(true)}>{dateLabel}</button>
+                            )}
+                            <TextAction onClick={() => setCalOpen(true)}>Pick a date</TextAction>
                         </div>
                     </div>
                 )}
@@ -1031,39 +1122,37 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                     </div>
                 )}
 
-                {/* ── How you paid (expenses); income shows just its account line ── */}
+                {/* ── Paid with (expenses); income shows just its account line ── */}
                 {!isTransfer && !isIncome && (
-                    <div style={groupStyle}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
-                            <span style={type.label}>How you paid</span>
-                            {paymentAutoSet && <span style={type.meta}>Your usual</span>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)' }}>
+                                <span id="tx-paid-label" style={labelStyle}>Paid with</span>
+                                {paymentAutoSet && <span style={{ ...type.meta, marginBottom: 6 }}>Your usual</span>}
+                            </div>
+                            <div role="group" aria-labelledby="tx-paid-label" style={chipRow}>
+                                {paymentChoices.map(({ key: m }) => (
+                                    <button key={m} type="button" aria-pressed={form.payment_method === m}
+                                        onClick={() => { paymentTouched.current = true; setPaymentAutoSet(false); setForm(prev => ({ ...prev, payment_method: m })); }}
+                                        style={chipS(form.payment_method === m)}>
+                                        {m}
+                                    </button>
+                                ))}
+                                <TextAction onClick={() => setPaymentSheetOpen(true)} aria-label="More payment methods">More</TextAction>
+                            </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: showCardField ? '1fr 1fr' : '1fr', gap: 12 }}>
+                        {showCardField && (
                             <div>
-                                <label style={labelStyle}>Method</label>
-                                <div onClick={() => setPaymentSheetOpen(true)} role="button" tabIndex={0}
-                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPaymentSheetOpen(true); } }}
-                                    style={triggerField}>
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                                        <span style={{ flexShrink: 0 }}>{PAYMENT_METHOD_ICONS[form.payment_method]}</span>
-                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{form.payment_method}</span>
-                                    </span>
+                                <label style={labelStyle}>Card</label>
+                                <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
+                                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
+                                    style={{ ...triggerField, color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(() => { const c = cards.find(c => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
                                     <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
                                 </div>
                             </div>
-                            {showCardField && (
-                                <div>
-                                    <label style={labelStyle}>Card</label>
-                                    <div onClick={() => setCardSheetOpen(true)} role="button" tabIndex={0}
-                                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCardSheetOpen(true); } }}
-                                        style={{ ...triggerField, color: form.credit_card_id ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(() => { const c = cards.find(c => c.id === form.credit_card_id); return c ? `${c.bank_name} ${c.card_name}${c.last_four ? ` ••${c.last_four}` : ''}` : 'Select card'; })()}</span>
-                                        <ChevronDown size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        )}
 
                         {accountLine}
                         {accounts.length > 0 && (form.payment_method === 'Cash' || form.payment_method === 'Wallet') && (

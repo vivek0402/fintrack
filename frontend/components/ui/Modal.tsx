@@ -7,6 +7,7 @@ import { useIsMobile } from '@/hooks/useWindowSize';
 import { BottomSheet } from './BottomSheet';
 import { usePresence } from '@/hooks/usePresence';
 import { type } from '@/lib/typography';
+import { TextAction } from './CardParts';
 
 // Matches .dialog-exit / .scrim-exit in globals.css.
 const DIALOG_EXIT_MS = 240;
@@ -36,6 +37,12 @@ interface ModalProps {
     // false: no dimming layer behind the sheet/dialog (tapping outside still
     // closes). See BottomSheet's prop of the same name.
     scrim?: boolean;
+    // Focus the element with this id once it exists, instead of the first
+    // focusable (the close button). Waits for content that mounts late.
+    initialFocusId?: string;
+    // Set: the header's close control is a quiet text action with this label
+    // (aria-label stays "Close") instead of the icon circle.
+    closeLabel?: string;
 }
 
 const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -46,7 +53,7 @@ const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:
 // close resetting it while the outer one is still open.
 let openModalCount = 0;
 
-export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog, zIndexBase = 9999, scrim = true }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '480px', bodyPadding = '24px', ariaLabel, opaque, forceDialog, zIndexBase = 9999, scrim = true, initialFocusId, closeLabel }: ModalProps) {
     const isMobile = useIsMobile();
     const [mounted, setMounted] = useState(false);
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -95,6 +102,22 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
         return () => { previouslyFocusedRef.current?.focus?.(); };
     }, [isOpen, isMobile, mounted]);
 
+    // Runs after the effect above, so it wins over the default focus. Polls
+    // briefly because the field can mount after the dialog does (a sheet that
+    // holds its form until its data is in).
+    useEffect(() => {
+        if (!isOpen || !mounted || !initialFocusId) return;
+        let tries = 0;
+        const attempt = () => {
+            const el = document.getElementById(initialFocusId);
+            if (el) { el.focus(); return true; }
+            return ++tries > 50;
+        };
+        if (attempt()) return;
+        const timer = setInterval(() => { if (attempt()) clearInterval(timer); }, 100);
+        return () => clearInterval(timer);
+    }, [isOpen, mounted, initialFocusId]);
+
     useEffect(() => {
         if (!isOpen) return;
         openModalCount++;
@@ -111,7 +134,7 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
     // mounted while it slides out).
     if (isMobile && !forceDialog) {
         return (
-            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding} scrim={scrim}>
+            <BottomSheet isOpen={isOpen} onClose={onClose} title={title} footer={footer} bodyPadding={bodyPadding === '24px' ? undefined : bodyPadding} scrim={scrim} closeLabel={closeLabel}>
                 {children}
             </BottomSheet>
         );
@@ -176,21 +199,25 @@ export function Modal({ isOpen, onClose, title, children, footer, maxWidth = '48
                         <span style={type.heading}>
                             {title}
                         </span>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            style={{
-                                background: 'var(--glass-fill-2)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                color: 'var(--text-muted)',
-                                display: 'flex',
-                                padding: '6px',
-                                borderRadius: '50%',
-                            }}
-                        >
-                            <X size={18} />
-                        </button>
+                        {closeLabel ? (
+                            <TextAction quiet onClick={onClose} aria-label="Close">{closeLabel}</TextAction>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                style={{
+                                    background: 'var(--glass-fill-2)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    display: 'flex',
+                                    padding: '6px',
+                                    borderRadius: '50%',
+                                }}
+                            >
+                                <X size={18} />
+                            </button>
+                        )}
                     </div>
                 )}
 
