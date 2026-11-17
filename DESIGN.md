@@ -270,27 +270,23 @@ Every component uses CSS variables only — no hardcoded hex values.
 | Component | File | Description |
 |---|---|---|
 | `PageShell` | `components/layout/PageShell.tsx` | Universal page wrapper — title, subtitle, headerRight slot, responsive padding |
-| `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon. 14px, weight 500 at every size |
+| `Button` | `components/ui/Button.tsx` | 5 variants: primary / secondary / ghost / danger / icon. 14px, weight 500 at every size. `danger` is solid `--color-exp` with white text (the one solid destructive fill); focus is a 2px `--accent-text` outline |
 | `Tabs` | `components/ui/Tabs.tsx` | Page tabs as a segmented control; selection via `aria-pressed` |
-| `Switch` | `components/ui/CardParts.tsx` | On/off switch with an optional label on either side |
+| `Switch` | `components/ui/CardParts.tsx` | On/off switch with an optional label on either side; accepts `disabled` |
 | `Card` | `components/ui/Card.tsx` | The one card: glass, `--radius-lg`, padding from `.fin-card` (20px, 16 on phones) |
 | `CardHeader` / `TextAction` / `Rows` / `NoticeRow` / `Stat` / `StatusDot` | `components/ui/CardParts.tsx` | What goes inside a card: one header pattern, one link style, hairline rows, notices as rows, label-figure-context stats |
-| `StatTile` | `components/ui/StatTile.tsx` | Hero metric tile — DM Mono value, Cabinet Grotesk label, trend pill |
 | `TransactionList` | `components/transactions/TransactionList.tsx` | Swipe-left to delete (mobile), hover-edit (desktop) |
-| `EmptyState` | `components/ui/EmptyState.tsx` | Standardised empty state: Lucide icon, title, optional CTA |
+| `EmptyState` | `components/ui/EmptyState.tsx` | Title, one sentence and an optional action. Its `icon` and `animated` props are accepted for old callers and ignored; new code should not pass an icon (the 2026-09-16 float and sparkle loop is retired) |
 | `Modal` | `components/ui/Modal.tsx` | `createPortal(content, document.body)` — always at body root |
 | `Skeleton` / `SkeletonCard` | `components/ui/Skeleton.tsx` | Shimmer loading — replaces all spinners |
-| `Badge` | `components/ui/Badge.tsx` | Colored status/label chip |
 | `ProgressBar` | `components/ui/ProgressBar.tsx` | Animated progress with color variants |
-| `FAB` | `components/ui/FAB.tsx` | Floating action button for quick add |
 | `BottomSheet` | `components/ui/BottomSheet.tsx` | Mobile slide-up sheet |
-| `Toast` / `ToastContainer` | `components/ui/ToastContainer.tsx` | Non-blocking ephemeral feedback |
-| `NotificationBell` | `components/ui/NotificationBell.tsx` | Header bell with unread count badge |
-| `AIResponseCard` | `components/ui/AIResponseCard.tsx` | Formatted AI response with sections and highlights |
-| `ThemePicker` | `components/ui/ThemePicker.tsx` | Dark / light theme toggle |
-| `WalkthroughTour` | `components/ui/WalkthroughTour.tsx` | Step-by-step onboarding tour overlay |
-| `Input` | `components/ui/Input.tsx` | Styled text input with label and error states |
+| `Toast` / `ToastContainer` | `components/ui/ToastContainer.tsx` | Non-blocking feedback: one neutral surface, a small status dot for success / error / info, text actions for Undo and Close |
+| `WalkthroughTour` | `components/ui/WalkthroughTour.tsx` | First-run tour as a plain dialog: "Step n of 6", title, sentence, neutral dots, Skip / Back / Next |
+| `Input` | `components/ui/Input.tsx` | Styled text input; label is linked with `useId` (or the caller's `id`), error text and hint are `aria-describedby`; focus is a 2px `--accent-text` outline, an error is a red border with `--color-exp-text` message |
 | `DatePicker` | `components/ui/DatePicker.tsx` | Date input with calendar popover |
+| `RedesignAnnouncement` | `components/ui/RedesignAnnouncement.tsx` | One-time "new look" notice for existing users (storage key `fintrack-v4-seen`); update the copy and the key when the next visual change ships |
+| `fin-row-hover-action` / `-touch` | `app/globals.css` | A row control shown on hover or focus; add `fin-row-hover-action-touch` when the action has no other way in (it stays visible on touch screens) |
 
 ### Input / Form Pattern
 All form inputs use this inline style baseline — never deviate without a documented reason:
@@ -346,7 +342,7 @@ layer to 35% opacity.
 
 ## The card (v4, approved 2026-11-14)
 
-One container for the whole app. Rolling out page by page; the dashboard, Transactions, Goals, Accounts, Investments, all four tabs of the Budgets page and all nine tabs of Analytics, the Net worth page, the Financial plan page, the Savings planner, Debt intelligence, Profile, Ask Fin, the sign-in screens, onboarding, Cash flow, Groups, Personal loans and the billing cycles page are done.
+One container for the whole app. Rolling out page by page; the dashboard, Transactions, Goals, Accounts, Investments, all four tabs of the Budgets page and all nine tabs of Analytics, the Net worth page, the Financial plan page, the Savings planner, Debt intelligence, Profile, Ask Fin, the sign-in screens, onboarding, Cash flow, Groups, Personal loans and the billing cycles page are done, as are the navigation shell (sidebar, search, phone dock and More), the dashboard's health detail cards, the Transactions tools (bulk bar, importers, category picker, filter chips) and the system messages (tour, notice, toasts, empty and error states, offline bar, PIN keypad, buttons and fields). Still on the old styles: the axis and tooltip text inside the chart components, the add-budget form on the Budgets page, the Goals emoji picker, the Analytics heatmap, trajectory and Sankey charts, and a few literal sizes in the transaction list and entry feedback. The Year review share card keeps its gradient on purpose.
 
 - **One surface.** `Card` (or `.glass-surface .fin-card` by hand): glass, `--radius-lg`,
   20px padding (16 on phones), `--space-4` between cards.
