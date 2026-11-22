@@ -391,7 +391,7 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
         addAnotherRef.current = false;
         setError(''); setLoading(true);
         if (isTransfer) {
-            if (!form.account_id || !form.to_account_id) { setError('Select both From and To accounts.'); setLoading(false); return; }
+            if (!form.account_id || !form.to_account_id) { setError(accounts.length < 2 ? 'Moving money needs at least two bank accounts.' : 'Select both From and To accounts.'); setLoading(false); return; }
             if (form.account_id === form.to_account_id) { setError('From and To accounts must differ.'); setLoading(false); return; }
             const amount = parseFloat(form.amount);
             const transferTags = [...(form.tags.length > 0 ? form.tags : []), 'transfer'];
@@ -958,6 +958,11 @@ export function TransactionModal({ isOpen, onClose, onSuccess, onOfflineSave, tr
                 {/* ── Transfer: from, to, what it is for, date ── */}
                 {isTransfer && (
                     <>
+                        {!accountsQuery.isPending && accounts.length < 2 && (
+                            <p style={{ ...type.meta, color: 'var(--text-muted)', margin: 0 }}>
+                                Moving money needs at least two bank accounts. Add another one in Accounts first.
+                            </p>
+                        )}
                         {accounts.length > 0 && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div>
