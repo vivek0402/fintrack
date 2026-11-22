@@ -513,6 +513,35 @@ aside, aside nav {
   .dash-o5 { order: 5; } .dash-o6 { order: 6; } .dash-o7 { order: 7; }
 }
 
+/* Phone home (the Wallet layout, components/dashboard/MobileHome.tsx). The
+   swipe rows run to the screen edge: they cancel the 16px phone gutter and
+   pad it back inside, so the next card peeks in from the right. */
+.mh-carousel, .mh-rings {
+  display: flex; gap: var(--space-3); overflow-x: auto; scroll-snap-type: x mandatory;
+  margin-inline: calc(-1 * var(--space-4)); padding-inline: var(--space-4); scroll-padding-inline: var(--space-4);
+  scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.mh-carousel::-webkit-scrollbar, .mh-rings::-webkit-scrollbar { display: none; }
+.mh-card {
+  flex: 0 0 86%; scroll-snap-align: start; min-height: 188px; display: flex; text-align: left;
+  border-radius: var(--radius-xl); padding: var(--space-5); color: inherit; font: inherit; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background var(--transition-fast);
+}
+/* A tint, not the .pressable shrink: these are swiped as often as tapped. */
+.mh-card:active { background: var(--glass-fill-2); }
+.mh-card:focus-visible, .mh-ring-tile:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.mh-dots { display: flex; justify-content: center; gap: 6px; margin-top: var(--space-3); }
+.mh-dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--glass-fill-3); transition: width var(--transition-base), background var(--transition-base); }
+.mh-dots span.on { width: 18px; background: var(--text-secondary); }
+.mh-rings { margin-top: var(--space-2); }
+.mh-ring-tile {
+  flex: 0 0 116px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: var(--space-3) var(--space-2); border-radius: var(--radius-lg); text-align: center; color: inherit; font: inherit; cursor: pointer;
+  background: var(--glass-fill-1); border: 1px solid var(--glass-border);
+}
+.mh-months { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding-bottom: var(--space-2); }
+.mh-sheet-stack { display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-2); }
+
 /* Ambient backdrop — two soft light pools in the income/expense colour
    pairs, blown up behind the whole app. Fixed and inert; every page scrolls
    over it. It is the thing the glass panels actually frost, so it must sit

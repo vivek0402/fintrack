@@ -217,7 +217,15 @@ uses these variants; bars, dots, fills and charts keep the base tokens.
 
 ## Layout
 
-- **Home screen:** four cards. Left: the month (net figure, trend, savings rate, invested, health score, days left), Needs attention (alerts and suggestions most urgent first, each with its own action, then the daily or weekly brief), Recent transactions. Right: Spending (free to spend, daily rate, budgets sorted by percent used). Adding a transaction is the global + button.
+- **Home screen (desktop and tablet):** four cards. Left: the month (net figure, trend, savings rate, invested, health score, days left), Needs attention (alerts and suggestions most urgent first, each with its own action, then the daily or weekly brief), Recent transactions. Right: Spending (free to spend, daily rate, budgets sorted by percent used). Adding a transaction is the global + button.
+- **Home screen (phones, the "Wallet" layout, approved 2026-11-22):** `components/dashboard/MobileHome.tsx`, top to bottom:
+  1. Header: greeting, then the month name as a button that opens a month picker sheet (no arrows).
+  2. Swipe cards (scroll-snap, the next card peeks in, page dots under them): Net (figure, in / out, trend line, savings rate, invested; opens a 6-month chart you drag to read), Free to spend (or daily spending without budgets; opens how the pool is worked out), Health score (ring; opens a sheet with the score breakdown and the net worth, velocity, allocation, credit and DTI widgets), Net worth (opens /net-worth). Card figures use `--text-figure`. Cards tint on press instead of shrinking, because they are swiped as often as tapped.
+  3. Brief: Today / This week, refresh, the narrative, and the suggested action with a Done button (on phones the action is not a notice).
+  4. Needs attention: most urgent first, three shown, then "Show N more".
+  5. Budgets: a sideways row of rings, most used first; a ring opens its spending this month.
+  6. Activity: the latest transactions grouped by day with each day's total; a row opens the edit dialog over the page.
+  No quick-action row: the bottom nav and its separate + button stay exactly as they are. Free to spend, the brief and notices hide for past months.
 - **Navigation:** Left sidebar on desktop (collapsible); bottom nav on mobile with a "More" sheet for secondary pages
 - **Grid:** 12-column on desktop, 4-column on mobile
 - **Max content width:** 1280px

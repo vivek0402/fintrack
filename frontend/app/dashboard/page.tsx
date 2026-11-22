@@ -26,6 +26,8 @@ import { calculateHealthScore, monthlySeriesFromTrends } from '@/lib/healthScore
 import { DtiWidget } from '@/components/dashboard/DtiWidget';
 import { useCoachAlerts } from '@/components/coach/CoachAlerts';
 import { toAmount } from '@/types/finance';
+import { dayLabel, sortBudgetsByUse } from '@/lib/mobileHome';
+import { MobileHome } from '@/components/dashboard/MobileHome';
 
 // Lazy-loaded: each of these pulls in recharts, same pattern as
 // app/analytics/page.tsx's dynamic imports -- keeps recharts out of the
@@ -47,15 +49,6 @@ const NO_ROWS: never[] = [];
 const MONTH_NAMES = ['', 'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
 const MONTH_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function getDateLabel(dateStr: string): string {
-    const today     = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const d = (dateStr || '').split('T')[0];
-    if (d === today)     return 'Today';
-    if (d === yesterday) return 'Yesterday';
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
 
 // ── 6-month Bezier curve sparkline ───────────────────────────────────────────
 function BezierSparkline({ data, incColor, expColor }: {
@@ -514,8 +507,9 @@ export default function DashboardPage() {
     // Tier 0 bad, 1 caution, 2 info, 3 neutral; the sort is stable, so notices
     // keep their original order within a tier.
     const notices: { key: string; tier: 0 | 1 | 2 | 3; node: ReactNode }[] = [];
-    if (todayAction) notices.push({ key: 'today-action', tier: 2, node: <NoticeRow key="today-action" tone="info" title={todayAction} sub="Suggested for today" /> });
-    if (weekAction) notices.push({ key: 'week-action', tier: 2, node: <NoticeRow key="week-action" tone="info" title={weekAction} sub="Suggested for this week" /> });
+    // On phones the suggested action sits inside the Brief card instead.
+    if (todayAction && !isMobile) notices.push({ key: 'today-action', tier: 2, node: <NoticeRow key="today-action" tone="info" title={todayAction} sub="Suggested for today" /> });
+    if (weekAction && !isMobile) notices.push({ key: 'week-action', tier: 2, node: <NoticeRow key="week-action" tone="info" title={weekAction} sub="Suggested for this week" /> });
     coach.alerts.forEach(a => {
         notices.push({
             key: a.id,
@@ -729,27 +723,86 @@ export default function DashboardPage() {
         ? ` ${fmt(dailyBurn)} a day so far${dailyIncome > 0 && dailyBurn > dailyIncome ? `, ${fmt(dailyBurn - dailyIncome)} above your daily income` : ''}.`
         : '';
 
-    // Budgets, most used first: over the limit (biggest overrun first), then
-    // fully used, then by percent used.
-    const budgetGroup = (b: any) => {
-        const spent = parseFloat(b.spent), limit = parseFloat(b.amount);
-        return limit > 0 && spent > limit ? 0 : limit > 0 && spent >= limit ? 1 : 2;
-    };
-    const budgetPct = (b: any) => { const limit = parseFloat(b.amount); return limit > 0 ? (parseFloat(b.spent) / limit) * 100 : 0; };
-    const topBudgets = [...budgets].sort((a: any, b: any) => {
-        const ga = budgetGroup(a), gb = budgetGroup(b);
-        if (ga !== gb) return ga - gb;
-        if (ga === 0) return (parseFloat(b.spent) - parseFloat(b.amount)) - (parseFloat(a.spent) - parseFloat(a.amount));
-        return budgetPct(b) - budgetPct(a);
-    }).slice(0, 4);
+    // Budgets, most used first (same order as the phone's budget rings).
+    const topBudgets = sortBudgetsByUse(budgets).slice(0, 4);
     const hasSpendTop = !dataLoading && (!!guiltFreeData || dailyBurn > 0);
 
     const hasCards = (creditUtilization?.per_card?.length ?? 0) > 0;
 
+    // The widgets behind the health score's "see why": under the grid on
+    // desktop, inside the Health score sheet on phones.
+    const healthDetails = (
+        <>
+            {(accounts.length > 0 || investments.length > 0) && <div className="wide"><NetWorthWidget /></div>}
+            {investments.length > 0 && (
+                <>
+                    <WealthVelocityWidget />
+                    <AssetAllocationWidget />
+                </>
+            )}
+            {(activeLoanCount > 0 || hasCards) && (
+                <>
+                    <CreditUtilizationWidget />
+                    <DtiWidget hasLoans={activeLoanCount > 0} hasCards={hasCards} />
+                </>
+            )}
+            <div className="wide">
+                <HealthScoreWidget
+                    summary={summary}
+                    budgets={budgets}
+                    goals={goals}
+                    trends={trends}
+                    loading={dataLoading}
+                    investmentRatio={investmentRatio}
+                    dti={dti}
+                    creditUtilization={creditUtilization}
+                />
+            </div>
+        </>
+    );
+
+    if (isMobile) {
+        const action = todayAction
+            ? { text: todayAction as string, when: 'today' as const }
+            : weekAction ? { text: weekAction as string, when: 'week' as const } : null;
+        return (
+            <div ref={pullToRefreshRef as RefObject<HTMLDivElement>}>
+                <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />
+                <div style={{ paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
+                    <MobileHome
+                        month={month}
+                        year={year}
+                        isCurrentMonth={isCurrentMonth}
+                        onPickMonth={(m, y) => { setSelMonth(m); setSelYear(y); }}
+                        greeting={greeting}
+                        loading={dataLoading}
+                        net={heroNet}
+                        income={heroIncome}
+                        expenses={heroExpenses}
+                        savingsPct={savingsPct}
+                        investmentRatio={investmentRatio}
+                        trend={sparklineData}
+                        free={guiltFreeData}
+                        dailyBurn={dailyBurn}
+                        daysLeft={daysLeft}
+                        daysInMonth={daysInMonth}
+                        health={healthScoreTeaser}
+                        healthDetails={healthDetails}
+                        showNetWorth={accounts.length > 0 || investments.length > 0}
+                        brief={activeBriefTab ? { controls: briefControls, body: briefBody, dateSub: briefDateSub, action } : null}
+                        notices={notices.map(n => n.node)}
+                        budgets={budgets}
+                        transactions={transactions}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     // ── Render ────────────────────────────────────────────────────────────────
     return (
             <div ref={pullToRefreshRef as RefObject<HTMLDivElement>}>
-            {isMobile && <PullToRefreshIndicator pullDistance={pullDistance} refreshing={ptrRefreshing} />}
+            {/* Desktop from here on; phones returned MobileHome above. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', paddingBottom: 'var(--space-6)', animation: 'fadeUp 200ms ease forwards' }}>
 
                 {/* ── PAGE HEADER (no card) ── */}
@@ -843,7 +896,7 @@ export default function DashboardPage() {
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <p style={{ ...type.bodyStrong, ...truncate, margin: 0 }}>{tx.description}</p>
                                                     <p style={{ ...type.meta, ...truncate, margin: '2px 0 0' }}>
-                                                        {tx.category_name || 'Uncategorized'} · {getDateLabel(tx.date)}
+                                                        {tx.category_name || 'Uncategorized'} · {dayLabel(tx.date)}
                                                     </p>
                                                 </div>
                                                 <span style={{ ...type.num, color: isIncome ? 'var(--color-inc-text)' : 'var(--text-primary)', flexShrink: 0 }}>
@@ -926,35 +979,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* ── FINANCIAL HEALTH DETAILS ── sibling cards under the grid, never cards inside a card ── */}
-                {healthDetailsOpen && (
-                    <div className="dash-detail">
-                        {(accounts.length > 0 || investments.length > 0) && <div className="wide"><NetWorthWidget /></div>}
-                        {investments.length > 0 && (
-                            <>
-                                <WealthVelocityWidget />
-                                <AssetAllocationWidget />
-                            </>
-                        )}
-                        {(activeLoanCount > 0 || hasCards) && (
-                            <>
-                                <CreditUtilizationWidget />
-                                <DtiWidget hasLoans={activeLoanCount > 0} hasCards={hasCards} />
-                            </>
-                        )}
-                        <div className="wide">
-                            <HealthScoreWidget
-                                summary={summary}
-                                budgets={budgets}
-                                goals={goals}
-                                trends={trends}
-                                loading={dataLoading}
-                                investmentRatio={investmentRatio}
-                                dti={dti}
-                                creditUtilization={creditUtilization}
-                            />
-                        </div>
-                    </div>
-                )}
+                {healthDetailsOpen && <div className="dash-detail">{healthDetails}</div>}
 
             </div>
             </div>

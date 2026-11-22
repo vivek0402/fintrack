@@ -167,6 +167,38 @@ describe('usePullToRefresh (gesture state machine)', () => {
 
         unmount();
     });
+
+    it('abandons the gesture when the drag goes sideways first (swiping the home cards)', () => {
+        const onRefresh = vi.fn();
+        const { el, getState, unmount } = renderHarness(onRefresh);
+        const at = (type: string, clientX: number, clientY: number) => act(() => {
+            el.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX, clientY, bubbles: true, cancelable: true }));
+        });
+
+        at('pointerdown', 200, 100);
+        at('pointermove', 140, 106);   // mostly left, a little down
+        at('pointermove', 100, 260);   // then a long way down: still not a pull
+        expect(getState().pullDistance).toBe(0);
+        at('pointerup', 100, 260);
+        expect(onRefresh).not.toHaveBeenCalled();
+
+        unmount();
+    });
+
+    it('keeps pulling once the drag has clearly gone down, even if it drifts sideways later', () => {
+        const onRefresh = vi.fn();
+        const { el, getState, unmount } = renderHarness(onRefresh);
+        const at = (type: string, clientX: number, clientY: number) => act(() => {
+            el.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX, clientY, bubbles: true, cancelable: true }));
+        });
+
+        at('pointerdown', 200, 100);
+        at('pointermove', 202, 130);
+        at('pointermove', 260, 150);
+        expect(getState().pullDistance).toBe(computePullDistance(50));
+
+        unmount();
+    });
 });
 
 describe('usePullToRefresh (smoke test)', () => {

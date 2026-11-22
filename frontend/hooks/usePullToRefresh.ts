@@ -61,6 +61,11 @@ export function usePullToRefresh(onRefresh: () => Promise<void> | void, enabled 
 
         let dragging = false;
         let startY = 0;
+        let startX = 0;
+        // Set once the drag has clearly gone down. Until then a mostly
+        // sideways drag (swiping the home screen's card carousel, which sits at
+        // the top of the page) abandons the gesture instead of pulling.
+        let committed = false;
         let pointerId: number | null = null;
 
         // <= rather than === 0: iOS Safari/Chrome rubber-band overscroll and
@@ -77,7 +82,9 @@ export function usePullToRefresh(onRefresh: () => Promise<void> | void, enabled 
             if (refreshingRef.current) return; // ignore new drags mid-refresh
             if (!isAtTop()) return; // don't intercept a drag starting mid-scroll
             dragging = true;
+            committed = false;
             startY = e.clientY;
+            startX = e.clientX;
             pointerId = e.pointerId;
             try { el.setPointerCapture(e.pointerId); } catch { /* not supported in this environment */ }
         };
@@ -85,6 +92,17 @@ export function usePullToRefresh(onRefresh: () => Promise<void> | void, enabled 
         const onPointerMove = (e: PointerEvent) => {
             if (!dragging || e.pointerId !== pointerId) return;
             const deltaY = e.clientY - startY;
+            const deltaX = e.clientX - startX;
+            if (!committed) {
+                if (Math.abs(deltaX) > 8 && Math.abs(deltaX) > Math.abs(deltaY)) {
+                    // Sideways first: not a pull. Let the swipe have it.
+                    dragging = false;
+                    pointerId = null;
+                    setPullDistance(0);
+                    return;
+                }
+                if (deltaY >= 10) committed = true;
+            }
             if (deltaY <= 0) {
                 // Upward drag (or no movement) -- don't activate the gesture.
                 setPullDistance(0);
