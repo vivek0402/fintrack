@@ -9,6 +9,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { MorePanel } from './MorePanel';
 import { useMoreAlerts } from '@/hooks/useMoreAlerts';
 import { type } from '@/lib/typography';
+import { requestAddTransaction } from '@/lib/addTransactionEvent';
 
 const mainTabs = [
     { href: '/dashboard',    icon: LayoutDashboard, label: 'Home' },
@@ -222,7 +223,7 @@ export function BottomNav({ onOpenTour }: { onOpenTour?: () => void } = {}) {
                 <button
                     className="fab-btn"
                     type="button"
-                    onClick={() => router.push('/transactions?add=true')}
+                    onClick={requestAddTransaction}
                     aria-label="Add transaction"
                     style={{
                         width: '62px', height: '62px', flexShrink: 0,

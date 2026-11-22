@@ -6,6 +6,7 @@ import { SearchX, SlidersHorizontal, ArrowUpDown, CheckSquare } from 'lucide-rea
 import { useAuthStore } from '@/store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { aiAPI } from '@/lib/api';
+import { ADD_TRANSACTION_EVENT } from '@/lib/addTransactionEvent';
 import { apiWithCache } from '@/lib/apiWithCache';
 import {
     useTransactions, useAccounts, useCreditCards, queryKeys, invalidateAfterTransactionWrite,
@@ -136,6 +137,13 @@ function TransactionsPageInner() {
             setFocusDescribe(false);
         }
     }, [focusDescribe, user, isLoading]);
+
+    // "+" elsewhere in the app fires this event; here the page owns the dialog.
+    useEffect(() => {
+        const open = () => setModalOpen(true);
+        window.addEventListener(ADD_TRANSACTION_EVENT, open);
+        return () => window.removeEventListener(ADD_TRANSACTION_EVENT, open);
+    }, []);
 
     useEffect(() => { loadFromStorage(); }, []);
     useEffect(() => { if (!isLoading && !user) router.push('/login'); }, [user, isLoading]);

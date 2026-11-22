@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { type, truncate } from '@/lib/typography';
 import { TextAction } from '@/components/ui/CardParts';
+import { requestAddTransaction } from '@/lib/addTransactionEvent';
 
 const caption = { ...type.label, color: 'var(--text-muted)', padding: '8px 16px 4px' } as const;
 const note = { ...type.body, padding: '20px', textAlign: 'center' } as const;
@@ -64,7 +65,7 @@ export function GlobalSearch() {
 
     const quickActions = [
         { label: 'Go to Budgets',    onClick: () => { close(); router.push('/budgets'); } },
-        { label: 'Add transaction',  onClick: () => { close(); router.push('/transactions?add=true'); } },
+        { label: 'Add transaction',  onClick: () => { close(); requestAddTransaction(); } },
         { label: 'Go to Dashboard',  onClick: () => { close(); router.push('/'); } },
     ];
 

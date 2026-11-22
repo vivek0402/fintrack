@@ -24,6 +24,8 @@ import { syncAppPrefs } from '@/lib/appPrefs';
 import { morePageHrefs } from './MorePanel';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 import { type } from '@/lib/typography';
+import { requestAddTransaction } from '@/lib/addTransactionEvent';
+import { GlobalAddTransaction } from './GlobalAddTransaction';
 
 // /transactions used to be excluded -- it had its own header add button.
 // That's gone now (removed along with the top bar's + icon), so the
@@ -142,7 +144,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         </div>
                     )}
                     <button
-                        onClick={() => router.push('/transactions?add=true')}
+                        onClick={requestAddTransaction}
                         onMouseEnter={() => setAddFabHover(true)}
                         onMouseLeave={() => { setAddFabHover(false); setAddFabPressed(false); }}
                         onMouseDown={() => setAddFabPressed(true)}
@@ -163,6 +165,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
             )}
 
+            <GlobalAddTransaction />
             <RedesignAnnouncement />
             <ToastContainer />
             <WalkthroughTour

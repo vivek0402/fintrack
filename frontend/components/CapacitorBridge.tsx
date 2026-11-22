@@ -9,6 +9,7 @@ import { ensureWidgetToken } from '@/lib/widgets';
 import { closeQuickAdd } from '@/lib/widgetAdd';
 import { inQuickAddActivity, inWidgetAddSheet } from '@/lib/appLock';
 import { currentDocumentTheme, syncSystemBarsStyle } from '@/lib/systemBars';
+import { requestAddTransaction } from '@/lib/addTransactionEvent';
 
 const issueWidgetToken = async () => (await widgetAPI.issueToken()).data.token;
 // Identity check for ensureWidgetToken's logout race: the signed-in user's id
@@ -131,7 +132,7 @@ export default function CapacitorBridge() {
   // Cold-start navigation is handled natively: MainActivity.onCreate redirects
   // the WebView directly to the target URL, so no event is needed there.
   useEffect(() => {
-    const handleOpenAdd = () => router.push('/transactions?add=true');
+    const handleOpenAdd = () => requestAddTransaction();
     const handleOpenQuickAdd = () => router.push('/transactions?quickAdd=1');
     const handleOpenBudgets = () => router.push('/budgets');
     const handleOpenDashboard = () => router.push('/dashboard');
