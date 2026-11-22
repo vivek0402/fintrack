@@ -15,6 +15,8 @@ import { useThemeStore } from '@/store/themeStore';
 import { exportToCSV } from '@/lib/utils';
 import { toast } from '@/store/toastStore';
 import { SecuritySection } from '@/components/lock/SecuritySection';
+import { Modal } from '@/components/ui/Modal';
+import { clearQueryCache } from '@/lib/queryClient';
 import {
     DEFAULT_NOTIF_PREFS, NotificationPrefs, cacheNotifPrefs, loadNotificationPrefs, mergeLoadedPrefs,
     readCachedNotifPrefs, revertPref, saveNotificationPref,
@@ -56,6 +58,11 @@ export default function ProfilePage() {
     const [passwordFormOpen, setPasswordFormOpen] = useState(false);
     const [exporting, setExporting]     = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
+    const [resetOpen, setResetOpen]     = useState(false);
+    const [resetWord, setResetWord]     = useState('');
+    const [resetPassword, setResetPassword] = useState('');
+    const [resetting, setResetting]     = useState(false);
+    const [resetError, setResetError]   = useState('');
     const [coachEnabled, setCoachEnabled]   = useState(true);
     const [notifPrefs, setNotifPrefsState] = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
     // Ref mirror so async load/save callbacks see the latest toggles, plus the
@@ -170,6 +177,21 @@ export default function ProfilePage() {
             else toast.success('AI cache cleared');
         } catch { toast.error('Failed to clear cache'); }
         finally { setClearingCache(false); }
+    };
+
+    const closeReset = () => { setResetOpen(false); setResetWord(''); setResetPassword(''); setResetError(''); };
+
+    const handleReset = async () => {
+        setResetting(true); setResetError('');
+        try {
+            await profileAPI.reset(resetPassword);
+            clearQueryCache();
+            closeReset();
+            toast.success('All data reset. Starting fresh.');
+            router.push('/dashboard');
+        } catch (err: any) {
+            setResetError(err?.response?.data?.error || 'Could not reset. Nothing was deleted.');
+        } finally { setResetting(false); }
     };
 
     if (isLoading || !user) return (
@@ -331,8 +353,37 @@ export default function ProfilePage() {
 
                     {/* Android app only; renders nothing on web. */}
                     <SecuritySection />
+
+                    <Card>
+                        <CardHeader title="Danger zone" sub="Can't be undone" />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ ...type.bodyStrong, margin: 0 }}>Reset all data</p>
+                                <p style={{ ...type.meta, margin: '2px 0 0' }}>Deletes your transactions, accounts, cards, goals, budgets and investments. You stay signed in.</p>
+                            </div>
+                            <Button variant="danger" onClick={() => setResetOpen(true)}>Reset</Button>
+                        </div>
+                    </Card>
                 </div>
             </div>
+
+            <Modal isOpen={resetOpen} onClose={closeReset} title="Reset all data?" maxWidth="420px"
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={closeReset} disabled={resetting}>Cancel</Button>
+                        <Button variant="danger" onClick={handleReset} isLoading={resetting}
+                            disabled={resetWord !== 'RESET' || !resetPassword}>Delete everything</Button>
+                    </>
+                }>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    <p style={{ ...type.body, margin: 0 }}>
+                        This permanently deletes all your transactions, bank accounts, cards, goals, budgets, loans and investments. It can't be undone.
+                    </p>
+                    <Input label="Type RESET to confirm" value={resetWord} onChange={e => setResetWord(e.target.value)} autoComplete="off" />
+                    <Input label="Your password" type="password" value={resetPassword} onChange={e => setResetPassword(e.target.value)}
+                        autoComplete="current-password" error={resetError || undefined} />
+                </div>
+            </Modal>
         </div>
     );
 }

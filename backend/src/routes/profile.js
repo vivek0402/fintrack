@@ -101,4 +101,50 @@ router.put('/password', async (req, res) => {
     }
 });
 
+// Everything a user has entered or the app derived from it. Kept: the login
+// (users, refresh_tokens, push tokens), categories (defaults and custom ones,
+// so a fresh start isn't an empty category list) and the transaction
+// classifier model, which only learns spending-text habits.
+const RESET_TABLES = [
+    'transactions', 'transaction_deletions', 'recurring_transactions', 'budgets', 'savings_goals',
+    'expense_splits', 'expense_groups', 'one_time_expenses', 'bank_accounts', 'credit_cards',
+    'wallets', 'investments', 'investment_transactions', 'net_worth_snapshots', 'loans',
+    'loan_prepayments', 'personal_loans', 'scenarios', 'milestones', 'financial_plans',
+    'opportunities', 'briefings', 'daily_briefings', 'ai_report_cache', 'agent_conversations',
+    'notifications', 'notification_log', 'pdf_import_jobs', 'cams_import_jobs', 'documents',
+];
+
+// Fresh start. Asks for the password again: the session token alone must not
+// be able to wipe a user's money history.
+router.post('/reset', async (req, res) => {
+    try {
+        const { password } = req.body || {};
+        if (!password) return res.status(400).json({ error: 'Password required.' });
+
+        const user = await pool.query('SELECT password_hash FROM users WHERE id=$1', [req.user.id]);
+        if (user.rows.length === 0) return res.status(404).json({ error: 'User not found.' });
+        if (!(await bcrypt.compare(password, user.rows[0].password_hash))) {
+            return res.status(401).json({ error: 'Password is incorrect.' });
+        }
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const table of RESET_TABLES) {
+                await client.query(`DELETE FROM ${table} WHERE user_id = $1`, [req.user.id]);
+            }
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+        res.json({ message: 'All data reset.' });
+    } catch (err) {
+        console.error('[Profile]', err.message);
+        res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 module.exports = router;
