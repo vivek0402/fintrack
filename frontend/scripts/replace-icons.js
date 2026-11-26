@@ -2,14 +2,14 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const src = path.join(__dirname, '..', 'frontend', 'public', 'icons', 'icon-512x512.png');
+const src = path.join(__dirname, '..', 'public', 'icons', 'icon-512x512.png');
 
 // PWA icons
-const pwaDir = path.join(__dirname, '..', 'frontend', 'public', 'icons');
+const pwaDir = path.join(__dirname, '..', 'public', 'icons');
 const pwaSizes = [72, 96, 128, 144, 152, 192, 384, 512];
 
 // Android mipmap folders and their icon sizes
-const androidBase = path.join(__dirname, '..', 'frontend', 'android', 'app', 'src', 'main', 'res');
+const androidBase = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 const androidSizes = [
   { folder: 'mipmap-mdpi',    size: 48  },
   { folder: 'mipmap-hdpi',    size: 72  },
@@ -33,12 +33,12 @@ async function run() {
   }
 
   // apple-touch-icon (180x180)
-  await resizeTo(path.join(__dirname, '..', 'frontend', 'public', 'apple-touch-icon.png'), 180);
+  await resizeTo(path.join(__dirname, '..', 'public', 'apple-touch-icon.png'), 180);
   console.log('PWA: apple-touch-icon.png');
 
   // favicon-32 and favicon-16
-  await resizeTo(path.join(__dirname, '..', 'frontend', 'public', 'favicon-32x32.png'), 32);
-  await resizeTo(path.join(__dirname, '..', 'frontend', 'public', 'favicon-16x16.png'), 16);
+  await resizeTo(path.join(__dirname, '..', 'public', 'favicon-32x32.png'), 32);
+  await resizeTo(path.join(__dirname, '..', 'public', 'favicon-16x16.png'), 16);
   console.log('PWA: favicons done');
 
   // Generate Android icons
