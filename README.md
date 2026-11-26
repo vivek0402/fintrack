@@ -1117,9 +1117,7 @@ fintrack/
 │           └── email.js            # OTP email sender
 │
 ├── docs/
-│   ├── AI_FEATURES.md              # Complete AI provider/model/endpoint map
-│   ├── CHANGELOG.md                # Full version history
-│   └── FINTRACK_DOCUMENTATION.md   # Extended feature documentation
+│   └── CHANGELOG.md                # Full version history
 │
 ├── DESIGN.md                       # Full design system specification
 └── README.md                       # This file

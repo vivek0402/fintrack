@@ -29,3 +29,26 @@ npm-debug.log*
 .vercel
 .gstack/
 jdk21/
+
+# AI agent tooling and local notes (kept on disk, not in the repo)
+.agent/
+.agents/
+.claude/
+skills-lock.json
+CLAUDE.md
+AGENTS.md
+TODOS.md
+FinTrack_Documentation.md
+tasks/
+frontend/tasks/
+docs/*
+!docs/CHANGELOG.md
+.vscode/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log
